@@ -195,3 +195,9 @@ The Tasks panel shows effective website/server limits for one active task separa
 Saved website maps remain available after 24 hours. Setup readiness requires a recently observed map and a current published-task test, so a stale saved map can still be visible while readiness asks for a new observation.
 
 **Summarize files** opens Chat with the private supporting passages so the result is visible immediately. File upload/removal remains in Tasks. This read-only summary does not fill or submit a website form.
+
+### Asking about the current page
+
+**Ask a question** reads a fresh, bounded observation of the current page alongside your authorized knowledge or task files. You can ask what an input means, which section it belongs to, why a control is disabled, or how displayed information relates. The assistant uses page titles, labels, descriptions, nearby text, loaded item groups and control states. It distinguishes displayed facts from calculations and states assumptions where the page does not prove them. It cannot read unloaded pages, hidden/private regions or embedded frames.
+
+Fresh page observations appear as cited current-page evidence. They are not uploaded to the website knowledge index, and current input values are excluded. Asking does not fill, navigate, save or invalidate an outstanding field review. Use **Prepare changes** for reviewed actions and **Plan a task** for multiple steps. Owner-only Actions and existing approvals are unchanged.

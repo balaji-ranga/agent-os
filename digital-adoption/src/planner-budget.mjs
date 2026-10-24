@@ -12,7 +12,9 @@ export function encodePlannerRequest(body,{maxBytes=30000}={}){
  // refs and the user's values; never present the remaining outline as complete.
  while(size()>maxBytes&&context.observed?.pageContext?.text){context.observed.pageContext.text=context.observed.pageContext.text.slice(0,-256);context.observed.pageContext.truncated=true;sync();}
  while(size()>maxBytes&&context.observed?.pageContext?.headings?.length){context.observed.pageContext.headings.pop();context.observed.pageContext.truncated=true;sync();}
+ for(const evidence of context.pageEvidence||[])while(size()>maxBytes&&evidence.text.length>512){evidence.text=evidence.text.slice(0,-256);evidence.truncated=true;sync();}
  for(const collection of context.observed?.pageContext?.collections||[])while(size()>maxBytes&&collection.labels.length){collection.labels.pop();collection.labelsTruncated=true;sync();}
+ while(size()>maxBytes&&context.observed?.pageContext?.structure?.length){context.observed.pageContext.structure.pop();context.observed.pageContext.structureTruncated=true;sync();}
  if(size()>maxBytes)throw new Error('The assistant could not produce a valid current-screen proposal. Nothing was changed.');
  return JSON.stringify(body);
 }

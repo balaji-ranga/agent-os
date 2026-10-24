@@ -67,7 +67,7 @@ export function createInspector(document) {
     }).slice(0,30);
     const targets=dialogs.length>1?[]:pageTargets(document,root,{task,visible:rendered,excluded,revision});for(const target of targets)references.set(target.ref,{element:target.element,label:target.label,targetText:target.snippet,kind:target.kind});
     for(const field of fields.filter(f=>f.type==='combobox')){const control=references.get(field.ref).element,ids=(control.getAttribute('aria-controls')||'').split(/\s+/),containers=ids.map(id=>document.getElementById(id)).filter(Boolean);const options=targets.filter(t=>t.role==='option'&&containers.some(container=>container.contains(t.element)));if(options.length)field.optionRefs=options.map(t=>t.ref);}
-    const heading=[...root.querySelectorAll('h1,h2,[role="heading"]')].filter(e=>visible(e)&&!excluded(e)).slice(-3).map(e=>targetText(e,rendered).slice(0,120)).join(' | ').slice(0,360);
+    const heading=[...root.querySelectorAll('h1,h2,[role="heading"]')].filter(e=>visible(e)&&!excluded(e)).slice(0,3).map(e=>targetText(e,rendered).slice(0,120)).join(' | ').slice(0,360);
     const blockedCount=Math.min(1000,[...document.querySelectorAll('button,[role="button"],a[href]')].filter(e=>{
       if(!visible(e)||excluded(e))return false;
       if(e.tagName==='A'){const url=new URL(e.href,document.location.href);if(url.origin===document.location.origin&&!url.search&&!url.hash&&(e.getAttribute('data-adoption-navigation')==='safe'||approvedPaths.has(url.pathname)))return false;}

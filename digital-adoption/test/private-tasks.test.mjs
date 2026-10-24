@@ -77,6 +77,13 @@ test('F10: summary-only private request cannot reach a fill planner or create a 
  const out=await f.tasks.plan(a.scope,{...a,taskId:task.taskId,text:'Summarize the requested integration. Do not fill or submit anything.',snapshot});assert.deepEqual(out.actions,[]);assert.match(out.message,/Inventory API/);
 });
 
+test('page questions in an empty private task pass the fresh DOM to the reader without requiring a file or reaching the write planner',async t=>{
+ let received;const f=await fixture(t,{planner:async()=>{throw new Error('No write planner for a question');},answer:async input=>{received=input;return {message:'The equipment register has ten loaded rows.',citations:[],pageObserved:true};}}),a=f.add('alpha'),task=f.tasks.start(a.scope,a);
+ const page={...snapshot,pageContext:{text:'Equipment register',headings:[],headingCount:0,truncated:false}};
+ const out=await f.tasks.summary(a.scope,{...a,taskId:task.taskId,text:'What can you see?',snapshot:page,authorizedKnowledgeHistory:[{role:'assistant',text:'Earlier register question'}],authorizedReplyContext:'Earlier register question'});
+ assert.equal(received.snapshot.pageContext.text,'Equipment register');assert.equal(received.replyContext,'Earlier register question');assert.equal(received.evidence.length,0);assert.equal(out.pageObserved,true);
+});
+
 test('F17: inspection result is consumed as evidence by a following planner before private task cleanup',async t=>{
  let received;
  const f=await fixture(t,{planner:async input=>{received=input.privateGuidance.evidence;return {message:'The prior step observed Company name.',actions:[]};}}),a=f.add('alpha'),b=f.add('beta'),groupId=f.pair(a,b);f.link(a);

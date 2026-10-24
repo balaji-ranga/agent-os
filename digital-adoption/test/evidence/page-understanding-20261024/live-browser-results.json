@@ -1,0 +1,113 @@
+{
+  "at": "2026-10-24T04:31:27.630Z",
+  "results": [
+    {
+      "id": "guide-total",
+      "passed": true,
+      "message": "The total approved listings on the current page is 1535, as indicated in the text: \"1535 approved listings · page 1\". This count represents the total number of approved listings available in the MCP Universe, not just the items displayed on the current page.",
+      "actions": [],
+      "replyTo": null,
+      "latencyMs": 5414,
+      "requestBytes": 9398,
+      "arithmeticChecks": [],
+      "screenshot": "guide-total.png"
+    },
+    {
+      "id": "guide-pages",
+      "passed": true,
+      "message": "On the current page of the MCP Universe, there are 1535 approved listings in total. However, only 24 listings are displayed on this page. To estimate the total number of pages, you would divide the total number of listings (1535) by the number of listings displayed per page (24). This calculation gives approximately 63.958 pages. When rounded up, this suggests there could be about 64 pages. However, the site does not provide an explicit total page count, so this is an estimate based on the current data.",
+      "actions": [],
+      "replyTo": null,
+      "latencyMs": 11778,
+      "requestBytes": 9144,
+      "arithmeticChecks": [],
+      "screenshot": "guide-pages.png"
+    },
+    {
+      "id": "guide-loaded",
+      "passed": true,
+      "message": "On the current page titled \"MCP Universe\", there are 1535 approved listings in total, but only 24 MCPs are displayed on this page. This means that the page is showing a subset of the total listings available in the MCP Universe. If you need to see more MCPs, you can navigate to the next page using the 'Next' button.",
+      "actions": [],
+      "replyTo": null,
+      "latencyMs": 4248,
+      "requestBytes": 9964,
+      "arithmeticChecks": [],
+      "screenshot": "guide-loaded.png"
+    },
+    {
+      "id": "knowledge-total",
+      "passed": true,
+      "message": "The total approved listings is 1535.",
+      "actions": [],
+      "pageObserved": true,
+      "replyTo": null,
+      "latencyMs": 3002,
+      "requestBytes": 9382,
+      "arithmeticChecks": [],
+      "screenshot": "knowledge-total.png"
+    },
+    {
+      "id": "knowledge-pages",
+      "passed": true,
+      "message": "There are 1535 approved listings of MCPS, and the current page displays 24 items. Since the total number of listings is 1535 and each page shows 24 items, we can estimate the total number of pages by dividing the total listings by the items per page. This gives approximately 63.96 pages (1535 / 24 = 63.958..., rounded up to 64). Therefore, the estimated total number of pages is 64, based on the 24 loaded items, but this is not a verified total-page count.",
+      "actions": [],
+      "pageObserved": true,
+      "replyTo": null,
+      "latencyMs": 14802,
+      "requestBytes": 9128,
+      "arithmeticChecks": [
+        {
+          "expression": "1535 / 24",
+          "claimed": 63.958,
+          "computed": 63.9583333333,
+          "roundedToClaimPrecision": 63.958,
+          "ceiling": 64,
+          "matchesRoundedValue": true
+        }
+      ],
+      "screenshot": "knowledge-pages.png"
+    },
+    {
+      "id": "knowledge-loaded",
+      "passed": true,
+      "message": "The current page lists 24 MCPs.",
+      "actions": [],
+      "pageObserved": true,
+      "replyTo": null,
+      "latencyMs": 3857,
+      "requestBytes": 9948,
+      "arithmeticChecks": [],
+      "screenshot": "knowledge-loaded.png"
+    },
+    {
+      "id": "knowledge-reply-continuity",
+      "passed": true,
+      "message": "The current page lists 24 MCPs, and there are a total of 1535 approved listings. Assuming the same capacity of 24 items per page, the estimated total number of pages would be approximately 64 pages (1535 / 24 = 63.958..., rounded up to 64).",
+      "actions": [],
+      "pageObserved": true,
+      "replyTo": "7b61d6d8-e6aa-4f92-afa7-1a37567770d2",
+      "latencyMs": 4627,
+      "requestBytes": 9177,
+      "arithmeticChecks": [
+        {
+          "expression": "1535 / 24",
+          "claimed": 63.958,
+          "computed": 63.9583333333,
+          "roundedToClaimPrecision": 63.958,
+          "ceiling": 64,
+          "matchesRoundedValue": true
+        }
+      ],
+      "screenshot": "knowledge-reply-continuity.png"
+    },
+    {
+      "id": "question-preserves-pending-field-review",
+      "passed": true,
+      "message": "The current page has 24 items loaded.",
+      "reviewAppliedAfterQuestion": true,
+      "publicSubmission": false,
+      "screenshot": "question-preserves-pending-field-review.png"
+    }
+  ],
+  "publicWrites": 0
+}

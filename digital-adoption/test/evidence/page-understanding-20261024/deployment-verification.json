@@ -1,0 +1,38 @@
+{
+  "at": "2026-10-24T04:30:11.722595+00:00",
+  "release": "20261024-page-understanding-f",
+  "sharedCheckerSettingsUnchanged": true,
+  "platformAndParserWorkersUntouched": true,
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "id": "1763414b2a3e0d53a56c6ce3aa9bbe0e1c0ad35e0a95155c28f3d44d440ad76a",
+      "image": "flolah-digital-adoption:20261024-page-understanding-f",
+      "running": true
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "id": "692223b5ba979567653487d78b399c809f1f4e578935418655dfb81d85e4c303",
+      "image": "flolah-digital-adoption:20261024-page-understanding-f-gateway",
+      "running": true
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "id": "1ce4a550ac9f3a3aba8f2de50207a26b996879c0ec3ef458f80fb8b912624f36",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "running": true
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "id": "21c597c5e75686f67c487a8396a83f46b574e903f197b38d8f1c7eef2e28962e",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "running": true
+    },
+    "agent-os-backend-1": {
+      "id": "1d0539e41f68daa7c2844c305285634cf730629202fdc928c452b65da6753e54",
+      "image": "agent-os-backend:20261023-config-guard-d",
+      "running": true
+    },
+    "agent-os-frontend-1": {
+      "id": "d074370ca9b2d81fb082a0e0b545aa628aa1f39fc2d74629b22f7f3e1d360f7b",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "running": true
+    }
+  }
+}

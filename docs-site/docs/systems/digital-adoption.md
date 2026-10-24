@@ -168,3 +168,9 @@ The Tasks panel shows effective website/server limits for one active task separa
 Saved website maps remain available after 24 hours. Setup readiness requires a recently observed map and a current published-task test, so a stale saved map can still be visible while readiness asks for a new observation.
 
 **Summarize files** opens Chat with the private supporting passages so the result is visible immediately. File upload/removal remains in Tasks. This read-only summary does not fill or submit a website form.
+
+### Current-page questions
+
+**Ask a question** receives a fresh, bounded semantic page observation alongside authorized website knowledge or active task files. Titles, section context, input labels/descriptions, control states and loaded item groups support interpretation without site-specific rules. The maker and checker distinguish observed facts, supported calculations and unverified assumptions. Hidden/private regions, current input values and embedded or unloaded content are excluded.
+
+Page evidence is request-local and cited separately from approved documents; it is never added to the shared knowledge index. Read-only questions use no background polling and preserve pending field reviews. Actions still require **Prepare changes** or **Plan a task** and the applicable approval policy.

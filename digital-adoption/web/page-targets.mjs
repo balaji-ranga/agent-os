@@ -1,5 +1,5 @@
 import {guidanceWords} from './guidance-intent.mjs';
-export function targetText(element,visible){if(element.querySelectorAll('*').length>200)return '';const copy=element.cloneNode(true),originals=[...element.querySelectorAll('*')],clones=[...copy.querySelectorAll('*')];for(let i=0;i<originals.length;i++)if(!visible(originals[i]))clones[i]?.remove();for(const node of copy.querySelectorAll('input,textarea,select,button,script,style,[hidden],[aria-hidden="true"],[data-adoption-private],[data-adoption-widget]'))node.remove();return copy.textContent.trim().replace(/\s+/g,' ').slice(0,480);}
+export function targetText(element,visible){if(element.querySelectorAll('*').length>200)return '';const copy=element.cloneNode(true),originals=[...element.querySelectorAll('*')],clones=[...copy.querySelectorAll('*')];for(let i=0;i<originals.length;i++)if(!visible(originals[i]))clones[i]?.remove();for(const node of copy.querySelectorAll('input,textarea,select,button,[contenteditable]:not([contenteditable="false"]),script,style,[hidden],[aria-hidden="true"],[data-adoption-private],[data-adoption-widget]'))node.remove();return copy.textContent.trim().replace(/\s+/g,' ').slice(0,480);}
 // Read only task-relevant rendered results, not the whole DOM or form values.
 export function pageTargets(document,root,{task,visible,excluded,revision}){
  if(!task)return [];

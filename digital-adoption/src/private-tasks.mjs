@@ -519,9 +519,12 @@ export async function createPrivateTasks({
       const evidence = [...await context(t, input.text || '', input.instanceId),...taskEvidence].slice(0,8);
       taskFor(scope,t.id,input.instanceId);
       const contentRevision=t.contentRevision||0;
-      if (answer && evidence.length) {
+      if (answer && (evidence.length||input.snapshot)) {
         const out = await answer({
           signal:input.requestSignal,
+          ...(input.snapshot?{snapshot:validateSnapshot(input.snapshot)}:{}),
+          history:input.authorizedKnowledgeHistory||t.history.filter(m=>m.instanceId===input.instanceId).slice(-4),
+          replyContext:input.authorizedReplyContext||(input.replyTo?t.history.find(m=>m.id===input.replyTo&&m.instanceId===input.instanceId)?.text:undefined),
           text: input.text || 'Summarize the transaction details relevant to completing the requested form.',
           evidence: evidence.map(e => ({
             ...e,

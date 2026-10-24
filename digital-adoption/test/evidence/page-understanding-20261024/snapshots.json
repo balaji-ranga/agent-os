@@ -1,0 +1,792 @@
+{
+  "generic": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Serial reference",
+        "type": "text",
+        "required": true,
+        "key": "field_serial_reference",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f1",
+        "label": "Serial reference",
+        "type": "text",
+        "required": false,
+        "key": "field_serial_reference",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f2",
+        "label": "",
+        "type": "textarea",
+        "required": false,
+        "optionCount": 0
+      }
+    ],
+    "forms": [],
+    "links": [],
+    "pageContext": {
+      "text": "Equipment register\n107 registered assets Â· page 1\nActive equipment\nAsset 0\nAvailable\nAsset 1\nAvailable\nAsset 2\nAvailable\nAsset 3\nAvailable\nAsset 4\nAvailable\nAsset 5\nAvailable\nAsset 6\nAvailable\nAsset 7\nAvailable\nAsset 8\nAvailable\nAsset 9\nAvailable\nWarranty claim\nSerial reference\nUse the reference printed on the purchase certificate.\nSubmit claim\nService renewal\nSerial reference\nPrevious\nNext",
+      "headings": [
+        {
+          "level": 1,
+          "label": "Equipment register"
+        },
+        {
+          "level": 2,
+          "label": "Warranty claim"
+        },
+        {
+          "level": 2,
+          "label": "Service renewal"
+        }
+      ],
+      "headingCount": 3,
+      "collections": [
+        {
+          "role": "tbody",
+          "itemCount": 10,
+          "labels": [
+            "Asset 0Available",
+            "Asset 1Available",
+            "Asset 2Available",
+            "Asset 3Available",
+            "Asset 4Available",
+            "Asset 5Available",
+            "Asset 6Available",
+            "Asset 7Available"
+          ],
+          "labelsTruncated": true,
+          "truncated": false
+        },
+        {
+          "role": "main",
+          "itemCount": 2,
+          "labels": [
+            "Warranty claim",
+            "Service renewal"
+          ],
+          "labelsTruncated": false,
+          "truncated": false
+        }
+      ],
+      "title": "Equipment register",
+      "structure": [
+        {
+          "role": "p",
+          "label": "107 registered assets Â· page 1",
+          "region": "Equipment register"
+        },
+        {
+          "role": "caption",
+          "label": "Active equipment",
+          "region": "Active equipment"
+        },
+        {
+          "role": "label",
+          "label": "Serial reference",
+          "region": "Warranty claim"
+        },
+        {
+          "role": "input",
+          "label": "Serial reference",
+          "region": "Warranty claim",
+          "description": "Use the reference printed on the purchase certificate.",
+          "disabled": false,
+          "required": true
+        },
+        {
+          "role": "p",
+          "label": "Use the reference printed on the purchase certificate.",
+          "region": "Warranty claim"
+        },
+        {
+          "role": "button",
+          "label": "Submit claim",
+          "region": "Warranty claim",
+          "disabled": true
+        },
+        {
+          "role": "label",
+          "label": "Serial reference",
+          "region": "Service renewal"
+        },
+        {
+          "role": "input",
+          "label": "Serial reference",
+          "region": "Service renewal",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Previous",
+          "region": "Browse equipment",
+          "disabled": true
+        },
+        {
+          "role": "button",
+          "label": "Next",
+          "region": "Browse equipment",
+          "disabled": false
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "Warranty claim",
+        "kind": "content",
+        "role": "section",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Warranty claimSerial referenceUse the reference printed on the purchase certificate."
+      },
+      {
+        "ref": "r1t1",
+        "label": "Equipment register",
+        "kind": "content",
+        "role": "h1",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Equipment register"
+      },
+      {
+        "ref": "r1t2",
+        "label": "Submit claim",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": true,
+          "busy": false
+        },
+        "text": "Submit claim"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Service renewal",
+        "kind": "content",
+        "role": "section",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Service renewalSerial reference"
+      },
+      {
+        "ref": "r1t4",
+        "label": "Previous",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": true,
+          "busy": false
+        },
+        "text": "Previous"
+      },
+      {
+        "ref": "r1t5",
+        "label": "Next",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Next"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 3,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [],
+    "screen": "Equipment register | Warranty claim | Service renewal",
+    "path": "/__understanding",
+    "ambiguousDialogs": false,
+    "blockedCount": 1
+  },
+  "tail": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Serial reference",
+        "type": "text",
+        "required": true,
+        "key": "field_serial_reference",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f1",
+        "label": "Serial reference",
+        "type": "text",
+        "required": false,
+        "key": "field_serial_reference",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f2",
+        "label": "",
+        "type": "textarea",
+        "required": false,
+        "optionCount": 0
+      }
+    ],
+    "forms": [],
+    "links": [],
+    "pageContext": {
+      "text": "Background\nLong public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public description. Long public d",
+      "headings": [
+        {
+          "level": 2,
+          "label": "Background"
+        },
+        {
+          "level": 1,
+          "label": "Equipment register"
+        },
+        {
+          "level": 2,
+          "label": "Warranty claim"
+        },
+        {
+          "level": 2,
+          "label": "Service renewal"
+        }
+      ],
+      "headingCount": 4,
+      "collections": [
+        {
+          "role": "tbody",
+          "itemCount": 10,
+          "labels": [
+            "Asset 0Available",
+            "Asset 1Available",
+            "Asset 2Available",
+            "Asset 3Available",
+            "Asset 4Available",
+            "Asset 5Available",
+            "Asset 6Available",
+            "Asset 7Available"
+          ],
+          "labelsTruncated": true,
+          "truncated": false
+        },
+        {
+          "role": "main",
+          "itemCount": 3,
+          "labels": [
+            "Background",
+            "Warranty claim",
+            "Service renewal"
+          ],
+          "labelsTruncated": false,
+          "truncated": false
+        }
+      ],
+      "title": "Equipment register",
+      "structure": [
+        {
+          "role": "p",
+          "label": "107 registered assets Â· page 1",
+          "region": "Background"
+        },
+        {
+          "role": "caption",
+          "label": "Active equipment",
+          "region": "Active equipment"
+        },
+        {
+          "role": "label",
+          "label": "Serial reference",
+          "region": "Warranty claim"
+        },
+        {
+          "role": "input",
+          "label": "Serial reference",
+          "region": "Warranty claim",
+          "description": "Use the reference printed on the purchase certificate.",
+          "disabled": false,
+          "required": true
+        },
+        {
+          "role": "p",
+          "label": "Use the reference printed on the purchase certificate.",
+          "region": "Warranty claim"
+        },
+        {
+          "role": "button",
+          "label": "Submit claim",
+          "region": "Warranty claim",
+          "disabled": true
+        },
+        {
+          "role": "label",
+          "label": "Serial reference",
+          "region": "Service renewal"
+        },
+        {
+          "role": "input",
+          "label": "Serial reference",
+          "region": "Service renewal",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Previous",
+          "region": "Browse equipment",
+          "disabled": true
+        },
+        {
+          "role": "button",
+          "label": "Next",
+          "region": "Browse equipment",
+          "disabled": false
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": true,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "Warranty claim",
+        "kind": "content",
+        "role": "section",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Warranty claimSerial referenceUse the reference printed on the purchase certificate."
+      },
+      {
+        "ref": "r1t1",
+        "label": "Next",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Next"
+      },
+      {
+        "ref": "r1t2",
+        "label": "Submit claim",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": true,
+          "busy": false
+        },
+        "text": "Submit claim"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Previous",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": true,
+          "busy": false
+        },
+        "text": "Previous"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 3,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [],
+    "screen": "Background | Equipment register | Warranty claim",
+    "path": "/__understanding",
+    "ambiguousDialogs": false,
+    "blockedCount": 1
+  },
+  "public": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Search MCPs, publishers, capabilities…",
+        "type": "text",
+        "required": false,
+        "key": "q",
+        "optionCount": 0,
+        "constraints": {
+          "maxlength": "120"
+        }
+      },
+      {
+        "ref": "r1f1",
+        "label": "transport",
+        "type": "select-one",
+        "required": false,
+        "key": "transport",
+        "optionCount": 4
+      }
+    ],
+    "forms": [],
+    "links": [],
+    "pageContext": {
+      "text": "✺ Free Tools\nDocs\nMCP Universe\nDiscover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.\nSearch\n1535 approved listings · page 1\nac.inference.sh/mcp\nrun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.\nac.inference.sh · streamable-http\nInspect\nac.snag/snag\nGives your coding agent the captured console, network, replay and screenshot evidence for a bug.\nac.snag · streamable-http\nInspect\nac.tandem/docs-mcp\nRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.\nac.tandem · streamable-http\nInspect\nacademy.apexai/apex-ai-academy\nCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.\nacademy.apexai · streamable-http\nInspect\nacademy.ase/periodic-system\nPractices for building software with coding agents, each with a test you check on your repo.\nacademy.ase · streamable-http\nInspect\nad.getle/leads\nFind B2B leads with verified work emails, find and verify emails, and run cold email outreach.\nad.getle · streamable-http\nInspect\nad.inside/inside-ads\nTelegram ad exchange: estimate reach and cost with no account, then create and run campaigns.\nad.inside · streamable-http\nInspect\nae.beachclubs/mcp\nSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.\nae.beachclubs · streamable-http\nInspect\nae.brainy/grocery-prices\nSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocation\nae.brainy · streamable-http\nInspect\nae.datadubai/dubai-real-estate\nDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.\nae.datadubai · streamable-http\nInspect\nae.easyvoice/tts\nHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.\nae.easyvoice · streamable-http\nInspect\nae.genosys/genosys\nShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.\nae.genosys · streamable-http\nInspect\nae.grovisor/grotax\nUAE Corporate Tax: CT computation, SBR, penalties, free zone test, TP and health-check.\nae.grovisor · streamable-http\nInspect\nae.plantguide/dubai-gardening\nWhat to plant in Dubai, indoor plants, plant care in the heat, garden styles and Garden Care prices.\nae.plantguide · streamable-http\nInspect\nae.projectory/mcp\nFind UAE off-plan developments and registered residential sales.\nae.projectory · streamable-http\nInspect\nae.propick/propick\nManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.\nae.propick · streamable-http\nInspect\nae.waggle/fenlight\nGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.\nae.waggle · streamable-http\nInspect\nae.waggle/vera\nScrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup\nae.waggle · streamable-http\nInspect\naero.events/events\nFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.\naero.events · streamable-http\nInspect\nafrica.ugc/ugc\nThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.\nafrica.ugc · streamable-http\nInspect\nag.hood/name-service\nResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.\nag.hood · streamable-http\nInspect\nagency.goji/goji\nAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.\nagency.goji · streamable-http\nInspect\nagency.justidea/justidea-agency\nServices, prices, inquiries and free analytics, AI and Google visibility scans by JustIdea, Poland.\nagency.justidea · streamable-http\nInspect\nagency.kesey/pretrip\nScreen regulated-health marketing copy against source-cited rulesets, all 50 states.\nagency.kesey · stdio\nInspect\nPrevious\nNext\nInclude your MCP\nOfficial Registry registration is preferred. Every submission is moderated before publication.\nSubmit an MCP",
+      "headings": [
+        {
+          "level": 1,
+          "label": "MCP Universe"
+        },
+        {
+          "level": 2,
+          "label": "ac.inference.sh/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ac.snag/snag"
+        },
+        {
+          "level": 2,
+          "label": "ac.tandem/docs-mcp"
+        },
+        {
+          "level": 2,
+          "label": "academy.apexai/apex-ai-academy"
+        },
+        {
+          "level": 2,
+          "label": "academy.ase/periodic-system"
+        },
+        {
+          "level": 2,
+          "label": "ad.getle/leads"
+        },
+        {
+          "level": 2,
+          "label": "ad.inside/inside-ads"
+        },
+        {
+          "level": 2,
+          "label": "ae.beachclubs/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.brainy/grocery-prices"
+        },
+        {
+          "level": 2,
+          "label": "ae.datadubai/dubai-real-estate"
+        },
+        {
+          "level": 2,
+          "label": "ae.easyvoice/tts"
+        },
+        {
+          "level": 2,
+          "label": "ae.genosys/genosys"
+        },
+        {
+          "level": 2,
+          "label": "ae.grovisor/grotax"
+        },
+        {
+          "level": 2,
+          "label": "ae.plantguide/dubai-gardening"
+        },
+        {
+          "level": 2,
+          "label": "ae.projectory/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.propick/propick"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/fenlight"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/vera"
+        },
+        {
+          "level": 2,
+          "label": "aero.events/events"
+        },
+        {
+          "level": 2,
+          "label": "africa.ugc/ugc"
+        },
+        {
+          "level": 2,
+          "label": "ag.hood/name-service"
+        },
+        {
+          "level": 2,
+          "label": "agency.goji/goji"
+        },
+        {
+          "level": 2,
+          "label": "agency.justidea/justidea-agency"
+        },
+        {
+          "level": 2,
+          "label": "agency.kesey/pretrip"
+        },
+        {
+          "level": 2,
+          "label": "Include your MCP"
+        }
+      ],
+      "headingCount": 26,
+      "collections": [
+        {
+          "role": "div",
+          "itemCount": 24,
+          "labels": [
+            "ac.inference.sh/mcp",
+            "ac.snag/snag",
+            "ac.tandem/docs-mcp",
+            "academy.apexai/apex-ai-academy",
+            "academy.ase/periodic-system",
+            "ad.getle/leads",
+            "ad.inside/inside-ads",
+            "ae.beachclubs/mcp"
+          ],
+          "labelsTruncated": true,
+          "truncated": false
+        }
+      ],
+      "title": "MCP Universe · Flolah",
+      "structure": [
+        {
+          "role": "a",
+          "label": "✺ Free Tools",
+          "region": "",
+          "disabled": false
+        },
+        {
+          "role": "a",
+          "label": "Docs",
+          "region": "",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.",
+          "region": "MCP Universe"
+        },
+        {
+          "role": "input",
+          "label": "Search MCPs, publishers, capabilities…",
+          "region": "ac.inference.sh/mcp",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Search",
+          "region": "ac.inference.sh/mcp",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "1535 approved listings · page 1",
+          "region": "ac.inference.sh/mcp"
+        },
+        {
+          "role": "button",
+          "label": "Previous",
+          "region": "ac.inference.sh/mcp",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Next",
+          "region": "ac.inference.sh/mcp",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+          "region": "Include your MCP"
+        },
+        {
+          "role": "button",
+          "label": "Submit an MCP",
+          "region": "Include your MCP",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Inspect",
+          "region": "ac.inference.sh/mcp",
+          "disabled": false
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "ae.propick/propick",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "ae.propick/propickManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.ae.propick · streamable-http"
+      },
+      {
+        "ref": "r1t1",
+        "label": "✺ Free Tools",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "✺ Free Tools"
+      },
+      {
+        "ref": "r1t2",
+        "label": "Docs",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Docs"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Search",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Search"
+      },
+      {
+        "ref": "r1t4",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      },
+      {
+        "ref": "r1t5",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      },
+      {
+        "ref": "r1t6",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      },
+      {
+        "ref": "r1t7",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      },
+      {
+        "ref": "r1t8",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 2,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [
+      "/free-tools/",
+      "/docs/"
+    ],
+    "screen": "MCP Universe | ac.inference.sh/mcp | ac.snag/snag",
+    "path": "/free-tools/mcp-universe/",
+    "ambiguousDialogs": false,
+    "blockedCount": 30
+  }
+}

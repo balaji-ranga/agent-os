@@ -1,5 +1,11 @@
 # Build and VPS setup
 
+## Generic page understanding — 24 October 2026
+
+The coordinator and model gateway use `20261024-page-understanding-f`. Fresh Ask observations are request-local evidence; no shared-index migration, provider setting or worker change is required. Both the immediate gateway overlay and the standalone checker Dockerfile must ship `src/page-understanding.mjs` and `src/page-context-contract.mjs` plus `src/arithmetic-evidence.mjs`, because maker/checker and proposal validation import them. The normal Dockerfile copies the complete source directories.
+
+Use `prepare-immediate-phase.py RELEASE --coordinator-and-gateway` for the captured-runtime build, isolated Linux regressions and gateway import smoke, followed by `install-immediate-phase.py RELEASE`. Its concurrent-image checks and database checkpoint remain mandatory. See [page-understanding evidence](../test/evidence/page-understanding-20261024/README.md) for the final visitor and real-model tests.
+
 19 October 2026: the immediate-phase implementation is available on coordinator
 **20261019-immediate-j**, with gateway/platform changes from
 **20261019-immediate-j**. See the [acceptance and regression report](../test/evidence/immediate-phase-20261019/index.html)

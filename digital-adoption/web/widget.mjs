@@ -125,10 +125,10 @@ document.querySelector('#chat').addEventListener('submit', async event => {
   event.preventDefault(); const field = document.querySelector('#knowledge-message');
   const button=document.querySelector('#plan');if(button.disabled)return;button.disabled=true;workspace?.showChat();
   try {
-    lastPageRequest=field.value;show(field.value,'knowledge','user');knowledgeStatus.textContent='Searching this website’s approved knowledge…';
+    lastPageRequest=field.value;show(field.value,'knowledge','user');knowledgeStatus.textContent='Inspecting this page and checking authorized sources…';
     const result = await call('ask', { text: field.value,replyTo:replies.knowledge }); show(result.message,'knowledge','assistant',result.messageId); field.value = '';replies.knowledge=null;replyHints.knowledge.hidden=true;
     for(const evidence of result.citations||[]){const details=document.createElement('details'),summary=document.createElement('summary'),excerpt=document.createElement('p');summary.textContent=`${evidence.title}${evidence.locator?' · '+evidence.locator:''} · ${evidence.revision?.slice(0,8)||'private task'}`;excerpt.textContent=evidence.text;details.append(summary,excerpt);if(evidence.url?.startsWith('https://')){const link=document.createElement('a');link.href=evidence.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open source';details.append(link);}knowledgeLog.append(details);}
-    knowledgeStatus.textContent=result.kind==='no_evidence'?'No supporting answer was found in the authorized sources.':result.privateTaskId?'Answered from your private task files. End task clears access; temporary passages await 24-hour retention cleanup.':result.kind==='greeting'?'Ready for your knowledge question.':'Answered from this embedding’s knowledge. No page inspection was performed.';
+    knowledgeStatus.textContent=result.kind==='no_evidence'?'No supporting answer was found in the authorized sources.':result.pageObserved?'Answered from a fresh page observation and cited authorized evidence. No actions were performed.':result.privateTaskId?'Answered from your private task files. End task clears access; temporary passages await 24-hour retention cleanup.':result.kind==='greeting'?'Ready for your knowledge question.':'Answered from this embedding’s knowledge. No page inspection was performed.';
   }
   catch(error) { showError(error); }
   finally{button.disabled=sessionExpired;}

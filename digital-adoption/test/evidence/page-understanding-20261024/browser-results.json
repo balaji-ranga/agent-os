@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-24T04:01:10.224Z",
+  "results": [
+    {
+      "id": "independent-table-form-and-navigation-semantics",
+      "passed": true,
+      "elapsedMs": 8.299999982118607,
+      "bytes": 4181
+    },
+    {
+      "id": "semantic-context-survives-text-truncation",
+      "passed": true,
+      "elapsedMs": 3.7999999821186066,
+      "bytes": 8490
+    },
+    {
+      "id": "public-page-context-and-loaded-groups",
+      "passed": true,
+      "loaded": 24,
+      "elapsedMs": 9.099999994039536,
+      "bytes": 9310
+    }
+  ],
+  "publicWrites": 0
+}

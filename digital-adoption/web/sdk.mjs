@@ -190,7 +190,12 @@ export async function mount(options) {
         result={results};
       }
       else if (message.type === 'message') result = await request('/v1/messages', { text: message.text });
-      else if (message.type === 'ask') result = privateClient.taskId?await privateClient.call('task-summary',{text:message.text}):await request('/v1/ask',{text:message.text,replyTo:message.replyTo});
+      else if (message.type === 'ask') {
+        // Read-only questions must not invalidate an outstanding action review.
+        const reader=createInspector(document);let snapshot;
+        try{snapshot=reader.snapshot({task:message.text});}finally{reader.destroy();}
+        result=privateClient.taskId?await privateClient.call('task-summary',{text:message.text,replyTo:message.replyTo,channel:'knowledge',snapshot}):await request('/v1/ask',{text:message.text,replyTo:message.replyTo,snapshot});
+      }
       else if(message.type==='revise'){
         if(!currentSnapshot)throw new Error('The review expired. Prepare it again.');
         const generation=taskGeneration,reviewLabels=currentSnapshot.fields.map(f=>f.label).join(' ');currentSnapshot=inspector.snapshot({task:reviewLabels});

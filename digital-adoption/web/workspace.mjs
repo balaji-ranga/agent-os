@@ -13,8 +13,8 @@ export function mountWorkspace(document,{onMode=()=>{}}={}){
  function setMode(value){
   mode=['knowledge','goal'].includes(value)?value:'guide';
   byId('chat-mode').value=mode;byId('tab-knowledge').setAttribute('aria-pressed',String(mode==='knowledge'));
-  byId('message').placeholder=mode==='knowledge'?'Ask about this website’s knowledge or your task files…':'Ask a question or describe your task…';
-  byId('context-source').textContent=mode==='knowledge'?'Website knowledge & private task files':mode==='goal'?'Goal plan · reviewed steps':'Current page & task';onMode(mode);
+  byId('message').placeholder=mode==='knowledge'?'Ask about this page, website knowledge or your task files…':'Ask a question or describe your task…';
+  byId('context-source').textContent=mode==='knowledge'?'Current page, knowledge & private task files':mode==='goal'?'Goal plan · reviewed steps':'Current page & task';onMode(mode);
   byId('knowledge-status').hidden=mode!=='knowledge';byId('status').hidden=mode==='knowledge';
  }
  for(const tab of tabs){tab.onclick=()=>select(tab);tab.onkeydown=event=>{

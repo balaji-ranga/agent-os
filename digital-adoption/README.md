@@ -492,6 +492,12 @@ A goal can also include a **peer** step selecting one currently observed recipie
 
 Pairing is required for this visitor-to-visitor exchange; server workflow delivery continues to use separately linked workflow groups. Different website indexes remain isolated. Each RPC checks exact live source/recipient, bilateral pairing, owner, website/session and private task access. Values come only from supported visible nonsecret controls when explicitly selected. Pair revocation, changed permissions, task end, cancellation or disconnect invalidates pending work and associated pending goal approvals. Unfinished work fails without automatic replay or delivery to a replacement visitor. Private peer context is bounded and expires with its task; no attachment or shared document upload is implied.
 
+## Read-only page understanding
+
+**Ask a question** observes the current rendered page as well as authorized website knowledge or active task files. No upload or owner coaching code is required to ask about visible page content. The observation preserves bounded page titles, sections, labels, descriptions, control states and repeated-item groups. The maker and checker interpret those relationships with the question and reply context, rather than website-specific phrases. Derived answers state their inputs and assumptions; loaded items are distinct from a displayed dataset total or unloaded pages.
+
+Page observations are request-local citation sources, never indexed as shared knowledge. They exclude current input values, editable content, hidden/private regions and iframe contents. Questions do not invalidate a pending field review or grant execution authority. Reading uses no background polling; source text and model requests remain byte-bounded. On older clients without a snapshot, approved-knowledge answers keep their existing behavior.
+
 ## Conversation recovery
 
 Transport loss is separate from End task: retain the visible transcript, invalidate private pending work and never replay effects. The provider adapter classifies truncated cloud output as incomplete. One existing checker retry may use a documented compact JSON mode on supported endpoints, with the same checker, output-token limit, deadline and strict all-pass verdict contract. This does not change the Admin maker/checker setting or local-model thinking policy.

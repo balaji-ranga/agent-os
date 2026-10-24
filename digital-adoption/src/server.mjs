@@ -5,6 +5,7 @@ import {MODEL_CLIENT_TIMEOUT_MS,MODEL_SESSION_TIMEOUT_MS} from '../web/model-tim
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { validateSnapshot } from './proposals.mjs';
+import {pageObservationEvidence} from './page-understanding.mjs';
 import {createRequestBudget,createConcurrencyBudget} from './request-budget.mjs';
 import {createUploadAdmission} from './upload-admission.mjs';
 import {constrainNavigation} from './navigation-intent.mjs';
@@ -209,7 +210,13 @@ export function createAdoptionServer({ goals,goalModel,conversations=createConve
           if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!['status','pairStatus'].includes(action))authority.touch(auth);
           if(['end','remove'].includes(action))goals?.clear(scope);
-          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,authorizedReplyContext:authority.history(auth).find(m=>m.id===input.replyTo&&(m.channel||'guide')==='guide')?.text,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:action==='peerAnswer'&&input.goalId?goals?.get(scope,input.goalId):undefined);
+          let authorizedKnowledgeHistory;
+          if(action==='summary'&&input.channel==='knowledge'){
+            authority.appendMessage({...auth,text:input.text,channel:'knowledge',replyTo:input.replyTo??null});
+            authorizedKnowledgeHistory=authority.history(auth).filter(m=>m.channel==='knowledge');
+          }
+          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,authorizedKnowledgeHistory,authorizedReplyContext:authority.history(auth).find(m=>m.id===input.replyTo&&(m.channel||'guide')===(authorizedKnowledgeHistory?'knowledge':'guide'))?.text,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:action==='peerAnswer'&&input.goalId?goals?.get(scope,input.goalId):undefined);
+          if(authorizedKnowledgeHistory){if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');result.messageId=authority.appendAssistant(auth,result.message,'knowledge').id;}
         }
         else if(path==='/v1/learning/complete'){
           if(!learning?.learningEnabled(scope)||input.consent!==true)result={created:false};
@@ -296,14 +303,16 @@ export function createAdoptionServer({ goals,goalModel,conversations=createConve
           if(path==='/v1/knowledge/search')result=retrieved;
           else {
             if(!answer)return send(503,{error:'Knowledge model is not configured'});
+            const snapshot=input.snapshot?validateSnapshot(input.snapshot):undefined;
+            const pageEvidence=pageObservationEvidence(snapshot);
             authority.appendMessage({...auth,text:input.text,channel:'knowledge',replyTo:input.replyTo??null});
             const knowledgeHistory=authority.history(auth).filter(m=>m.channel==='knowledge');
-            result=await answer({signal:requestController.signal,text:input.text,evidence:retrieved.evidence,history:knowledgeHistory,replyContext:knowledgeHistory.find(m=>m.id===input.replyTo)?.text});
+            result=await answer({signal:requestController.signal,text:input.text,snapshot,evidence:retrieved.evidence,history:knowledgeHistory,replyContext:knowledgeHistory.find(m=>m.id===input.replyTo)?.text});
             if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
             // Source deletion during inference must invalidate its citations.
             const current=await knowledge.retrieve(scope,{query:input.text,size:24});
             if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
-            if(result.citations.some(c=>!current.evidence.some(e=>e.chunkId===c.chunkId&&e.revision===c.revision)))throw new Error('Evidence changed');
+            if(result.citations.some(c=>![...current.evidence,...pageEvidence].some(e=>e.chunkId===c.chunkId&&e.revision===c.revision&&e.text===c.text)))throw new Error('Evidence changed');
             result.messageId=authority.appendAssistant(auth,result.message,'knowledge').id;
           }
         }
