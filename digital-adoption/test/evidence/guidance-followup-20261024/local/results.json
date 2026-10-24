@@ -1,0 +1,4105 @@
+{
+  "at": "2026-10-24T05:34:25.261Z",
+  "results": [
+    {
+      "id": "local-synthetic-draft-review-and-fill",
+      "passed": false,
+      "error": "The input did not match the regular expression /\\.test$/. Input:\n\n'demo.test@example.com'\n"
+    },
+    {
+      "id": "local-contextual-last-changes-pointer",
+      "passed": true,
+      "actions": [
+        {
+          "type": "highlight",
+          "ref": "r3f0",
+          "label": "Company name"
+        },
+        {
+          "type": "highlight",
+          "ref": "r3f1",
+          "label": "Contact email"
+        },
+        {
+          "type": "highlight",
+          "ref": "r3f2",
+          "label": "Region"
+        }
+      ],
+      "screenshot": "local-contextual-last-changes-pointer.png"
+    },
+    {
+      "id": "local-new-target-does-not-replay-old-fields",
+      "passed": true,
+      "actions": [
+        {
+          "type": "highlight",
+          "ref": "r4n1",
+          "label": "Opportunity"
+        }
+      ],
+      "screenshot": "local-new-target-does-not-replay-old-fields.png"
+    },
+    {
+      "id": "local-page-knowledge-after-editing",
+      "passed": true,
+      "message": "The current form contains the following input fields, all of which are required:\n1. **Company name** - Type: text, Required: true.\n2. **Contact email** - Type: email, Required: true.\n3. **Region** - Type: text, Required: true.",
+      "screenshot": "local-page-knowledge-after-editing.png"
+    },
+    {
+      "id": "local-radio-typo-and-checkbox-intent",
+      "passed": false,
+      "error": "The expression evaluated to a falsy value:\n\n  assert.ok(data.actions.some(a=>a.type==='fill'&&a.label==='Shipping method'&&a.value==='Express'))\n"
+    },
+    {
+      "id": "local-search-picklist-review-and-host-selection",
+      "passed": false,
+      "error": "{\"error\":\"Copilot service temporarily unavailable\",\"code\":\"COPILOT_REVIEW_FAILED\"}\n\n503 !== 200\n"
+    }
+  ],
+  "traces": [
+    {
+      "text": "Fill the Customer draft with synthetic values for all applicable fields. Let me review changes before applying. Do not save.",
+      "status": 200,
+      "data": {
+        "id": "5b5a96a3-3c9b-42db-918a-b8542a323592",
+        "revision": 1,
+        "message": "Here are the proposed synthetic values for the Customer draft fields:\n- **Company name**: Demo Test Company\n- **Contact email**: demo.test@example.com\n- **Region**: Singapore\n\nPlease review these changes before applying them.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Company name",
+            "value": "Demo Test Company"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "demo.test@example.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792820130716,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "280ba103-c6de-4091-a010-73706fdc58a5"
+      },
+      "input": {
+        "text": "Fill the Customer draft with synthetic values for all applicable fields. Let me review changes before applying. Do not save.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r1n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r1n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r1n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r1n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r1t2"
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": ""
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r1t1",
+              "label": "Customer draft",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer draftCompany nameContact emailRegion"
+            },
+            {
+              "ref": "r1t2",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r1t4",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r1t5",
+              "label": "Generic changes and theme",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Generic changes and themeAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t6",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r1t7",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r1t8",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r1t9",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r1t10",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r1t11",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r1t14",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r1t15",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r1t16",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r1t17",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r1t18",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t19",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r1s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "latencyMs": 8781
+    },
+    {
+      "text": "Highlight the last changes",
+      "status": 200,
+      "data": {
+        "id": "ae807384-4ab7-4480-a44d-6fd601d4aad6",
+        "revision": 3,
+        "message": "The last proposed changes for the Customer draft are highlighted below:\n- **Company name**: Demo Test Company\n- **Contact email**: demo.test@example.com\n- **Region**: Singapore\n\nThese values are ready for your review before applying any changes.\nI can highlight 3 targets for you. No values will be changed.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r3f0",
+            "label": "Company name"
+          },
+          {
+            "type": "highlight",
+            "ref": "r3f1",
+            "label": "Contact email"
+          },
+          {
+            "type": "highlight",
+            "ref": "r3f2",
+            "label": "Region"
+          }
+        ],
+        "expiresAt": 1792820148200,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "ee1aae2e-b41c-429a-bb63-f66988d94aab"
+      },
+      "input": {
+        "text": "Highlight the last changes",
+        "snapshot": {
+          "revision": 3,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r3f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r3f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r3n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r3n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r3n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r3n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r3t4"
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": ""
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [
+              "r3f0",
+              "r3f1",
+              "r3f2"
+            ],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r3t0",
+              "label": "Generic changes and theme",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Generic changes and themeAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r3t1",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r3t2",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r3t3",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r3t4",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r3t5",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r3t6",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r3t7",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r3t8",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r3t9",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r3t10",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r3t11",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r3t12",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r3t13",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r3t14",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r3t15",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r3t16",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r3t17",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r3s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7,
+          "lastOutcome": {
+            "path": "/customer",
+            "actionTypes": [
+              "fill",
+              "fill",
+              "fill"
+            ],
+            "outcome": "local_state_verified",
+            "applied": 3,
+            "lookupOnly": false
+          }
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "latencyMs": 16994
+    },
+    {
+      "text": "Show me the opportunities link without opening it",
+      "status": 200,
+      "data": {
+        "id": "ddcbea3a-3696-49f5-926a-73163bc26187",
+        "revision": 4,
+        "message": "The observed link for the Opportunity is as follows:\n- **Label**: Opportunity\n- **Path**: /opportunity\n\nThis link is available in the navigation section of the current page.\nI can highlight 1 target for you. No values will be changed.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r4n1",
+            "label": "Opportunity"
+          }
+        ],
+        "expiresAt": 1792820152331,
+        "fields": [],
+        "matchedWorkflows": [],
+        "messageId": "9a44144a-e5cc-496f-a169-e949d39130e6"
+      },
+      "input": {
+        "text": "Show me the opportunities link without opening it",
+        "snapshot": {
+          "revision": 4,
+          "fields": [
+            {
+              "ref": "r4f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r4f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r4f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r4n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r4n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r4n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r4n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r4t3"
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": ""
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [
+              "r4f0",
+              "r4f1",
+              "r4f2"
+            ],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r4t0",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r4t1",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r4t2",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r4t3",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r4t4",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r4t5",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r4t6",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r4t7",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r4t8",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r4t9",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r4t10",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r4t11",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r4t12",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r4t13",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r4t14",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r4t15",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r4t16",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r4s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7,
+          "lastOutcome": {
+            "path": "/customer",
+            "actionTypes": [
+              "fill",
+              "fill",
+              "fill"
+            ],
+            "outcome": "local_state_verified",
+            "applied": 3,
+            "lookupOnly": false
+          }
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "latencyMs": 3915
+    },
+    {
+      "text": "What are the input fields on this current form and which are required?",
+      "status": 200,
+      "data": {
+        "message": "The current form contains the following input fields, all of which are required:\n1. **Company name** - Type: text, Required: true.\n2. **Contact email** - Type: email, Required: true.\n3. **Region** - Type: text, Required: true.",
+        "citations": [
+          {
+            "chunkId": "current-page-1",
+            "sourceId": "current-page",
+            "kind": "page_observation",
+            "title": "Flolah Digital Adoption — VPS demo",
+            "locator": "Fresh rendered page observation",
+            "revision": "1",
+            "text": "Page title: Flolah Digital Adoption — VPS demo.\nCurrent path: /customer.\nLoaded collection (main), read-only target ref: r1t5, sample labels: Customer draft; Try these prompts; Generic changes and theme. Loaded item count: 3. Count covers this observed group. \nRegion: Digital Adoption test workspace | Customer draft | Try these prompts. Element role: span. Label: Local host page · VPS-hosted copilot.\nRegion: main. Element role: p. Label: Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP..\nRegion: nav. Element role: a. Label: Customer. Disabled: false.\nRegion: nav. Element role: a. Label: Opportunity. Disabled: false.\nRegion: nav. Element role: a. Label: Note. Disabled: false.\nRegion: nav. Element role: a. Label: Scheduled goal. Disabled: false.\nRegion: nav. Element role: a. Label: Saved synthetic records. Disabled: false.\nRegion: Customer draft. Element role: label. Label: Company name.\nRegion: Customer draft. Element role: input. Label: Company name. Disabled: false. Required: true.\nRegion: Customer draft. Element role: label. Label: Contact email.\nRegion: Customer draft. Element role: input. Label: Contact email. Disabled: false. Required: true.\nRegion: Customer draft. Element role: label. Label: Region.\nRegion: Customer draft. Element role: input. Label: Region. Disabled: false. Required: true.\nRegion: Customer draft. Element role: button. Label: Save synthetic record. Disabled: false.\nRegion: Try these prompts. Element role: p. Label: Ask knowledge: What is the Alpha delivery promise?.\nRegion: Try these prompts. Element role: p. Label: Prepare field review: Set the company name to Demo Test and contact email to demo@example.com..\nRegion: Try these prompts. Element role: p. Label: Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”.\nRegion: Try these prompts. Element role: p. Label: Switch to Note: “Create a note with title Followup and body followup MrX on month end.”.\nRegion: Generic changes and theme. Element role: button. Label: Add Delivery city field. Disabled: false.\nRegion: Generic changes and theme. Element role: button. Label: Add native controls. Disabled: false.\nRegion: Generic changes and theme. Element role: button. Label: Add complex controls. Disabled: false.\nRegion: Generic changes and theme. Element role: button. Label: Hide/show host form. Disabled: false.\nRegion: Generic changes and theme. Element role: button. Label: Switch widget palette. Disabled: false.\nRegion: Generic changes and theme. Element role: p. Label: Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field..\nRegion: main. Element role: status. Label: Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect..\nInput label: Company name. Type: text. Required: true.\nInput label: Contact email. Type: email. Required: true.\nInput label: Region. Type: text. Required: true.\nHeading outline: Digital Adoption test workspace; Customer draft; Try these prompts; Generic changes and theme\nRendered text excerpt:\nLocal host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.\nObservation limitations: text or headings truncated=false; structure truncated=false; controls truncated=false. Hidden/private content, current input values and unloaded/frame content are excluded.",
+            "supportingQuotes": [
+              "Input label: Company name. Type: text. Required: true.\nInput label: Contact email. Type: email. Required: true.\nInput label: Region. Type: text. Required: true."
+            ]
+          },
+          {
+            "sourceId": "e1e27744-23b7-4df0-96bb-04ea135f17a9",
+            "chunkId": "e1e27744-23b7-4df0-96bb-04ea135f17a9_00000",
+            "title": "Alpha demonstration handbook",
+            "text": "Alpha customer onboarding: company name, contact email and region are required. The Alpha delivery promise is seven working days. Alpha verification code is ALPHA_ORCHID_7391. Review entered details before saving. Amount is in the selected currency.",
+            "revision": "aa4c42cba06869b4cefebe94ed9474175300089f1ebfe54d4029a641abd0dcc2",
+            "supportingQuotes": [
+              "Alpha customer onboarding: company name, contact email and region are required."
+            ]
+          }
+        ],
+        "kind": "answer",
+        "pageObserved": true,
+        "messageId": "ffddab75-4d8d-4d74-85fa-d4b8567f3cdf"
+      },
+      "input": {
+        "text": "What are the input fields on this current form and which are required?",
+        "replyTo": null,
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r1n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r1n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r1n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r1n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r1t5"
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": ""
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Hide/show host form",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Hide/show host form"
+            },
+            {
+              "ref": "r1t1",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r1t2",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r1t3",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r1t4",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r1t5",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r1t6",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r1t7",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r1t8",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r1t9",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r1t10",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r1t11",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r1t14",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r1t15",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r1t16",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r1t17",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t18",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r1s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7
+        }
+      },
+      "latencyMs": 4976
+    },
+    {
+      "text": "Set Shipping method to Expres and select Include gift wrap. Do not save.",
+      "status": 200,
+      "data": {
+        "id": "8d49a9cd-17a7-4811-ae9c-2e6fd76f7322",
+        "revision": 5,
+        "message": "To set the Shipping method to 'Expres' and select 'Include gift wrap', I need to clarify the available options. The current observed evidence shows that the 'Delivery preference' field exists, but its choices are not visible. Additionally, there are no observed checkboxes for 'Include gift wrap'. Please confirm if 'Expres' is a valid shipping method or provide the correct shipping method you would like to use, and let me know how to proceed with the gift wrap option.",
+        "actions": [],
+        "expiresAt": 1792820181349,
+        "fields": [
+          {
+            "ref": "r5f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f3",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f4",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f5",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f6",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f7",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f8",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f9",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f10",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_1_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f11",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f12",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_2_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f13",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f14",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_3_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r5f15",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "f15e79e1-6d11-47df-aa67-b843f6c443e6"
+      },
+      "input": {
+        "text": "Set Shipping method to Expres and select Include gift wrap. Do not save.",
+        "snapshot": {
+          "revision": 5,
+          "fields": [
+            {
+              "ref": "r5f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f3",
+              "label": "Delivery preference",
+              "type": "radio",
+              "required": false,
+              "key": "delivery_preference",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f4",
+              "label": "Interests",
+              "type": "select-multiple",
+              "required": false,
+              "key": "interests",
+              "form": "demo-form",
+              "optionCount": 3
+            },
+            {
+              "ref": "r5f5",
+              "label": "Delivery date",
+              "type": "date",
+              "required": false,
+              "key": "delivery_date",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f6",
+              "label": "Suggested city",
+              "type": "text",
+              "required": false,
+              "key": "suggested_city",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f7",
+              "label": "Lookup scenario",
+              "type": "select-one",
+              "required": false,
+              "key": "lookup-mode",
+              "form": "demo-form",
+              "optionCount": 4
+            },
+            {
+              "ref": "r5f8",
+              "label": "Account search",
+              "type": "combobox",
+              "required": false,
+              "key": "account_search",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f9",
+              "label": "Table filter",
+              "type": "text",
+              "required": false,
+              "key": "table-filter",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f10",
+              "label": "Item 1 quantity",
+              "type": "number",
+              "required": false,
+              "key": "line_1_quantity",
+              "form": "demo-form",
+              "optionCount": 0,
+              "constraints": {
+                "min": "1"
+              }
+            },
+            {
+              "ref": "r5f11",
+              "label": "Select Item 1",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_1_selected",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f12",
+              "label": "Item 2 quantity",
+              "type": "number",
+              "required": false,
+              "key": "line_2_quantity",
+              "form": "demo-form",
+              "optionCount": 0,
+              "constraints": {
+                "min": "1"
+              }
+            },
+            {
+              "ref": "r5f13",
+              "label": "Select Item 2",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_2_selected",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r5f14",
+              "label": "Item 3 quantity",
+              "type": "number",
+              "required": false,
+              "key": "line_3_quantity",
+              "form": "demo-form",
+              "optionCount": 0,
+              "constraints": {
+                "min": "1"
+              }
+            },
+            {
+              "ref": "r5f15",
+              "label": "Select Item 3",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_3_selected",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region",
+                "delivery_preference",
+                "interests",
+                "delivery_date",
+                "suggested_city",
+                "lookup-mode",
+                "account_search",
+                "table-filter",
+                "line_1_quantity",
+                "line_1_selected",
+                "line_2_quantity",
+                "line_2_selected",
+                "line_3_quantity",
+                "line_3_selected"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r5n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r5n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r5n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r5n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nDelivery preference\nHome delivery\nStore pickup\nInterests\nDelivery date\nSuggested city\nLookup scenario\nAccount search\nContact\nTable filter\nSort rows\nAdd line\nSynthetic line items\nItem\nQuantity\nSelected\nItem 1\nItem 2\nItem 3\nNext rows\nEdit delivery instructions\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r5t5"
+              },
+              {
+                "role": "tbody",
+                "itemCount": 3,
+                "labels": [
+                  "Item 1",
+                  "Item 2",
+                  "Item 3"
+                ],
+                "labelsTruncated": false,
+                "truncated": false
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": ""
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "legend",
+                "label": "Delivery preference",
+                "region": "Delivery preference"
+              },
+              {
+                "role": "label",
+                "label": "Home delivery",
+                "region": "Delivery preference"
+              },
+              {
+                "role": "input",
+                "label": "Home delivery",
+                "region": "Delivery preference",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Store pickup",
+                "region": "Delivery preference"
+              },
+              {
+                "role": "input",
+                "label": "Store pickup",
+                "region": "Delivery preference",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Interests",
+                "region": "Customer draft"
+              },
+              {
+                "role": "select",
+                "label": "Interests",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Delivery date",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Delivery date",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Suggested city",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Suggested city",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Lookup scenario",
+                "region": "Customer draft"
+              },
+              {
+                "role": "select",
+                "label": "Lookup scenario",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Account search",
+                "region": "Customer draft"
+              },
+              {
+                "role": "combobox",
+                "label": "Account search",
+                "region": "Customer draft",
+                "disabled": false,
+                "expanded": false
+              },
+              {
+                "role": "label",
+                "label": "Contact",
+                "region": "Customer draft"
+              },
+              {
+                "role": "select",
+                "label": "Contact",
+                "region": "Customer draft",
+                "disabled": true
+              },
+              {
+                "role": "label",
+                "label": "Table filter",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Table filter",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Sort rows",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add line",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "caption",
+                "label": "Synthetic line items",
+                "region": "Synthetic line items"
+              },
+              {
+                "role": "button",
+                "label": "Next rows",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Edit delivery instructions",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main"
+              },
+              {
+                "role": "input",
+                "label": "Item 1 quantity",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Select Item 1",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Item 2 quantity",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Select Item 2",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Item 3 quantity",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Select Item 3",
+                "region": "Synthetic line items",
+                "disabled": false
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [
+              "r5f0",
+              "r5f1",
+              "r5f2"
+            ],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r5t0",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r5t1",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r5t2",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r5t3",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r5t4",
+              "label": "Delivery preference",
+              "kind": "content",
+              "role": "legend",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Delivery preference"
+            },
+            {
+              "ref": "r5t5",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r5t6",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r5t7",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r5t8",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r5t9",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r5t10",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r5t11",
+              "label": "Sort rows",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Sort rows"
+            },
+            {
+              "ref": "r5t12",
+              "label": "Add line",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add line"
+            },
+            {
+              "ref": "r5t13",
+              "label": "Next rows",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Next rows"
+            },
+            {
+              "ref": "r5t14",
+              "label": "Synthetic line items",
+              "kind": "content",
+              "role": "caption",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Synthetic line items"
+            },
+            {
+              "ref": "r5t15",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r5t16",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r5t17",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r5t18",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r5t19",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r5t20",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 17,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r5s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 11,
+          "lastOutcome": {
+            "path": "/customer",
+            "actionTypes": [
+              "fill",
+              "fill",
+              "fill"
+            ],
+            "outcome": "local_state_verified",
+            "applied": 3,
+            "lookupOnly": false
+          }
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "latencyMs": 23745
+    },
+    {
+      "text": "In Account search, type orc, then select Orchid Trading from the results. Do not save.",
+      "status": 503,
+      "data": {
+        "error": "Copilot service temporarily unavailable",
+        "code": "COPILOT_REVIEW_FAILED"
+      },
+      "input": {
+        "text": "In Account search, type orc, then select Orchid Trading from the results. Do not save.",
+        "snapshot": {
+          "revision": 6,
+          "fields": [
+            {
+              "ref": "r6f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f3",
+              "label": "Delivery preference",
+              "type": "radio",
+              "required": false,
+              "key": "delivery_preference",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f4",
+              "label": "Interests",
+              "type": "select-multiple",
+              "required": false,
+              "key": "interests",
+              "form": "demo-form",
+              "optionCount": 3
+            },
+            {
+              "ref": "r6f5",
+              "label": "Delivery date",
+              "type": "date",
+              "required": false,
+              "key": "delivery_date",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f6",
+              "label": "Suggested city",
+              "type": "text",
+              "required": false,
+              "key": "suggested_city",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f7",
+              "label": "Lookup scenario",
+              "type": "select-one",
+              "required": false,
+              "key": "lookup-mode",
+              "form": "demo-form",
+              "optionCount": 4
+            },
+            {
+              "ref": "r6f8",
+              "label": "Account search",
+              "type": "combobox",
+              "required": false,
+              "key": "account_search",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f9",
+              "label": "Table filter",
+              "type": "text",
+              "required": false,
+              "key": "table-filter",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f10",
+              "label": "Item 1 quantity",
+              "type": "number",
+              "required": false,
+              "key": "line_1_quantity",
+              "form": "demo-form",
+              "optionCount": 0,
+              "constraints": {
+                "min": "1"
+              }
+            },
+            {
+              "ref": "r6f11",
+              "label": "Select Item 1",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_1_selected",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f12",
+              "label": "Item 2 quantity",
+              "type": "number",
+              "required": false,
+              "key": "line_2_quantity",
+              "form": "demo-form",
+              "optionCount": 0,
+              "constraints": {
+                "min": "1"
+              }
+            },
+            {
+              "ref": "r6f13",
+              "label": "Select Item 2",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_2_selected",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r6f14",
+              "label": "Item 3 quantity",
+              "type": "number",
+              "required": false,
+              "key": "line_3_quantity",
+              "form": "demo-form",
+              "optionCount": 0,
+              "constraints": {
+                "min": "1"
+              }
+            },
+            {
+              "ref": "r6f15",
+              "label": "Select Item 3",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_3_selected",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region",
+                "delivery_preference",
+                "interests",
+                "delivery_date",
+                "suggested_city",
+                "lookup-mode",
+                "account_search",
+                "table-filter",
+                "line_1_quantity",
+                "line_1_selected",
+                "line_2_quantity",
+                "line_2_selected",
+                "line_3_quantity",
+                "line_3_selected"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r6n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r6n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r6n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r6n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nDelivery preference\nHome delivery\nStore pickup\nInterests\nDelivery date\nSuggested city\nLookup scenario\nAccount search\nContact\nTable filter\nSort rows\nAdd line\nSynthetic line items\nItem\nQuantity\nSelected\nItem 1\nItem 2\nItem 3\nNext rows\nEdit delivery instructions\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r6t5"
+              },
+              {
+                "role": "tbody",
+                "itemCount": 3,
+                "labels": [
+                  "Item 1",
+                  "Item 2",
+                  "Item 3"
+                ],
+                "labelsTruncated": false,
+                "truncated": false
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": ""
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "legend",
+                "label": "Delivery preference",
+                "region": "Delivery preference"
+              },
+              {
+                "role": "label",
+                "label": "Home delivery",
+                "region": "Delivery preference"
+              },
+              {
+                "role": "input",
+                "label": "Home delivery",
+                "region": "Delivery preference",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Store pickup",
+                "region": "Delivery preference"
+              },
+              {
+                "role": "input",
+                "label": "Store pickup",
+                "region": "Delivery preference",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Interests",
+                "region": "Customer draft"
+              },
+              {
+                "role": "select",
+                "label": "Interests",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Delivery date",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Delivery date",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Suggested city",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Suggested city",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Lookup scenario",
+                "region": "Customer draft"
+              },
+              {
+                "role": "select",
+                "label": "Lookup scenario",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "label",
+                "label": "Account search",
+                "region": "Customer draft"
+              },
+              {
+                "role": "combobox",
+                "label": "Account search",
+                "region": "Customer draft",
+                "disabled": false,
+                "expanded": false
+              },
+              {
+                "role": "label",
+                "label": "Contact",
+                "region": "Customer draft"
+              },
+              {
+                "role": "select",
+                "label": "Contact",
+                "region": "Customer draft",
+                "disabled": true
+              },
+              {
+                "role": "label",
+                "label": "Table filter",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Table filter",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Sort rows",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add line",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "caption",
+                "label": "Synthetic line items",
+                "region": "Synthetic line items"
+              },
+              {
+                "role": "button",
+                "label": "Next rows",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Edit delivery instructions",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main"
+              },
+              {
+                "role": "input",
+                "label": "Item 1 quantity",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Select Item 1",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Item 2 quantity",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Select Item 2",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Item 3 quantity",
+                "region": "Synthetic line items",
+                "disabled": false
+              },
+              {
+                "role": "input",
+                "label": "Select Item 3",
+                "region": "Synthetic line items",
+                "disabled": false
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [
+              "r6f0",
+              "r6f1",
+              "r6f2"
+            ],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r6t0",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r6t1",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r6t2",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r6t3",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r6t4",
+              "label": "Delivery preference",
+              "kind": "content",
+              "role": "legend",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Delivery preference"
+            },
+            {
+              "ref": "r6t5",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r6t6",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r6t7",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r6t8",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r6t9",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r6t10",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r6t11",
+              "label": "Sort rows",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Sort rows"
+            },
+            {
+              "ref": "r6t12",
+              "label": "Add line",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add line"
+            },
+            {
+              "ref": "r6t13",
+              "label": "Next rows",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Next rows"
+            },
+            {
+              "ref": "r6t14",
+              "label": "Synthetic line items",
+              "kind": "content",
+              "role": "caption",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Synthetic line items"
+            },
+            {
+              "ref": "r6t15",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r6t16",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r6t17",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r6t18",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r6t19",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r6t20",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 17,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r6s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 11,
+          "lastOutcome": {
+            "path": "/customer",
+            "actionTypes": [
+              "fill",
+              "fill",
+              "fill"
+            ],
+            "outcome": "local_state_verified",
+            "applied": 3,
+            "lookupOnly": false
+          }
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "latencyMs": 3661
+    }
+  ],
+  "hostWrites": 0
+}

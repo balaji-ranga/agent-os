@@ -1,0 +1,682 @@
+{
+  "at": "2026-10-24T05:46:31.626Z",
+  "release": "20261024-guidance-followup-k",
+  "suites": {
+    "serviceRegression": {
+      "passed": 469,
+      "failed": 0,
+      "platforms": [
+        "Windows",
+        "Linux"
+      ]
+    },
+    "realModel": {
+      "results": [
+        {
+          "id": "independent-count-then-contextual-pointer",
+          "passed": true,
+          "count": "There are a total of 107 registered assets as indicated by the statement '107 registered assets · page 1' on the Equipment register page.",
+          "pointer": {
+            "intent": "guide",
+            "message": "The total number of registered assets is indicated in the Equipment register section with the statement '107 registered assets · page 1'.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1t0"
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 0,
+            "contractRepairs": 0,
+            "checkerRevisions": 0,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 2451,
+              "promptTokens": 3659,
+              "outputTokens": 313
+            }
+          },
+          "latencyMs": 7917
+        },
+        {
+          "id": "public-count-then-contextual-pointer",
+          "passed": true,
+          "count": "The total number of approved listings currently displayed on the page is 1535. This count represents the total number of entries available in the MCP Universe, but the page you are viewing shows a subset of these listings, specifically 24 items at a time.",
+          "pointer": {
+            "intent": "guide",
+            "message": "The total number of approved listings is displayed in the text: **1535 approved listings · page 1**. This indicates that there are 1535 approved listings in total, while the current page shows a subset of 24 items.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1t1"
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 0,
+            "contractRepairs": 0,
+            "checkerRevisions": 0,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 1874,
+              "promptTokens": 6292,
+              "outputTokens": 244
+            }
+          },
+          "latencyMs": 6862
+        },
+        {
+          "id": "public-loaded-count-then-collection-pointer",
+          "passed": true,
+          "count": "The current page has loaded a collection of 24 items. This count refers specifically to the items displayed on this page, not the total number of items available in the entire dataset, which is indicated as 1535 approved listings.",
+          "pointer": {
+            "intent": "guide",
+            "message": "The current page title is **MCP Universe · Flolah**. In the **MCP Universe** region, there is a collection that has loaded **24 items**. This count refers specifically to the items displayed on this page. The total number of approved listings across the entire dataset is **1535**, but this does not reflect the number of items visible now on this page.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1t3"
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 1,
+            "contractRepairs": 0,
+            "checkerRevisions": 1,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 2666,
+              "promptTokens": 6316,
+              "outputTokens": 370
+            }
+          },
+          "latencyMs": 14552
+        },
+        {
+          "id": "independent-operation-with-missing-parameter",
+          "passed": true,
+          "answer": {
+            "intent": "guide",
+            "message": "To find equipment, you can use the 'Find equipment' input field located in the 'Equipment register' section. You can also specify a 'Service category' using the dropdown menu if needed. Once you've entered your search criteria, click the 'Find' button to initiate the search.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1f0"
+              },
+              {
+                "type": "highlight",
+                "ref": "r1f1"
+              },
+              {
+                "type": "highlight",
+                "ref": "r1t22"
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 0,
+            "contractRepairs": 0,
+            "checkerRevisions": 0,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 3319,
+              "promptTokens": 4402,
+              "outputTokens": 395
+            }
+          },
+          "latencyMs": 5843
+        },
+        {
+          "id": "public-operation-with-missing-parameter",
+          "passed": true,
+          "answer": {
+            "intent": "guide",
+            "message": "To search for MCPs, you can enter your search terms in the text field labeled 'Search MCPs, publishers, capabilities…'. After entering your search, click the 'Search' button to initiate the search.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1f0"
+              },
+              {
+                "type": "highlight",
+                "ref": "r1t0"
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 0,
+            "contractRepairs": 0,
+            "checkerRevisions": 0,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 1736,
+              "promptTokens": 6252,
+              "outputTokens": 190
+            }
+          },
+          "latencyMs": 3377
+        },
+        {
+          "id": "explicit-preparation-asks-for-missing-search-value",
+          "passed": true,
+          "answer": {
+            "intent": "clarify",
+            "message": "To prepare your equipment search, I need to know what you would like to search for. Please provide a value for the 'Find equipment' field.",
+            "actions": []
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 0,
+            "contractRepairs": 0,
+            "checkerRevisions": 0,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 3536,
+              "promptTokens": 4351,
+              "outputTokens": 462
+            }
+          },
+          "latencyMs": 4685
+        },
+        {
+          "id": "reply-context-binds-to-earlier-answer-rather-than-intervening-question",
+          "passed": true,
+          "answer": {
+            "intent": "guide",
+            "message": "The total number of registered assets is displayed as '107 registered assets · page 1'.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1t0"
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 1,
+            "contractRepairs": 0,
+            "checkerRevisions": 1,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 3229,
+              "promptTokens": 3708,
+              "outputTokens": 471
+            }
+          },
+          "latencyMs": 15302
+        },
+        {
+          "id": "real-checker-repairs-wrong-neighbor-target-and-maker-is-rechecked",
+          "passed": true,
+          "answer": {
+            "intent": "guide",
+            "message": "The total registered asset count is 107, as indicated by the text target labeled '107 registered assets · page 1'.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1t0"
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 1,
+            "contractRepairs": 0,
+            "checkerRevisions": 1,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 2753,
+              "promptTokens": 3730,
+              "outputTokens": 326
+            }
+          },
+          "trace": [
+            {
+              "role": "checker",
+              "latencyMs": 4213,
+              "response": {
+                "decision": "revise",
+                "feedback": "Revise: the total registered asset count is shown by the text target r1t0 (“107 registered assets · page 1”), not the Inspect button r1t4. Highlight r1t0 and keep the explanation specific to that displayed total, distinguishing it from the 10 loaded items in the collection.",
+                "checks": {
+                  "taskMatch": "fail",
+                  "grounding": "fail",
+                  "safety": "pass"
+                }
+              },
+              "receivedFeedback": false
+            },
+            {
+              "role": "maker",
+              "latencyMs": 1583,
+              "response": {
+                "intent": "guide",
+                "message": "The total registered asset count is 107, as indicated by the text target labeled '107 registered assets · page 1'.",
+                "actions": [
+                  {
+                    "type": "highlight",
+                    "ref": "r1t0"
+                  }
+                ]
+              },
+              "receivedFeedback": true
+            },
+            {
+              "role": "checker",
+              "latencyMs": 2753,
+              "response": {
+                "decision": "accept",
+                "feedback": "Highlights the observed text showing the 107 registered assets total, matching the follow-up request to show where that number appears.",
+                "checks": {
+                  "taskMatch": "pass",
+                  "grounding": "pass",
+                  "safety": "pass"
+                }
+              },
+              "receivedFeedback": false
+            }
+          ],
+          "latencyMs": 8553
+        },
+        {
+          "id": "real-maker-removes-unsolicited-unobserved-choice-on-contract-repair",
+          "passed": true,
+          "answer": {
+            "intent": "clarify",
+            "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. Currently, there are 2 service categories available for selection. What equipment are you looking for, and which service category would you like to choose?",
+            "actions": []
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 3,
+            "contractRepairs": 2,
+            "checkerRevisions": 1,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 5331,
+              "promptTokens": 4473,
+              "outputTokens": 693
+            }
+          },
+          "trace": [
+            {
+              "role": "maker",
+              "latencyMs": 1355,
+              "response": {
+                "intent": "clarify",
+                "message": "To find equipment, please specify a service category as the current options are not available. What service category would you like to select?",
+                "actions": []
+              },
+              "receivedFeedback": true
+            },
+            {
+              "role": "checker",
+              "latencyMs": 3498,
+              "response": {
+                "decision": "revise",
+                "feedback": "Service category is an enabled select with 2 available options, so do not say the options are unavailable. Ask which equipment to find and/or present the observed service-category choices instead.",
+                "checks": {
+                  "taskMatch": "pass",
+                  "grounding": "fail",
+                  "safety": "pass"
+                }
+              },
+              "receivedFeedback": false
+            },
+            {
+              "role": "maker",
+              "latencyMs": 1699,
+              "response": {
+                "intent": "clarify",
+                "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. What equipment are you looking for, and which service category would you like to choose?",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "ref": "r1f1",
+                    "value": "[Your selected service category]"
+                  }
+                ]
+              },
+              "receivedFeedback": true
+            },
+            {
+              "role": "maker",
+              "latencyMs": 1571,
+              "response": {
+                "intent": "clarify",
+                "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. Currently, there are 2 service categories available for selection. What equipment are you looking for, and which service category would you like to choose?",
+                "actions": []
+              },
+              "receivedFeedback": true
+            },
+            {
+              "role": "checker",
+              "latencyMs": 5331,
+              "response": {
+                "decision": "accept",
+                "feedback": "Clarification is appropriate because the equipment search term is missing. It correctly notes the observed two service-category options without inventing labels and proposes no actions or Save.",
+                "checks": {
+                  "taskMatch": "pass",
+                  "grounding": "pass",
+                  "safety": "pass"
+                }
+              },
+              "receivedFeedback": false
+            }
+          ],
+          "latencyMs": 13460
+        },
+        {
+          "id": "dynamic-lookup-proposal",
+          "passed": true,
+          "answer": {
+            "intent": "edit",
+            "message": "In the Account search field, I will prepare to fill in the value 'orc' and select 'Orchid Trading' from the results. This will be a review proposal for you to confirm before proceeding.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r6f8",
+                "value": "orc",
+                "select": false
+              }
+            ]
+          },
+          "quality": {
+            "enabled": true,
+            "decision": "accept",
+            "revisions": 0,
+            "contractRepairs": 0,
+            "checkerRevisions": 0,
+            "makerSlot": "secondary",
+            "checkerSlot": "primary",
+            "checker": {
+              "model": "deepseek-v4-flash",
+              "latencyMs": 2893,
+              "promptTokens": 5310,
+              "outputTokens": 375
+            }
+          },
+          "latencyMs": 5951
+        }
+      ],
+      "baselineRelease": "20261024-guidance-followup-j",
+      "baselineContextFilesUnchanged": true,
+      "passed": 10,
+      "failed": 0
+    },
+    "domAndPerformance": {
+      "results": [
+        {
+          "id": "independent-context-only-followup-has-exact-text-target",
+          "passed": true,
+          "elapsedMs": 11.400000005960464,
+          "bytes": 4201,
+          "target": "107 registered assets · page 1"
+        },
+        {
+          "id": "region-is-not-mislabeled-as-first-repeated-item",
+          "passed": true
+        },
+        {
+          "id": "loaded-collection-pointer-and-stale-membership",
+          "passed": true,
+          "itemCount": 10,
+          "staleRejected": true
+        },
+        {
+          "id": "changed-text-pointer-is-rejected",
+          "passed": true,
+          "staleRejected": true
+        },
+        {
+          "id": "public-context-only-followup-has-exact-text-target",
+          "passed": true,
+          "elapsedMs": 19.099999994039536,
+          "bytes": 10046,
+          "target": "1535 approved listings · page 1"
+        },
+        {
+          "id": "repeated-observation-retains-bounded-memory-and-no-network",
+          "passed": true,
+          "maxMs": 7.799999982118607,
+          "meanMs": 3.401000001132488,
+          "maxBytes": 10076,
+          "markers": 0,
+          "retainedBytes": 259252,
+          "observationRequests": 0,
+          "iterations": 100
+        }
+      ],
+      "passed": 6,
+      "failed": 0
+    },
+    "publicVisitor": {
+      "results": [
+        {
+          "id": "live-total-answer",
+          "passed": true,
+          "message": "The total approved listings currently displayed on the page is **1535**. This number indicates the total count of approved listings available in the MCP Universe.",
+          "latencyMs": 15200,
+          "screenshot": "live-total-answer.png"
+        },
+        {
+          "id": "live-count-followup-points-to-statistic",
+          "passed": true,
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r2t1",
+              "label": "1535 approved listings · page 1"
+            }
+          ],
+          "latencyMs": 3560,
+          "screenshot": "live-count-followup-points-to-statistic.png"
+        },
+        {
+          "id": "live-loaded-count-answer",
+          "passed": true,
+          "message": "Currently, **24 items** are loaded on this page. This count refers to the number of items displayed in the MCP Universe section, as indicated by the loaded collection information.",
+          "screenshot": "live-loaded-count-answer.png"
+        },
+        {
+          "id": "live-loaded-followup-points-to-group",
+          "passed": true,
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r4t3",
+              "label": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag"
+            }
+          ],
+          "latencyMs": 8053,
+          "screenshot": "live-loaded-followup-points-to-group.png"
+        },
+        {
+          "id": "live-missing-search-term-asks-without-changing-filters",
+          "passed": true,
+          "message": "To search for MCPs, you can enter your search terms in the input field labeled \"Search MCPs, publishers, capabilities…\" and then click the \"Search\" button. This will allow you to find relevant listings from the MCP Universe.\nI can highlight 2 targets for you. No values will be changed.",
+          "latencyMs": 16199,
+          "screenshot": "live-missing-search-term-asks-without-changing-filters.png"
+        },
+        {
+          "id": "live-search-field-pointer",
+          "passed": true,
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r6f0",
+              "label": "Search MCPs, publishers, capabilities…"
+            }
+          ],
+          "screenshot": "live-search-field-pointer.png"
+        },
+        {
+          "id": "live-explicit-reply-restores-earlier-subject",
+          "passed": true,
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r7t1",
+              "label": "1535 approved listings · page 1"
+            }
+          ],
+          "latencyMs": 9710,
+          "screenshot": "live-explicit-reply-restores-earlier-subject.png"
+        },
+        {
+          "id": "live-knowledge-answer-after-guidance",
+          "passed": true,
+          "message": "There are 24 items currently loaded on the page.",
+          "latencyMs": 3272,
+          "screenshot": "live-knowledge-answer-after-guidance.png"
+        },
+        {
+          "id": "live-explicit-search-preparation-asks-for-value",
+          "passed": true,
+          "message": "Please provide the search term you would like to use for searching MCPs. The current filter will be preserved during this process.",
+          "latencyMs": 4030,
+          "screenshot": "live-explicit-search-preparation-asks-for-value.png"
+        }
+      ],
+      "passed": 9,
+      "failed": 0
+    },
+    "localVisitor": {
+      "results": [
+        {
+          "id": "local-synthetic-draft-review-and-fill",
+          "passed": true,
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r1f0",
+              "label": "Company name",
+              "value": "Demo Company"
+            },
+            {
+              "type": "fill",
+              "ref": "r1f1",
+              "label": "Contact email",
+              "value": "uat.regression@example.test"
+            },
+            {
+              "type": "fill",
+              "ref": "r1f2",
+              "label": "Region",
+              "value": "Test Region"
+            }
+          ],
+          "saved": false,
+          "screenshot": "local-synthetic-draft-review-and-fill.png"
+        },
+        {
+          "id": "local-contextual-last-changes-pointer",
+          "passed": true,
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r3f0",
+              "label": "Company name"
+            },
+            {
+              "type": "highlight",
+              "ref": "r3f1",
+              "label": "Contact email"
+            },
+            {
+              "type": "highlight",
+              "ref": "r3f2",
+              "label": "Region"
+            }
+          ],
+          "screenshot": "local-contextual-last-changes-pointer.png"
+        },
+        {
+          "id": "local-new-target-does-not-replay-old-fields",
+          "passed": true,
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r4n1",
+              "label": "Opportunity"
+            }
+          ],
+          "screenshot": "local-new-target-does-not-replay-old-fields.png"
+        },
+        {
+          "id": "local-page-knowledge-after-editing",
+          "passed": true,
+          "message": "The current form contains the following input fields, all of which are required:\n1. **Company name** - Type: text, Required: true.\n2. **Contact email** - Type: email, Required: true.\n3. **Region** - Type: text, Required: true.",
+          "screenshot": "local-page-knowledge-after-editing.png"
+        },
+        {
+          "id": "local-radio-typo-and-checkbox-intent",
+          "passed": true,
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f3",
+              "label": "Delivery preference",
+              "value": "Store pickup"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f11",
+              "label": "Select Item 1",
+              "value": "true",
+              "displayValue": "Selected"
+            }
+          ],
+          "screenshot": "local-radio-typo-and-checkbox-intent.png"
+        },
+        {
+          "id": "local-search-picklist-review-and-host-selection",
+          "passed": true,
+          "query": "orc",
+          "selected": "Orchid Trading",
+          "hostSelectionVerified": true,
+          "saved": false,
+          "screenshot": "local-search-picklist-review-and-host-selection.png"
+        }
+      ],
+      "passed": 6,
+      "failed": 0
+    }
+  },
+  "publicSubmissions": 0,
+  "localSaves": 0,
+  "firstRunFailuresRetained": true,
+  "note": "Latest final result per case after transparent targeted retests; historical first-run reports and screenshots remain. Hardware/browser cases previously deferred by the user are outside this scoped regression."
+}

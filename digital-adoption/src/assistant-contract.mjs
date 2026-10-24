@@ -34,7 +34,8 @@ export function parseAssistantResponse(content,snapshot,{goalStep=false}={}){
  for(const action of result.actions){
   if(!action||Array.isArray(action)||!['fill','highlight','navigate'].includes(action.type))throw new Error('unsupported_action');
   const keys=action.type==='fill'?['type','ref','value','query','select']:['type','ref'];
-  if(Object.keys(action).some(k=>!keys.includes(k))||used.has(action.ref))throw new Error('invalid_action_shape');used.add(action.ref);
+  const unexpected=Object.keys(action).filter(k=>!keys.includes(k));
+  if(unexpected.length||used.has(action.ref))throw Object.assign(new Error('invalid_action_shape'),{contractIssues:[{ref:typeof action.ref==='string'?action.ref.slice(0,40):null,issue:used.has(action.ref)?'duplicate_action_ref':'unexpected_action_keys',keys:unexpected.slice(0,10).map(key=>key.slice(0,80))}]});used.add(action.ref);
   if(action.type==='navigate'){
    if(result.actions.length!==1||!snapshot.links.some(l=>l.ref===action.ref))throw new Error('unobserved_navigation');
   }else{

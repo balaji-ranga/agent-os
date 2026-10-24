@@ -6,6 +6,7 @@ import {createKnowledgeAnswer} from '../src/knowledge-answer.mjs';
 import {deterministicReview} from '../integrations/checker-contract.mjs';
 import {createPlatformPlanner} from '../src/platform-model.mjs';
 import {reviewContext} from '../integrations/checker-contract.mjs';
+import {encodePlannerRequest} from '../src/planner-budget.mjs';
 const snapshot={revision:4,path:'/assets',screen:'Equipment register',fields:[{ref:'r4f0',label:'Serial reference',type:'text',value:'PRIVATE_VALUE'}],links:[],pageContext:{text:'107 registered assets · page 1',title:'Equipment register',headings:[],headingCount:0,truncated:false,structure:[{role:'output',label:'107 registered assets · page 1',region:'Equipment register'},{role:'input',label:'Serial reference',region:'Warranty claim',description:'Use the reference printed on the purchase certificate.',required:true,disabled:false}],structureTruncated:false,collections:[{role:'tbody',itemCount:10,labels:['Asset A','Asset B'],labelsTruncated:true,truncated:false}]}};
 test('semantic structure survives validation while raw properties and current field values do not',()=>{
  const validated=validateSnapshot(snapshot),source=pageObservationEvidence(validated)[0];
@@ -39,4 +40,22 @@ test('regular planner and checker receive the same readable semantics, not only 
   return new Response(JSON.stringify({content:JSON.stringify({intent:'explain',message:'Ten rows are loaded.',actions:[]})}));
  }});
  const out=await planner({text:'Explain the loaded equipment table.',snapshot});assert.match(out.message,/Ten rows/);assert.ok(context.observed.pageContext.structure.length);
+});
+
+test('collection pointers must bind to a fresh observed read-only target and survive readable evidence',()=>{
+ const source={...snapshot,targets:[{ref:'r4t0',kind:'content',role:'tbody',label:'Loaded equipment',text:'10 loaded rows'}],pageContext:{...snapshot.pageContext,collections:snapshot.pageContext.collections.map(c=>({...c,targetRef:'r4t0'}))}};
+ const observed=validateSnapshot(source);assert.equal(observed.pageContext.collections[0].targetRef,'r4t0');assert.match(pageObservationEvidence(observed)[0].text,/read-only target ref: r4t0/);
+ for(const targetRef of ['r3t0','r4f0','r4t99'])assert.throws(()=>validateSnapshot({...source,pageContext:{...source.pageContext,collections:[{...source.pageContext.collections[0],targetRef}]}}));
+});
+
+test('request budget trims duplicate page excerpts before the follow-up referent or explicit reply',()=>{
+ const turns=[{role:'user',content:'How many assets exist?'},{role:'assistant',content:'107 registered assets.'},{role:'user',content:JSON.stringify({replyingTo:'107 registered assets.'})}],context={task:'Show me where',conversationContext:turns,observed:snapshot,pageEvidence:[{text:'Public page prose. '.repeat(600)}]};
+ const body={messages:[{role:'system',content:'Policy'},{role:'user',content:JSON.stringify(context)}]},encoded=encodePlannerRequest(body,{maxBytes:3000}),actual=JSON.parse(JSON.parse(encoded).messages.at(-1).content);
+ assert.ok(Buffer.byteLength(encoded)<=3000);assert.deepEqual(actual.conversationContext,turns);assert.equal(actual.pageEvidence[0].truncated,true);assert.equal(actual.task,'Show me where');assert.equal(actual.observed.fields[0].ref,'r4f0');
+});
+
+test('long older history cannot consume the allowance for the most recent answer or quoted reply',async()=>{
+ let sent;const planner=createPlatformPlanner({gatewayUrl:'https://model.invalid/complete',serviceToken:'x'.repeat(32),fetchImpl:async(_,options)=>{sent=JSON.parse(JSON.parse(options.body).messages.at(-1).content);return new Response(JSON.stringify({content:JSON.stringify({intent:'clarify',message:'Which part should I show?',actions:[]})}));}});
+ await planner({text:'Show me where',snapshot,history:[{role:'assistant',text:'Old prose '.repeat(1000)},{role:'user',text:'How many assets?'},{role:'assistant',text:'107 registered assets.'}],replyContext:'107 registered assets.'});
+ assert.ok(sent.conversationContext.some(t=>t.content==='107 registered assets.'));assert.ok(sent.conversationContext.some(t=>t.content.includes('replyingTo')));
 });

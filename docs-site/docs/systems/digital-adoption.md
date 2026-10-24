@@ -6,6 +6,8 @@ title: Digital Adoption website copilots
 
 Digital Adoption embeds a copilot on a registered website. It can guide visitors through supported visible controls, use private transaction files, and receive governed [workflow connector instructions](./copilot-workflows.md). It works with website-specific knowledge and live context; it is separate from [Flolah Platform Help](../run/platform-help-copilot.md).
 
+Page questions use bounded fresh semantic DOM evidence and private conversation context. A follow-up can point to the text or loaded collection supporting the earlier answer, using a current read-only target rather than activating a nearby button. Recent turns and explicit replies take priority over duplicated page excerpts within the existing request budget. An operation missing a necessary value needs clarification; unrelated filters and private current values stay unchanged. Highlighting does not grant filling, navigation or Save permission.
+
 ## Owner workspace
 
 Open **Free Tools → Digital Adoption** and choose website owner sign-in. Owner email sign-in is separate from a Flolah account session. Existing Flolah accounts can also open account management; platform administrators have **Admin → Digital Adoption websites** for the platform-wide list.

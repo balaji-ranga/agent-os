@@ -15,7 +15,7 @@ function fixture({enabled=true,active='primary',verdicts=['accept'],values=['Exp
  const config={active,baseUrl:'https://maker.example/v1',model:'configured-maker',apiKey:'private-key',quality:{enabled},checker:missing?null:{slot:active==='primary'?'secondary':'primary',baseUrl:'https://checker.example/v1',model:'configured-checker',apiKey:'private-checker-key'}};
  const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>config,complete:async request=>{
    calls.push(request);
-   if(request.config.slot){const decision=verdicts[Math.min(judge++,verdicts.length-1)];return {content:typeof decision==='string'?JSON.stringify({decision,feedback:decision==='accept'?'Supported by observed choices.':'Use the requested supported choice or clarify.',checks:{taskMatch:decision==='accept'?'pass':'fail',grounding:'pass',safety:'pass'}}):JSON.stringify(decision)};}
+   if(request.config.slot){const decision=verdicts[Math.min(judge++,verdicts.length-1)];return {content:typeof decision==='string'?JSON.stringify({decision,feedback:decision==='accept'?'Supported by observed choices.':'Use the requested supported choice or clarify.',checks:{taskMatch:decision==='accept'?'pass':decision==='clarify'?'uncertain':'fail',grounding:'pass',safety:decision==='reject'?'fail':'pass'}}):JSON.stringify(decision)};}
    return {content:JSON.stringify(proposal(values[Math.min(maker++,values.length-1)]))};
  }});return {gateway,calls,config};
 }
@@ -33,7 +33,7 @@ test('repeated disagreement is bounded and produces no actions',async()=>{
  const f=fixture({verdicts:['revise']}),r=await call(f.gateway);assert.equal(f.calls.length,4);assert.equal(r.quality.decision,'clarify');assert.deepEqual(JSON.parse(r.content).actions,[]);
 });
 test('clarification and rejection do not authorize proposed changes',async()=>{
- for(const decision of ['clarify','reject']){const f=fixture({verdicts:[decision]}),r=await call(f.gateway);assert.equal(f.calls.length,2);assert.deepEqual(JSON.parse(r.content).actions,[]);assert.equal(r.quality.decision,decision);}
+ for(const decision of ['clarify','reject']){const f=fixture({verdicts:[decision]}),r=await call(f.gateway);assert.equal(f.calls.length,decision==='clarify'?4:2);assert.deepEqual(JSON.parse(r.content).actions,[]);assert.equal(r.quality.decision,decision);}
 });
 test('missing or invalid checker fails closed and never falls back to maker-only',async()=>{
  const missing=fixture({missing:true});await assert.rejects(()=>call(missing.gateway),e=>e.code==='COPILOT_CHECKER_UNAVAILABLE');assert.equal(missing.calls.length,0);
@@ -54,7 +54,7 @@ test('shortcut field and navigation proposals still pass global checker without 
 });
 test('checked clarification is terminal rather than retried into a local fallback',async()=>{
  const f=fixture({verdicts:['clarify']}),planner=createPlatformPlanner({gatewayUrl:'https://platform.example/complete',serviceToken,fetchImpl:async(_,{headers,body})=>({ok:true,json:async()=>f.gateway({authorization:headers.Authorization,body:JSON.parse(body)})})});
- assert.deepEqual((await planner({text:'Use the fastest offered delivery for Shipping method',snapshot})).actions,[]);assert.equal(f.calls.length,2);
+ assert.deepEqual((await planner({text:'Use the fastest offered delivery for Shipping method',snapshot})).actions,[]);assert.equal(f.calls.length,4);
 });
 test('global policy and inactive roles resolve fresh from persisted settings; local checker uses registry model',()=>{
  const db=new DatabaseSync(':memory:');try{db.exec('CREATE TABLE platform_settings(key TEXT PRIMARY KEY,value TEXT);CREATE TABLE model_deployments(id TEXT,enabled INTEGER,base_url TEXT,model TEXT)');
@@ -103,3 +103,46 @@ test('contradictory lookup mode is repaired once with precise feedback and never
 test('a mistaken action-kind intent gets one explicit schema repair before checker review',async()=>{let maker=0,checked=0;const config={active:'primary',quality:{enabled:true},checker:{slot:'secondary',baseUrl:'https://checker.example/v1',model:'checker',apiKey:'synthetic-private'}};const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>config,complete:async request=>{if(request.config.slot){checked++;return {content:JSON.stringify({decision:'accept',feedback:'Grounded field proposal.',checks:{taskMatch:'pass',grounding:'pass',safety:'pass'}})};}if(maker++===0)return {content:JSON.stringify({intent:'fill',...proposal('Express')})};const repair=JSON.parse(request.messages.at(-1).content);assert.match(repair.boundedCheckerFeedback,/Use edit \(not fill\)/);return {content:JSON.stringify({intent:'edit',...proposal('Express')})};}});const result=await call(gateway);assert.equal(JSON.parse(result.content).intent,'edit');assert.equal(maker,2);assert.equal(checked,1);assert.equal(result.quality.revisions,1);});
 
 test('reviewed goal-step stage stays authoritative over optional model intent metadata',async()=>{let invalid=false;const config={active:'primary',quality:{enabled:true},checker:{slot:'secondary',baseUrl:'https://checker.example/v1',model:'checker',apiKey:'synthetic-private'}};const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>config,complete:async request=>request.config.slot?{content:JSON.stringify({decision:'accept',feedback:'Matches the inspect step.',checks:{taskMatch:'pass',grounding:'pass',safety:'pass'}})}:{content:JSON.stringify({intent:'inspect',message:'Point to the observed field.',actions:invalid?[{type:'fill',ref:'r1f0',value:'Express'}]:[{type:'highlight',ref:'r1f0'}]})}});const input={...body,messages:[body.messages[0],{role:'user',content:JSON.stringify({task:'Point to the shipping field.',observed:snapshot,goalContext:{currentStep:{kind:'inspect'},allowedActionTypes:['highlight']}})}]};const accepted=await call(gateway,input);assert.equal(JSON.parse(accepted.content).actions[0].type,'highlight');invalid=true;const blocked=await call(gateway,input);assert.deepEqual(JSON.parse(blocked.content).actions,[]);assert.equal(blocked.quality.decision,'clarify');});
+
+test('missing-choice repair identifies the offending field and can remove an unsolicited fill',async()=>{
+ const observed={revision:1,path:'/assets',fields:[{ref:'r1f0',label:'Find equipment',type:'search'},{ref:'r1f1',label:'Service category',type:'select-one'}],links:[]};let maker=0,checker=0;
+ const f=fixture(),gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async request=>{
+  if(request.config.slot){checker++;return {content:JSON.stringify({decision:'accept',feedback:'Asks for the missing search term without changing filters.',checks:{taskMatch:'pass',grounding:'pass',safety:'pass'}})};}
+  if(maker++===0)return {content:JSON.stringify({intent:'edit',message:'Prepare equipment search.',actions:[{type:'fill',ref:'r1f1',value:'All categories'}]})};
+  const feedback=JSON.parse(request.messages.at(-1).content).boundedCheckerFeedback;assert.match(feedback,/Service category/);assert.match(feedback,/omit that fill/);
+  return {content:JSON.stringify({intent:'clarify',message:'What equipment would you like to find?',actions:[]})};
+ }});
+ const result=await call(gateway,{...body,messages:[{role:'user',content:JSON.stringify({task:'I would like to find equipment',observed})}]});assert.deepEqual(JSON.parse(result.content).actions,[]);assert.equal(maker,2);assert.equal(checker,1);assert.equal(result.quality.contractRepairs,1);
+});
+
+test('a checker correction that introduces a new schema error is repaired and rechecked, with a fixed bound',async()=>{
+ const drafts=[{intent:'edit',...proposal('Teleportation')},{intent:'clarify',message:'No choices are available.',actions:[]},{intent:'clarify',...proposal('Express')},{intent:'edit',...proposal('Express')}],f=fixture();let maker=0,checker=0;
+ const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async request=>{
+  if(!request.config.slot)return {content:JSON.stringify(drafts[Math.min(maker++,3)])};
+  const decision=checker++===0?'revise':'accept';return {content:JSON.stringify({decision,feedback:decision==='revise'?'Express is observed and matches the requested fastest choice. Prepare that field review.':'Matches observed choices and task.',checks:{taskMatch:decision==='revise'?'fail':'pass',grounding:'pass',safety:'pass'}})};
+ }});
+ const result=await call(gateway);assert.equal(result.quality.contractRepairs,2);assert.equal(result.quality.checkerRevisions,1);assert.equal(result.quality.decision,'accept');assert.equal(checker,2);assert.equal(maker,4);assert.deepEqual(JSON.parse(result.content),drafts[3]);
+});
+
+test('safe diagnosed mismatches get feedback correction even when mislabeled reject or clarify',async()=>{
+ for(const decision of ['reject','clarify']){
+  const verdict={decision,feedback:'Use the supplied supported Express choice.',checks:{taskMatch:'fail',grounding:'pass',safety:'pass'}},f=fixture({verdicts:[verdict,'accept'],values:['Standard','Express']}),result=await call(f.gateway);
+  assert.equal(result.quality.decision,'accept');assert.equal(result.quality.checkerRevisions,1);assert.equal(JSON.parse(result.content).actions[0].value,'Express');assert.equal(f.calls.length,4);
+ }
+ const f=fixture({verdicts:[{decision:'reject',feedback:'Unsafe request.',checks:{taskMatch:'fail',grounding:'fail',safety:'fail'}}]});assert.deepEqual(JSON.parse((await call(f.gateway)).content).actions,[]);assert.equal(f.calls.length,2);
+});
+
+test('a valid reviewed clarification preserves the user-facing question instead of judge commentary',async()=>{
+ const question={intent:'clarify',message:'What would you like to find?',actions:[]},f=fixture({verdicts:[{decision:'clarify',feedback:'A search term is missing; the proposed question is appropriate.',checks:{taskMatch:'pass',grounding:'pass',safety:'pass'}}]});
+ const result=await call(f.gateway,{...body,purpose:'digital_adoption_review',draft:question});assert.deepEqual(JSON.parse(result.content),question);assert.equal(result.quality.decision,'clarify');assert.equal(f.calls.length,1);
+});
+
+test('duplicate lookup actions receive exact ref diagnostics and repair to one combined operation',async()=>{
+ const observed={revision:1,path:'/lookup',fields:[{ref:'r1f0',label:'Account search',type:'combobox'}],links:[]},f=fixture();let makers=0;
+ const combined={intent:'edit',message:'Review query and selection.',actions:[{type:'fill',ref:'r1f0',query:'orc',value:'Orchid Trading'}]};
+ const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async request=>{
+  if(request.config.slot)return {content:JSON.stringify({decision:'accept',feedback:'One combined lookup matches the task.',checks:{taskMatch:'pass',grounding:'pass',safety:'pass'}})};
+  if(makers++===0)return {content:JSON.stringify({intent:'edit',message:'Review lookup.',actions:[{type:'fill',ref:'r1f0',value:'orc',select:false},...combined.actions]})};
+  const feedback=JSON.parse(request.messages.at(-1).content).boundedCheckerFeedback;assert.match(feedback,/duplicate_action_ref/);assert.match(feedback,/r1f0/);return {content:JSON.stringify(combined)};
+ }});const result=await call(gateway,{...body,messages:[{role:'user',content:JSON.stringify({task:'In Account search type orc then choose Orchid Trading.',observed})}]});assert.deepEqual(JSON.parse(result.content),combined);assert.equal(result.quality.contractRepairs,1);
+});

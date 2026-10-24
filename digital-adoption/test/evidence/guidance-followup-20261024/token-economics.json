@@ -1,0 +1,73 @@
+{
+  "scope": "Measured targeted real-model retests and incremental lookup test only; not an estimate of all development or production cost.",
+  "modelCalls": 10,
+  "inputTokens": 53913,
+  "outputTokens": 3115,
+  "calls": [
+    {
+      "role": "maker",
+      "inputTokens": 6652,
+      "outputTokens": 62,
+      "latencyMs": 1703
+    },
+    {
+      "role": "checker",
+      "inputTokens": 6435,
+      "outputTokens": 171,
+      "latencyMs": 1639
+    },
+    {
+      "role": "maker",
+      "inputTokens": 6596,
+      "outputTokens": 70,
+      "latencyMs": 1626
+    },
+    {
+      "role": "checker",
+      "inputTokens": 6292,
+      "outputTokens": 244,
+      "latencyMs": 1874
+    },
+    {
+      "role": "maker",
+      "inputTokens": 4145,
+      "outputTokens": 48,
+      "latencyMs": 1400
+    },
+    {
+      "role": "checker",
+      "inputTokens": 3716,
+      "outputTokens": 1562,
+      "latencyMs": 9285
+    },
+    {
+      "role": "maker",
+      "inputTokens": 4464,
+      "outputTokens": 41,
+      "latencyMs": 1382
+    },
+    {
+      "role": "checker",
+      "inputTokens": 3708,
+      "outputTokens": 471,
+      "latencyMs": 3229
+    },
+    {
+      "role": "maker",
+      "inputTokens": 6595,
+      "outputTokens": 71,
+      "latencyMs": 3030
+    },
+    {
+      "role": "checker",
+      "inputTokens": 5310,
+      "outputTokens": 375,
+      "latencyMs": 2893
+    }
+  ],
+  "requestByteCap": 30000,
+  "ordinaryFeedbackCorrections": 1,
+  "goalPlanFeedbackCorrections": 2,
+  "maxSchemaRepairs": 2,
+  "note": "A deterministic explicit-field draft can need only the checker. A model-generated draft normally needs maker plus checker. Corrections/rechecks are bounded. Bytes are not tokens; public pages can still approach the input cap. No claimed currency savings."
+}

@@ -1,0 +1,1607 @@
+{
+  "at": "2026-10-24T05:28:30.450Z",
+  "results": [
+    {
+      "id": "independent-count-then-contextual-pointer",
+      "passed": true,
+      "count": "There are a total of 107 registered assets as indicated by the statement '107 registered assets \u00b7 page 1' on the Equipment register page.",
+      "pointer": {
+        "intent": "guide",
+        "message": "The total number of registered assets is indicated in the Equipment register section with the statement '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2451,
+          "promptTokens": 3659,
+          "outputTokens": 313
+        }
+      },
+      "latencyMs": 7917
+    },
+    {
+      "id": "public-count-then-contextual-pointer",
+      "passed": true,
+      "count": "The total number of approved listings currently displayed on the page is 1535. This count represents the total number of entries available in the MCP Universe, but the page you are viewing shows a subset of these listings, specifically 24 items at a time.",
+      "pointer": {
+        "intent": "guide",
+        "message": "The total number of approved listings is displayed in the text: **1535 approved listings \u00b7 page 1**. This indicates that there are 1535 approved listings in total, while the current page shows a subset of 24 items.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t1"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1874,
+          "promptTokens": 6292,
+          "outputTokens": 244
+        }
+      },
+      "latencyMs": 6862
+    },
+    {
+      "id": "public-loaded-count-then-collection-pointer",
+      "passed": true,
+      "count": "The current page has loaded a collection of 24 items. This count refers specifically to the items displayed on this page, not the total number of items available in the entire dataset, which is indicated as 1535 approved listings.",
+      "pointer": {
+        "intent": "guide",
+        "message": "The current page title is **MCP Universe \u00b7 Flolah**. In the **MCP Universe** region, there is a collection that has loaded **24 items**. This count refers specifically to the items displayed on this page. The total number of approved listings across the entire dataset is **1535**, but this does not reflect the number of items visible now on this page.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t3"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2666,
+          "promptTokens": 6316,
+          "outputTokens": 370
+        }
+      },
+      "latencyMs": 14552
+    },
+    {
+      "id": "independent-operation-with-missing-parameter",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "To find equipment, you can use the 'Find equipment' input field located in the 'Equipment register' section. You can also specify a 'Service category' using the dropdown menu if needed. Once you've entered your search criteria, click the 'Find' button to initiate the search.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1f1"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t22"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3319,
+          "promptTokens": 4402,
+          "outputTokens": 395
+        }
+      },
+      "latencyMs": 5843
+    },
+    {
+      "id": "public-operation-with-missing-parameter",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "To search for MCPs, you can enter your search terms in the text field labeled 'Search MCPs, publishers, capabilities\u2026'. After entering your search, click the 'Search' button to initiate the search.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1736,
+          "promptTokens": 6252,
+          "outputTokens": 190
+        }
+      },
+      "latencyMs": 3377
+    },
+    {
+      "id": "explicit-preparation-asks-for-missing-search-value",
+      "passed": true,
+      "answer": {
+        "intent": "clarify",
+        "message": "To prepare your equipment search, I need to know what you would like to search for. Please provide a value for the 'Find equipment' field.",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3536,
+          "promptTokens": 4351,
+          "outputTokens": 462
+        }
+      },
+      "latencyMs": 4685
+    },
+    {
+      "id": "reply-context-binds-to-earlier-answer-rather-than-intervening-question",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "The total number of registered assets is displayed as '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3229,
+          "promptTokens": 3708,
+          "outputTokens": 471
+        }
+      },
+      "latencyMs": 15302
+    },
+    {
+      "id": "real-checker-repairs-wrong-neighbor-target-and-maker-is-rechecked",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "The total registered asset count is 107, as indicated by the text target labeled '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2753,
+          "promptTokens": 3730,
+          "outputTokens": 326
+        }
+      },
+      "trace": [
+        {
+          "role": "checker",
+          "latencyMs": 4213,
+          "response": {
+            "decision": "revise",
+            "feedback": "Revise: the total registered asset count is shown by the text target r1t0 (\u201c107 registered assets \u00b7 page 1\u201d), not the Inspect button r1t4. Highlight r1t0 and keep the explanation specific to that displayed total, distinguishing it from the 10 loaded items in the collection.",
+            "checks": {
+              "taskMatch": "fail",
+              "grounding": "fail",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        },
+        {
+          "role": "maker",
+          "latencyMs": 1583,
+          "response": {
+            "intent": "guide",
+            "message": "The total registered asset count is 107, as indicated by the text target labeled '107 registered assets \u00b7 page 1'.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1t0"
+              }
+            ]
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "checker",
+          "latencyMs": 2753,
+          "response": {
+            "decision": "accept",
+            "feedback": "Highlights the observed text showing the 107 registered assets total, matching the follow-up request to show where that number appears.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        }
+      ],
+      "latencyMs": 8553
+    },
+    {
+      "id": "real-maker-removes-unsolicited-unobserved-choice-on-contract-repair",
+      "passed": true,
+      "answer": {
+        "intent": "clarify",
+        "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. Currently, there are 2 service categories available for selection. What equipment are you looking for, and which service category would you like to choose?",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 3,
+        "contractRepairs": 2,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 5331,
+          "promptTokens": 4473,
+          "outputTokens": 693
+        }
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "latencyMs": 1355,
+          "response": {
+            "intent": "clarify",
+            "message": "To find equipment, please specify a service category as the current options are not available. What service category would you like to select?",
+            "actions": []
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "checker",
+          "latencyMs": 3498,
+          "response": {
+            "decision": "revise",
+            "feedback": "Service category is an enabled select with 2 available options, so do not say the options are unavailable. Ask which equipment to find and/or present the observed service-category choices instead.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "fail",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        },
+        {
+          "role": "maker",
+          "latencyMs": 1699,
+          "response": {
+            "intent": "clarify",
+            "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. What equipment are you looking for, and which service category would you like to choose?",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "[Your selected service category]"
+              }
+            ]
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "maker",
+          "latencyMs": 1571,
+          "response": {
+            "intent": "clarify",
+            "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. Currently, there are 2 service categories available for selection. What equipment are you looking for, and which service category would you like to choose?",
+            "actions": []
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "checker",
+          "latencyMs": 5331,
+          "response": {
+            "decision": "accept",
+            "feedback": "Clarification is appropriate because the equipment search term is missing. It correctly notes the observed two service-category options without inventing labels and proposes no actions or Save.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        }
+      ],
+      "latencyMs": 13460
+    },
+    {
+      "id": "dynamic-lookup-proposal",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "In the Account search field, I will prepare to fill in the value 'orc' and select 'Orchid Trading' from the results. This will be a review proposal for you to confirm before proceeding.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r6f8",
+            "value": "orc",
+            "select": false
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2893,
+          "promptTokens": 5310,
+          "outputTokens": 375
+        }
+      },
+      "latencyMs": 5951
+    }
+  ],
+  "trace": [
+    {
+      "role": "maker",
+      "latencyMs": 1142,
+      "response": {
+        "intent": "explain",
+        "message": "There are a total of 107 registered assets as indicated by the statement '107 registered assets \u00b7 page 1' on the Equipment register page.",
+        "actions": []
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 2780,
+      "response": {
+        "decision": "accept",
+        "feedback": "The proposal correctly answers the total by citing the displayed page statement '107 registered assets \u00b7 page 1,' and performs no actions.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1494,
+      "response": {
+        "intent": "guide",
+        "message": "The total number of registered assets is indicated in the Equipment register section with the statement '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 2451,
+      "response": {
+        "decision": "accept",
+        "feedback": "Highlights the observed '107 registered assets \u00b7 page 1' statement, directly answering the contextual 'Show me where' request with a read-only pointer to the relevant text.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1378,
+      "response": {
+        "intent": "explain",
+        "message": "The total number of approved listings currently displayed on the page is 1535. This count represents the total number of entries available in the MCP Universe, as indicated in the text: \"1535 approved listings \u00b7 page 1.\"",
+        "actions": []
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 4310,
+      "response": {
+        "decision": "accept",
+        "feedback": "Answers the asked total with the page's own stat: \"1535 approved listings \u00b7 page 1\" (observed r1t1), correctly quoted as the dataset total. Minor nuance for next time: distinguish the 24 listings rendered in the loaded group (r1t3) from the 1535 total across the dataset, since only page 1 is loaded. No actions needed for this read-only explanation."
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1538,
+      "response": {
+        "intent": "explain",
+        "message": "The current page has loaded a collection of 24 items. This count refers specifically to the items displayed on this page, not the total number of items available in the entire dataset, which is indicated as 1535 approved listings.",
+        "actions": []
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1478,
+      "response": {
+        "decision": "accept",
+        "feedback": "Correctly answers the page-specific question using the observed loaded collection count of 24 and clearly distinguishes it from the 1535 total approved listings. No actions proposed.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 2181,
+      "response": {
+        "intent": "guide",
+        "message": "The current page title is **MCP Universe \u00b7 Flolah**. In the **MCP Universe** region, there is a section that states **Loaded collection: 24 items.** This indicates that 24 items are currently displayed on this page. The total number of approved listings is **1535**, but this count refers specifically to the items visible now.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t3"
+          }
+        ]
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 4717,
+      "response": {
+        "decision": "revise",
+        "feedback": "Highlighting the collection group (r1t3) is fine, but don't claim the page \"states: Loaded collection: 24 items\" \u2014 24 is a computed count of the observed group, not rendered text. Also fix the last sentence: 1535 is the page-1 listing total, not the count of items visible now.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "fail",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1949,
+      "response": {
+        "intent": "guide",
+        "message": "The current page title is **MCP Universe \u00b7 Flolah**. In the **MCP Universe** region, there is a collection that has loaded **24 items**. This count refers specifically to the items displayed on this page. The total number of approved listings across the entire dataset is **1535**, but this does not reflect the number of items visible now on this page.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t3"
+          }
+        ]
+      },
+      "receivedFeedback": true
+    },
+    {
+      "role": "checker",
+      "latencyMs": 2666,
+      "response": {
+        "decision": "accept",
+        "feedback": "Highlights the loaded collection (r1t3) with the page-specific 24-item count while correctly distinguishing the 1535-listing dataset total; read-only pointing action uses an observed ref.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 2514,
+      "response": {
+        "intent": "guide",
+        "message": "To find equipment, you can use the 'Find equipment' input field located in the 'Equipment register' section. You can also specify a 'Service category' using the dropdown menu if needed. Once you've entered your search criteria, click the 'Find' button to initiate the search.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1f1"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t22"
+          }
+        ]
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3319,
+      "response": {
+        "decision": "accept",
+        "feedback": "The guidance correctly points to the observed Find equipment field, Service category selector, and Find button. It uses read-only highlights and does not propose any save or execution action.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1632,
+      "response": {
+        "intent": "guide",
+        "message": "To search for MCPs, you can enter your search terms in the text field labeled 'Search MCPs, publishers, capabilities\u2026'. After entering your search, click the 'Search' button to initiate the search.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1736,
+      "response": {
+        "decision": "accept",
+        "feedback": "Highlights the observed 'Search MCPs, publishers, capabilities\u2026' input and the 'Search' button with matching guidance for searching MCPs. Read-only pointing, observed refs, no actions taken.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1141,
+      "response": {
+        "intent": "clarify",
+        "message": "To prepare your equipment search, I need to know what you would like to search for. Please provide a value for the 'Find equipment' field.",
+        "actions": []
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3536,
+      "response": {
+        "decision": "accept",
+        "feedback": "Valid clarification: it asks for the missing \u201cFind equipment\u201d search value and makes no changes. The optional Service category can be left for the user to specify if desired.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 2070,
+      "response": {
+        "intent": "guide",
+        "message": "The input that finds equipment is labeled 'Find equipment'. It is a text input field located in the 'Equipment register' region.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          }
+        ]
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 2984,
+      "response": {
+        "decision": "revise",
+        "feedback": "The quoted subject is the 107 registered assets, not the search input. Highlight r1t0 ('107 registered assets \u00b7 page 1') and explain it as the register's displayed total, distinguished from the 10 assets loaded on this page (collection r1t2). Include that the Find equipment input is a separate control.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 2047,
+      "response": {
+        "intent": "guide",
+        "message": "The total number of registered assets is displayed as '107 registered assets \u00b7 page 1'. This indicates the overall count of assets in the register, while the currently loaded collection shows only 10 items (sampled as Asset 0 to Asset 7). The input labeled 'Find equipment' is a separate control that allows you to search for specific equipment within the register.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t2"
+          }
+        ]
+      },
+      "receivedFeedback": true
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3852,
+      "response": {
+        "decision": "accept",
+        "feedback": "Highlights the displayed '107 registered assets' statement plus the loaded collection, correctly distinguishing the total from the 10 currently loaded items using fresh observed evidence.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "checker",
+      "latencyMs": 4213,
+      "response": {
+        "decision": "revise",
+        "feedback": "Revise: the total registered asset count is shown by the text target r1t0 (\u201c107 registered assets \u00b7 page 1\u201d), not the Inspect button r1t4. Highlight r1t0 and keep the explanation specific to that displayed total, distinguishing it from the 10 loaded items in the collection.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "fail",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1583,
+      "response": {
+        "intent": "guide",
+        "message": "The total registered asset count is 107, as indicated by the text target labeled '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "receivedFeedback": true
+    },
+    {
+      "role": "checker",
+      "latencyMs": 2753,
+      "response": {
+        "decision": "accept",
+        "feedback": "Highlights the observed text showing the 107 registered assets total, matching the follow-up request to show where that number appears.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1355,
+      "response": {
+        "intent": "clarify",
+        "message": "To find equipment, please specify a service category as the current options are not available. What service category would you like to select?",
+        "actions": []
+      },
+      "receivedFeedback": true
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3498,
+      "response": {
+        "decision": "revise",
+        "feedback": "Service category is an enabled select with 2 available options, so do not say the options are unavailable. Ask which equipment to find and/or present the observed service-category choices instead.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "fail",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1699,
+      "response": {
+        "intent": "clarify",
+        "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. What equipment are you looking for, and which service category would you like to choose?",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "value": "[Your selected service category]"
+          }
+        ]
+      },
+      "receivedFeedback": true
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1571,
+      "response": {
+        "intent": "clarify",
+        "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. Currently, there are 2 service categories available for selection. What equipment are you looking for, and which service category would you like to choose?",
+        "actions": []
+      },
+      "receivedFeedback": true
+    },
+    {
+      "role": "checker",
+      "latencyMs": 5331,
+      "response": {
+        "decision": "accept",
+        "feedback": "Clarification is appropriate because the equipment search term is missing. It correctly notes the observed two service-category options without inventing labels and proposes no actions or Save.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false
+    }
+  ],
+  "requestContexts": [
+    {
+      "task": "How many registered assets are there in total?",
+      "bytes": 19321,
+      "conversationContext": []
+    },
+    {
+      "task": "Show me where",
+      "bytes": 19797,
+      "conversationContext": [
+        {
+          "role": "user",
+          "content": "How many registered assets are there in total?"
+        },
+        {
+          "role": "assistant",
+          "content": "There are a total of 107 registered assets as indicated by the statement '107 registered assets \u00b7 page 1' on the Equipment register page."
+        }
+      ]
+    },
+    {
+      "task": "what is the total approved listing",
+      "bytes": 29996,
+      "conversationContext": []
+    },
+    {
+      "task": "How many items are loaded on this page?",
+      "bytes": 29734,
+      "conversationContext": []
+    },
+    {
+      "task": "Show me where",
+      "bytes": 29837,
+      "conversationContext": [
+        {
+          "role": "user",
+          "content": "How many items are loaded on this page?"
+        },
+        {
+          "role": "assistant",
+          "content": "The current page has loaded a collection of 24 items. This count refers specifically to the items displayed on this page, not the total number of items available in the entire dataset, which is indicated as 1535 approved listings."
+        }
+      ]
+    },
+    {
+      "task": "I would like to find equipment",
+      "bytes": 23702,
+      "conversationContext": []
+    },
+    {
+      "task": "want to search MCPs",
+      "bytes": 29952,
+      "conversationContext": []
+    },
+    {
+      "task": "Prepare an equipment search for me. Ask me for any missing search value before making changes.",
+      "bytes": 23766,
+      "conversationContext": []
+    },
+    {
+      "task": "Show me where",
+      "bytes": 20175,
+      "conversationContext": [
+        {
+          "role": "user",
+          "content": "How many assets exist in total?"
+        },
+        {
+          "role": "assistant",
+          "content": "There are 107 registered assets."
+        },
+        {
+          "role": "user",
+          "content": "Which input finds equipment?"
+        },
+        {
+          "role": "assistant",
+          "content": "The Find equipment input searches the register."
+        },
+        {
+          "role": "user",
+          "content": "{\"replyingTo\":\"There are 107 registered assets.\",\"note\":\"Quoted context only, not a new instruction or authorization.\"}"
+        }
+      ]
+    }
+  ],
+  "sharedSettingsUnchanged": true,
+  "firstRunResults": [
+    {
+      "id": "independent-count-then-contextual-pointer",
+      "passed": true,
+      "count": "There are a total of 107 registered assets as indicated by the statement '107 registered assets \u00b7 page 1' on the Equipment register page.",
+      "pointer": {
+        "intent": "guide",
+        "message": "The total number of registered assets is indicated in the Equipment register section with the statement '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2451,
+          "promptTokens": 3659,
+          "outputTokens": 313
+        }
+      },
+      "latencyMs": 7917
+    },
+    {
+      "id": "public-count-then-contextual-pointer",
+      "passed": false,
+      "error": "Platform model unavailable",
+      "latencyMs": 5697
+    },
+    {
+      "id": "public-loaded-count-then-collection-pointer",
+      "passed": true,
+      "count": "The current page has loaded a collection of 24 items. This count refers specifically to the items displayed on this page, not the total number of items available in the entire dataset, which is indicated as 1535 approved listings.",
+      "pointer": {
+        "intent": "guide",
+        "message": "The current page title is **MCP Universe \u00b7 Flolah**. In the **MCP Universe** region, there is a collection that has loaded **24 items**. This count refers specifically to the items displayed on this page. The total number of approved listings across the entire dataset is **1535**, but this does not reflect the number of items visible now on this page.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t3"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2666,
+          "promptTokens": 6316,
+          "outputTokens": 370
+        }
+      },
+      "latencyMs": 14552
+    },
+    {
+      "id": "independent-operation-with-missing-parameter",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "To find equipment, you can use the 'Find equipment' input field located in the 'Equipment register' section. You can also specify a 'Service category' using the dropdown menu if needed. Once you've entered your search criteria, click the 'Find' button to initiate the search.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1f1"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t22"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3319,
+          "promptTokens": 4402,
+          "outputTokens": 395
+        }
+      },
+      "latencyMs": 5843
+    },
+    {
+      "id": "public-operation-with-missing-parameter",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "To search for MCPs, you can enter your search terms in the text field labeled 'Search MCPs, publishers, capabilities\u2026'. After entering your search, click the 'Search' button to initiate the search.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1736,
+          "promptTokens": 6252,
+          "outputTokens": 190
+        }
+      },
+      "latencyMs": 3377
+    },
+    {
+      "id": "explicit-preparation-asks-for-missing-search-value",
+      "passed": true,
+      "answer": {
+        "intent": "clarify",
+        "message": "To prepare your equipment search, I need to know what you would like to search for. Please provide a value for the 'Find equipment' field.",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3536,
+          "promptTokens": 4351,
+          "outputTokens": 462
+        }
+      },
+      "latencyMs": 4685
+    },
+    {
+      "id": "reply-context-binds-to-earlier-answer-rather-than-intervening-question",
+      "passed": false,
+      "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    {\n      ref: 'r1t0',\n      type: 'highlight'\n    },\n+   {\n+     ref: 'r1t2',\n+     type: 'highlight'\n+   }\n  ]\n",
+      "latencyMs": 10960
+    },
+    {
+      "id": "real-checker-repairs-wrong-neighbor-target-and-maker-is-rechecked",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "The total registered asset count is 107, as indicated by the text target labeled '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2753,
+          "promptTokens": 3730,
+          "outputTokens": 326
+        }
+      },
+      "trace": [
+        {
+          "role": "checker",
+          "latencyMs": 4213,
+          "response": {
+            "decision": "revise",
+            "feedback": "Revise: the total registered asset count is shown by the text target r1t0 (\u201c107 registered assets \u00b7 page 1\u201d), not the Inspect button r1t4. Highlight r1t0 and keep the explanation specific to that displayed total, distinguishing it from the 10 loaded items in the collection.",
+            "checks": {
+              "taskMatch": "fail",
+              "grounding": "fail",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        },
+        {
+          "role": "maker",
+          "latencyMs": 1583,
+          "response": {
+            "intent": "guide",
+            "message": "The total registered asset count is 107, as indicated by the text target labeled '107 registered assets \u00b7 page 1'.",
+            "actions": [
+              {
+                "type": "highlight",
+                "ref": "r1t0"
+              }
+            ]
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "checker",
+          "latencyMs": 2753,
+          "response": {
+            "decision": "accept",
+            "feedback": "Highlights the observed text showing the 107 registered assets total, matching the follow-up request to show where that number appears.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        }
+      ],
+      "latencyMs": 8553
+    },
+    {
+      "id": "real-maker-removes-unsolicited-unobserved-choice-on-contract-repair",
+      "passed": true,
+      "answer": {
+        "intent": "clarify",
+        "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. Currently, there are 2 service categories available for selection. What equipment are you looking for, and which service category would you like to choose?",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 3,
+        "contractRepairs": 2,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 5331,
+          "promptTokens": 4473,
+          "outputTokens": 693
+        }
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "latencyMs": 1355,
+          "response": {
+            "intent": "clarify",
+            "message": "To find equipment, please specify a service category as the current options are not available. What service category would you like to select?",
+            "actions": []
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "checker",
+          "latencyMs": 3498,
+          "response": {
+            "decision": "revise",
+            "feedback": "Service category is an enabled select with 2 available options, so do not say the options are unavailable. Ask which equipment to find and/or present the observed service-category choices instead.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "fail",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        },
+        {
+          "role": "maker",
+          "latencyMs": 1699,
+          "response": {
+            "intent": "clarify",
+            "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. What equipment are you looking for, and which service category would you like to choose?",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "[Your selected service category]"
+              }
+            ]
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "maker",
+          "latencyMs": 1571,
+          "response": {
+            "intent": "clarify",
+            "message": "To find equipment, please specify which equipment you would like to search for. Additionally, you can select a service category from the available options. Currently, there are 2 service categories available for selection. What equipment are you looking for, and which service category would you like to choose?",
+            "actions": []
+          },
+          "receivedFeedback": true
+        },
+        {
+          "role": "checker",
+          "latencyMs": 5331,
+          "response": {
+            "decision": "accept",
+            "feedback": "Clarification is appropriate because the equipment search term is missing. It correctly notes the observed two service-category options without inventing labels and proposes no actions or Save.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            }
+          },
+          "receivedFeedback": false
+        }
+      ],
+      "latencyMs": 13460
+    }
+  ],
+  "retestResults": [
+    {
+      "id": "public-count-then-contextual-pointer",
+      "passed": true,
+      "count": "The total number of approved listings currently displayed on the page is 1535. This count represents the total number of entries available in the MCP Universe, but the page you are viewing shows a subset of these listings, specifically 24 items at a time.",
+      "pointer": {
+        "intent": "guide",
+        "message": "The total number of approved listings is displayed in the text: **1535 approved listings \u00b7 page 1**. This indicates that there are 1535 approved listings in total, while the current page shows a subset of 24 items.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t1"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1874,
+          "promptTokens": 6292,
+          "outputTokens": 244
+        }
+      },
+      "latencyMs": 6862
+    },
+    {
+      "id": "reply-context-binds-to-earlier-answer-rather-than-intervening-question",
+      "passed": true,
+      "answer": {
+        "intent": "guide",
+        "message": "The total number of registered assets is displayed as '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3229,
+          "promptTokens": 3708,
+          "outputTokens": 471
+        }
+      },
+      "latencyMs": 15302
+    }
+  ],
+  "retestTrace": [
+    {
+      "role": "maker",
+      "latencyMs": 1703,
+      "response": {
+        "intent": "explain",
+        "message": "The total number of approved listings currently displayed on the page is 1535. This count represents the total number of entries available in the MCP Universe, but the page you are viewing shows a subset of these listings, specifically 24 items at a time.",
+        "actions": []
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6652,
+        "output": 62
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1639,
+      "response": {
+        "decision": "accept",
+        "feedback": "Correctly reads the displayed total of 1535 approved listings and distinguishes it from the 24 items loaded on page 1. No actions proposed, read-only explanation.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6435,
+        "output": 171
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1626,
+      "response": {
+        "intent": "guide",
+        "message": "The total number of approved listings is displayed in the text: **1535 approved listings \u00b7 page 1**. This indicates that there are 1535 approved listings in total, while the current page shows a subset of 24 items.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t1"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6596,
+        "output": 70
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1874,
+      "response": {
+        "decision": "accept",
+        "feedback": "Highlights the exact displayed text showing \u201c1535 approved listings \u00b7 page 1\u201d and correctly distinguishes the total from the 24 loaded items.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6292,
+        "output": 244
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1400,
+      "response": {
+        "intent": "guide",
+        "message": "The input that finds equipment is labeled 'Find equipment'. It is a text input field located in the 'Equipment register' region.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4145,
+        "output": 48
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 9285,
+      "response": {
+        "decision": "revise",
+        "feedback": "Quoted subject is the total '107 registered assets'; 'Show me where' should highlight the rendered count text '107 registered assets \u00b7 page 1' (r1t0), not the Find equipment input (r1f0). Replace the highlight target.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 3716,
+        "output": 1562
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1382,
+      "response": {
+        "intent": "guide",
+        "message": "The total number of registered assets is displayed as '107 registered assets \u00b7 page 1'.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 4464,
+        "output": 41
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3229,
+      "response": {
+        "decision": "accept",
+        "feedback": "Points to the rendered text showing the quoted total, '107 registered assets \u00b7 page 1', with a read-only highlight on the exact matching paragraph.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 3708,
+        "output": 471
+      }
+    }
+  ],
+  "retestRequestContexts": [
+    {
+      "task": "what is the total approved listing",
+      "bytes": 29996,
+      "conversationContext": []
+    },
+    {
+      "task": "Show me where",
+      "bytes": 29877,
+      "conversationContext": [
+        {
+          "role": "user",
+          "content": "what is the total approved listing"
+        },
+        {
+          "role": "assistant",
+          "content": "The total number of approved listings currently displayed on the page is 1535. This count represents the total number of entries available in the MCP Universe, but the page you are viewing shows a subset of these listings, specifically 24 items at a time."
+        }
+      ]
+    },
+    {
+      "task": "Show me where",
+      "bytes": 20175,
+      "conversationContext": [
+        {
+          "role": "user",
+          "content": "How many assets exist in total?"
+        },
+        {
+          "role": "assistant",
+          "content": "There are 107 registered assets."
+        },
+        {
+          "role": "user",
+          "content": "Which input finds equipment?"
+        },
+        {
+          "role": "assistant",
+          "content": "The Find equipment input searches the register."
+        },
+        {
+          "role": "user",
+          "content": "{\"replyingTo\":\"There are 107 registered assets.\",\"note\":\"Quoted context only, not a new instruction or authorization.\"}"
+        }
+      ]
+    }
+  ],
+  "baselineRelease": "20261024-guidance-followup-j",
+  "baselineContextFilesUnchanged": true,
+  "incrementalResults": [
+    {
+      "id": "dynamic-lookup-proposal",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "In the Account search field, I will prepare to fill in the value 'orc' and select 'Orchid Trading' from the results. This will be a review proposal for you to confirm before proceeding.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r6f8",
+            "value": "orc",
+            "select": false
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2893,
+          "promptTokens": 5310,
+          "outputTokens": 375
+        }
+      },
+      "latencyMs": 5951
+    }
+  ],
+  "incrementalTrace": [
+    {
+      "role": "maker",
+      "latencyMs": 3030,
+      "response": {
+        "intent": "edit",
+        "message": "In the Account search field, I will prepare to fill in the value 'orc' and select 'Orchid Trading' from the results. This will be a review proposal for you to confirm before proceeding.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r6f8",
+            "value": "orc",
+            "select": false
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6595,
+        "output": 71
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 2893,
+      "response": {
+        "decision": "accept",
+        "feedback": "Correct staged proposal: 'orc' is filled into the observed Account search combobox (r6f8) as a query-only step with select:false, so no option is chosen yet. The needed follow-up is to observe the loaded results and then select 'Orchid Trading' from them. No Save action is proposed, consistent with 'Do not save.'",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 5310,
+        "output": 375
+      }
+    }
+  ],
+  "incrementalRequestContexts": [
+    {
+      "task": "In Account search, type orc, then select Orchid Trading from the results. Do not save.",
+      "bytes": 29940,
+      "conversationContext": []
+    }
+  ]
+}
