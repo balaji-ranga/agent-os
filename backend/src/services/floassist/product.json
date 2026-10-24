@@ -5,11 +5,11 @@
   "timezones": { "SG": "Asia/Singapore", "IN": "Asia/Kolkata", "ID": "Asia/Jakarta" },
   "connectors": [
     { "id": "gmail", "label": "Gmail" },
-    { "id": "google_calendar", "label": "Google Calendar" },
+    { "id": "google_calendar", "provider_id": "googlecalendar", "label": "Google Calendar" },
     { "id": "outlook", "label": "Outlook Mail" },
     { "id": "outlook_calendar", "label": "Microsoft Calendar" },
-    { "id": "google_drive", "label": "Google Drive" },
-    { "id": "onedrive", "label": "OneDrive" }
+    { "id": "google_drive", "provider_id": "googledrive", "label": "Google Drive" },
+    { "id": "onedrive", "provider_id": "one_drive", "label": "OneDrive" }
   ],
   "responsibilities": [
     { "id": "briefing", "label": "Morning briefing", "cadence": "daily", "prompt": "Prepare my morning briefing from my selected connected accounts: today's agenda, priority messages, deadlines and outstanding follow-ups. State unavailable sources. Do not change source systems unless my policy and standing instructions authorize it." },

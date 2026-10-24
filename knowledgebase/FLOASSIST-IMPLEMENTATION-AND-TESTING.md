@@ -72,6 +72,10 @@ Requires deployed backend/static files, working SMTP, valid published terms/priv
 
 Required live scenarios:
 
+Provider IDs were checked against the VPS OpenConnector catalog on 2026-10-24. FloAssist keeps stable selection IDs, with `provider_id` in its product catalog mapping `google_calendar` to `googlecalendar`, `google_drive` to `googledrive`, and `onedrive` to `one_drive`. Both OAuth initiation and connected-state validation use the provider ID. Scheduled instructions include the selected label and provider ID. Two platform regression checks cover this mapping and reject false authorization based only on the logical selection ID.
+
+At that preflight, Gmail's platform OAuth client was configured. Google Calendar, Google Drive, Outlook and OneDrive were present but their OAuth clients were unconfigured. The callback reported by the installed service is `https://flolah.cloud/openconnector/oauth/callback`. Microsoft Calendar (`outlook_calendar`) was absent from the OAuth catalog; verify/install a suitable provider before selecting it. Do not substitute Outlook Mail: its advertised scopes do not include calendar access. These observations establish configuration presence, not successful end-user OAuth consent or delivery.
+
 1. New signup in SG, IN and ID; existing account with email MFA; existing account with TOTP; optional password setup and dashboard login.
 2. New dedicated-number scan; expired QR refresh; credential identity pending; same personal/dedicated number rejection; disconnect/reconnect; gateway restart; no cross-owner session fallback.
 3. Each of the six OAuth providers: connect, declined consent, failed callback, expired/revoked token, reconnect, correct owner/account selection and no false connected indication.

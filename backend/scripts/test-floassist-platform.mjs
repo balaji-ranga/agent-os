@@ -12,8 +12,9 @@ process.env.AGENT_OS_INTERNAL_TOKEN='fixture-floassist-token';process.env.OPENSE
 mkdirSync(process.env.OPENCLAW_DIR,{recursive:true});
 writeFileSync(process.env.OPENCLAW_CONFIG_PATH,JSON.stringify({gateway:{mode:'local'},agents:{defaults:{workspace:join(root,'workspace')},list:[]},tools:{},channels:{}}));
 const originalFetch=globalThis.fetch;
+let connectedProviders=['gmail'];
 globalThis.fetch=async url=>{
-  if(String(url).includes('/api/connections'))return new Response(JSON.stringify([{service:'gmail',connectionName:'ceo-owner-a',configured:true}]));
+  if(String(url).includes('/api/connections'))return new Response(JSON.stringify(connectedProviders.map(service=>({service,connectionName:'ceo-owner-a',configured:true}))));
   throw Error('Unexpected external request in isolated test: '+String(url));
 };
 let db;let checks=0;const check=(a,b,label)=>{assert.deepEqual(a,b,label);checks++;};
@@ -44,6 +45,12 @@ try{
   check(getWhatsAppLinkedNumber('owner-a','fixture-coo'),'+6599999999','linked identity from exact owner account');check(getWhatsAppLinkedNumber('owner-b','fixture-coo'),null,'no other owner credentials');
   check(resolveFloAssistCoo('owner-a').id,'fixture-coo','COO resolved from grants');
   check((await s.connections('owner-a'))[0].connected,true,'actual connection catalogue only');
+  await s.save('owner-a',{connectors:['google_calendar','google_drive','onedrive']});
+  connectedProviders=['googlecalendar','googledrive','one_drive'];
+  check((await s.connections('owner-a')).map(x=>[x.id,x.connected]),[['google_calendar',true],['google_drive',true],['onedrive',true]],'provider IDs map back to stable FloAssist choices');
+  connectedProviders=['google_calendar','google_drive','onedrive'];
+  check((await s.connections('owner-a')).every(x=>!x.connected),true,'logical IDs cannot falsely prove provider authorization');
+  connectedProviders=['gmail'];await s.save('owner-a',prefs);
   const active=await s.activate('owner-a');check(active.status,'active','real platform activation');check(JSON.stringify(active).includes('NEVER_RETURN_THIS'),false,'no credential leak');
   const refreshed=JSON.parse(readFileSync(join(sessions,'sessions.json')));check(refreshed['agent:t-owner-a--fixture-coo:main'],undefined,'native main session reloads added capabilities');check(refreshed['agent:t-owner-a--fixture-coo:goal:ongoing'].sessionId,'ongoing','ongoing task session retained');
   check(getActionFamilyPolicies('owner-a'),policyBefore,'existing company policy preserved');
