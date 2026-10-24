@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="FloAssist: your free personal assistant on WhatsApp, powered by your Flolah COO.">
+  <meta name="referrer" content="no-referrer">
+  <title>FloAssist · Flolah Free Tools</title>
+  <link rel="stylesheet" href="./style.css"><script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header><a class="brand" href="/">✺ Flolah</a><nav aria-label="Site"><a href="/free-tools/">Free Tools</a><button id="theme" class="secondary small" type="button" aria-label="Switch color theme">Theme</button></nav></header>
+  <main>
+    <div class="intro"><span class="badge">Free · Your personal COO</span><h1>Meet FloAssist.</h1><p>Your day, a little easier. Email, calendars, files and reminders—all from WhatsApp.</p></div>
+    <section class="panel" aria-label="Set up FloAssist">
+      <ol class="steps" aria-label="Setup progress"><li data-step="1" aria-current="step">1 <span>Your details</span></li><li data-step="2">2 <span>Your apps</span></li><li data-step="3">3 <span>WhatsApp</span></li></ol>
+      <div id="notice" role="status" aria-live="polite">Loading setup…</div>
+      <form id="details" hidden>
+        <h2 tabindex="-1">Let’s get you started</h2><p class="muted">Already use Flolah? Use the same email and personal phone number to keep your existing COO.</p>
+        <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+        <label>Your personal WhatsApp number<input name="phone" type="tel" autocomplete="tel" placeholder="+65 8123 4567" required><small>This is where you’ll receive messages. You’ll link a separate dedicated number for your assistant.</small></label>
+        <label>Country<select name="country"><option value="SG">Singapore</option><option value="IN">India</option><option value="ID">Indonesia</option></select></label>
+        <label class="check"><input name="consent" type="checkbox" required><span>I accept the <a href="/legal/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="/legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and agree to receive FloAssist messages on WhatsApp.</span></label>
+        <button type="submit">Continue</button><p class="footnote">No password or Flolah dashboard required for everyday use.</p>
+      </form>
+      <form id="verify" hidden>
+        <h2 tabindex="-1">Check your email</h2><p id="email-hint" class="muted"></p>
+        <label>Verification code<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+        <label id="mfa-label" hidden>Flolah authenticator code<input name="mfa" inputmode="numeric" autocomplete="off" maxlength="6"></label>
+        <div class="actions"><button type="submit">Verify and continue</button><button type="button" class="secondary" id="start-over">Change details / resend</button></div>
+      </form>
+      <form id="apps" hidden>
+        <h2 tabindex="-1">What can I help with?</h2><p class="muted">Choose the apps you want FloAssist to use. You can add more later.</p>
+        <fieldset><legend class="sr-only">Connected apps</legend><div id="connectors" class="options"></div></fieldset>
+        <button type="button" class="secondary small" id="check-connections">Check connections</button>
+        <details><summary>Preferences and autonomy</summary>
+          <fieldset><legend>Keep me updated about</legend><div id="responsibilities"></div></fieldset>
+          <label>Timezone<input name="timezone" list="timezones" required><datalist id="timezones"><option>Asia/Singapore</option><option>Asia/Kolkata</option><option>Asia/Jakarta</option><option>Asia/Makassar</option><option>Asia/Jayapura</option></datalist></label>
+          <div class="columns"><label>Morning briefing<input type="time" name="briefing_time" required></label><label>Quiet from<input type="time" name="quiet_start" required></label><label>Until<input type="time" name="quiet_end" required></label></div>
+          <p class="muted">Equal quiet times mean no quiet hours. Reminders due during quiet hours arrive afterwards.</p>
+          <label>Autonomy<select name="preset"><option value="">Keep my current COO policy</option><option value="advisory">Advisory — read and propose</option><option value="managerial">Managerial — manage work, ask before publishing</option><option value="administrative">Administrative — manage work, finances and deletion</option></select></label>
+          <label id="financial-label" hidden>Financial and destructive actions<select name="financial"><option value="approval_required">Require my approval</option><option value="autonomous">Act autonomously</option><option value="prohibited">Do not allow</option></select></label>
+          <p class="muted">New accounts start in Advisory. Saving a different level updates your COO’s policy across Flolah. More specific task policies still apply.</p><ul id="policy-summary" class="muted"></ul>
+          <p id="privacy" class="footnote"></p>
+        </details>
+        <div class="actions"><button type="submit">Continue to WhatsApp</button><button type="button" class="secondary" id="sign-out">Sign out</button></div>
+      </form>
+      <section id="whatsapp" hidden>
+        <h2 tabindex="-1">Link your assistant’s WhatsApp</h2>
+        <p>On the phone with your <strong>separate dedicated WhatsApp number</strong>, open <strong>Settings → Linked devices → Link a device</strong> and scan this code.</p>
+        <p class="muted">Keep using your personal WhatsApp to message that number. If you’re on your phone now, open this setup on another screen to scan.</p>
+        <div id="qr-box"><img id="qr" alt="Scan this QR using WhatsApp on your dedicated number" hidden><p id="qr-status" role="status">Preparing WhatsApp…</p></div>
+        <div class="actions"><button id="activate" type="button" disabled>Start FloAssist</button><button id="refresh-qr" type="button" class="secondary">Show / refresh QR</button><button id="back-apps" type="button" class="secondary">Back</button></div>
+      </section>
+      <section id="ready" hidden>
+        <div class="success-icon" aria-hidden="true">✓</div><h2 tabindex="-1">Your assistant is ready</h2><p id="ready-copy">Your COO is now on WhatsApp. Send a message whenever you need a hand.</p>
+        <a id="chat-link" class="button" target="_blank" rel="noopener" hidden>Open WhatsApp</a>
+        <div class="examples"><p>“Remind me tomorrow at 9 to call Sam.”</p><p>“What’s on my calendar today?”</p><p>“Find a flight for my next trip.”</p></div>
+        <div class="actions"><button class="secondary" id="manage" type="button">Manage setup</button><button class="secondary" id="pause" type="button">Pause checks</button></div>
+        <p class="footnote">Everyday use stays in WhatsApp. <a id="management" target="_blank" rel="noopener">Open Flolah</a> only when you need more settings. For your first dashboard visit, use “Forgot password” to set a password for your verified email.</p>
+      </section>
+    </section>
+    <p class="footer">Powered by your Flolah COO · Singapore, India &amp; Indonesia</p>
+    <noscript><p>Enable JavaScript to verify your email and link WhatsApp.</p></noscript>
+  </main>
+</body>
+</html>

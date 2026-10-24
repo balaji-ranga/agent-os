@@ -694,6 +694,7 @@ apiRouter.get('/debug/intent-last', requireAuth, requireCeoOrAdmin, (req, res) =
   }
 });
 apiRouter.use('/auth', authRoutes);
+apiRouter.use('/floassist', (await import('./routes/floassist.js')).default);
 apiRouter.use('/admin', adminRoutes);
 apiRouter.use('/platform-notifications', platformNotificationsRoutes);
 apiRouter.use('/user-api-keys', userApiKeysRoutes);
@@ -996,6 +997,27 @@ registerPlatformCron({
 });
 
 const scheduledGoalsCron = process.env.SCHEDULED_GOALS_CRON || '* * * * *';
+registerPlatformCron({
+  id: 'floassist_reminders',
+  name: 'FloAssist reminders',
+  description: 'Deliver due owner-scoped FloAssist reminders through the linked COO WhatsApp channel and expire onboarding sessions.',
+  schedule: '* * * * *',
+  handler: async () => {
+    const { getFloAssist } = await import('./services/floassist/platform.js');
+    const { tickReminders, tickFloAssistNotifications } = await import('./services/floassist/runtime.js');
+    const { announceOnAgentChannel } = await import('./services/agent-channel-announce.js');
+    getFloAssist().purge();
+    const reminders = await tickReminders({ send: row => announceOnAgentChannel({
+      ownerUserId: row.owner_id, agentId: row.agent_id, channel: 'whatsapp',
+      authorizedTo: row.phone, text: row.text, idempotencyKey: `floassist-reminder:${row.id}:${row.due_at}`,
+    }) });
+    const notifications = await tickFloAssistNotifications({ send: row => announceOnAgentChannel({
+      ownerUserId: row.owner_id, agentId: row.agent_id, channel: 'whatsapp',
+      authorizedTo: row.phone, text: row.text, idempotencyKey: `floassist:${row.source_key}`,
+    }) });
+    return { reminders, notifications };
+  },
+});
 registerPlatformCron({
   id: 'scheduled_goals',
   name: 'Scheduled goals',

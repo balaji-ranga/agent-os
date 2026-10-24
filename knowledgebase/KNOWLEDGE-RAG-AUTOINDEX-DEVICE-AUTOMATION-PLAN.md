@@ -2,11 +2,15 @@
 
 Date: 2026-10-10
 
+Android scope updated: 2026-10-24.
+
 Status: Agreed implementation plan; this document does not claim implementation, deployment or test completion.
 
 ## Release objective
 
 Deliver one coordinated release covering automatic source indexing, OpenSearch-based Graph RAG, Windows native automation and managed Android automation. Reuse Flolah connectors, vault credentials, workflow execution, agent tool grants and paired-worker infrastructure.
+
+The Android core objective is a reusable Flolah companion app and adaptor: Flolah's LLM directs authorized tasks, while execution, raw source data, detailed action history and private results remain on the Android device. Only explicitly allowlisted transient compacted context and compacted action memory may reach the server by default. Android results do not automatically enter Knowledge, durable chat history or server logs. See the [Android implementation and architecture design](ANDROID-CONNECTOR-IMPLEMENTATION-DESIGN.md) and [Connectors inventory and coaching UX design](ANDROID-RECIPE-CONNECTORS-UX-DESIGN.md).
 
 The principal acceptance scenario connects CRM, ERP and Knowledge documents and demonstrates that an agent retrieves related information with evidence. Neo4j is not required for this release. The separate `knowledgeGraph.md` proposal concerns agent-behavior intelligence and is not replaced by this business-knowledge plan.
 
@@ -106,7 +110,7 @@ The agent interprets evidence and produces the answer. Retrieved content is data
 
 ## 7. Windows and Android automation
 
-Extend the paired worker with Windows UI Automation for native apps and Appium/UiAutomator2 for registered managed Android devices. The mobile UI can also start and monitor paired-desktop jobs.
+Extend the paired worker with Windows UI Automation for native apps. Android uses the companion and on-device recipe runtime defined in the linked architecture design. Appium/UiAutomator2 may be evaluated as a managed-device validation harness; a host-side controller that receives raw app data does not satisfy the device-local production objective. The mobile UI can also start and monitor paired-desktop jobs.
 
 Support application/window or screen observation, accessible element discovery, data entry, clicking/tapping, navigation, screenshots and artifact capture. Prefer application APIs, then accessibility selectors; use observed visual interaction where required.
 
@@ -115,6 +119,12 @@ Expose capabilities through existing agent grants and workflow nodes. Provide de
 Return observed outcomes and evidence for each step. Serialize foreground actions per device/session. Recover from verified checkpoints and inspect uncertain side effects before repeating writes.
 
 Android setup requires registered devices and appropriate developer/debugging configuration. Show offline/locked-device states and recovery instructions. Unrestricted autonomous Accessibility automation in a public mobile app and iOS native automation are outside this release.
+
+Android onboarding selects pre-coached recipes from a table in Connectors alongside browser and standard recipes. Tag recipes by app code, app name, package/signing identity, supported app versions, recipe version, region and language. Activation requires device compatibility validation and inherited Flolah policies. Missing routes require coaching; unknown screens stop execution.
+
+The pilot is read-only credit-card bill retrieval across Standard Chartered SC Mobile Singapore and DBS digibank Singapore, with authentication performed locally by the user. Start with a real-device compatibility gate for each bank; do not infer supported package identifiers, app versions or successful automation. Protected screens and banking security controls are respected. Statement import is a separately labelled fallback and does not count as Android pilot success.
+
+Default private mode computes and presents the combined financial result on-device. An optional, separate summary-sharing grant can permit named fields to reach Flolah transiently; enabling it changes the data-residency boundary and must be visible. Server orchestration memory never substitutes for the authoritative local execution journal.
 
 ## 8. Performance and resource controls
 
@@ -164,6 +174,8 @@ Additional synchronization tests cover pagination, out-of-order events, expired 
 Run local harness tests for synchronization, graph retrieval, permissions, recovery and performance. Validate existing document uploads, RAG tools, browser workers and workflow execution.
 
 Repeat the mandatory CRM/ERP/Knowledge scenario interactively on VPS using the isolated test user. Demonstrate one real Windows task and one managed Android task with evidence, cancellation and recovery checks. Required devices and authorized connectors must be available; missing prerequisites must be reported rather than counted as passing tests.
+
+Android completion additionally requires both SCB and DBS recipes to pass the acceptance gates in the linked design on declared real-device/app versions. Verify outbound payloads, logs and retention to prove the default privacy boundary. Do not upload private banking evidence to VPS as test artifacts; retain detailed evidence on-device and report only approved validation metadata.
 
 Deliver commit/deployment identifiers, test record IDs, prompts, actual outputs and execution-trace references. Completion requires the end-to-end CRM -> ERP -> Knowledge query to pass, plus the declared device tests; successful indexing or individual tool calls alone are insufficient.
 

@@ -2,7 +2,7 @@
  * Per-CEO Slack / WhatsApp channel enablement for agents.
  */
 import { randomBytes } from 'crypto';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
@@ -159,6 +159,23 @@ export function isWhatsAppSessionPaired(ownerUserId, agentId) {
   const agent = assertAgentGrantedToCeo(ownerUserId, agentId);
   const { accountId } = channelBindingIds(ownerUserId, agent);
   return !!whatsappSessionDir(accountId);
+}
+
+/** Only the linked account's public phone identity; never return credential contents. */
+export function getWhatsAppLinkedNumber(ownerUserId, agentId) {
+  const agent = assertAgentGrantedToCeo(ownerUserId, agentId);
+  const { accountId } = channelBindingIds(ownerUserId, agent);
+  const dir = whatsappSessionDir(accountId);
+  if (!dir) return null;
+  for (const name of ['creds.json', 'credentials.json']) {
+    try {
+      const credentials = JSON.parse(readFileSync(join(dir, name), 'utf8'));
+      const jid = String(credentials.me?.id || '');
+      const match = jid.match(/^(\d{8,15})(?::\d+)?@(?:s\.whatsapp\.net|c\.us)$/);
+      if (match) return `+${match[1]}`;
+    } catch { /* Pairing may still be writing the credentials file. */ }
+  }
+  return null;
 }
 
 function normalizeChannelInput(body = {}) {

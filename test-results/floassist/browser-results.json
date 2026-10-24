@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "checks": 16,
+  "synthetic": true,
+  "viewports": [
+    "1280x1000",
+    "390x844"
+  ]
+}

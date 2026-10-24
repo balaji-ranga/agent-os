@@ -25,6 +25,7 @@ import {
 import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel-announce.js';
 import { consumeWorkSteering, steeringPrompt, closeWorkSteering, handoffWorkSteering } from './work-steering.js';
 import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
+import { floAssistScheduleGate } from './floassist/runtime.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
@@ -559,6 +560,8 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const row = getGoalRow(id, ownerUserId);
   if (!row) throw Object.assign(new Error('Scheduled goal not found'), { status: 404 });
   if (!isUserEnabled(ownerUserId)) return { ok: false, skipped: true, reason: 'owner_disabled' };
+  const floAssistGate = floAssistScheduleGate(row);
+  if (!floAssistGate.ok) return { ok: false, skipped: true, reason: floAssistGate.reason };
   if (row.status === 'paused' && !force) return { ok: false, skipped: true, reason: 'paused' };
   if (row.status === 'completed' && !force) return { ok: false, skipped: true, reason: 'completed' };
   if (isExpired(row.ends_at) && !force) {

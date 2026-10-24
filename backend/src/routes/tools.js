@@ -155,6 +155,7 @@ import jobApplicantTools from './job-applicant-tools.js';
 import crmTools from './crm-tools.js';
 import erpTools from './erp-tools.js';
 import eventProductivityTools from './event-productivity-tools.js';
+import floAssistTools from './floassist-tools.js';
 import marketingTools from './marketing-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { applyApprovedMarketingEmailAsset, executeEmailSend, resolveCompanyEmailRecipients } from '../services/email-send.js';
@@ -947,6 +948,7 @@ router.use(jobApplicantTools);
 router.use(crmTools);
 router.use(erpTools);
 router.use(eventProductivityTools);
+router.use(floAssistTools);
 router.use(marketingTools);
 
 router.post('/mcp-bound-tools-list', async (req, res) => {

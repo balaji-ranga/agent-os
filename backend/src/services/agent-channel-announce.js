@@ -18,6 +18,7 @@ import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { getCeoGeneratedMediaDir } from './content-explorer.js';
 import { toWhatsAppSafeAudio } from './audio-convert.js';
 import { getOpenClawGatewayRuntimeToken } from './platform-runtime-secrets.js';
+import { floAssistDeliveryGate } from './floassist/runtime.js';
 
 export const CHANNEL_DELIVER_OPTIONS = ['web', 'whatsapp', 'slack'];
 const MAX_TEXT_CHARS = 3500;
@@ -660,6 +661,8 @@ export async function deliverScheduledGoalOutcome({
   text,
   sourceKey,
 } = {}) {
+  const floAssist = floAssistDeliveryGate({ ownerUserId, scheduledGoalId, sourceKey, text });
+  if (floAssist.skip) return { ok: true, skipped: true, reason: floAssist.reason };
   const targets = deliverTo
     ? normalizeDeliverTo(deliverTo)
     : loadScheduledGoalDeliverTo(ownerUserId, scheduledGoalId);
@@ -680,6 +683,7 @@ export async function deliverScheduledGoalOutcome({
         agentId,
         channel,
         text: body,
+        ...(floAssist.managed && channel === 'whatsapp' ? { authorizedTo: floAssist.authorizedTo } : {}),
         idempotencyKey: sourceKey ? `${sourceKey}:${channel}` : undefined,
       })
     );

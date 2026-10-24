@@ -224,14 +224,16 @@ export async function registerCeoUser({
   privacy_version,
   /** When false (admin-created users), legal accept is optional and may be null. */
   require_terms_accept = true,
-} = {}) {
+} = {}, { verifiedEmail = null } = {}) {
   ensureMfaTables();
   const db = getDb();
   const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (!normalizedEmail || !password || !name) {
+  // This option is internal only: public registration never forwards a second argument.
+  const passwordless = verifiedEmail != null && verifiedEmail === normalizedEmail;
+  if (!normalizedEmail || (!password && !passwordless) || !name) {
     throw new Error('email, password, and name are required');
   }
-  assertStrongPassword(password);
+  if (!passwordless) assertStrongPassword(password);
   const existing = db.prepare('SELECT id FROM platform_users WHERE email = ?').get(normalizedEmail);
   if (existing) throw new Error('Email already registered');
 
@@ -283,7 +285,7 @@ export async function registerCeoUser({
   ).run(
     id,
     normalizedEmail,
-    hashPassword(password),
+    passwordless ? 'passwordless-disabled' : hashPassword(password),
     String(name).trim(),
     loc.country,
     loc.region,
