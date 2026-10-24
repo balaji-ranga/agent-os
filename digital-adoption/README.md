@@ -427,6 +427,8 @@ The maker/checker chooses a supported next step using that evidence. It can poin
 
 A reviewed lookup can show different search text and selected result—for example, search “orc” and select “Orchid Trading.” The browser waits for a stable exact enabled result, refuses duplicate or missing matches, observes cancellation before selection, dispatches the selection once and verifies the host field state. Typed text alone is not reported as a successful selection. When the final result is not yet known, a query-only proposal first types the search text. After approval, fresh DOM results and the browser-reported query outcome are sent to the model, which prepares a separate selection review. The loop is bounded; unresolved selection asks for clarification and does not offer Save. The next step uses a new observation; Save remains separately governed. Dynamic page content is not automatically published into shared website knowledge.
 
+A visitor who cannot locate an element can ask in ordinary language; location help should highlight the exact rendered element, while a fact-only question may return an explanation. Semantic descriptions carry their own current read-only target references when available. A nearby action is not a substitute for the requested text. Changed or unavailable targets require a fresh observation or a specific explanation of the limitation. Maker/checker feedback is retained through any bounded response-format repair, so correcting JSON must not undo the requested semantic correction. Format retries and semantic corrections keep their existing limits; they do not grant execution permission.
+
 
 ### Goal plans for multi-step tasks
 

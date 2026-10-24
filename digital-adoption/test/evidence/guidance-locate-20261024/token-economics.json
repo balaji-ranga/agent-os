@@ -1,0 +1,15 @@
+{
+  "scope": "Final targeted real-model batch only; excludes development iterations and live-browser calls",
+  "calls": 15,
+  "makerCalls": 7,
+  "checkerCalls": 8,
+  "reportedTokens": {
+    "input": 75062,
+    "output": 4062
+  },
+  "callsWithUnreportedTokenUsage": 0,
+  "requestSizeCapBytes": 30000,
+  "normalCallCountUnchanged": true,
+  "semanticCorrectionLimitsUnchanged": true,
+  "globalSettingsUnchanged": true
+}

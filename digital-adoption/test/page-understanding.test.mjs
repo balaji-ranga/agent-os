@@ -48,6 +48,14 @@ test('collection pointers must bind to a fresh observed read-only target and sur
  for(const targetRef of ['r3t0','r4f0','r4t99'])assert.throws(()=>validateSnapshot({...source,pageContext:{...source.pageContext,collections:[{...source.pageContext.collections[0],targetRef}]}}));
 });
 
+test('semantic element pointers preserve their exact role and label binding, never a nearby button',()=>{
+ const statement={ref:'r4t0',kind:'content',role:'output',label:'107 registered assets · page 1',text:'107 registered assets · page 1'},button={ref:'r4t1',kind:'content',role:'button',label:'Inspect',text:'Inspect'};
+ const source={...snapshot,targets:[statement,button],pageContext:{...snapshot.pageContext,structure:[{...snapshot.pageContext.structure[0],targetRef:statement.ref}]}};
+ const observed=validateSnapshot(source);assert.equal(observed.pageContext.structure[0].targetRef,statement.ref);assert.match(pageObservationEvidence(observed)[0].text,/Label: 107 registered assets · page 1\. Read-only target ref: r4t0/);
+ for(const targetRef of ['r3t0','r4f0','r4t1','r4t99'])assert.throws(()=>validateSnapshot({...source,pageContext:{...source.pageContext,structure:[{...source.pageContext.structure[0],targetRef}]}}));
+ assert.equal(validateSnapshot(snapshot).pageContext.structure[0].targetRef,undefined,'Older observations remain compatible without invented bindings');
+});
+
 test('request budget trims duplicate page excerpts before the follow-up referent or explicit reply',()=>{
  const turns=[{role:'user',content:'How many assets exist?'},{role:'assistant',content:'107 registered assets.'},{role:'user',content:JSON.stringify({replyingTo:'107 registered assets.'})}],context={task:'Show me where',conversationContext:turns,observed:snapshot,pageEvidence:[{text:'Public page prose. '.repeat(600)}]};
  const body={messages:[{role:'system',content:'Policy'},{role:'user',content:JSON.stringify(context)}]},encoded=encodePlannerRequest(body,{maxBytes:3000}),actual=JSON.parse(JSON.parse(encoded).messages.at(-1).content);

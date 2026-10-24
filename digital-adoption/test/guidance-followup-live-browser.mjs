@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 const {chromium}=await import(process.env.ADOPTION_PLAYWRIGHT_MODULE?pathToFileURL(process.env.ADOPTION_PLAYWRIGHT_MODULE):new URL('./frameworks/node_modules/playwright/index.mjs',import.meta.url));
-const out=new URL('./evidence/guidance-followup-20261024/',import.meta.url);await mkdir(out,{recursive:true});
+const out=new URL(process.env.ADOPTION_GUIDANCE_EVIDENCE||'./evidence/guidance-followup-20261024/',import.meta.url);await mkdir(out,{recursive:true});
 const browser=await chromium.launch({channel:'chrome',headless:true}),page=await browser.newPage({viewport:{width:1440,height:1100}}),results=[],traces=[];let publicWrites=0;
 page.setDefaultTimeout(30000);await page.route('https://flolah.cloud/**',r=>!['GET','HEAD','OPTIONS'].includes(r.request().method())?(publicWrites++,r.abort()):r.continue());
 const panel=page.frameLocator('iframe[data-adoption-widget]');

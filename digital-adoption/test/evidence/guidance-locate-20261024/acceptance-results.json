@@ -1,0 +1,38 @@
+{
+  "at": "2026-10-24T06:08:28.550Z",
+  "release": "20261024-guidance-locate-p",
+  "scope": "Location guidance and semantic/format correction follow-up, not full product certification",
+  "suites": [
+    {
+      "name": "service Windows",
+      "passed": 472,
+      "failed": 0
+    },
+    {
+      "name": "service Linux",
+      "passed": 472,
+      "failed": 0
+    },
+    {
+      "name": "DOM and performance",
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "name": "targeted real-model scenarios",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "name": "exact live prompts",
+      "passed": 2,
+      "failed": 0
+    },
+    {
+      "name": "count and continuity regression",
+      "passed": 2,
+      "failed": 0
+    }
+  ],
+  "historicalFailedAttemptsRetained": true
+}

@@ -1,0 +1,1528 @@
+{
+  "generic": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Find equipment",
+        "type": "text",
+        "required": false,
+        "key": "find",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f1",
+        "label": "Service category",
+        "type": "select-one",
+        "required": false,
+        "key": "field_service_category",
+        "optionCount": 2
+      },
+      {
+        "ref": "r1f2",
+        "label": "Reference",
+        "type": "text",
+        "required": false,
+        "key": "field_reference",
+        "optionCount": 0
+      }
+    ],
+    "forms": [],
+    "links": [],
+    "pageContext": {
+      "text": "Equipment register\n107 registered assets · page 1\nFind equipment\nService category\nFind\nAsset 0\nWorking equipment\nInspect\nAsset 1\nWorking equipment\nInspect\nAsset 2\nWorking equipment\nInspect\nAsset 3\nWorking equipment\nInspect\nAsset 4\nWorking equipment\nInspect\nAsset 5\nWorking equipment\nInspect\nAsset 6\nWorking equipment\nInspect\nAsset 7\nWorking equipment\nInspect\nAsset 8\nWorking equipment\nInspect\nAsset 9\nWorking equipment\nInspect\nWarranty claim\nReference\nUse the purchase certificate.",
+      "headings": [
+        {
+          "level": 1,
+          "label": "Equipment register"
+        },
+        {
+          "level": 2,
+          "label": "Asset 0"
+        },
+        {
+          "level": 2,
+          "label": "Asset 1"
+        },
+        {
+          "level": 2,
+          "label": "Asset 2"
+        },
+        {
+          "level": 2,
+          "label": "Asset 3"
+        },
+        {
+          "level": 2,
+          "label": "Asset 4"
+        },
+        {
+          "level": 2,
+          "label": "Asset 5"
+        },
+        {
+          "level": 2,
+          "label": "Asset 6"
+        },
+        {
+          "level": 2,
+          "label": "Asset 7"
+        },
+        {
+          "level": 2,
+          "label": "Asset 8"
+        },
+        {
+          "level": 2,
+          "label": "Asset 9"
+        },
+        {
+          "level": 2,
+          "label": "Warranty claim"
+        }
+      ],
+      "headingCount": 12,
+      "collections": [
+        {
+          "role": "div",
+          "itemCount": 10,
+          "labels": [
+            "Asset 0",
+            "Asset 1",
+            "Asset 2",
+            "Asset 3",
+            "Asset 4",
+            "Asset 5",
+            "Asset 6",
+            "Asset 7"
+          ],
+          "labelsTruncated": true,
+          "truncated": false,
+          "targetRef": "r1t2"
+        }
+      ],
+      "title": "Equipment register",
+      "structure": [
+        {
+          "role": "p",
+          "label": "107 registered assets · page 1",
+          "region": "Equipment register",
+          "targetRef": "r1t0"
+        },
+        {
+          "role": "label",
+          "label": "Find equipment",
+          "region": "Equipment register"
+        },
+        {
+          "role": "input",
+          "label": "Find equipment",
+          "region": "Equipment register",
+          "disabled": false
+        },
+        {
+          "role": "label",
+          "label": "Service category",
+          "region": "Equipment register"
+        },
+        {
+          "role": "select",
+          "label": "Service category",
+          "region": "Equipment register",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Find",
+          "region": "Equipment register",
+          "disabled": false,
+          "targetRef": "r1t3"
+        },
+        {
+          "role": "label",
+          "label": "Reference",
+          "region": "Warranty claim"
+        },
+        {
+          "role": "input",
+          "label": "Reference",
+          "region": "Warranty claim",
+          "description": "Use the purchase certificate.",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "Use the purchase certificate.",
+          "region": "Warranty claim",
+          "targetRef": "r1t1"
+        },
+        {
+          "role": "button",
+          "label": "Inspect",
+          "region": "Equipment register",
+          "disabled": false,
+          "targetRef": "r1t4"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "107 registered assets · page 1",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "107 registered assets · page 1"
+      },
+      {
+        "ref": "r1t1",
+        "label": "Use the purchase certificate.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Use the purchase certificate."
+      },
+      {
+        "ref": "r1t2",
+        "label": "Loaded collection: 10 items. Sample: Asset 0; Asset 1",
+        "kind": "content",
+        "role": "div",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Loaded collection: 10 items. Sample: Asset 0; Asset 1"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Find",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Find"
+      },
+      {
+        "ref": "r1t4",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 3,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [],
+    "screen": "Equipment register | Asset 0 | Asset 1",
+    "path": "/__guidance-test",
+    "ambiguousDialogs": false,
+    "blockedCount": 11
+  },
+  "genericOperation": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Find equipment",
+        "type": "text",
+        "required": false,
+        "key": "find",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f1",
+        "label": "Service category",
+        "type": "select-one",
+        "required": false,
+        "key": "field_service_category",
+        "optionCount": 2
+      },
+      {
+        "ref": "r1f2",
+        "label": "Reference",
+        "type": "text",
+        "required": false,
+        "key": "field_reference",
+        "optionCount": 0
+      }
+    ],
+    "forms": [],
+    "links": [],
+    "pageContext": {
+      "text": "Equipment register\n107 registered assets · page 1\nFind equipment\nService category\nFind\nAsset 0\nWorking equipment\nInspect\nAsset 1\nWorking equipment\nInspect\nAsset 2\nWorking equipment\nInspect\nAsset 3\nWorking equipment\nInspect\nAsset 4\nWorking equipment\nInspect\nAsset 5\nWorking equipment\nInspect\nAsset 6\nWorking equipment\nInspect\nAsset 7\nWorking equipment\nInspect\nAsset 8\nWorking equipment\nInspect\nAsset 9\nWorking equipment\nInspect\nWarranty claim\nReference\nUse the purchase certificate.",
+      "headings": [
+        {
+          "level": 1,
+          "label": "Equipment register"
+        },
+        {
+          "level": 2,
+          "label": "Asset 0"
+        },
+        {
+          "level": 2,
+          "label": "Asset 1"
+        },
+        {
+          "level": 2,
+          "label": "Asset 2"
+        },
+        {
+          "level": 2,
+          "label": "Asset 3"
+        },
+        {
+          "level": 2,
+          "label": "Asset 4"
+        },
+        {
+          "level": 2,
+          "label": "Asset 5"
+        },
+        {
+          "level": 2,
+          "label": "Asset 6"
+        },
+        {
+          "level": 2,
+          "label": "Asset 7"
+        },
+        {
+          "level": 2,
+          "label": "Asset 8"
+        },
+        {
+          "level": 2,
+          "label": "Asset 9"
+        },
+        {
+          "level": 2,
+          "label": "Warranty claim"
+        }
+      ],
+      "headingCount": 12,
+      "collections": [
+        {
+          "role": "div",
+          "itemCount": 10,
+          "labels": [
+            "Asset 0",
+            "Asset 1",
+            "Asset 2",
+            "Asset 3",
+            "Asset 4",
+            "Asset 5",
+            "Asset 6",
+            "Asset 7"
+          ],
+          "labelsTruncated": true,
+          "truncated": false,
+          "targetRef": "r1t21"
+        }
+      ],
+      "title": "Equipment register",
+      "structure": [
+        {
+          "role": "p",
+          "label": "107 registered assets · page 1",
+          "region": "Equipment register",
+          "targetRef": "r1t19"
+        },
+        {
+          "role": "label",
+          "label": "Find equipment",
+          "region": "Equipment register"
+        },
+        {
+          "role": "input",
+          "label": "Find equipment",
+          "region": "Equipment register",
+          "disabled": false
+        },
+        {
+          "role": "label",
+          "label": "Service category",
+          "region": "Equipment register"
+        },
+        {
+          "role": "select",
+          "label": "Service category",
+          "region": "Equipment register",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Find",
+          "region": "Equipment register",
+          "disabled": false,
+          "targetRef": "r1t22"
+        },
+        {
+          "role": "label",
+          "label": "Reference",
+          "region": "Warranty claim"
+        },
+        {
+          "role": "input",
+          "label": "Reference",
+          "region": "Warranty claim",
+          "description": "Use the purchase certificate.",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "Use the purchase certificate.",
+          "region": "Warranty claim",
+          "targetRef": "r1t20"
+        },
+        {
+          "role": "button",
+          "label": "Inspect",
+          "region": "Equipment register",
+          "disabled": false,
+          "targetRef": "r1t23"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "Equipment register",
+        "kind": "content",
+        "role": "h1",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Equipment register"
+      },
+      {
+        "ref": "r1t1",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t2",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t4",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t5",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t6",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t7",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t8",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t9",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t10",
+        "label": "Working equipment",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Working equipment"
+      },
+      {
+        "ref": "r1t11",
+        "label": "Asset 0",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 0Working equipment"
+      },
+      {
+        "ref": "r1t12",
+        "label": "Asset 1",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 1Working equipment"
+      },
+      {
+        "ref": "r1t13",
+        "label": "Asset 2",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 2Working equipment"
+      },
+      {
+        "ref": "r1t14",
+        "label": "Asset 3",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 3Working equipment"
+      },
+      {
+        "ref": "r1t15",
+        "label": "Asset 4",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 4Working equipment"
+      },
+      {
+        "ref": "r1t16",
+        "label": "Asset 5",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 5Working equipment"
+      },
+      {
+        "ref": "r1t17",
+        "label": "Asset 6",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 6Working equipment"
+      },
+      {
+        "ref": "r1t18",
+        "label": "Asset 7",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Asset 7Working equipment"
+      },
+      {
+        "ref": "r1t19",
+        "label": "107 registered assets · page 1",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "107 registered assets · page 1"
+      },
+      {
+        "ref": "r1t20",
+        "label": "Use the purchase certificate.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Use the purchase certificate."
+      },
+      {
+        "ref": "r1t21",
+        "label": "Loaded collection: 10 items. Sample: Asset 0; Asset 1",
+        "kind": "content",
+        "role": "div",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Loaded collection: 10 items. Sample: Asset 0; Asset 1"
+      },
+      {
+        "ref": "r1t22",
+        "label": "Find",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Find"
+      },
+      {
+        "ref": "r1t23",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 3,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [],
+    "screen": "Equipment register | Asset 0 | Asset 1",
+    "path": "/__guidance-test",
+    "ambiguousDialogs": false,
+    "blockedCount": 11
+  },
+  "public": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Search MCPs, publishers, capabilities…",
+        "type": "text",
+        "required": false,
+        "key": "q",
+        "optionCount": 0,
+        "constraints": {
+          "maxlength": "120"
+        }
+      },
+      {
+        "ref": "r1f1",
+        "label": "transport",
+        "type": "select-one",
+        "required": false,
+        "key": "transport",
+        "optionCount": 4
+      }
+    ],
+    "forms": [],
+    "links": [],
+    "pageContext": {
+      "text": "✺ Free Tools\nDocs\nMCP Universe\nDiscover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.\nSearch\n1535 approved listings · page 1\nac.inference.sh/mcp\nrun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.\nac.inference.sh · streamable-http\nInspect\nac.snag/snag\nGives your coding agent the captured console, network, replay and screenshot evidence for a bug.\nac.snag · streamable-http\nInspect\nac.tandem/docs-mcp\nRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.\nac.tandem · streamable-http\nInspect\nacademy.apexai/apex-ai-academy\nCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.\nacademy.apexai · streamable-http\nInspect\nacademy.ase/periodic-system\nPractices for building software with coding agents, each with a test you check on your repo.\nacademy.ase · streamable-http\nInspect\nad.getle/leads\nFind B2B leads with verified work emails, find and verify emails, and run cold email outreach.\nad.getle · streamable-http\nInspect\nad.inside/inside-ads\nTelegram ad exchange: estimate reach and cost with no account, then create and run campaigns.\nad.inside · streamable-http\nInspect\nae.beachclubs/mcp\nSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.\nae.beachclubs · streamable-http\nInspect\nae.brainy/grocery-prices\nSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocation\nae.brainy · streamable-http\nInspect\nae.datadubai/dubai-real-estate\nDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.\nae.datadubai · streamable-http\nInspect\nae.easyvoice/tts\nHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.\nae.easyvoice · streamable-http\nInspect\nae.genosys/genosys\nShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.\nae.genosys · streamable-http\nInspect\nae.grovisor/grotax\nUAE Corporate Tax: CT computation, SBR, penalties, free zone test, TP and health-check.\nae.grovisor · streamable-http\nInspect\nae.plantguide/dubai-gardening\nWhat to plant in Dubai, indoor plants, plant care in the heat, garden styles and Garden Care prices.\nae.plantguide · streamable-http\nInspect\nae.projectory/mcp\nFind UAE off-plan developments and registered residential sales.\nae.projectory · streamable-http\nInspect\nae.propick/propick\nManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.\nae.propick · streamable-http\nInspect\nae.waggle/fenlight\nGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.\nae.waggle · streamable-http\nInspect\nae.waggle/vera\nScrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup\nae.waggle · streamable-http\nInspect\naero.events/events\nFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.\naero.events · streamable-http\nInspect\nafrica.ugc/ugc\nThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.\nafrica.ugc · streamable-http\nInspect\nag.hood/name-service\nResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.\nag.hood · streamable-http\nInspect\nagency.goji/goji\nAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.\nagency.goji · streamable-http\nInspect\nagency.justidea/justidea-agency\nServices, prices, inquiries and free analytics, AI and Google visibility scans by JustIdea, Poland.\nagency.justidea · streamable-http\nInspect\nagency.kesey/pretrip\nScreen regulated-health marketing copy against source-cited rulesets, all 50 states.\nagency.kesey · stdio\nInspect\nPrevious\nNext\nInclude your MCP\nOfficial Registry registration is preferred. Every submission is moderated before publication.\nSubmit an MCP",
+      "headings": [
+        {
+          "level": 1,
+          "label": "MCP Universe"
+        },
+        {
+          "level": 2,
+          "label": "ac.inference.sh/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ac.snag/snag"
+        },
+        {
+          "level": 2,
+          "label": "ac.tandem/docs-mcp"
+        },
+        {
+          "level": 2,
+          "label": "academy.apexai/apex-ai-academy"
+        },
+        {
+          "level": 2,
+          "label": "academy.ase/periodic-system"
+        },
+        {
+          "level": 2,
+          "label": "ad.getle/leads"
+        },
+        {
+          "level": 2,
+          "label": "ad.inside/inside-ads"
+        },
+        {
+          "level": 2,
+          "label": "ae.beachclubs/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.brainy/grocery-prices"
+        },
+        {
+          "level": 2,
+          "label": "ae.datadubai/dubai-real-estate"
+        },
+        {
+          "level": 2,
+          "label": "ae.easyvoice/tts"
+        },
+        {
+          "level": 2,
+          "label": "ae.genosys/genosys"
+        },
+        {
+          "level": 2,
+          "label": "ae.grovisor/grotax"
+        },
+        {
+          "level": 2,
+          "label": "ae.plantguide/dubai-gardening"
+        },
+        {
+          "level": 2,
+          "label": "ae.projectory/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.propick/propick"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/fenlight"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/vera"
+        },
+        {
+          "level": 2,
+          "label": "aero.events/events"
+        },
+        {
+          "level": 2,
+          "label": "africa.ugc/ugc"
+        },
+        {
+          "level": 2,
+          "label": "ag.hood/name-service"
+        },
+        {
+          "level": 2,
+          "label": "agency.goji/goji"
+        },
+        {
+          "level": 2,
+          "label": "agency.justidea/justidea-agency"
+        },
+        {
+          "level": 2,
+          "label": "agency.kesey/pretrip"
+        },
+        {
+          "level": 2,
+          "label": "Include your MCP"
+        }
+      ],
+      "headingCount": 26,
+      "collections": [
+        {
+          "role": "div",
+          "itemCount": 24,
+          "labels": [
+            "ac.inference.sh/mcp",
+            "ac.snag/snag",
+            "ac.tandem/docs-mcp",
+            "academy.apexai/apex-ai-academy",
+            "academy.ase/periodic-system",
+            "ad.getle/leads",
+            "ad.inside/inside-ads",
+            "ae.beachclubs/mcp"
+          ],
+          "labelsTruncated": true,
+          "truncated": false,
+          "targetRef": "r1t3"
+        }
+      ],
+      "title": "MCP Universe · Flolah",
+      "structure": [
+        {
+          "role": "a",
+          "label": "✺ Free Tools",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t4"
+        },
+        {
+          "role": "a",
+          "label": "Docs",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t5"
+        },
+        {
+          "role": "p",
+          "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.",
+          "region": "MCP Universe",
+          "targetRef": "r1t0"
+        },
+        {
+          "role": "input",
+          "label": "Search MCPs, publishers, capabilities…",
+          "region": "MCP Universe",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Search",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t6"
+        },
+        {
+          "role": "p",
+          "label": "1535 approved listings · page 1",
+          "region": "MCP Universe",
+          "targetRef": "r1t1"
+        },
+        {
+          "role": "button",
+          "label": "Previous",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t8"
+        },
+        {
+          "role": "button",
+          "label": "Next",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t9"
+        },
+        {
+          "role": "p",
+          "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+          "region": "Include your MCP",
+          "targetRef": "r1t2"
+        },
+        {
+          "role": "button",
+          "label": "Submit an MCP",
+          "region": "Include your MCP",
+          "disabled": false,
+          "targetRef": "r1t10"
+        },
+        {
+          "role": "button",
+          "label": "Inspect",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t7"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is nev",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed."
+      },
+      {
+        "ref": "r1t1",
+        "label": "1535 approved listings · page 1",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "1535 approved listings · page 1"
+      },
+      {
+        "ref": "r1t2",
+        "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Official Registry registration is preferred. Every submission is moderated before publication."
+      },
+      {
+        "ref": "r1t3",
+        "label": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag",
+        "kind": "content",
+        "role": "div",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag"
+      },
+      {
+        "ref": "r1t4",
+        "label": "✺ Free Tools",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "✺ Free Tools"
+      },
+      {
+        "ref": "r1t5",
+        "label": "Docs",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Docs"
+      },
+      {
+        "ref": "r1t6",
+        "label": "Search",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Search"
+      },
+      {
+        "ref": "r1t7",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      },
+      {
+        "ref": "r1t8",
+        "label": "Previous",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Previous"
+      },
+      {
+        "ref": "r1t9",
+        "label": "Next",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Next"
+      },
+      {
+        "ref": "r1t10",
+        "label": "Submit an MCP",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Submit an MCP"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 2,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [
+      "/free-tools/",
+      "/docs/"
+    ],
+    "screen": "MCP Universe | ac.inference.sh/mcp | ac.snag/snag",
+    "path": "/free-tools/mcp-universe/",
+    "ambiguousDialogs": false,
+    "blockedCount": 30
+  },
+  "publicOperation": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Search MCPs, publishers, capabilities…",
+        "type": "text",
+        "required": false,
+        "key": "q",
+        "optionCount": 0,
+        "constraints": {
+          "maxlength": "120"
+        }
+      },
+      {
+        "ref": "r1f1",
+        "label": "transport",
+        "type": "select-one",
+        "required": false,
+        "key": "transport",
+        "optionCount": 4
+      }
+    ],
+    "forms": [],
+    "links": [],
+    "pageContext": {
+      "text": "✺ Free Tools\nDocs\nMCP Universe\nDiscover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.\nSearch\n1535 approved listings · page 1\nac.inference.sh/mcp\nrun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.\nac.inference.sh · streamable-http\nInspect\nac.snag/snag\nGives your coding agent the captured console, network, replay and screenshot evidence for a bug.\nac.snag · streamable-http\nInspect\nac.tandem/docs-mcp\nRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.\nac.tandem · streamable-http\nInspect\nacademy.apexai/apex-ai-academy\nCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.\nacademy.apexai · streamable-http\nInspect\nacademy.ase/periodic-system\nPractices for building software with coding agents, each with a test you check on your repo.\nacademy.ase · streamable-http\nInspect\nad.getle/leads\nFind B2B leads with verified work emails, find and verify emails, and run cold email outreach.\nad.getle · streamable-http\nInspect\nad.inside/inside-ads\nTelegram ad exchange: estimate reach and cost with no account, then create and run campaigns.\nad.inside · streamable-http\nInspect\nae.beachclubs/mcp\nSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.\nae.beachclubs · streamable-http\nInspect\nae.brainy/grocery-prices\nSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocation\nae.brainy · streamable-http\nInspect\nae.datadubai/dubai-real-estate\nDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.\nae.datadubai · streamable-http\nInspect\nae.easyvoice/tts\nHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.\nae.easyvoice · streamable-http\nInspect\nae.genosys/genosys\nShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.\nae.genosys · streamable-http\nInspect\nae.grovisor/grotax\nUAE Corporate Tax: CT computation, SBR, penalties, free zone test, TP and health-check.\nae.grovisor · streamable-http\nInspect\nae.plantguide/dubai-gardening\nWhat to plant in Dubai, indoor plants, plant care in the heat, garden styles and Garden Care prices.\nae.plantguide · streamable-http\nInspect\nae.projectory/mcp\nFind UAE off-plan developments and registered residential sales.\nae.projectory · streamable-http\nInspect\nae.propick/propick\nManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.\nae.propick · streamable-http\nInspect\nae.waggle/fenlight\nGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.\nae.waggle · streamable-http\nInspect\nae.waggle/vera\nScrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup\nae.waggle · streamable-http\nInspect\naero.events/events\nFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.\naero.events · streamable-http\nInspect\nafrica.ugc/ugc\nThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.\nafrica.ugc · streamable-http\nInspect\nag.hood/name-service\nResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.\nag.hood · streamable-http\nInspect\nagency.goji/goji\nAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.\nagency.goji · streamable-http\nInspect\nagency.justidea/justidea-agency\nServices, prices, inquiries and free analytics, AI and Google visibility scans by JustIdea, Poland.\nagency.justidea · streamable-http\nInspect\nagency.kesey/pretrip\nScreen regulated-health marketing copy against source-cited rulesets, all 50 states.\nagency.kesey · stdio\nInspect\nPrevious\nNext\nInclude your MCP\nOfficial Registry registration is preferred. Every submission is moderated before publication.\nSubmit an MCP",
+      "headings": [
+        {
+          "level": 1,
+          "label": "MCP Universe"
+        },
+        {
+          "level": 2,
+          "label": "ac.inference.sh/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ac.snag/snag"
+        },
+        {
+          "level": 2,
+          "label": "ac.tandem/docs-mcp"
+        },
+        {
+          "level": 2,
+          "label": "academy.apexai/apex-ai-academy"
+        },
+        {
+          "level": 2,
+          "label": "academy.ase/periodic-system"
+        },
+        {
+          "level": 2,
+          "label": "ad.getle/leads"
+        },
+        {
+          "level": 2,
+          "label": "ad.inside/inside-ads"
+        },
+        {
+          "level": 2,
+          "label": "ae.beachclubs/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.brainy/grocery-prices"
+        },
+        {
+          "level": 2,
+          "label": "ae.datadubai/dubai-real-estate"
+        },
+        {
+          "level": 2,
+          "label": "ae.easyvoice/tts"
+        },
+        {
+          "level": 2,
+          "label": "ae.genosys/genosys"
+        },
+        {
+          "level": 2,
+          "label": "ae.grovisor/grotax"
+        },
+        {
+          "level": 2,
+          "label": "ae.plantguide/dubai-gardening"
+        },
+        {
+          "level": 2,
+          "label": "ae.projectory/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.propick/propick"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/fenlight"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/vera"
+        },
+        {
+          "level": 2,
+          "label": "aero.events/events"
+        },
+        {
+          "level": 2,
+          "label": "africa.ugc/ugc"
+        },
+        {
+          "level": 2,
+          "label": "ag.hood/name-service"
+        },
+        {
+          "level": 2,
+          "label": "agency.goji/goji"
+        },
+        {
+          "level": 2,
+          "label": "agency.justidea/justidea-agency"
+        },
+        {
+          "level": 2,
+          "label": "agency.kesey/pretrip"
+        },
+        {
+          "level": 2,
+          "label": "Include your MCP"
+        }
+      ],
+      "headingCount": 26,
+      "collections": [
+        {
+          "role": "div",
+          "itemCount": 24,
+          "labels": [
+            "ac.inference.sh/mcp",
+            "ac.snag/snag",
+            "ac.tandem/docs-mcp",
+            "academy.apexai/apex-ai-academy",
+            "academy.ase/periodic-system",
+            "ad.getle/leads",
+            "ad.inside/inside-ads",
+            "ae.beachclubs/mcp"
+          ],
+          "labelsTruncated": true,
+          "truncated": false,
+          "targetRef": "r1t9"
+        }
+      ],
+      "title": "MCP Universe · Flolah",
+      "structure": [
+        {
+          "role": "a",
+          "label": "✺ Free Tools",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t10"
+        },
+        {
+          "role": "a",
+          "label": "Docs",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t11"
+        },
+        {
+          "role": "p",
+          "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.",
+          "region": "MCP Universe",
+          "targetRef": "r1t6"
+        },
+        {
+          "role": "input",
+          "label": "Search MCPs, publishers, capabilities…",
+          "region": "MCP Universe",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Search",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t0"
+        },
+        {
+          "role": "p",
+          "label": "1535 approved listings · page 1",
+          "region": "MCP Universe",
+          "targetRef": "r1t7"
+        },
+        {
+          "role": "button",
+          "label": "Previous",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t13"
+        },
+        {
+          "role": "button",
+          "label": "Next",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t14"
+        },
+        {
+          "role": "p",
+          "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+          "region": "Include your MCP",
+          "targetRef": "r1t8"
+        },
+        {
+          "role": "button",
+          "label": "Submit an MCP",
+          "region": "Include your MCP",
+          "disabled": false,
+          "targetRef": "r1t15"
+        },
+        {
+          "role": "button",
+          "label": "Inspect",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t12"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "Search",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Search"
+      },
+      {
+        "ref": "r1t1",
+        "label": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates."
+      },
+      {
+        "ref": "r1t2",
+        "label": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking."
+      },
+      {
+        "ref": "r1t3",
+        "label": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup"
+      },
+      {
+        "ref": "r1t4",
+        "label": "ae.waggle/fenlight",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "ae.waggle/fenlightGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.ae.waggle · streamable-http"
+      },
+      {
+        "ref": "r1t5",
+        "label": "ae.waggle/vera",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "ae.waggle/veraScrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signupae.waggle · streamable-http"
+      },
+      {
+        "ref": "r1t6",
+        "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is nev",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed."
+      },
+      {
+        "ref": "r1t7",
+        "label": "1535 approved listings · page 1",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "1535 approved listings · page 1"
+      },
+      {
+        "ref": "r1t8",
+        "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Official Registry registration is preferred. Every submission is moderated before publication."
+      },
+      {
+        "ref": "r1t9",
+        "label": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag",
+        "kind": "content",
+        "role": "div",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag"
+      },
+      {
+        "ref": "r1t10",
+        "label": "✺ Free Tools",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "✺ Free Tools"
+      },
+      {
+        "ref": "r1t11",
+        "label": "Docs",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Docs"
+      },
+      {
+        "ref": "r1t12",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      },
+      {
+        "ref": "r1t13",
+        "label": "Previous",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Previous"
+      },
+      {
+        "ref": "r1t14",
+        "label": "Next",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Next"
+      },
+      {
+        "ref": "r1t15",
+        "label": "Submit an MCP",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Submit an MCP"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 2,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [
+      "/free-tools/",
+      "/docs/"
+    ],
+    "screen": "MCP Universe | ac.inference.sh/mcp | ac.snag/snag",
+    "path": "/free-tools/mcp-universe/",
+    "ambiguousDialogs": false,
+    "blockedCount": 30
+  }
+}

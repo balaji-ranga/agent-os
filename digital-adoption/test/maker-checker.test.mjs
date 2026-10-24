@@ -29,8 +29,19 @@ test('enabled review uses inactive slot and accepts supported proposals; roles s
 test('checker can request one maker revision; corrected result is checked again',async()=>{
  const f=fixture({verdicts:['revise','accept'],values:['Standard','Express']}),r=await call(f.gateway);assert.equal(f.calls.length,4);assert.equal(r.quality.revisions,1);assert.equal(JSON.parse(r.content).actions[0].value,'Express');assert.match(f.calls[2].messages.at(-1).content,/boundedCheckerFeedback/);
 });
+
+test('format repair retains the preceding semantic correction instead of undoing it',async()=>{
+ const f=fixture();let made=0,checked=0;
+ const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async request=>{
+  if(request.config.slot){const decision=checked++?'accept':'revise';return {content:JSON.stringify({decision,feedback:'This requests visual location: use guide and highlight the observed field.',checks:{taskMatch:decision==='accept'?'pass':'fail',grounding:'pass',safety:'pass'}})};}
+  made++;if(made===3){const repair=JSON.parse(request.messages.at(-1).content);assert.match(repair.priorCheckerFeedback,/visual location/);assert.match(repair.boundedCheckerFeedback,/change intent to guide/);}
+  return {content:JSON.stringify({intent:made===3?'guide':'explain',message:'Here is the observed field.',actions:made===1?[]:[{type:'highlight',ref:'r1f0'}]})};
+ }});
+ const result=await call(gateway);assert.equal(JSON.parse(result.content).intent,'guide');assert.equal(result.quality.checkerRevisions,1);assert.equal(result.quality.contractRepairs,1);assert.equal(made,3);assert.equal(checked,2);
+});
 test('repeated disagreement is bounded and produces no actions',async()=>{
  const f=fixture({verdicts:['revise']}),r=await call(f.gateway);assert.equal(f.calls.length,4);assert.equal(r.quality.decision,'clarify');assert.deepEqual(JSON.parse(r.content).actions,[]);
+ assert.ok(!JSON.parse(r.content).message.includes('Use the requested supported choice'),'Internal repair instructions are not a visitor answer');
 });
 test('clarification and rejection do not authorize proposed changes',async()=>{
  for(const decision of ['clarify','reject']){const f=fixture({verdicts:[decision]}),r=await call(f.gateway);assert.equal(f.calls.length,decision==='clarify'?4:2);assert.deepEqual(JSON.parse(r.content).actions,[]);assert.equal(r.quality.decision,decision);}
@@ -38,6 +49,19 @@ test('clarification and rejection do not authorize proposed changes',async()=>{
 test('missing or invalid checker fails closed and never falls back to maker-only',async()=>{
  const missing=fixture({missing:true});await assert.rejects(()=>call(missing.gateway),e=>e.code==='COPILOT_CHECKER_UNAVAILABLE');assert.equal(missing.calls.length,0);
  for(const verdict of [{decision:'accept',feedback:'ok',actions:[{type:'submit'}]},{decision:'maybe',feedback:'ok'}]){const f=fixture({verdicts:[verdict]});await assert.rejects(()=>call(f.gateway),e=>e.code==='COPILOT_CHECKER_UNAVAILABLE');assert.equal(f.calls.length,2);}
+});
+
+test('omitted checker checks get only the existing single format retry, never inferred acceptance',async()=>{
+ for(const recover of [true,false]){const f=fixture();let checked=0;
+ const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async request=>{
+  if(!request.config.slot)return {content:JSON.stringify(proposal('Express'))};
+  checked++;const verdict={decision:'accept',feedback:'Matches the observed choice.'};if(recover&&checked===2)verdict.checks={taskMatch:'pass',grounding:'pass',safety:'pass'};
+  return {content:JSON.stringify(verdict)};
+ }});
+ if(recover){const result=await call(gateway);assert.equal(result.quality.checkerRetries,1);assert.equal(JSON.parse(result.content).actions[0].value,'Express');}
+ else await assert.rejects(()=>call(gateway),e=>e.code==='COPILOT_CHECKER_UNAVAILABLE');
+ assert.equal(checked,2);
+ }
 });
 test('invalid observed choices cannot be accepted by a judge and get at most one repair',async()=>{
  const f=fixture({values:['Teleportation','Express']}),r=await call(f.gateway);assert.equal(f.calls.length,3);assert.equal(r.quality.revisions,1);assert.equal(JSON.parse(r.content).actions[0].value,'Express');
