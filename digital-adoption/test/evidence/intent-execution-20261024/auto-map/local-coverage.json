@@ -1,0 +1,695 @@
+{
+  "id": "86308cb3-793d-4129-a154-f58c08173cd5",
+  "origin": "http://127.0.0.1:4194",
+  "approvedPaths": [
+    "/customer",
+    "/opportunity",
+    "/note",
+    "/goal",
+    "/records"
+  ],
+  "unobservedPaths": [],
+  "status": "completed",
+  "discovered": 5,
+  "nodes": [
+    {
+      "path": "/customer",
+      "limits": {
+        "fields": 60,
+        "navigation": 30
+      },
+      "forms": [
+        {
+          "key": "demo-form",
+          "label": "demo-form",
+          "fields": [
+            "company_name",
+            "contact_email",
+            "region"
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "company_name",
+          "label": "Company name",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Customer draft"
+        },
+        {
+          "key": "contact_email",
+          "label": "Contact email",
+          "type": "email",
+          "required": true,
+          "form": "demo-form",
+          "region": "Customer draft"
+        },
+        {
+          "key": "region",
+          "label": "Region",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Customer draft"
+        }
+      ],
+      "navigation": [
+        {
+          "label": "Customer",
+          "path": "/customer"
+        },
+        {
+          "label": "Opportunity",
+          "path": "/opportunity"
+        },
+        {
+          "label": "Note",
+          "path": "/note"
+        },
+        {
+          "label": "Scheduled goal",
+          "path": "/goal"
+        },
+        {
+          "label": "Saved synthetic records",
+          "path": "/records"
+        }
+      ],
+      "inventory": {
+        "fields": [
+          {
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer",
+            "visible": true
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity",
+            "visible": true
+          },
+          {
+            "path": "/note",
+            "label": "Note",
+            "visible": true
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal",
+            "visible": true
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records",
+            "visible": true
+          }
+        ],
+        "truncated": false,
+        "limits": {
+          "fields": 500,
+          "forms": 100,
+          "links": 100
+        },
+        "coverage": "DOM structure only; hidden or disabled controls require a fresh visible review; private controls and unloaded states are excluded"
+      },
+      "formCount": 1,
+      "fieldCount": 3,
+      "navigationCount": 5,
+      "fingerprint": "ee01dc73fdc80cd5f5df5539dac1d9fc80844167865c0b32a05ecdb2b5ac7310",
+      "status": "discovered-not-tested"
+    },
+    {
+      "path": "/opportunity",
+      "limits": {
+        "fields": 60,
+        "navigation": 30
+      },
+      "forms": [
+        {
+          "key": "demo-form",
+          "label": "demo-form",
+          "fields": [
+            "opportunity_name",
+            "amount",
+            "currency"
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "opportunity_name",
+          "label": "Opportunity name",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Opportunity draft"
+        },
+        {
+          "key": "amount",
+          "label": "Amount",
+          "type": "number",
+          "required": true,
+          "form": "demo-form",
+          "region": "Opportunity draft"
+        },
+        {
+          "key": "currency",
+          "label": "Currency",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Opportunity draft"
+        }
+      ],
+      "navigation": [
+        {
+          "label": "Customer",
+          "path": "/customer"
+        },
+        {
+          "label": "Opportunity",
+          "path": "/opportunity"
+        },
+        {
+          "label": "Note",
+          "path": "/note"
+        },
+        {
+          "label": "Scheduled goal",
+          "path": "/goal"
+        },
+        {
+          "label": "Saved synthetic records",
+          "path": "/records"
+        }
+      ],
+      "inventory": {
+        "fields": [
+          {
+            "label": "Opportunity name",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "opportunity_name",
+            "form": "demo-form"
+          },
+          {
+            "label": "Amount",
+            "type": "number",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "amount",
+            "form": "demo-form"
+          },
+          {
+            "label": "Currency",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "currency",
+            "form": "demo-form"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "opportunity_name",
+              "amount",
+              "currency"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer",
+            "visible": true
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity",
+            "visible": true
+          },
+          {
+            "path": "/note",
+            "label": "Note",
+            "visible": true
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal",
+            "visible": true
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records",
+            "visible": true
+          }
+        ],
+        "truncated": false,
+        "limits": {
+          "fields": 500,
+          "forms": 100,
+          "links": 100
+        },
+        "coverage": "DOM structure only; hidden or disabled controls require a fresh visible review; private controls and unloaded states are excluded"
+      },
+      "formCount": 1,
+      "fieldCount": 3,
+      "navigationCount": 5,
+      "fingerprint": "d1b87d03ae4b4d23beb4df1e27a22a706962de424eef0d5a180626610ec2c68d",
+      "status": "discovered-not-tested"
+    },
+    {
+      "path": "/note",
+      "limits": {
+        "fields": 60,
+        "navigation": 30
+      },
+      "forms": [
+        {
+          "key": "demo-form",
+          "label": "demo-form",
+          "fields": [
+            "title",
+            "body"
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Note draft"
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "textarea",
+          "required": true,
+          "form": "demo-form",
+          "region": "Note draft"
+        }
+      ],
+      "navigation": [
+        {
+          "label": "Customer",
+          "path": "/customer"
+        },
+        {
+          "label": "Opportunity",
+          "path": "/opportunity"
+        },
+        {
+          "label": "Note",
+          "path": "/note"
+        },
+        {
+          "label": "Scheduled goal",
+          "path": "/goal"
+        },
+        {
+          "label": "Saved synthetic records",
+          "path": "/records"
+        }
+      ],
+      "inventory": {
+        "fields": [
+          {
+            "label": "Title",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "title",
+            "form": "demo-form"
+          },
+          {
+            "label": "Body",
+            "type": "textarea",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "body",
+            "form": "demo-form"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "title",
+              "body"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer",
+            "visible": true
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity",
+            "visible": true
+          },
+          {
+            "path": "/note",
+            "label": "Note",
+            "visible": true
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal",
+            "visible": true
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records",
+            "visible": true
+          }
+        ],
+        "truncated": false,
+        "limits": {
+          "fields": 500,
+          "forms": 100,
+          "links": 100
+        },
+        "coverage": "DOM structure only; hidden or disabled controls require a fresh visible review; private controls and unloaded states are excluded"
+      },
+      "formCount": 1,
+      "fieldCount": 2,
+      "navigationCount": 5,
+      "fingerprint": "7d11f49b0855a3fa76e0e1b1e772a7d01902137225bb3026825e6ad68cbdb58d",
+      "status": "discovered-not-tested"
+    },
+    {
+      "path": "/goal",
+      "limits": {
+        "fields": 60,
+        "navigation": 30
+      },
+      "forms": [
+        {
+          "key": "demo-form",
+          "label": "demo-form",
+          "fields": [
+            "goal_title",
+            "instructions",
+            "cadence",
+            "assigned_agent"
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "goal_title",
+          "label": "Goal title",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Scheduled goal draft"
+        },
+        {
+          "key": "instructions",
+          "label": "Instructions",
+          "type": "textarea",
+          "required": true,
+          "form": "demo-form",
+          "region": "Scheduled goal draft"
+        },
+        {
+          "key": "cadence",
+          "label": "Cadence",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Scheduled goal draft"
+        },
+        {
+          "key": "assigned_agent",
+          "label": "Assigned agent",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "region": "Scheduled goal draft"
+        }
+      ],
+      "navigation": [
+        {
+          "label": "Customer",
+          "path": "/customer"
+        },
+        {
+          "label": "Opportunity",
+          "path": "/opportunity"
+        },
+        {
+          "label": "Note",
+          "path": "/note"
+        },
+        {
+          "label": "Scheduled goal",
+          "path": "/goal"
+        },
+        {
+          "label": "Saved synthetic records",
+          "path": "/records"
+        }
+      ],
+      "inventory": {
+        "fields": [
+          {
+            "label": "Goal title",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "goal_title",
+            "form": "demo-form"
+          },
+          {
+            "label": "Instructions",
+            "type": "textarea",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "instructions",
+            "form": "demo-form"
+          },
+          {
+            "label": "Cadence",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "cadence",
+            "form": "demo-form"
+          },
+          {
+            "label": "Assigned agent",
+            "type": "text",
+            "required": true,
+            "visible": true,
+            "editable": true,
+            "key": "assigned_agent",
+            "form": "demo-form"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "goal_title",
+              "instructions",
+              "cadence",
+              "assigned_agent"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer",
+            "visible": true
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity",
+            "visible": true
+          },
+          {
+            "path": "/note",
+            "label": "Note",
+            "visible": true
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal",
+            "visible": true
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records",
+            "visible": true
+          }
+        ],
+        "truncated": false,
+        "limits": {
+          "fields": 500,
+          "forms": 100,
+          "links": 100
+        },
+        "coverage": "DOM structure only; hidden or disabled controls require a fresh visible review; private controls and unloaded states are excluded"
+      },
+      "formCount": 1,
+      "fieldCount": 4,
+      "navigationCount": 5,
+      "fingerprint": "9c861861689c0222ec03eece372486560aa54188661d4dc73870ad28a5e5ed6a",
+      "status": "discovered-not-tested"
+    },
+    {
+      "path": "/records",
+      "limits": {
+        "fields": 60,
+        "navigation": 30
+      },
+      "forms": [],
+      "fields": [],
+      "navigation": [
+        {
+          "label": "Customer",
+          "path": "/customer"
+        },
+        {
+          "label": "Opportunity",
+          "path": "/opportunity"
+        },
+        {
+          "label": "Note",
+          "path": "/note"
+        },
+        {
+          "label": "Scheduled goal",
+          "path": "/goal"
+        }
+      ],
+      "inventory": {
+        "fields": [],
+        "forms": [],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer",
+            "visible": true
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity",
+            "visible": true
+          },
+          {
+            "path": "/note",
+            "label": "Note",
+            "visible": true
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal",
+            "visible": true
+          }
+        ],
+        "truncated": false,
+        "limits": {
+          "fields": 500,
+          "forms": 100,
+          "links": 100
+        },
+        "coverage": "DOM structure only; hidden or disabled controls require a fresh visible review; private controls and unloaded states are excluded"
+      },
+      "formCount": 0,
+      "fieldCount": 0,
+      "navigationCount": 4,
+      "fingerprint": "383dd6534243eec77e4bcb815e4848c6a8746eead5676e8011897a659c73b459",
+      "status": "discovered-not-tested"
+    }
+  ],
+  "blocked": [
+    {
+      "path": "/customer",
+      "count": 6,
+      "reason": "Unknown or effectful controls were not activated"
+    },
+    {
+      "path": "/opportunity",
+      "count": 6,
+      "reason": "Unknown or effectful controls were not activated"
+    },
+    {
+      "path": "/note",
+      "count": 6,
+      "reason": "Unknown or effectful controls were not activated"
+    },
+    {
+      "path": "/goal",
+      "count": 6,
+      "reason": "Unknown or effectful controls were not activated"
+    }
+  ],
+  "remaining": 0,
+  "maxPages": 5,
+  "elapsedMs": 5669,
+  "completeness": "bounded approved routes only; discovered does not mean task-tested"
+}

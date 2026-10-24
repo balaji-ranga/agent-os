@@ -5,7 +5,7 @@ export function observedSourceScreen(screen){
  const inventory=screen.inventory||screen,forms=[];
  for(const f of inventory.forms||[]){const id=f.key||f.id;if(safeKey(id)&&!forms.some(x=>x.id===id))forms.push({id,label:f.label||id});}
  const candidates=(inventory.fields||[]).filter(f=>safeKey(f.key)&&types.has(f.type==='select'?'select-one':f.type));
- const fields=candidates.filter(f=>candidates.filter(other=>other.key===f.key).length===1).map(f=>({key:f.key,label:f.label||f.key,type:f.type==='select'?'select-one':f.type,required:f.required===true,...(forms.some(form=>form.id===f.form)?{form:f.form}:{})}));
+ const fields=candidates.filter(f=>candidates.filter(other=>other.key===f.key).length===1).map(f=>({key:f.key,label:f.label||f.key,...((screen.fields||[]).filter(s=>s.key===f.key).length===1&&(screen.fields||[]).find(s=>s.key===f.key)?.description?{description:screen.fields.find(s=>s.key===f.key).description}:{}),type:f.type==='select'?'select-one':f.type,required:f.required===true,...(forms.some(form=>form.id===f.form)?{form:f.form}:{})}));
  const safePath=value=>typeof value==='string'&&/^\/(?!\/)[^?#\\]*$/.test(value)&&value.length<=300&&!/\/(?:\d{5,}|[a-f0-9-]{32,36})(?:\/|$)/i.test(value)&&!value.includes('..');
  return {path:screen.path,title:(screen.title||screen.path).slice(0,160),forms,fields,links:(inventory.links||[]).filter(l=>safePath(l.path)).map(({path,label})=>({path,label:label||path}))};
 }

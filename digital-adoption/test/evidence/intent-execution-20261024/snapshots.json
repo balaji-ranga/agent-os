@@ -1,0 +1,1097 @@
+{
+  "local": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Find workshops",
+        "type": "text",
+        "required": false,
+        "key": "query",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f1",
+        "label": "Registration name",
+        "type": "text",
+        "required": true,
+        "key": "name",
+        "form": "form_1",
+        "optionCount": 0
+      }
+    ],
+    "forms": [
+      {
+        "key": "form_1",
+        "label": "form_1",
+        "fields": [
+          "name"
+        ]
+      }
+    ],
+    "links": [],
+    "controls": [
+      {
+        "ref": "r1a0",
+        "label": "Apply query"
+      },
+      {
+        "ref": "r1a1",
+        "label": "No change"
+      }
+    ],
+    "pageContext": {
+      "text": "Workshop directory\nFind workshops\nApply query\nNo change\n3 workshops\nRobotics workshop\nFinance conference\nDesign practice\nRegistration name\nRegister",
+      "headings": [
+        {
+          "level": 1,
+          "label": "Workshop directory"
+        },
+        {
+          "level": 2,
+          "label": "Robotics workshop"
+        },
+        {
+          "level": 2,
+          "label": "Finance conference"
+        },
+        {
+          "level": 2,
+          "label": "Design practice"
+        }
+      ],
+      "headingCount": 4,
+      "collections": [
+        {
+          "role": "section",
+          "itemCount": 3,
+          "labels": [
+            "Robotics workshop",
+            "Finance conference",
+            "Design practice"
+          ],
+          "labelsTruncated": false,
+          "truncated": false,
+          "targetRef": "r1t2"
+        }
+      ],
+      "title": "Workshop directory",
+      "structure": [
+        {
+          "role": "label",
+          "label": "Find workshops",
+          "region": "Workshop directory"
+        },
+        {
+          "role": "input",
+          "label": "Find workshops",
+          "region": "Workshop directory",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Apply query",
+          "region": "Workshop directory",
+          "disabled": false,
+          "targetRef": "r1t3"
+        },
+        {
+          "role": "button",
+          "label": "No change",
+          "region": "Workshop directory",
+          "disabled": false,
+          "targetRef": "r1t4"
+        },
+        {
+          "role": "status",
+          "label": "3 workshops",
+          "region": "Workshop directory",
+          "targetRef": "r1t0"
+        },
+        {
+          "role": "label",
+          "label": "Registration name",
+          "region": "Workshop directory"
+        },
+        {
+          "role": "input",
+          "label": "Registration name",
+          "region": "Workshop directory",
+          "disabled": false,
+          "required": true
+        },
+        {
+          "role": "button",
+          "label": "Register",
+          "region": "Workshop directory",
+          "disabled": false,
+          "targetRef": "r1t5"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "3 workshops",
+        "kind": "content",
+        "role": "status",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "3 workshops"
+      },
+      {
+        "ref": "r1t1",
+        "label": "Robotics workshop",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Robotics workshop"
+      },
+      {
+        "ref": "r1t2",
+        "label": "Loaded collection: 3 items. Sample: Robotics workshop; Finance conference",
+        "kind": "content",
+        "role": "section",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Loaded collection: 3 items. Sample: Robotics workshop; Finance conference"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Apply query",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Apply query"
+      },
+      {
+        "ref": "r1t4",
+        "label": "No change",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "No change"
+      },
+      {
+        "ref": "r1t5",
+        "label": "Register",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Register"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 2,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [
+      {
+        "ref": "r1s0",
+        "label": "Register"
+      }
+    ],
+    "navigationCandidates": [],
+    "screen": "Workshop directory | Robotics workshop | Finance conference",
+    "path": "/__intent-catalog",
+    "ambiguousDialogs": false,
+    "blockedCount": 3
+  },
+  "public": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Search MCPs, publishers, capabilities…",
+        "type": "text",
+        "required": false,
+        "key": "q",
+        "optionCount": 0,
+        "constraints": {
+          "maxlength": "120"
+        }
+      },
+      {
+        "ref": "r1f1",
+        "label": "transport",
+        "type": "select-one",
+        "required": false,
+        "key": "transport",
+        "optionCount": 4
+      }
+    ],
+    "forms": [],
+    "links": [
+      {
+        "ref": "r1n0",
+        "label": "✺ Free Tools",
+        "path": "/free-tools/",
+        "readOnlyApproved": false
+      },
+      {
+        "ref": "r1n1",
+        "label": "Docs",
+        "path": "/docs/",
+        "readOnlyApproved": false
+      }
+    ],
+    "controls": [
+      {
+        "ref": "r1a0",
+        "label": "Search"
+      },
+      {
+        "ref": "r1a1",
+        "label": "Inspect",
+        "context": "ac.inference.sh/mcp"
+      },
+      {
+        "ref": "r1a2",
+        "label": "Inspect",
+        "context": "ac.snag/snag"
+      },
+      {
+        "ref": "r1a3",
+        "label": "Inspect",
+        "context": "ac.tandem/docs-mcp"
+      },
+      {
+        "ref": "r1a4",
+        "label": "Inspect",
+        "context": "academy.apexai/apex-ai-academy"
+      },
+      {
+        "ref": "r1a5",
+        "label": "Inspect",
+        "context": "academy.ase/periodic-system"
+      },
+      {
+        "ref": "r1a6",
+        "label": "Inspect",
+        "context": "ad.getle/leads"
+      },
+      {
+        "ref": "r1a7",
+        "label": "Inspect",
+        "context": "ad.inside/inside-ads"
+      },
+      {
+        "ref": "r1a8",
+        "label": "Inspect",
+        "context": "ae.beachclubs/mcp"
+      },
+      {
+        "ref": "r1a9",
+        "label": "Inspect",
+        "context": "ae.brainy/grocery-prices"
+      },
+      {
+        "ref": "r1a10",
+        "label": "Inspect",
+        "context": "ae.datadubai/dubai-real-estate"
+      },
+      {
+        "ref": "r1a11",
+        "label": "Inspect",
+        "context": "ae.easyvoice/tts"
+      },
+      {
+        "ref": "r1a12",
+        "label": "Inspect",
+        "context": "ae.genosys/genosys"
+      },
+      {
+        "ref": "r1a13",
+        "label": "Inspect",
+        "context": "ae.grovisor/grotax"
+      },
+      {
+        "ref": "r1a14",
+        "label": "Inspect",
+        "context": "ae.plantguide/dubai-gardening"
+      },
+      {
+        "ref": "r1a15",
+        "label": "Inspect",
+        "context": "ae.projectory/mcp"
+      },
+      {
+        "ref": "r1a16",
+        "label": "Inspect",
+        "context": "ae.propick/propick"
+      },
+      {
+        "ref": "r1a17",
+        "label": "Inspect",
+        "context": "ae.waggle/fenlight"
+      },
+      {
+        "ref": "r1a18",
+        "label": "Inspect",
+        "context": "ae.waggle/vera"
+      },
+      {
+        "ref": "r1a19",
+        "label": "Inspect",
+        "context": "aero.events/events"
+      },
+      {
+        "ref": "r1a20",
+        "label": "Inspect",
+        "context": "africa.ugc/ugc"
+      },
+      {
+        "ref": "r1a21",
+        "label": "Inspect",
+        "context": "ag.hood/name-service"
+      },
+      {
+        "ref": "r1a22",
+        "label": "Inspect",
+        "context": "agency.goji/goji"
+      },
+      {
+        "ref": "r1a23",
+        "label": "Inspect",
+        "context": "agency.justidea/justidea-agency"
+      }
+    ],
+    "pageContext": {
+      "text": "✺ Free Tools\nDocs\nMCP Universe\nDiscover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.\nSearch\n1535 approved listings · page 1\nac.inference.sh/mcp\nrun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.\nac.inference.sh · streamable-http\nInspect\nac.snag/snag\nGives your coding agent the captured console, network, replay and screenshot evidence for a bug.\nac.snag · streamable-http\nInspect\nac.tandem/docs-mcp\nRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.\nac.tandem · streamable-http\nInspect\nacademy.apexai/apex-ai-academy\nCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.\nacademy.apexai · streamable-http\nInspect\nacademy.ase/periodic-system\nPractices for building software with coding agents, each with a test you check on your repo.\nacademy.ase · streamable-http\nInspect\nad.getle/leads\nFind B2B leads with verified work emails, find and verify emails, and run cold email outreach.\nad.getle · streamable-http\nInspect\nad.inside/inside-ads\nTelegram ad exchange: estimate reach and cost with no account, then create and run campaigns.\nad.inside · streamable-http\nInspect\nae.beachclubs/mcp\nSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.\nae.beachclubs · streamable-http\nInspect\nae.brainy/grocery-prices\nSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocation\nae.brainy · streamable-http\nInspect\nae.datadubai/dubai-real-estate\nDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.\nae.datadubai · streamable-http\nInspect\nae.easyvoice/tts\nHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.\nae.easyvoice · streamable-http\nInspect\nae.genosys/genosys\nShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.\nae.genosys · streamable-http\nInspect\nae.grovisor/grotax\nUAE Corporate Tax: CT computation, SBR, penalties, free zone test, TP and health-check.\nae.grovisor · streamable-http\nInspect\nae.plantguide/dubai-gardening\nWhat to plant in Dubai, indoor plants, plant care in the heat, garden styles and Garden Care prices.\nae.plantguide · streamable-http\nInspect\nae.projectory/mcp\nFind UAE off-plan developments and registered residential sales.\nae.projectory · streamable-http\nInspect\nae.propick/propick\nManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.\nae.propick · streamable-http\nInspect\nae.waggle/fenlight\nGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.\nae.waggle · streamable-http\nInspect\nae.waggle/vera\nScrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup\nae.waggle · streamable-http\nInspect\naero.events/events\nFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.\naero.events · streamable-http\nInspect\nafrica.ugc/ugc\nThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.\nafrica.ugc · streamable-http\nInspect\nag.hood/name-service\nResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.\nag.hood · streamable-http\nInspect\nagency.goji/goji\nAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.\nagency.goji · streamable-http\nInspect\nagency.justidea/justidea-agency\nServices, prices, inquiries and free analytics, AI and Google visibility scans by JustIdea, Poland.\nagency.justidea · streamable-http\nInspect\nagency.kesey/pretrip\nScreen regulated-health marketing copy against source-cited rulesets, all 50 states.\nagency.kesey · stdio\nInspect\nPrevious\nNext\nInclude your MCP\nOfficial Registry registration is preferred. Every submission is moderated before publication.\nSubmit an MCP",
+      "headings": [
+        {
+          "level": 1,
+          "label": "MCP Universe"
+        },
+        {
+          "level": 2,
+          "label": "ac.inference.sh/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ac.snag/snag"
+        },
+        {
+          "level": 2,
+          "label": "ac.tandem/docs-mcp"
+        },
+        {
+          "level": 2,
+          "label": "academy.apexai/apex-ai-academy"
+        },
+        {
+          "level": 2,
+          "label": "academy.ase/periodic-system"
+        },
+        {
+          "level": 2,
+          "label": "ad.getle/leads"
+        },
+        {
+          "level": 2,
+          "label": "ad.inside/inside-ads"
+        },
+        {
+          "level": 2,
+          "label": "ae.beachclubs/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.brainy/grocery-prices"
+        },
+        {
+          "level": 2,
+          "label": "ae.datadubai/dubai-real-estate"
+        },
+        {
+          "level": 2,
+          "label": "ae.easyvoice/tts"
+        },
+        {
+          "level": 2,
+          "label": "ae.genosys/genosys"
+        },
+        {
+          "level": 2,
+          "label": "ae.grovisor/grotax"
+        },
+        {
+          "level": 2,
+          "label": "ae.plantguide/dubai-gardening"
+        },
+        {
+          "level": 2,
+          "label": "ae.projectory/mcp"
+        },
+        {
+          "level": 2,
+          "label": "ae.propick/propick"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/fenlight"
+        },
+        {
+          "level": 2,
+          "label": "ae.waggle/vera"
+        },
+        {
+          "level": 2,
+          "label": "aero.events/events"
+        },
+        {
+          "level": 2,
+          "label": "africa.ugc/ugc"
+        },
+        {
+          "level": 2,
+          "label": "ag.hood/name-service"
+        },
+        {
+          "level": 2,
+          "label": "agency.goji/goji"
+        },
+        {
+          "level": 2,
+          "label": "agency.justidea/justidea-agency"
+        },
+        {
+          "level": 2,
+          "label": "agency.kesey/pretrip"
+        },
+        {
+          "level": 2,
+          "label": "Include your MCP"
+        }
+      ],
+      "headingCount": 26,
+      "collections": [
+        {
+          "role": "div",
+          "itemCount": 24,
+          "labels": [
+            "ac.inference.sh/mcp",
+            "ac.snag/snag",
+            "ac.tandem/docs-mcp",
+            "academy.apexai/apex-ai-academy",
+            "academy.ase/periodic-system",
+            "ad.getle/leads",
+            "ad.inside/inside-ads",
+            "ae.beachclubs/mcp"
+          ],
+          "labelsTruncated": true,
+          "truncated": false,
+          "targetRef": "r1t16"
+        }
+      ],
+      "title": "MCP Universe · Flolah",
+      "structure": [
+        {
+          "role": "a",
+          "label": "✺ Free Tools",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t17"
+        },
+        {
+          "role": "a",
+          "label": "Docs",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t18"
+        },
+        {
+          "role": "p",
+          "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.",
+          "region": "MCP Universe",
+          "targetRef": "r1t13"
+        },
+        {
+          "role": "input",
+          "label": "Search MCPs, publishers, capabilities…",
+          "region": "MCP Universe",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Search",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t5"
+        },
+        {
+          "role": "p",
+          "label": "1535 approved listings · page 1",
+          "region": "MCP Universe",
+          "targetRef": "r1t14"
+        },
+        {
+          "role": "button",
+          "label": "Previous",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t20"
+        },
+        {
+          "role": "button",
+          "label": "Next",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t21"
+        },
+        {
+          "role": "p",
+          "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+          "region": "Include your MCP",
+          "targetRef": "r1t15"
+        },
+        {
+          "role": "button",
+          "label": "Submit an MCP",
+          "region": "Include your MCP",
+          "disabled": false,
+          "targetRef": "r1t22"
+        },
+        {
+          "role": "button",
+          "label": "Inspect",
+          "region": "MCP Universe",
+          "disabled": false,
+          "targetRef": "r1t19"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates."
+      },
+      {
+        "ref": "r1t1",
+        "label": "ae.beachclubs/mcp",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "ae.beachclubs/mcpSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.ae.beachclubs · streamable-http"
+      },
+      {
+        "ref": "r1t2",
+        "label": "aero.events/events",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "aero.events/eventsFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.aero.events · streamable-http"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Find aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Find aviation events: airshows, fly-ins, workshops and club meets. Public and read-only."
+      },
+      {
+        "ref": "r1t4",
+        "label": "aero.events · streamable-http",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "aero.events · streamable-http"
+      },
+      {
+        "ref": "r1t5",
+        "label": "Search",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Search"
+      },
+      {
+        "ref": "r1t6",
+        "label": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking."
+      },
+      {
+        "ref": "r1t7",
+        "label": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup"
+      },
+      {
+        "ref": "r1t8",
+        "label": "MCP Universe",
+        "kind": "content",
+        "role": "h1",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "MCP Universe"
+      },
+      {
+        "ref": "r1t9",
+        "label": "ac.inference.sh/mcp",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "ac.inference.sh/mcprun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.ac.inference.sh · streamable-http"
+      },
+      {
+        "ref": "r1t10",
+        "label": "ac.tandem/docs-mcp",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "ac.tandem/docs-mcpRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.ac.tandem · streamable-http"
+      },
+      {
+        "ref": "r1t11",
+        "label": "ae.projectory/mcp",
+        "kind": "content",
+        "role": "article",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "ae.projectory/mcpFind UAE off-plan developments and registered residential sales.ae.projectory · streamable-http"
+      },
+      {
+        "ref": "r1t12",
+        "label": "Include your MCP",
+        "kind": "content",
+        "role": "h2",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Include your MCP"
+      },
+      {
+        "ref": "r1t13",
+        "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is nev",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed."
+      },
+      {
+        "ref": "r1t14",
+        "label": "1535 approved listings · page 1",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "1535 approved listings · page 1"
+      },
+      {
+        "ref": "r1t15",
+        "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Official Registry registration is preferred. Every submission is moderated before publication."
+      },
+      {
+        "ref": "r1t16",
+        "label": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag",
+        "kind": "content",
+        "role": "div",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag"
+      },
+      {
+        "ref": "r1t17",
+        "label": "✺ Free Tools",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "✺ Free Tools"
+      },
+      {
+        "ref": "r1t18",
+        "label": "Docs",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Docs"
+      },
+      {
+        "ref": "r1t19",
+        "label": "Inspect",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Inspect"
+      },
+      {
+        "ref": "r1t20",
+        "label": "Previous",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Previous"
+      },
+      {
+        "ref": "r1t21",
+        "label": "Next",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Next"
+      },
+      {
+        "ref": "r1t22",
+        "label": "Submit an MCP",
+        "kind": "content",
+        "role": "button",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Submit an MCP"
+      },
+      {
+        "ref": "r1t23",
+        "label": "Remote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Remote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help."
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 2,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [
+      "/free-tools/",
+      "/docs/"
+    ],
+    "screen": "MCP Universe | ac.inference.sh/mcp | ac.snag/snag",
+    "path": "/free-tools/mcp-universe/",
+    "ambiguousDialogs": false,
+    "blockedCount": 30
+  },
+  "records": {
+    "revision": 1,
+    "fields": [],
+    "forms": [],
+    "links": [
+      {
+        "ref": "r1n0",
+        "label": "Customer",
+        "path": "/customer",
+        "readOnlyApproved": false
+      },
+      {
+        "ref": "r1n1",
+        "label": "Opportunity",
+        "path": "/opportunity",
+        "readOnlyApproved": false
+      },
+      {
+        "ref": "r1n2",
+        "label": "Note",
+        "path": "/note",
+        "readOnlyApproved": false
+      },
+      {
+        "ref": "r1n3",
+        "label": "Scheduled goal",
+        "path": "/goal",
+        "readOnlyApproved": false
+      }
+    ],
+    "controls": [],
+    "pageContext": {
+      "text": "Saved synthetic records\nPersisted by this local host, separate from copilot state.\nCustomer\nOpportunity\nNote\nScheduled goal\n{\"id\":\"096242d7-0521-4545-b121-9cb8e89d1ceb\",\"path\":\"/customer\",\"operationId\":\"112d5ea5-2333-44e0-8bc1-910e074a7f97\",\"values\":{\"company_name\":\"Cedar UAT\",\"contact_email\":\"cedar-uat@example.com\",\"region\":\"Singapore\"},\"createdAt\":\"2026-10-17T05:43:48.912Z\"}\n{\"id\":\"20dba8ae-68d7-43e0-8b34-c84922763eca\",\"path\":\"/customer\",\"operationId\":\"0dbfeda3-80e4-4517-a78a-2731258979e9\",\"values\":{\"company_name\":\"Cedar UAT O\",\"contact_email\":\"cedar-o@example.com\",\"region\":\"Singapore\"},\"createdAt\":\"2026-10-17T06:26:25.985Z\"}\n{\"id\":\"e2a413e3-0c3d-4083-9153-ca3a68e8858d\",\"path\":\"/customer\",\"operationId\":\"240b60df-67e8-49f7-9a3d-ab3afbb21584\",\"values\":{\"company_name\":\"Birch Reuse\",\"contact_email\":\"birch@example.com\",\"region\":\"Malaysia\"},\"createdAt\":\"2026-10-17T06:32:01.971Z\"}\n{\"id\":\"ed4b081d-59ea-4c72-9e42-cbc525bbdd68\",\"path\":\"/opportunity\",\"operationId\":\"b93bd7ed-8589-489b-a30a-ad6a58ed23eb\",\"values\":{\"opportunity_name\":\"Demo Test\",\"amount\":\"10000\",\"currency\":\"USD\"},\"createdAt\":\"2026-10-17T06:32:05.190Z\"}\n{\"id\":\"122acc1e-c94d-473f-9ba0-1f20713a8095\",\"path\":\"/goal\",\"operationId\":\"465c638d-4bca-447b-886f-c826ab69843f\",\"values\":{\"goal_title\":\"Quarterly review\",\"instructions\":\"Summarize pipeline\",\"cadence\":\"weekly\",\"assigned_agent\":\"Operator\"},\"createdAt\":\"2026-10-17T06:33:10.166Z\"}\n{\"id\":\"d2925d82-1fd8-4a9a-8d9e-8b938a1b62ac\",\"path\":\"/note\",\"operationId\":\"9efe7db4-24e2-40f7-858e-954228ddc17e\",\"values\":{\"title\":\"Followup\",\"body\":\"followup MrX on month end\"},\"createdAt\":\"2026-10-17T06:40:12.513Z\"}\n{\"id\":\"d0b89201-038c-463d-b953-ae965b20dd05\",\"path\":\"/customer\",\"operationId\":\"d6ee4188-b7a1-4bb4-8caf-e7ed31aadbf1\",\"values\":{\"company_name\":\"Birch Reuse\",\"contact_email\":\"birch@example.com\",\"region\":\"Malaysia\"},\"createdAt\":\"2026-10-17T07:12:44.208Z\"}\n{\"id\":\"d8f551ad-223c-4b7f-b0e5-13838a163606\",\"path\":\"/opportunity\",\"operationId\":\"68ccb46b-586a-4f75-bac1-d1ab8111eedf\",\"values\":{\"opportunity_name\":\"Demo Test\",\"amount\":\"10000\",\"currency\":\"USD\"},\"createdAt\":\"2026-10-17T07:12:46.633Z\"}\n{\"id\":\"ce8af570-b902-4a51-ae59-a8bec34d11ff\",\"path\":\"/goal\",\"operationId\":\"0b8294ab-0109-4c44-b21a-d73234d36f92\",\"values\":{\"goal_title\":\"Quarterly review\",\"instructions\":\"Summarize pipeline\",\"cadence\":\"weekly\",\"assigned_agent\":\"Operator\"},\"createdAt\":\"2026-10-17T07:13:20.572Z\"}\n{\"id\":\"d0f016e9-be81-4572-976c-c7ffb19aa6aa\",\"path\":\"/customer\",\"operationId\":\"0ca39750-8671-43a2-8a36-8de99a1c5e87\",\"values\":{\"company_name\":\"Birch Reuse\",\"contact_email\":\"birch@example.com\",\"region\":\"Malaysia\"},\"createdAt\":\"2026-10-17T07:17:25.318Z\"}\n{\"id\":\"cd421166-e898-4114-8049-0218a258e7be\",\"path\":\"/opportunity\",\"operationId\":\"2a7f942c-c637-445d-a28a-de19f0cd2b46\",\"values\":{\"opportunity_name\":\"Demo Test\",\"amount\":\"10000\",\"currency\":\"USD\"},\"createdAt\":\"2026-10-17T07:17:26.941Z\"}\n{\"id\":\"c02d4eba-ec33-44db-9af6-129f09ca384b\",\"path\":\"/goal\",\"operationId\":\"ebc64f85-f699-47cb-a71a-4745dce9f8b9\",\"values\":{\"goal_title\":\"Quarterly review\",\"instructions\":\"Summarize pipeline\",\"cadence\":\"weekly\",\"assigned_agent\":\"Operator\"},\"createdAt\":\"2026-10-17T07:17:58.767Z\"}\n{\"id\":\"f8e0b2ae-5b1d-4cfc-97fa-690a39f2f70e\",\"path\":\"/customer\",\"operationId\":\"c561afd7-94c8-4577-8d16-ad30b1e45623\",\"values\":{\"company_name\":\"Birch Reuse\",\"contact_email\":\"birch@example.com\",\"region\":\"Malaysia\"},\"createdAt\":\"2026-10-17T07:19:34.947Z\"}\n{\"id\":\"f5329b6e-7e2c-47d5-bab1-fe890edde561\",\"path\":\"/opportunity\",\"operationId\":\"7db428d4-dde9-4b7b-a7ac-6eaaaa061202\",\"values\":{\"opportunity_name\":\"Demo Test\",\"amount\":\"10000\",\"currency\":\"USD\"},\"createdAt\":\"2026-10-17T07:19:36.412Z\"}\n{\"id\":\"c0bdba6a-690d-4542-a2a8-580b661c007d\",\"path\":\"/note\",\"operationId\":\"1886c2db-311d-449c-bc7e-b9e5ad992ed1\",\"values\":{\"title\":\"Followup\",\"body\":\"followup MrX on month end\"},\"createdAt\":\"2026-10-17T07:19:37.854Z\"}\n{\"id\":\"be013a38-62b2-4c27-ba3d-978042e2f55e\",\"path\":\"/goal\",\"operationId\":\"33876805-9e6e-4ec3-b6b5-dd36a26c19fd\",\"values\":{\"goal_title\":\"Quarterly review\",\"instructions\":\"Summarize pipeline\",\"cadence\":\"weekly\",\"assigned_agent\":\"Operator\"},\"createdAt\":\"2026-10-17T07:19:39.649Z\"}\n{\"id\":\"ee707f2c-af43-43df-a1d3-ee948e72bab8\",\"path\":\"/customer\",\"operationId\":\"40e804ae-7320-4342-9f2d-278cb6d54f25\",\"values\":{\"company_name\":\"Birch Reuse\",\"contact_email\":\"birch@example.com\",\"region\":\"Malaysia\"},\"createdAt\":\"2026-10-17T07:25:48.954Z\"}\n{\"id\":\"62144364-3399-4080-8c52-6285adc7f9b8\",\"path\":\"/opportunity\",\"operationId\":\"25738b6b-75b6-4969-adea-f29657f775ae\",\"values\":{\"opportunity_name\":\"Demo Test\",\"amount\":\"10000\",\"currency\":\"USD\"},\"createdAt\":\"2026-10-17T07:25:50.420Z\"}\n{\"id\":\"71bd3554-24db-428c-a0ce-0077e3deec5b\",\"path\":\"/note\",\"operationId\":\"0155816d-96aa-41cd-8cf4-d73c184f64c5\",\"values\":{\"title\":\"Followup\",\"body\":\"followup MrX on month end\"},\"createdAt\":\"2026-10-17T07:25:53.030Z\"}\n{\"id\":\"b5828971-eb02-4850-aec1-d281457c107f\",\"path\":\"/goal\",\"operationId\":\"62d3f3c8-525e-44f9-8f4f-35e027811356\",\"values\":{\"goal_title\":\"Quarterly r",
+      "headings": [
+        {
+          "level": 1,
+          "label": "Saved synthetic records"
+        }
+      ],
+      "headingCount": 1,
+      "collections": [
+        {
+          "role": "ul",
+          "itemCount": 319,
+          "labels": [
+            "{\"id\":\"096242d7-0521-4545-b121-9cb8e89d1ceb\",\"path\":\"/customer\",\"operationId\":\"112d5ea5-2333-44e0-8bc1-910e074a7f97\",\"values\":{\"company_name\":\"Cedar UAT\",\"conta",
+            "{\"id\":\"20dba8ae-68d7-43e0-8b34-c84922763eca\",\"path\":\"/customer\",\"operationId\":\"0dbfeda3-80e4-4517-a78a-2731258979e9\",\"values\":{\"company_name\":\"Cedar UAT O\",\"con",
+            "{\"id\":\"e2a413e3-0c3d-4083-9153-ca3a68e8858d\",\"path\":\"/customer\",\"operationId\":\"240b60df-67e8-49f7-9a3d-ab3afbb21584\",\"values\":{\"company_name\":\"Birch Reuse\",\"con",
+            "{\"id\":\"ed4b081d-59ea-4c72-9e42-cbc525bbdd68\",\"path\":\"/opportunity\",\"operationId\":\"b93bd7ed-8589-489b-a30a-ad6a58ed23eb\",\"values\":{\"opportunity_name\":\"Demo Test\"",
+            "{\"id\":\"122acc1e-c94d-473f-9ba0-1f20713a8095\",\"path\":\"/goal\",\"operationId\":\"465c638d-4bca-447b-886f-c826ab69843f\",\"values\":{\"goal_title\":\"Quarterly review\",\"inst",
+            "{\"id\":\"d2925d82-1fd8-4a9a-8d9e-8b938a1b62ac\",\"path\":\"/note\",\"operationId\":\"9efe7db4-24e2-40f7-858e-954228ddc17e\",\"values\":{\"title\":\"Followup\",\"body\":\"followup M",
+            "{\"id\":\"d0b89201-038c-463d-b953-ae965b20dd05\",\"path\":\"/customer\",\"operationId\":\"d6ee4188-b7a1-4bb4-8caf-e7ed31aadbf1\",\"values\":{\"company_name\":\"Birch Reuse\",\"con",
+            "{\"id\":\"d8f551ad-223c-4b7f-b0e5-13838a163606\",\"path\":\"/opportunity\",\"operationId\":\"68ccb46b-586a-4f75-bac1-d1ab8111eedf\",\"values\":{\"opportunity_name\":\"Demo Test\""
+          ],
+          "labelsTruncated": true,
+          "truncated": false,
+          "targetRef": "r1t2"
+        }
+      ],
+      "title": "Saved synthetic records",
+      "structure": [
+        {
+          "role": "p",
+          "label": "Persisted by this local host, separate from copilot state.",
+          "region": "",
+          "targetRef": "r1t1"
+        },
+        {
+          "role": "a",
+          "label": "Customer",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t3"
+        },
+        {
+          "role": "a",
+          "label": "Opportunity",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t4"
+        },
+        {
+          "role": "a",
+          "label": "Note",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t5"
+        },
+        {
+          "role": "a",
+          "label": "Scheduled goal",
+          "region": "",
+          "disabled": false,
+          "targetRef": "r1t6"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": true,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "recentActivity": {
+      "prepared": [],
+      "applied": [],
+      "unavailablePrepared": 0,
+      "unavailableApplied": 0
+    },
+    "targets": [
+      {
+        "ref": "r1t0",
+        "label": "Saved synthetic records",
+        "kind": "content",
+        "role": "h1",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Saved synthetic records"
+      },
+      {
+        "ref": "r1t1",
+        "label": "Persisted by this local host, separate from copilot state.",
+        "kind": "content",
+        "role": "p",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Persisted by this local host, separate from copilot state."
+      },
+      {
+        "ref": "r1t2",
+        "label": "Loaded collection: 319 items. Sample: {\"id\":\"096242d7-0521-4545-b121-9cb8e89d1ceb\",\"path\":\"/customer\",\"operationId\":\"112d5ea5-2333-44e0-8bc1-910e074a7f97\",\"valu",
+        "kind": "content",
+        "role": "ul",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Loaded collection: 319 items. Sample: {\"id\":\"096242d7-0521-4545-b121-9cb8e89d1ceb\",\"path\":\"/customer\",\"operationId\":\"112d5ea5-2333-44e0-8bc1-910e074a7f97\",\"values\":{\"company_name\":\"Cedar UAT\",\"conta; {\"id\":\"20dba8ae-68d7-43e0-8b34-c84922763eca\",\"path\":\"/customer\",\"operationId\":\"0dbfeda3-80e4-4517-a78a-2731258979e9\",\"values\":{\"company_name\":\"Cedar UAT O\",\"con"
+      },
+      {
+        "ref": "r1t3",
+        "label": "Customer",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Customer"
+      },
+      {
+        "ref": "r1t4",
+        "label": "Opportunity",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Opportunity"
+      },
+      {
+        "ref": "r1t5",
+        "label": "Note",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Note"
+      },
+      {
+        "ref": "r1t6",
+        "label": "Scheduled goal",
+        "kind": "content",
+        "role": "a",
+        "state": {
+          "disabled": false,
+          "busy": false
+        },
+        "text": "Scheduled goal"
+      }
+    ],
+    "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 0,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [
+      "/customer",
+      "/opportunity",
+      "/note",
+      "/goal"
+    ],
+    "screen": "Saved synthetic records",
+    "path": "/records",
+    "ambiguousDialogs": false,
+    "blockedCount": 4
+  }
+}

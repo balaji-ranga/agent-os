@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-24T08:30:14.053Z",
+  "results": [
+    {
+      "id": "independent-context-only-followup-has-exact-text-target",
+      "passed": true,
+      "elapsedMs": 6.800000011920929,
+      "bytes": 4851,
+      "target": "107 registered assets · page 1"
+    },
+    {
+      "id": "region-is-not-mislabeled-as-first-repeated-item",
+      "passed": true
+    },
+    {
+      "id": "loaded-collection-pointer-and-stale-membership",
+      "passed": true,
+      "itemCount": 10,
+      "staleRejected": true
+    },
+    {
+      "id": "changed-text-pointer-is-rejected",
+      "passed": true,
+      "staleRejected": true
+    },
+    {
+      "id": "public-context-only-followup-has-exact-text-target",
+      "passed": true,
+      "elapsedMs": 18.099999994039536,
+      "bytes": 11969,
+      "target": "1535 approved listings · page 1"
+    },
+    {
+      "id": "repeated-observation-retains-bounded-memory-and-no-network",
+      "passed": true,
+      "maxMs": 17.5,
+      "meanMs": 4.324999997615814,
+      "maxBytes": 12071,
+      "markers": 0,
+      "retainedBytes": 496612,
+      "observationRequests": 0,
+      "iterations": 100
+    }
+  ],
+  "publicWrites": 0
+}

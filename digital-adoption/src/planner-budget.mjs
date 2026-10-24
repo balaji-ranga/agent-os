@@ -6,6 +6,14 @@ export function encodePlannerRequest(body,{maxBytes=30000}={}){
  // structured counterpart used by the checker. Trim older turns first.
  while(size()>maxBytes&&body.messages.length>6)body.messages.splice(1,1);
  const last=body.messages.at(-1),context=JSON.parse(last.content),sync=()=>{last.content=JSON.stringify(context);};
+ // Canonical live facts already exist in observed. Under pressure, remove only
+ // byte-equivalent metadata copies, before discarding owner guidance/history.
+ for(const key of ['targets','controls','fields','links']){
+  const duplicate=context.responseContract?.[key],canonical=context.observed?.[key];
+  if(size()>maxBytes&&Array.isArray(duplicate)&&duplicate.length&&Array.isArray(canonical)&&duplicate.every(item=>{const source=canonical.find(c=>c.ref===item.ref);return source&&Object.entries(item).every(([k,v])=>JSON.stringify(v)===JSON.stringify(source[k]));})){
+   delete context.responseContract[key];context.responseContract.liveReferences='Use observed.fields, observed.links, observed.controls and observed.targets as the canonical live refs and metadata. Duplicate contract copies were omitted for the request budget; no observed ref was removed.';sync();
+  }
+ }
  // Recent turns and an explicit reply carry the referent of a follow-up. Do
  // not discard them before trimming duplicated, advisory page excerpts.
  while(size()>maxBytes&&context.conversationContext?.length>4){context.conversationContext.shift();sync();}
@@ -19,6 +27,6 @@ export function encodePlannerRequest(body,{maxBytes=30000}={}){
  while(size()>maxBytes&&context.observed?.pageContext?.headings?.length){context.observed.pageContext.headings.pop();context.observed.pageContext.truncated=true;sync();}
  for(const collection of context.observed?.pageContext?.collections||[])while(size()>maxBytes&&collection.labels.length){collection.labels.pop();collection.labelsTruncated=true;sync();}
  while(size()>maxBytes&&context.observed?.pageContext?.structure?.length){context.observed.pageContext.structure.pop();context.observed.pageContext.structureTruncated=true;sync();}
- if(size()>maxBytes)throw new Error('The assistant could not produce a valid current-screen proposal. Nothing was changed.');
+ if(size()>maxBytes)throw Object.assign(new Error('The assistant could not produce a valid current-screen proposal. Nothing was changed.'),{publicCode:'COPILOT_CONTEXT_LIMIT'});
  return JSON.stringify(body);
 }

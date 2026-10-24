@@ -1,7 +1,7 @@
 // Serialize renewal with requests so an in-flight request cannot use a token
 // invalidated by a concurrent renewal. Never retry a possibly effectful request.
 import {MODEL_SESSION_TIMEOUT_MS,sessionRequestTimeoutMs} from './model-timeouts.mjs';
-export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
+export function createSessionClient({service,fetchImpl=fetch,clock=Date.now,sessionStore}) {
  let requestTimeoutMs=MODEL_SESSION_TIMEOUT_MS;
  let session=null,queue=Promise.resolve(),stopped=false,activeRead=null,analyticsAllowed=false;
  // Interrupt only requests that cannot submit host changes, upload content,
@@ -30,7 +30,7 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
    if(typeof result.sessionToken!=='string'||!Number.isSafeInteger(result.expiresAt)||!result.sessionId)throw new Error('Invalid session response');
    if(session&&result.sessionId!==session.sessionId)throw new Error('Session identity changed');
    if(result.requestTimeoutMs!==undefined){if(!Number.isSafeInteger(result.requestTimeoutMs)||result.requestTimeoutMs<6000||result.requestTimeoutMs>MODEL_SESSION_TIMEOUT_MS)throw new Error('Invalid service deadline');requestTimeoutMs=result.requestTimeoutMs;}
-   session=result;
+   session=result;try{sessionStore?.write(session);}catch{}
   }
   return result;
   }catch(error){
@@ -40,6 +40,7 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
   }finally{if(activeRead===read)activeRead=null;}
  };
  return {
+  resume(data={}){const result=queue.then(async()=>{let saved;try{saved=sessionStore?.read();}catch{}if(!saved)return null;if(typeof saved.sessionToken!=='string'||typeof saved.sessionId!=='string'||!Number.isSafeInteger(saved.expiresAt)||!Number.isSafeInteger(saved.sessionExpiresAt)||saved.expiresAt<=clock()||saved.sessionExpiresAt<=clock()){try{sessionStore?.clear();}catch{}return null;}session=saved;try{return await perform('/v1/renew',data);}catch(error){if(error.status===403){session=null;try{sessionStore?.clear();}catch{}return null;}throw error;}});queue=result.catch(()=>{});return result;},
   request(path,data){const result=queue.then(()=>perform(path,data));queue=result.catch(()=>{});return result;},
   setAnalyticsConsent(accepted){analyticsAllowed=accepted===true;},
   background(path,data){if(!['/v1/analytics/policy','/v1/analytics/consent','/v1/analytics/events'].includes(path))return Promise.reject(new Error('Background route denied'));return perform(path,data,2000);},

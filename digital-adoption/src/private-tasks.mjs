@@ -492,7 +492,8 @@ export async function createPrivateTasks({
       },{attempts:actionAttempts});
       const proposal = store.prepare(scope, snapshot, input.mode === 'guide' ? {
         ...checked,
-        actions: checked.actions.map(a => a.type === 'fill' ? {
+        ...(checked.actions.some(a=>a.type==='activate')?{intent:'clarify',message:'Guide only does not activate buttons. Choose Assist for a separately confirmed action.'}:checked.actions.some(a=>a.type==='fill')?{intent:'guide'}:{}),
+        actions: checked.actions.filter(a=>a.type!=='activate').map(a => a.type === 'fill' ? {
           type: 'highlight',
           ref: a.ref
         } : a)
@@ -1016,7 +1017,7 @@ export async function createPrivateTasks({
         snapshot,
         text: c.instruction,requestSignal:input.requestSignal
       }, service.resolveHandles(c, i.id));
-      if (c.action === 'navigate' && proposal.actions.some(a => a.type !== 'navigate') || c.action === 'fill' && proposal.actions.some(a => a.type !== 'fill')) reject('EFFECT_MISMATCH');
+      if (c.action === 'navigate' && proposal.actions.some(a => a.type !== 'navigate'||a.readOnlyApproved===false) || c.action === 'fill' && proposal.actions.some(a => a.type !== 'fill')) reject('EFFECT_MISMATCH');
       r.plannedProposalId = proposal.id;
       return proposal;
     },

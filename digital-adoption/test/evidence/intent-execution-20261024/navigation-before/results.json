@@ -1,0 +1,124 @@
+{
+  "at": "2026-10-24T08:12:29.375Z",
+  "results": [
+    {
+      "id": "local-reported-records-navigation",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#review').getByRole('button', { name: 'Approve navigation', exact: true }) to be visible\u001b[22m\n",
+      "screenshot": "local-reported-records-navigation.png"
+    },
+    {
+      "id": "local-manual-route-retains-active-chat",
+      "passed": false,
+      "error": "The input did not match the regular expression /Explain the current Customer draft/. Input:\n\n''\n",
+      "screenshot": "local-manual-route-retains-active-chat.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "local-reported-records-navigation",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-reported-records-navigation",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "d22aee09-20e8-4ba9-b83d-00cd29fb4cbb",
+        "revision": 1,
+        "message": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+        "actions": [],
+        "expiresAt": 1792829632379,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "210f06d3-585c-4d7e-944c-3cd10024e980"
+      }
+    },
+    {
+      "caseId": "local-manual-route-retains-active-chat",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-manual-route-retains-active-chat",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "87442492-f3f6-442a-b1e8-259d8633030e",
+        "revision": 1,
+        "intent": "explain",
+        "message": "The current Customer draft includes three required fields: \n1. **Company name** - A text input for the name of the company.\n2. **Contact email** - An email input for the contact person's email address.\n3. **Region** - A text input for the geographical region.\n\nThe form is labeled as 'demo-form' and is currently in a development validation preview stage, meaning it is not yet fully certified for production use. It allows saving synthetic records only in this local test environment and does not create records in the Flolah CRM/ERP system. There are also options to add additional fields, such as a delivery city, and buttons to save the synthetic record or switch to other sections like Opportunity or Note.",
+        "actions": [],
+        "expiresAt": 1792829668530,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "66cecab6-0f7b-477c-9bbc-c079afef62ef"
+      }
+    },
+    {
+      "caseId": "local-manual-route-retains-active-chat",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,4544 @@
+{
+  "at": "2026-10-24T07:44:29.069Z",
+  "results": [
+    {
+      "id": "public-exact-long-search",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Search now"
+      ],
+      "query": "events",
+      "actualResult": "11 approved listings · page 1",
+      "screenshot": "public-exact-long-search.png"
+    },
+    {
+      "id": "public-exact-short-search",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Search now"
+      ],
+      "query": "events MCP",
+      "actualResult": "0 approved listings · page 1",
+      "screenshot": "public-exact-short-search.png"
+    },
+    {
+      "id": "independent-local-search-goal",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Apply query now"
+      ],
+      "screenshot": "independent-local-search-goal.png"
+    },
+    {
+      "id": "public-automatic-fields-still-confirms-search",
+      "passed": true,
+      "approvals": [
+        "Confirm Search now"
+      ],
+      "screenshot": "public-automatic-fields-still-confirms-search.png"
+    },
+    {
+      "id": "local-default-review-rejection",
+      "passed": true,
+      "screenshot": "local-default-review-rejection.png"
+    },
+    {
+      "id": "local-automatic-fields-and-restore-approval",
+      "passed": true,
+      "screenshot": "local-automatic-fields-and-restore-approval.png"
+    },
+    {
+      "id": "local-save-goal-once-with-independent-readback",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Save synthetic record now"
+      ],
+      "marker": "Intent certification 1792827782570",
+      "independentReadback": true,
+      "writes": 1,
+      "screenshot": "local-save-goal-once-with-independent-readback.png"
+    },
+    {
+      "id": "independent-native-submit-stays-separate",
+      "passed": true,
+      "approvals": [
+        "Confirm Register now"
+      ],
+      "screenshot": "independent-native-submit-stays-separate.png"
+    },
+    {
+      "id": "local-navigation-review-and-actual-route",
+      "passed": true,
+      "path": "/opportunity",
+      "screenshot": "local-navigation-review-and-actual-route.png"
+    },
+    {
+      "id": "public-highlight-field",
+      "passed": true,
+      "screenshot": "public-highlight-field.png"
+    },
+    {
+      "id": "local-highlight-field",
+      "passed": true,
+      "screenshot": "local-highlight-field.png"
+    },
+    {
+      "id": "public-answer-count-no-effects",
+      "passed": true,
+      "observedCount": "1535",
+      "screenshot": "public-answer-count-no-effects.png"
+    },
+    {
+      "id": "public-missing-query-clarification",
+      "passed": true,
+      "screenshot": "public-missing-query-clarification.png"
+    },
+    {
+      "id": "local-bare-records-title-response",
+      "passed": true,
+      "answer": "The page titled \"Saved synthetic records\" indicates that there are 319 items currently loaded in the collection. This collection includes various synthetic records such as customers, opportunities, notes, and scheduled goals. Each record is persisted by the local host and is separate from the copilot state. The records include details like company names, contact emails, and other relevant information. If you need specific details about any of these records or wish to perform an action with them, please specify what you would like to do.↩",
+      "screenshot": "local-bare-records-title-response.png"
+    },
+    {
+      "id": "public-native-submission-needs-missing-details",
+      "passed": true,
+      "screenshot": "public-native-submission-needs-missing-details.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "84e0db25-a3e8-4d03-8db6-38a9231b0882",
+        "revision": 1,
+        "intent": "plan",
+        "message": "Preparing a reviewable task plan for your complete request.",
+        "actions": [],
+        "expiresAt": 1792827596190,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "c38ce1f4-f7e9-4fe8-8d40-05d18f43c5b5",
+            "version": 5,
+            "title": "UAT Reusable Search Filters"
+          }
+        ],
+        "messageId": "ceb8c0cf-f413-422b-b529-c8f46fdf4e42"
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The plan has been revised to accurately reflect the search for events related to MCP, using a compact query that aligns with the original task. The steps have been adjusted to ensure they meet the feedback provided.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The plan has been revised to accurately reflect the search for events related to MCP, using a compact query that aligns with the original task. The steps have been adjusted to ensure they meet the feedback provided.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538,
+          "pendingProposalId": "a50ab10e-3ee7-4f82-9b9e-a181224a239e"
+        },
+        "proposal": {
+          "id": "a50ab10e-3ee7-4f82-9b9e-a181224a239e",
+          "revision": 3,
+          "message": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "value": "events"
+            }
+          ],
+          "expiresAt": 1792827631251,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r3f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "value": "events",
+            "actionId": "a50ab10e-3ee7-4f82-9b9e-a181224a239e:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827631251
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The search input has been filled with the query 'events' as evidenced by the local state verification. This matches the expected outcome of the current step.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "a50ab10e-3ee7-4f82-9b9e-a181224a239e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "Activating the search operation to find event-related MCP listings.\nReview activating Search. This may change website state; it has not been clicked.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "a50ab10e-3ee7-4f82-9b9e-a181224a239e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538,
+          "pendingProposalId": "35a2720e-5fa0-46fc-85e3-b88f5b5686f4"
+        },
+        "proposal": {
+          "id": "35a2720e-5fa0-46fc-85e3-b88f5b5686f4",
+          "revision": 6,
+          "message": "Activating the search operation to find event-related MCP listings.\nReview activating Search. This may change website state; it has not been clicked.",
+          "actions": [
+            {
+              "type": "activate",
+              "ref": "r6a0",
+              "label": "Search"
+            }
+          ],
+          "expiresAt": 1792827639715,
+          "fields": [
+            {
+              "ref": "r6f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r6f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "activate",
+            "ref": "r6a0",
+            "label": "Search",
+            "actionId": "35a2720e-5fa0-46fc-85e3-b88f5b5686f4:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827639715
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The 'Search' button was clicked, and the outcome was recorded as 'local_state_verified', indicating that the search operation was dispatched and the UI was refreshed. This aligns with the expected outcome of the current step.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "a50ab10e-3ee7-4f82-9b9e-a181224a239e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "35a2720e-5fa0-46fc-85e3-b88f5b5686f4",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation to find event-related MCP listings.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 2,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The search results for event-related MCP listings have been activated. Please check the displayed results or any indication of no results.\nI can highlight 1 target for you. No values will be changed.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "a50ab10e-3ee7-4f82-9b9e-a181224a239e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "35a2720e-5fa0-46fc-85e3-b88f5b5686f4",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation to find event-related MCP listings.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 12,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538,
+          "pendingProposalId": "bc3031c8-2713-47eb-a47b-0136bf20c97e"
+        },
+        "proposal": {
+          "id": "bc3031c8-2713-47eb-a47b-0136bf20c97e",
+          "revision": 8,
+          "message": "The search results for event-related MCP listings have been activated. Please check the displayed results or any indication of no results.\nI can highlight 1 target for you. No values will be changed.",
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r8t12",
+              "label": "Loaded collection: 11 items. Sample: ae.beachclubs/mcp; aero.events/events"
+            }
+          ],
+          "expiresAt": 1792827661858,
+          "fields": [
+            {
+              "ref": "r8f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r8f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 8,
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r8t12",
+            "label": "Loaded collection: 11 items. Sample: ae.beachclubs/mcp; aero.events/events"
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-exact-long-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "304baf40-652f-435b-a7ad-35a544afe7f6",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "9eb2bbba-b042-4810-959b-3687307bfdc9",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The search results have been inspected, and the evidence indicates that there are 11 approved listings available, including entries related to events. This confirms that the search operation was successful and yielded relevant results.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "a50ab10e-3ee7-4f82-9b9e-a181224a239e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search for event-related MCP listings",
+              "expected": "Search operation is dispatched and UI is refreshed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "35a2720e-5fa0-46fc-85e3-b88f5b5686f4",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation to find event-related MCP listings.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for event-related MCP listings",
+              "expected": "Display of search results or indication of no results.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "bc3031c8-2713-47eb-a47b-0136bf20c97e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "The search results for event-related MCP listings have been activated. Please check the displayed results or any indication of no results.\nI can highlight 1 target for you. No values will be changed.",
+                  "actions": [
+                    {
+                      "type": "highlight",
+                      "label": "Loaded collection: 11 items. Sample: ae.beachclubs/mcp; aero.events/events",
+                      "outcome": "read_only_guidance"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 14,
+          "createdAt": 1792827507538,
+          "expiresAt": 1792913907538
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "4b328a64-8e0b-4c82-93dc-a4b3898d634f",
+        "revision": 1,
+        "intent": "plan",
+        "message": "Preparing a reviewable task plan for your complete request.",
+        "actions": [],
+        "expiresAt": 1792827686316,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "c38ce1f4-f7e9-4fe8-8d40-05d18f43c5b5",
+            "version": 5,
+            "title": "UAT Reusable Search Filters"
+          }
+        ],
+        "messageId": "33b4d11c-135a-4742-a4c7-8973c5779d4f"
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "The plan outlines the steps to search for events related to MCPs. It includes filling in the search field, activating the search button, and inspecting the results. Each step is designed to ensure proper review and confirmation as per the execution contract.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "The plan outlines the steps to search for events related to MCPs. It includes filling in the search field, activating the search button, and inspecting the results. Each step is designed to ensure proper review and confirmation as per the execution contract.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "Filling the search input with the query 'events MCP'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771,
+          "pendingProposalId": "2f0ac814-37a4-4d62-9b92-d2b83bfce817"
+        },
+        "proposal": {
+          "id": "2f0ac814-37a4-4d62-9b92-d2b83bfce817",
+          "revision": 3,
+          "message": "Filling the search input with the query 'events MCP'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "value": "events MCP"
+            }
+          ],
+          "expiresAt": 1792827708944,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r3f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "value": "events MCP",
+            "actionId": "2f0ac814-37a4-4d62-9b92-d2b83bfce817:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827708944
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "The search input has been filled with the query 'events MCP' as evidenced by the local state verification. This matches the expected outcome of the current step.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2f0ac814-37a4-4d62-9b92-d2b83bfce817",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events MCP'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events MCP",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "Activating the search operation for the query 'events MCP'.\nReview activating Search. This may change website state; it has not been clicked.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2f0ac814-37a4-4d62-9b92-d2b83bfce817",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events MCP'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events MCP",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771,
+          "pendingProposalId": "d93a5eca-6833-4d31-9a32-56f866c99262"
+        },
+        "proposal": {
+          "id": "d93a5eca-6833-4d31-9a32-56f866c99262",
+          "revision": 6,
+          "message": "Activating the search operation for the query 'events MCP'.\nReview activating Search. This may change website state; it has not been clicked.",
+          "actions": [
+            {
+              "type": "activate",
+              "ref": "r6a0",
+              "label": "Search"
+            }
+          ],
+          "expiresAt": 1792827715265,
+          "fields": [
+            {
+              "ref": "r6f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r6f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "activate",
+            "ref": "r6a0",
+            "label": "Search",
+            "actionId": "d93a5eca-6833-4d31-9a32-56f866c99262:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827715265
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "The activation of the 'Search' button has been observed and recorded as a local state verified outcome. This confirms that the search operation was dispatched and the UI was refreshed as expected.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2f0ac814-37a4-4d62-9b92-d2b83bfce817",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events MCP'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events MCP",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "d93a5eca-6833-4d31-9a32-56f866c99262",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation for the query 'events MCP'.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 2,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "The current task is to inspect the search results for events related to MCPs. However, the search results have not yet been displayed since the search operation has just been activated. Therefore, I will highlight the relevant button that was activated to perform the search.\nI can highlight 1 target for you. No values will be changed.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2f0ac814-37a4-4d62-9b92-d2b83bfce817",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events MCP'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events MCP",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "d93a5eca-6833-4d31-9a32-56f866c99262",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation for the query 'events MCP'.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 12,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771,
+          "pendingProposalId": "29383362-4288-4d33-af76-d99ede2e1b52"
+        },
+        "proposal": {
+          "id": "29383362-4288-4d33-af76-d99ede2e1b52",
+          "revision": 8,
+          "message": "The current task is to inspect the search results for events related to MCPs. However, the search results have not yet been displayed since the search operation has just been activated. Therefore, I will highlight the relevant button that was activated to perform the search.\nI can highlight 1 target for you. No values will be changed.",
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r8t0",
+              "label": "Search"
+            }
+          ],
+          "expiresAt": 1792827736352,
+          "fields": [
+            {
+              "ref": "r8f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r8f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 8,
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r8t0",
+            "label": "Search"
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-exact-short-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d22c1263-319d-42b6-b4d1-6df786a8d07d",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "a89fe45a-a75c-425d-8d71-3cb06caae0b2",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events MCP",
+          "message": "The search results for events related to MCPs indicate that there are 0 approved listings displayed on the page, confirming that the search returned no matching listings. This outcome aligns with the expected result of inspecting the search results.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events MCP'",
+              "expected": "Search input is filled with 'events MCP'",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2f0ac814-37a4-4d62-9b92-d2b83bfce817",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events MCP'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events MCP",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "Search operation is dispatched and UI is refreshed",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "d93a5eca-6833-4d31-9a32-56f866c99262",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation for the query 'events MCP'.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events related to MCPs",
+              "expected": "Display of search results or indication of no results found",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "29383362-4288-4d33-af76-d99ede2e1b52",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "The current task is to inspect the search results for events related to MCPs. However, the search results have not yet been displayed since the search operation has just been activated. Therefore, I will highlight the relevant button that was activated to perform the search.\nI can highlight 1 target for you. No values will be changed.",
+                  "actions": [
+                    {
+                      "type": "highlight",
+                      "label": "Search",
+                      "outcome": "read_only_guidance"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 14,
+          "createdAt": 1792827584771,
+          "expiresAt": 1792913984771
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "8678cf12-b1ed-48b9-8a2e-b6c8eea3438b",
+        "revision": 1,
+        "intent": "plan",
+        "message": "Preparing a reviewable task plan for your complete request.",
+        "actions": [],
+        "expiresAt": 1792827766198,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Find workshops",
+            "type": "text",
+            "required": false,
+            "key": "query"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Registration name",
+            "type": "text",
+            "required": true,
+            "key": "registration_name",
+            "form": "registration"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "0dfb5e7d-2121-4c4e-ac13-691758f22d2f"
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "Plan to find robotics workshops and display the results while preserving the registration form.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "Plan to find robotics workshops and display the results while preserving the registration form.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "Filling the 'Find workshops' field with the query 'Robotics workshops'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869,
+          "pendingProposalId": "24c56a31-3e02-46d7-8515-b53933618015"
+        },
+        "proposal": {
+          "id": "24c56a31-3e02-46d7-8515-b53933618015",
+          "revision": 3,
+          "message": "Filling the 'Find workshops' field with the query 'Robotics workshops'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f0",
+              "label": "Find workshops",
+              "value": "Robotics workshops"
+            }
+          ],
+          "expiresAt": 1792827779821,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Find workshops",
+              "type": "text",
+              "required": false,
+              "key": "query"
+            },
+            {
+              "ref": "r3f1",
+              "label": "Registration name",
+              "type": "text",
+              "required": true,
+              "key": "registration_name",
+              "form": "registration"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Find workshops",
+            "value": "Robotics workshops",
+            "actionId": "24c56a31-3e02-46d7-8515-b53933618015:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827779821
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "The search input has been filled with 'Robotics workshops' as confirmed by local state verification.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "24c56a31-3e02-46d7-8515-b53933618015",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Filling the 'Find workshops' field with the query 'Robotics workshops'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Find workshops",
+                      "value": "Robotics workshops",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "Click the 'Apply query' button to execute the search for robotics workshops.\nReview activating Apply query. This may change website state; it has not been clicked.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "24c56a31-3e02-46d7-8515-b53933618015",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Filling the 'Find workshops' field with the query 'Robotics workshops'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Find workshops",
+                      "value": "Robotics workshops",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869,
+          "pendingProposalId": "9670e623-34a1-4663-ac7e-704b31671306"
+        },
+        "proposal": {
+          "id": "9670e623-34a1-4663-ac7e-704b31671306",
+          "revision": 6,
+          "message": "Click the 'Apply query' button to execute the search for robotics workshops.\nReview activating Apply query. This may change website state; it has not been clicked.",
+          "actions": [
+            {
+              "type": "activate",
+              "ref": "r6a0",
+              "label": "Apply query"
+            }
+          ],
+          "expiresAt": 1792827786268,
+          "fields": [
+            {
+              "ref": "r6f0",
+              "label": "Find workshops",
+              "type": "text",
+              "required": false,
+              "key": "query"
+            },
+            {
+              "ref": "r6f1",
+              "label": "Registration name",
+              "type": "text",
+              "required": true,
+              "key": "registration_name",
+              "form": "registration"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "activate",
+            "ref": "r6a0",
+            "label": "Apply query",
+            "actionId": "9670e623-34a1-4663-ac7e-704b31671306:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827786268
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "The activation of the 'Apply query' button has been observed and recorded as a local state verified outcome. This indicates that the search for robotics workshops has been dispatched and the UI should refresh to show results. No further actions are required at this step.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "24c56a31-3e02-46d7-8515-b53933618015",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Filling the 'Find workshops' field with the query 'Robotics workshops'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Find workshops",
+                      "value": "Robotics workshops",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "9670e623-34a1-4663-ac7e-704b31671306",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Click the 'Apply query' button to execute the search for robotics workshops.\nReview activating Apply query. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Apply query",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 2,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "The search results show that there is 1 workshop available related to robotics. The matching result is the \"Robotics workshop.\"\nI can highlight 1 target for you. No values will be changed.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "24c56a31-3e02-46d7-8515-b53933618015",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Filling the 'Find workshops' field with the query 'Robotics workshops'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Find workshops",
+                      "value": "Robotics workshops",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "9670e623-34a1-4663-ac7e-704b31671306",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Click the 'Apply query' button to execute the search for robotics workshops.\nReview activating Apply query. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Apply query",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 12,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869,
+          "pendingProposalId": "8ab27e1f-1e40-4fd4-b202-df684a3f3c9a"
+        },
+        "proposal": {
+          "id": "8ab27e1f-1e40-4fd4-b202-df684a3f3c9a",
+          "revision": 8,
+          "message": "The search results show that there is 1 workshop available related to robotics. The matching result is the \"Robotics workshop.\"\nI can highlight 1 target for you. No values will be changed.",
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r8t0",
+              "label": "Robotics workshop"
+            }
+          ],
+          "expiresAt": 1792827802311,
+          "fields": [
+            {
+              "ref": "r8f0",
+              "label": "Find workshops",
+              "type": "text",
+              "required": false,
+              "key": "query"
+            },
+            {
+              "ref": "r8f1",
+              "label": "Registration name",
+              "type": "text",
+              "required": true,
+              "key": "registration_name",
+              "form": "registration"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 8,
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r8t0",
+            "label": "Robotics workshop"
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "independent-local-search-goal",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "956a5a1e-7f58-4c00-ac70-09613ed48f61",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e0c1460a-75d2-4a5f-9d9d-02fb79cddd55",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Find robotics workshops and show the matching results. Preserve the unrelated registration form.",
+          "message": "The search results for robotics workshops have been inspected, and the evidence shows a highlighted entry for 'Robotics workshop'. This indicates that the search was successful and the expected outcome of showing available robotics workshops has been met.",
+          "steps": [
+            {
+              "title": "Fill search query",
+              "kind": "fill",
+              "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+              "expected": "The search input is filled with 'Robotics workshops'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "24c56a31-3e02-46d7-8515-b53933618015",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Filling the 'Find workshops' field with the query 'Robotics workshops'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Find workshops",
+                      "value": "Robotics workshops",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Apply query' button to execute the search for robotics workshops.",
+              "expected": "The search is dispatched and the UI refreshes to show results.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "9670e623-34a1-4663-ac7e-704b31671306",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Click the 'Apply query' button to execute the search for robotics workshops.\nReview activating Apply query. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Apply query",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the results of the search for robotics workshops.",
+              "expected": "The results show the available robotics workshops.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "8ab27e1f-1e40-4fd4-b202-df684a3f3c9a",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "The search results show that there is 1 workshop available related to robotics. The matching result is the \"Robotics workshop.\"\nI can highlight 1 target for you. No values will be changed.",
+                  "actions": [
+                    {
+                      "type": "highlight",
+                      "label": "Robotics workshop",
+                      "outcome": "read_only_guidance"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 14,
+          "createdAt": 1792827655869,
+          "expiresAt": 1792914055869
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "52078322-5127-4078-9b89-2eced9bdf273",
+        "revision": 1,
+        "intent": "plan",
+        "message": "Preparing a reviewable task plan for your complete request.",
+        "actions": [],
+        "expiresAt": 1792827828220,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "c38ce1f4-f7e9-4fe8-8d40-05d18f43c5b5",
+            "version": 5,
+            "title": "UAT Reusable Search Filters"
+          }
+        ],
+        "messageId": "e7396b89-be90-4ac1-804e-03f0529b0c51"
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The plan has been revised to reflect the feedback regarding the search query. The search input now uses a compact topic term, and the subsequent steps remain unchanged.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The plan has been revised to reflect the feedback regarding the search query. The search input now uses a compact topic term, and the subsequent steps remain unchanged.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627,
+          "pendingProposalId": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad"
+        },
+        "proposal": {
+          "id": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad",
+          "revision": 3,
+          "message": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "value": "events"
+            }
+          ],
+          "expiresAt": 1792827848687,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r3f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "value": "events",
+            "actionId": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827848687
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The search input has been filled with the query 'events' as evidenced by the local state verification. This matches the expected outcome of the current step.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "Activating the search operation will dispatch the search request and refresh the UI to display the results.\nReview activating Search. This may change website state; it has not been clicked.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627,
+          "pendingProposalId": "ec6aba39-e411-47f4-98b9-f3a3a81d982e"
+        },
+        "proposal": {
+          "id": "ec6aba39-e411-47f4-98b9-f3a3a81d982e",
+          "revision": 6,
+          "message": "Activating the search operation will dispatch the search request and refresh the UI to display the results.\nReview activating Search. This may change website state; it has not been clicked.",
+          "actions": [
+            {
+              "type": "activate",
+              "ref": "r6a0",
+              "label": "Search"
+            }
+          ],
+          "expiresAt": 1792827854677,
+          "fields": [
+            {
+              "ref": "r6f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r6f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "activate",
+            "ref": "r6a0",
+            "label": "Search",
+            "actionId": "ec6aba39-e411-47f4-98b9-f3a3a81d982e:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827854677
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The search operation has been successfully dispatched and the UI has refreshed, as evidenced by the local state verification after clicking the 'Search' button.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "ec6aba39-e411-47f4-98b9-f3a3a81d982e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation will dispatch the search request and refresh the UI to display the results.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 2,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The search results for events related to the query have been displayed. You can now review the relevant MCPs and their details.\nI can highlight 1 target for you. No values will be changed.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "ec6aba39-e411-47f4-98b9-f3a3a81d982e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation will dispatch the search request and refresh the UI to display the results.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 12,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627,
+          "pendingProposalId": "2c2fd9cb-585c-4fd8-8cbd-3adcee14aed0"
+        },
+        "proposal": {
+          "id": "2c2fd9cb-585c-4fd8-8cbd-3adcee14aed0",
+          "revision": 8,
+          "message": "The search results for events related to the query have been displayed. You can now review the relevant MCPs and their details.\nI can highlight 1 target for you. No values will be changed.",
+          "actions": [
+            {
+              "type": "highlight",
+              "ref": "r8t16",
+              "label": "Loaded collection: 11 items. Sample: ae.beachclubs/mcp; aero.events/events"
+            }
+          ],
+          "expiresAt": 1792827868924,
+          "fields": [
+            {
+              "ref": "r8f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "ref": "r8f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 8,
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r8t16",
+            "label": "Loaded collection: 11 items. Sample: ae.beachclubs/mcp; aero.events/events"
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-automatic-fields-still-confirms-search",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "3e0027e4-5e07-4a00-8220-b7018977d2ff",
+          "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+          "sessionId": "423272a8-6192-4726-bc07-505048d7da7d",
+          "origin": "https://flolah.cloud",
+          "conversationVersion": 0,
+          "text": "search for events related MCP and get the results",
+          "message": "The search results for events are displayed, indicating a loaded collection of 11 items. Among these, several event-related results are visible, including: aero.events/events, which offers information on aviation events; ai.citybook/citybook, which lists live Calgary events; ai.funlet/events, which focuses on planning and managing events; ai.chronary/mcp, which provides calendar events; and ai.eventgen/eventgen, which manages permitted events. However, the specific active query value cannot be verified against these results.",
+          "steps": [
+            {
+              "title": "Fill search input",
+              "kind": "fill",
+              "instruction": "Fill the search input with the query 'events'",
+              "expected": "Search input is filled with the query.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "dd0be7ba-9f77-4e6f-87d5-6c021a8d5bad",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Filling the search input with the query 'events'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "value": "events",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Activate search",
+              "kind": "activate",
+              "instruction": "Click the 'Search' button to initiate the search",
+              "expected": "The search operation is dispatched and the UI refreshes.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "ec6aba39-e411-47f4-98b9-f3a3a81d982e",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "Activating the search operation will dispatch the search request and refresh the UI to display the results.\nReview activating Search. This may change website state; it has not been clicked.",
+                  "actions": [
+                    {
+                      "type": "activate",
+                      "label": "Search",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Inspect search results",
+              "kind": "inspect",
+              "instruction": "Inspect the search results for events",
+              "expected": "The search results are displayed, including any relevant events.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2c2fd9cb-585c-4fd8-8cbd-3adcee14aed0",
+                  "status": "consumed",
+                  "path": "/free-tools/mcp-universe/",
+                  "responseMessage": "The search results for events related to the query have been displayed. You can now review the relevant MCPs and their details.\nI can highlight 1 target for you. No values will be changed.",
+                  "actions": [
+                    {
+                      "type": "highlight",
+                      "label": "Loaded collection: 11 items. Sample: ae.beachclubs/mcp; aero.events/events",
+                      "outcome": "read_only_guidance"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 14,
+          "createdAt": 1792827725627,
+          "expiresAt": 1792914125627
+        }
+      }
+    },
+    {
+      "caseId": "local-default-review-rejection",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-default-review-rejection",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "b90724e5-c007-4c55-8fbf-803097f50b48",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I will prepare the following field changes for review: \n- Company name: Intent UAT\n- Contact email: intent.uat@example.test\n- Region: Singapore\n\nPlease confirm these changes before proceeding with any action.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Company name",
+            "value": "Intent UAT"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "intent.uat@example.test"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792827891681,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "854a8194-877e-49fe-9b03-453eb5442ec4"
+      }
+    },
+    {
+      "caseId": "local-automatic-fields-and-restore-approval",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-automatic-fields-and-restore-approval",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "9babd51f-ecfa-4228-af77-e4b14f08e451",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I will prepare the fields for review with the following values: \n- Company name: Auto Intent UAT \n- Contact email: auto.intent@example.test \n- Region: Singapore. \nPlease confirm these changes before proceeding.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Company name",
+            "value": "Auto Intent UAT"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "auto.intent@example.test"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792827897409,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "14618432-afd6-41e9-918d-13f297159c2f"
+      }
+    },
+    {
+      "caseId": "local-automatic-fields-and-restore-approval",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Company name",
+            "value": "Auto Intent UAT",
+            "actionId": "9babd51f-ecfa-4228-af77-e4b14f08e451:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827897409
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "auto.intent@example.test",
+            "actionId": "9babd51f-ecfa-4228-af77-e4b14f08e451:1",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827897409
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "9babd51f-ecfa-4228-af77-e4b14f08e451:2",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827897409
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "local-automatic-fields-and-restore-approval",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "f390dea1-9757-4f25-88d4-04a7f82248ed",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I will prepare the field change for the Company name to \"Reviewed Intent UAT\" for your review.  yet.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Company name",
+            "value": "Reviewed Intent UAT"
+          }
+        ],
+        "expiresAt": 1792827901663,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "8e2ae876-07b4-4ed2-8850-ce8dc0dd09dc"
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "fefc2f82-58ac-4ee8-89a1-44af5f4b64d0",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "f7403521-1d49-4356-aa59-54bf1fd1a402",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill this Customer draft with Company name \"Intent certification 1792827782570\", Contact email \"intent.cert@example.test\", and Region \"Singapore\", then save it. Do not duplicate the Save.",
+          "message": "Plan to fill the Customer draft form and save it as requested, combining field changes into a single step.",
+          "steps": [
+            {
+              "title": "Fill Customer draft",
+              "kind": "fill",
+              "instruction": "Set the Company name to \"Intent certification 1792827782570\", Contact email to \"intent.cert@example.test\", and Region to \"Singapore\".",
+              "expected": "Company name, Contact email, and Region fields updated.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Save synthetic record",
+              "kind": "save",
+              "instruction": "Propose to save the filled Customer draft.",
+              "expected": "Prompt for confirmation to save the record.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792827796254,
+          "expiresAt": 1792914196254
+        }
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "fefc2f82-58ac-4ee8-89a1-44af5f4b64d0",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "f7403521-1d49-4356-aa59-54bf1fd1a402",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill this Customer draft with Company name \"Intent certification 1792827782570\", Contact email \"intent.cert@example.test\", and Region \"Singapore\", then save it. Do not duplicate the Save.",
+          "message": "Plan to fill the Customer draft form and save it as requested, combining field changes into a single step.",
+          "steps": [
+            {
+              "title": "Fill Customer draft",
+              "kind": "fill",
+              "instruction": "Set the Company name to \"Intent certification 1792827782570\", Contact email to \"intent.cert@example.test\", and Region to \"Singapore\".",
+              "expected": "Company name, Contact email, and Region fields updated.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Save synthetic record",
+              "kind": "save",
+              "instruction": "Propose to save the filled Customer draft.",
+              "expected": "Prompt for confirmation to save the record.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792827796254,
+          "expiresAt": 1792914196254
+        }
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "fefc2f82-58ac-4ee8-89a1-44af5f4b64d0",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "f7403521-1d49-4356-aa59-54bf1fd1a402",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill this Customer draft with Company name \"Intent certification 1792827782570\", Contact email \"intent.cert@example.test\", and Region \"Singapore\", then save it. Do not duplicate the Save.",
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer draft",
+              "kind": "fill",
+              "instruction": "Set the Company name to \"Intent certification 1792827782570\", Contact email to \"intent.cert@example.test\", and Region to \"Singapore\".",
+              "expected": "Company name, Contact email, and Region fields updated.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Save synthetic record",
+              "kind": "save",
+              "instruction": "Propose to save the filled Customer draft.",
+              "expected": "Prompt for confirmation to save the record.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792827796254,
+          "expiresAt": 1792914196254,
+          "pendingProposalId": "0b1ed391-70c3-4603-9dc8-e553c317d13a"
+        },
+        "proposal": {
+          "id": "0b1ed391-70c3-4603-9dc8-e553c317d13a",
+          "revision": 2,
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r2f0",
+              "label": "Company name",
+              "value": "Intent certification 1792827782570"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f1",
+              "label": "Contact email",
+              "value": "intent.cert@example.test"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f2",
+              "label": "Region",
+              "value": "Singapore"
+            }
+          ],
+          "expiresAt": 1792827918824,
+          "fields": [
+            {
+              "ref": "r2f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 2,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r2f0",
+            "label": "Company name",
+            "value": "Intent certification 1792827782570",
+            "actionId": "0b1ed391-70c3-4603-9dc8-e553c317d13a:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827918824
+          },
+          {
+            "type": "fill",
+            "ref": "r2f1",
+            "label": "Contact email",
+            "value": "intent.cert@example.test",
+            "actionId": "0b1ed391-70c3-4603-9dc8-e553c317d13a:1",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827918824
+          },
+          {
+            "type": "fill",
+            "ref": "r2f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "0b1ed391-70c3-4603-9dc8-e553c317d13a:2",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827918824
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "fefc2f82-58ac-4ee8-89a1-44af5f4b64d0",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "f7403521-1d49-4356-aa59-54bf1fd1a402",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill this Customer draft with Company name \"Intent certification 1792827782570\", Contact email \"intent.cert@example.test\", and Region \"Singapore\", then save it. Do not duplicate the Save.",
+          "message": "All requested field updates for Company name, Contact email, and Region have been successfully verified as completed in the local state.",
+          "steps": [
+            {
+              "title": "Fill Customer draft",
+              "kind": "fill",
+              "instruction": "Set the Company name to \"Intent certification 1792827782570\", Contact email to \"intent.cert@example.test\", and Region to \"Singapore\".",
+              "expected": "Company name, Contact email, and Region fields updated.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "0b1ed391-70c3-4603-9dc8-e553c317d13a",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Intent certification 1792827782570",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "intent.cert@example.test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Save synthetic record",
+              "kind": "save",
+              "instruction": "Propose to save the filled Customer draft.",
+              "expected": "Prompt for confirmation to save the record.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792827796254,
+          "expiresAt": 1792914196254
+        }
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "fefc2f82-58ac-4ee8-89a1-44af5f4b64d0",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "f7403521-1d49-4356-aa59-54bf1fd1a402",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill this Customer draft with Company name \"Intent certification 1792827782570\", Contact email \"intent.cert@example.test\", and Region \"Singapore\", then save it. Do not duplicate the Save.",
+          "message": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+          "steps": [
+            {
+              "title": "Fill Customer draft",
+              "kind": "fill",
+              "instruction": "Set the Company name to \"Intent certification 1792827782570\", Contact email to \"intent.cert@example.test\", and Region to \"Singapore\".",
+              "expected": "Company name, Contact email, and Region fields updated.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "0b1ed391-70c3-4603-9dc8-e553c317d13a",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Intent certification 1792827782570",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "intent.cert@example.test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Save synthetic record",
+              "kind": "save",
+              "instruction": "Propose to save the filled Customer draft.",
+              "expected": "Prompt for confirmation to save the record.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792827796254,
+          "expiresAt": 1792914196254,
+          "pendingProposalId": "45836cfe-1e12-42b0-9dbc-5a1f5ff7e54b"
+        },
+        "proposal": {
+          "id": "45836cfe-1e12-42b0-9dbc-5a1f5ff7e54b",
+          "revision": 5,
+          "message": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+          "actions": [
+            {
+              "type": "submit",
+              "ref": "r5s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "expiresAt": 1792827923905,
+          "fields": [
+            {
+              "ref": "r5f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r5f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r5f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 5,
+        "actions": [
+          {
+            "type": "submit",
+            "ref": "r5s0",
+            "label": "Save synthetic record",
+            "actionId": "45836cfe-1e12-42b0-9dbc-5a1f5ff7e54b:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827923905
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "local-save-goal-once-with-independent-readback",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "fefc2f82-58ac-4ee8-89a1-44af5f4b64d0",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "f7403521-1d49-4356-aa59-54bf1fd1a402",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill this Customer draft with Company name \"Intent certification 1792827782570\", Contact email \"intent.cert@example.test\", and Region \"Singapore\", then save it. Do not duplicate the Save.",
+          "message": "The host reported a successful submission for this step. This is not independent business verification.",
+          "steps": [
+            {
+              "title": "Fill Customer draft",
+              "kind": "fill",
+              "instruction": "Set the Company name to \"Intent certification 1792827782570\", Contact email to \"intent.cert@example.test\", and Region to \"Singapore\".",
+              "expected": "Company name, Contact email, and Region fields updated.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "0b1ed391-70c3-4603-9dc8-e553c317d13a",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Intent certification 1792827782570",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "intent.cert@example.test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Save synthetic record",
+              "kind": "save",
+              "instruction": "Propose to save the filled Customer draft.",
+              "expected": "Prompt for confirmation to save the record.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "45836cfe-1e12-42b0-9dbc-5a1f5ff7e54b",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                  "actions": [
+                    {
+                      "type": "submit",
+                      "label": "Save synthetic record",
+                      "outcome": "host_reported_saved"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792827796254,
+          "expiresAt": 1792914196254
+        }
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "4f835cc4-6b23-4fcd-8287-1f128fdd0436",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "0167b2c4-df74-4e7d-9e47-222fd3919557",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Registration name with \"Synthetic attendee\", then submit the registration. Do not run a workshop search.",
+          "message": "Plan to fill the registration name and submit the registration without searching for workshops.",
+          "steps": [
+            {
+              "title": "Fill Registration name",
+              "kind": "fill",
+              "instruction": "Fill the 'Registration name' field with 'Synthetic attendee'.",
+              "expected": "The 'Registration name' field is filled with 'Synthetic attendee'.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Submit Registration",
+              "kind": "save",
+              "instruction": "Submit the registration form using the 'Register' control after filling the 'Registration name'.",
+              "expected": "The registration is submitted successfully.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792827820698,
+          "expiresAt": 1792914220698
+        }
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "4f835cc4-6b23-4fcd-8287-1f128fdd0436",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "0167b2c4-df74-4e7d-9e47-222fd3919557",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Registration name with \"Synthetic attendee\", then submit the registration. Do not run a workshop search.",
+          "message": "Plan to fill the registration name and submit the registration without searching for workshops.",
+          "steps": [
+            {
+              "title": "Fill Registration name",
+              "kind": "fill",
+              "instruction": "Fill the 'Registration name' field with 'Synthetic attendee'.",
+              "expected": "The 'Registration name' field is filled with 'Synthetic attendee'.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Submit Registration",
+              "kind": "save",
+              "instruction": "Submit the registration form using the 'Register' control after filling the 'Registration name'.",
+              "expected": "The registration is submitted successfully.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792827820698,
+          "expiresAt": 1792914220698
+        }
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "4f835cc4-6b23-4fcd-8287-1f128fdd0436",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "0167b2c4-df74-4e7d-9e47-222fd3919557",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Registration name with \"Synthetic attendee\", then submit the registration. Do not run a workshop search.",
+          "message": "To proceed with filling the 'Registration name' field, I will enter 'Synthetic attendee' into the field.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Registration name",
+              "kind": "fill",
+              "instruction": "Fill the 'Registration name' field with 'Synthetic attendee'.",
+              "expected": "The 'Registration name' field is filled with 'Synthetic attendee'.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Submit Registration",
+              "kind": "save",
+              "instruction": "Submit the registration form using the 'Register' control after filling the 'Registration name'.",
+              "expected": "The registration is submitted successfully.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792827820698,
+          "expiresAt": 1792914220698,
+          "pendingProposalId": "c8fec62c-d641-48af-87a0-a3f16da7c226"
+        },
+        "proposal": {
+          "id": "c8fec62c-d641-48af-87a0-a3f16da7c226",
+          "revision": 2,
+          "message": "To proceed with filling the 'Registration name' field, I will enter 'Synthetic attendee' into the field.\nReview these 1 proposed field change. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r2f1",
+              "label": "Registration name",
+              "value": "Synthetic attendee"
+            }
+          ],
+          "expiresAt": 1792827943915,
+          "fields": [
+            {
+              "ref": "r2f0",
+              "label": "Find workshops",
+              "type": "text",
+              "required": false,
+              "key": "query"
+            },
+            {
+              "ref": "r2f1",
+              "label": "Registration name",
+              "type": "text",
+              "required": true,
+              "key": "registration_name",
+              "form": "registration"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 2,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r2f1",
+            "label": "Registration name",
+            "value": "Synthetic attendee",
+            "actionId": "c8fec62c-d641-48af-87a0-a3f16da7c226:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827943915
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "4f835cc4-6b23-4fcd-8287-1f128fdd0436",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "0167b2c4-df74-4e7d-9e47-222fd3919557",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Registration name with \"Synthetic attendee\", then submit the registration. Do not run a workshop search.",
+          "message": "The 'Registration name' field has been filled with 'Synthetic attendee' as confirmed by local state verification.",
+          "steps": [
+            {
+              "title": "Fill Registration name",
+              "kind": "fill",
+              "instruction": "Fill the 'Registration name' field with 'Synthetic attendee'.",
+              "expected": "The 'Registration name' field is filled with 'Synthetic attendee'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "c8fec62c-d641-48af-87a0-a3f16da7c226",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "To proceed with filling the 'Registration name' field, I will enter 'Synthetic attendee' into the field.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Registration name",
+                      "value": "Synthetic attendee",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Submit Registration",
+              "kind": "save",
+              "instruction": "Submit the registration form using the 'Register' control after filling the 'Registration name'.",
+              "expected": "The registration is submitted successfully.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792827820698,
+          "expiresAt": 1792914220698
+        }
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "4f835cc4-6b23-4fcd-8287-1f128fdd0436",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "0167b2c4-df74-4e7d-9e47-222fd3919557",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Registration name with \"Synthetic attendee\", then submit the registration. Do not run a workshop search.",
+          "message": "Confirm Register separately. This submits the current host form and may save data.",
+          "steps": [
+            {
+              "title": "Fill Registration name",
+              "kind": "fill",
+              "instruction": "Fill the 'Registration name' field with 'Synthetic attendee'.",
+              "expected": "The 'Registration name' field is filled with 'Synthetic attendee'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "c8fec62c-d641-48af-87a0-a3f16da7c226",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "To proceed with filling the 'Registration name' field, I will enter 'Synthetic attendee' into the field.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Registration name",
+                      "value": "Synthetic attendee",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Submit Registration",
+              "kind": "save",
+              "instruction": "Submit the registration form using the 'Register' control after filling the 'Registration name'.",
+              "expected": "The registration is submitted successfully.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792827820698,
+          "expiresAt": 1792914220698,
+          "pendingProposalId": "9a6c0fb8-18e0-4a07-b320-be191dcea602"
+        },
+        "proposal": {
+          "id": "9a6c0fb8-18e0-4a07-b320-be191dcea602",
+          "revision": 5,
+          "message": "Confirm Register separately. This submits the current host form and may save data.",
+          "actions": [
+            {
+              "type": "submit",
+              "ref": "r5s0",
+              "label": "Register"
+            }
+          ],
+          "expiresAt": 1792827947222,
+          "fields": [
+            {
+              "ref": "r5f0",
+              "label": "Find workshops",
+              "type": "text",
+              "required": false,
+              "key": "query"
+            },
+            {
+              "ref": "r5f1",
+              "label": "Registration name",
+              "type": "text",
+              "required": true,
+              "key": "registration_name",
+              "form": "registration"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 5,
+        "actions": [
+          {
+            "type": "submit",
+            "ref": "r5s0",
+            "label": "Register",
+            "actionId": "9a6c0fb8-18e0-4a07-b320-be191dcea602:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827947222
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "independent-native-submit-stays-separate",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "4f835cc4-6b23-4fcd-8287-1f128fdd0436",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "0167b2c4-df74-4e7d-9e47-222fd3919557",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Registration name with \"Synthetic attendee\", then submit the registration. Do not run a workshop search.",
+          "message": "The host reported a successful submission for this step. This is not independent business verification.",
+          "steps": [
+            {
+              "title": "Fill Registration name",
+              "kind": "fill",
+              "instruction": "Fill the 'Registration name' field with 'Synthetic attendee'.",
+              "expected": "The 'Registration name' field is filled with 'Synthetic attendee'.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "c8fec62c-d641-48af-87a0-a3f16da7c226",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "To proceed with filling the 'Registration name' field, I will enter 'Synthetic attendee' into the field.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Registration name",
+                      "value": "Synthetic attendee",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Submit Registration",
+              "kind": "save",
+              "instruction": "Submit the registration form using the 'Register' control after filling the 'Registration name'.",
+              "expected": "The registration is submitted successfully.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "9a6c0fb8-18e0-4a07-b320-be191dcea602",
+                  "status": "consumed",
+                  "path": "/intent-catalog",
+                  "responseMessage": "Confirm Register separately. This submits the current host form and may save data.",
+                  "actions": [
+                    {
+                      "type": "submit",
+                      "label": "Register",
+                      "outcome": "host_reported_saved"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792827820698,
+          "expiresAt": 1792914220698
+        }
+      }
+    },
+    {
+      "caseId": "local-navigation-review-and-actual-route",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-navigation-review-and-actual-route",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "22fb8a9b-cd91-413b-922a-cb0051a0cb1f",
+        "revision": 1,
+        "intent": "navigate",
+        "message": "To open the Opportunity form, you can click on the 'Opportunity' link in the navigation section.\nI can open Opportunity, then continue your request on that screen.",
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          }
+        ],
+        "expiresAt": 1792827959029,
+        "fields": [],
+        "matchedWorkflows": [],
+        "messageId": "076be962-b88e-4d10-8cdf-5a1de2b549f3"
+      }
+    },
+    {
+      "caseId": "local-navigation-review-and-actual-route",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity",
+            "actionId": "22fb8a9b-cd91-413b-922a-cb0051a0cb1f:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792827959029
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-highlight-field",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-highlight-field",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "325dde86-6b07-42ba-bc1f-f493ede19691",
+        "revision": 1,
+        "message": "I will point to Search MCPs, publishers, capabilities…. No values will change.\nI can highlight 1 target for you. No values will be changed.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…"
+          }
+        ],
+        "expiresAt": 1792827960275,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "53eed76d-e144-4660-98d2-a63531dd4a57"
+      }
+    },
+    {
+      "caseId": "public-highlight-field",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…"
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "local-highlight-field",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-highlight-field",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "e5e23f51-0c56-4a8a-93d0-229cfb3e6d72",
+        "revision": 1,
+        "message": "I will point to Company name. No values will change.\nI can highlight 1 target for you. No values will be changed.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0",
+            "label": "Company name"
+          }
+        ],
+        "expiresAt": 1792827961240,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "6a735a73-2fcd-41d2-af04-f7cfb4afc56c"
+      }
+    },
+    {
+      "caseId": "local-highlight-field",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0",
+            "label": "Company name"
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "public-answer-count-no-effects",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-answer-count-no-effects",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "bc9a4697-0c3f-48e4-931e-7816ddac98cf",
+        "revision": 1,
+        "intent": "explain",
+        "message": "The total number of listings is 1535 approved listings, as indicated on the current page.",
+        "actions": [],
+        "expiresAt": 1792827965254,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "7c597655-53c4-43cf-918f-bfb01f42fa6f"
+      }
+    },
+    {
+      "caseId": "public-missing-query-clarification",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-missing-query-clarification",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "f2f62524-5346-477d-b98a-9ca22a313820",
+        "revision": 1,
+        "intent": "clarify",
+        "message": "What search value would you like to use for the search?",
+        "actions": [],
+        "expiresAt": 1792827968896,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport",
+            "choices": [
+              "All transports",
+              "streamable-http",
+              "sse",
+              "stdio"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "31d7c8d8-c63a-4788-b83e-e3bfbcfbe0d7"
+      }
+    },
+    {
+      "caseId": "local-bare-records-title-response",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-bare-records-title-response",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "d0898f05-cbfc-448c-a3bb-117f509f1005",
+        "revision": 1,
+        "intent": "explain",
+        "message": "The page titled \"Saved synthetic records\" indicates that there are 319 items currently loaded in the collection. This collection includes various synthetic records such as customers, opportunities, notes, and scheduled goals. Each record is persisted by the local host and is separate from the copilot state. The records include details like company names, contact emails, and other relevant information. If you need specific details about any of these records or wish to perform an action with them, please specify what you would like to do.",
+        "actions": [],
+        "expiresAt": 1792827975535,
+        "fields": [],
+        "matchedWorkflows": [],
+        "messageId": "790c8069-a8b7-4290-a244-57629047429a"
+      }
+    },
+    {
+      "caseId": "public-native-submission-needs-missing-details",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-native-submission-needs-missing-details",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "c45c5cd5-a2e0-43f2-8366-2f3414aef816",
+        "revision": 1,
+        "intent": "clarify",
+        "message": "To submit a provider for review, I need the following details: \n1. **Provider Name**: What is the name of the provider you want to submit?\n2. **Transport Method**: Please specify the transport method from the available options.\n\nCould you provide these details?",
+        "actions": [],
+        "expiresAt": 1792827988644,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "f3d30fd9-d2f0-43ed-a3f9-69f71314443a"
+      }
+    }
+  ]
+}

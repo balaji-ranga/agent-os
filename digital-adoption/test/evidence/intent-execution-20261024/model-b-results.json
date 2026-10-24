@@ -1,0 +1,855 @@
+{
+  "at": "2026-10-24T06:54:16.541Z",
+  "results": [
+    {
+      "id": "public-routes-complete-search-to-real-plan",
+      "passed": false,
+      "error": "Platform model unavailable",
+      "latencyMs": 22318
+    },
+    {
+      "id": "public-goal-has-actual-fill-activation-result-steps",
+      "passed": true,
+      "plan": {
+        "message": "Plan to search for events related to MCP and get the results.",
+        "steps": [
+          {
+            "title": "Fill search query",
+            "kind": "fill",
+            "instruction": "Fill the search input with the query 'events related to MCP'",
+            "expected": "The search input is filled with 'events related to MCP'"
+          },
+          {
+            "title": "Activate search",
+            "kind": "activate",
+            "instruction": "Click the 'Search' button to initiate the search",
+            "expected": "The search is initiated and results are displayed"
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Inspect the search results for events related to MCP",
+            "expected": "The search results are displayed for review"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 13231,
+          "promptTokens": 6502,
+          "outputTokens": 1981
+        }
+      },
+      "latencyMs": 27891
+    },
+    {
+      "id": "independent-routes-complete-search-to-real-plan",
+      "passed": false,
+      "error": "Platform model unavailable",
+      "latencyMs": 18210
+    },
+    {
+      "id": "independent-goal-has-actual-fill-activation-result-steps",
+      "passed": true,
+      "plan": {
+        "message": "Plan to find robotics workshops and show the matching results.",
+        "steps": [
+          {
+            "title": "Fill in the workshop search query",
+            "kind": "fill",
+            "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+            "expected": "The 'Find workshops' field is filled with 'Robotics workshops'."
+          },
+          {
+            "title": "Activate the apply query button",
+            "kind": "activate",
+            "instruction": "Click the 'Apply query' button to submit the search for workshops.",
+            "expected": "The search results are updated to show workshops related to 'Robotics workshops'."
+          },
+          {
+            "title": "Inspect the search results",
+            "kind": "inspect",
+            "instruction": "Inspect the updated results to confirm the presence of robotics workshops.",
+            "expected": "The results display the available workshops, including 'Robotics workshop'."
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 10663,
+          "promptTokens": 3203,
+          "outputTokens": 1501
+        }
+      },
+      "latencyMs": 12602
+    },
+    {
+      "id": "short-search-routes-complete-operation-to-plan",
+      "passed": true,
+      "answer": {
+        "intent": "plan",
+        "message": "To search for events related to MCPs, I will prepare the necessary operations. The search field will be filled with 'events MCP', and then the search button will be activated to retrieve the results. This will allow us to see the relevant events associated with MCPs.",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 2,
+        "contractRepairs": 1,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3213,
+          "promptTokens": 4876,
+          "outputTokens": 443
+        }
+      },
+      "latencyMs": 16810
+    },
+    {
+      "id": "bare-current-page-title-is-a-useful-clarification-or-response",
+      "passed": true,
+      "answer": {
+        "intent": "clarify",
+        "message": "Please specify whether you want to navigate to the Customer, Opportunity, Note, or Scheduled goal sections, inspect the loaded records, or perform another action related to the saved synthetic records.",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 4813,
+          "promptTokens": 6895,
+          "outputTokens": 573
+        }
+      },
+      "latencyMs": 15639
+    },
+    {
+      "id": "goal-fill-stage-prepares-real-query-change",
+      "passed": true,
+      "answer": {
+        "message": "Please enter the events you want to search for in the input field labeled \"Search MCPs, publishers, capabilities…\" while keeping the transport selection unchanged.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "events"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1532,
+          "promptTokens": 5090,
+          "outputTokens": 143
+        }
+      },
+      "latencyMs": 3030
+    },
+    {
+      "id": "goal-activation-stage-uses-own-button-ref-only",
+      "passed": true,
+      "answer": {
+        "message": "Activating the Search action now.",
+        "actions": [
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1443,
+          "promptTokens": 5062,
+          "outputTokens": 167
+        }
+      },
+      "latencyMs": 2568
+    }
+  ],
+  "trace": [
+    {
+      "role": "maker",
+      "latencyMs": 2485,
+      "response": {
+        "intent": "plan",
+        "message": "To search for events related to MCP, we will fill in the search field and then activate the search button. Please provide the specific search term you would like to use in the search field.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "MCP events"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6655,
+        "output": 77
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1350,
+      "response": {
+        "intent": "plan",
+        "message": "To search for events related to MCP, we will prepare to fill in the search field and activate the search button. Please provide the specific search term you would like to use in the search field.",
+        "actions": []
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 7363,
+        "output": 49
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1175,
+      "response": {
+        "decision": "revise",
+        "feedback": "The task already supplies the search term \"MCP\" — no need to ask for it. Propose a plan that fills the search field (r1f0) with \"MCP\" and activates the Search control (r1a0), then inspects results. Note the page is an MCP server directory, not an events listing; clarify if you meant a different site.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4878,
+        "output": 105
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 2397,
+      "response": {
+        "intent": "plan",
+        "message": "To search for events related to MCP, we will fill in the search field with \"MCP\" and then activate the Search control. After that, we will inspect the results. Please note that this page is an MCP server directory, not specifically an events listing; clarify if you meant a different site.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "MCP"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 7027,
+        "output": 99
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1928,
+      "response": {
+        "intent": "plan",
+        "message": "To search for events related to MCP, we will fill in the search field with \"MCP\" and then activate the Search control. After that, we will inspect the results. Please note that this page is an MCP server directory, not specifically an events listing; clarify if you meant a different site.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "MCP"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 7466,
+        "output": 99
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1832,
+      "response": {
+        "message": "Plan to search for events related to MCP and get the results.",
+        "steps": [
+          {
+            "title": "Fill search query",
+            "kind": "fill",
+            "instruction": "Fill the search input with the query 'MCP'",
+            "expected": "The search input is filled with 'MCP'"
+          },
+          {
+            "title": "Activate search",
+            "kind": "activate",
+            "instruction": "Click the 'Search' button to initiate the search",
+            "expected": "The search is initiated and results are displayed"
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Inspect the search results for events related to MCP",
+            "expected": "The search results are displayed for review"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 5456,
+        "output": 122
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 11012,
+      "response": {
+        "decision": "revise",
+        "feedback": "The plan searches for 'MCP', which returns the entire MCP directory rather than event-related listings. Revise the search query to 'events' (or a similarly event-specific term) so the results actually target events related to MCP, then keep the Search activation and Inspect step to report/summarize the matching results.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6496,
+        "output": 1709
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1803,
+      "response": {
+        "message": "Plan to search for events related to MCP and get the results.",
+        "steps": [
+          {
+            "title": "Fill search query",
+            "kind": "fill",
+            "instruction": "Fill the search input with the query 'events related to MCP'",
+            "expected": "The search input is filled with 'events related to MCP'"
+          },
+          {
+            "title": "Activate search",
+            "kind": "activate",
+            "instruction": "Click the 'Search' button to initiate the search",
+            "expected": "The search is initiated and results are displayed"
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Inspect the search results for events related to MCP",
+            "expected": "The search results are displayed for review"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 5888,
+        "output": 126
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 13231,
+      "response": {
+        "decision": "accept",
+        "feedback": "The plan uses the observed search input and Search button, then inspects the resulting page content to retrieve the search results. It stays on the current page, requires no unsafe action, and the application will handle required reviews.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6502,
+        "output": 1981
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1804,
+      "response": {
+        "intent": "plan",
+        "message": "To find robotics workshops, we need to fill in the 'Find workshops' field with the query 'Robotics' and then activate the 'Apply query' button. This will allow us to search for the relevant workshops. Let's prepare this operation.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "Robotics"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4410,
+        "output": 87
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1763,
+      "response": {
+        "intent": "plan",
+        "message": "To find robotics workshops, we need to prepare the operation to fill in the 'Find workshops' field with the query 'Robotics' and then activate the 'Apply query' button. This will allow us to search for the relevant workshops. Let's prepare this operation.",
+        "actions": []
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 5127,
+        "output": 63
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 10633,
+      "response": {
+        "decision": "revise",
+        "feedback": "The plan must be ordered steps and must cover the whole request, including the final result display. Split it: 1) fill 'Find workshops' (r1f0) with 'Robotics'; 2) activate 'Apply query' (r1a0); 3) inspect/display the loaded matching results. No Save. Current text conflates steps and omits showing results.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 3640,
+        "output": 1664
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1925,
+      "response": {
+        "intent": "plan",
+        "message": "To find robotics workshops, we will follow these steps: 1) Fill the 'Find workshops' field (ref: r1f0) with the query 'Robotics'; 2) Activate the 'Apply query' button (ref: r1a0); 3) Inspect and display the loaded matching results. This will allow us to see the relevant workshops.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "Robotics"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 4797,
+        "output": 113
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 2076,
+      "response": {
+        "intent": "plan",
+        "message": "To find robotics workshops, we will follow these steps: 1) Fill the 'Find workshops' field (ref: r1f0) with the query 'Robotics'; 2) Activate the 'Apply query' button (ref: r1a0); 3) Inspect and display the loaded matching results. Currently, there are 3 workshops available: Robotics workshop, Finance conference, and Design practice.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "Robotics"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 5236,
+        "output": 122
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1936,
+      "response": {
+        "message": "Plan to find robotics workshops and show the matching results.",
+        "steps": [
+          {
+            "title": "Fill in the workshop search query",
+            "kind": "fill",
+            "instruction": "Fill the 'Find workshops' field with the query 'Robotics workshops'.",
+            "expected": "The 'Find workshops' field is filled with 'Robotics workshops'."
+          },
+          {
+            "title": "Activate the apply query button",
+            "kind": "activate",
+            "instruction": "Click the 'Apply query' button to submit the search for workshops.",
+            "expected": "The search results are updated to show workshops related to 'Robotics workshops'."
+          },
+          {
+            "title": "Inspect the search results",
+            "kind": "inspect",
+            "instruction": "Inspect the updated results to confirm the presence of robotics workshops.",
+            "expected": "The results display the available workshops, including 'Robotics workshop'."
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 2417,
+        "output": 156
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 10663,
+      "response": {
+        "decision": "accept",
+        "feedback": "The plan uses the observed 'Find workshops' field and 'Apply query' button, then inspects the updated results for the matching robotics workshop. It stays on the current page and does not touch unrelated registration controls.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 3203,
+        "output": 1501
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1845,
+      "response": {
+        "intent": "edit",
+        "message": "To search for events related to MCPs, I will fill in the search field with the term 'events MCP'.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "events MCP"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6650,
+        "output": 51
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 5230,
+      "response": {
+        "decision": "revise",
+        "feedback": "The task asks to perform a search, not just prepare the field. A lone fill of 'events MCP' only enters the query and omits the requested search/result step. Revise as intent 'plan' with actions: [] so the search operation and fresh results can be reviewed.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4862,
+        "output": 746
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 5073,
+      "response": {
+        "intent": "plan",
+        "message": "To search for events related to MCPs, I will prepare the necessary operations to fill in the search field with 'events MCP' and then activate the search button to retrieve the results.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "events MCP"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 6999,
+        "output": 75
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1424,
+      "response": {
+        "intent": "plan",
+        "message": "To search for events related to MCPs, I will prepare the necessary operations. The search field will be filled with 'events MCP', and then the search button will be activated to retrieve the results. This will allow us to see the relevant events associated with MCPs.",
+        "actions": []
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 7412,
+        "output": 64
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3213,
+      "response": {
+        "decision": "accept",
+        "feedback": "Plan correctly captures the requested search: enter “events MCP” and activate Search, with no immediate host actions and no Save. It is an appropriate handoff to Goal review.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4876,
+        "output": 443
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 2169,
+      "response": {
+        "intent": "guide",
+        "message": "To navigate to the different sections of the saved synthetic records, you can click on the following links: \n- **Customer**\n- **Opportunity**\n- **Note**\n- **Scheduled goal**\n\nEach link will take you to the respective section where you can view more details.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t3"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t4"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t5"
+          },
+          {
+            "type": "highlight",
+            "ref": "r1t6"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 7021,
+        "output": 119
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 7326,
+      "response": {
+        "decision": "clarify",
+        "feedback": "The request is only the page title, so a navigation intent is assumed. Please clarify whether you want to navigate the Customer, Opportunity, Note, and Scheduled goal sections, inspect the loaded records, or do something else.",
+        "checks": {
+          "taskMatch": "uncertain",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6972,
+        "output": 993
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1322,
+      "response": {
+        "intent": "clarify",
+        "message": "Please specify whether you want to navigate to the Customer, Opportunity, Note, or Scheduled goal sections, inspect the loaded records, or perform another action related to the saved synthetic records.",
+        "actions": []
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 7424,
+        "output": 47
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 4813,
+      "response": {
+        "decision": "accept",
+        "feedback": "The task names only the page subject without a requested operation, so a focused clarification is appropriate. It references observed sections and proposes no actions.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6895,
+        "output": 573
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1481,
+      "response": {
+        "message": "Please enter the events you want to search for in the input field labeled \"Search MCPs, publishers, capabilities…\" while keeping the transport selection unchanged.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "events"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6943,
+        "output": 53
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1532,
+      "response": {
+        "decision": "accept",
+        "feedback": "Fills the observed search input with \"events\" and does not alter transport or activate Search.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 5090,
+        "output": 143
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1116,
+      "response": {
+        "message": "Activating the Search action now.",
+        "actions": [
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6944,
+        "output": 25
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1443,
+      "response": {
+        "decision": "accept",
+        "feedback": "Single activate action on the observed Search control (r1a0) matches the request; no fill or highlight proposed, and activate is within allowed action types.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 5062,
+        "output": 167
+      }
+    }
+  ],
+  "contexts": [
+    {
+      "bytes": 29786,
+      "task": "search for events related MCP and get the results"
+    },
+    {
+      "bytes": 24376,
+      "task": "search for events related MCP and get the results"
+    },
+    {
+      "bytes": 22075,
+      "task": "Find robotics workshops and show the matching results"
+    },
+    {
+      "bytes": 12070,
+      "task": "Find robotics workshops and show the matching results"
+    },
+    {
+      "bytes": 29758,
+      "task": "search for events MCP"
+    },
+    {
+      "bytes": 29697,
+      "task": "Saved synthetic records"
+    },
+    {
+      "bytes": 29969,
+      "task": "Enter events in the search input. Preserve transport. Do not activate the search button in this step."
+    },
+    {
+      "bytes": 29987,
+      "task": "Activate Search once using its observed control. The query was already prepared; do not fill or highlight anything."
+    }
+  ],
+  "sharedSettingsUnchanged": true
+}

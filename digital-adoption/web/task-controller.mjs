@@ -2,6 +2,7 @@ export function outcomeOf(result){
  if(result?.hostReported==='failure'||result?.valueObserved===false)return 'rejected';
  if(result?.businessVerified===true)return 'business_verified';
  if(result?.hostReported==='success')return 'host_reported_saved';
+ if(result?.activated&&result.uiChanged)return 'local_state_verified';
  if(result?.valueObserved===true||result?.navigated&&result?.verified)return 'local_state_verified';
  if(result?.highlighted)return 'prepared';
  return 'unknown';
@@ -43,7 +44,7 @@ export function createTaskController({inspector,request,onState=()=>{},storage,c
      dispatched=true;
      const args={ref:action.ref,value:action.value,query:action.query,select:action.select,expectedRevision:proposal.revision,activation:action.activation,observationMs:proposal.outcomeProfile?.observationMs,approved:true,active:()=>active()&&token===generation};
      if(action.type==='submit')emit('waiting_host',{index});
-     let result=await (action.type==='fill'?inspector.fill(args):action.type==='submit'?inspector.submit(args):action.type==='navigate'?inspector.navigate(args):action.type==='highlight'?inspector.highlight(args):Promise.reject(new Error('Unsupported action')));
+     let result=await (action.type==='fill'?inspector.fill(args):action.type==='submit'?inspector.submit(args):action.type==='activate'?inspector.activate(args):action.type==='navigate'?inspector.navigate(args):action.type==='highlight'?inspector.highlight(args):Promise.reject(new Error('Unsupported action')));
      emit('verifying',{index});
      if(action.type==='submit'&&verifyOutcome&&result.hostReported==='success'){let proof;try{proof=await verifyOutcome(action);}catch(error){throw Object.assign(new Error('The host reported success, but saved-record verification failed. Inspect the record before retrying.'),{code:'OUTCOME_UNKNOWN',outcome:'unknown'});}check();if(proof?.verified===true)result={...result,businessVerified:true};}
      const outcome=outcomeOf(result);result={...result,outcome};results.push(result);

@@ -1,0 +1,334 @@
+{
+  "at": "2026-10-24T08:41:23.882Z",
+  "results": [
+    {
+      "id": "goal-inspection-schema-excludes-later-stage-effects",
+      "passed": true,
+      "answer": {
+        "message": "The current page is titled **MCP Universe · Flolah** and is located at **/free-tools/mcp-universe/**. It displays a total of **1535 approved listings** in the registry, but the currently loaded collection on this page contains **24 items** related to Model Context Protocol servers. The visible elements include:\n\n- **Search MCPs, publishers, capabilities…**: An input field for searching.\n- **Search**: A button to initiate the search.\n- **Inspect**: Buttons for inspecting various MCPs, including:\n  - ac.inference.sh/mcp\n  - ac.snag/snag\n  - ac.tandem/docs-mcp\n  - academy.apexai/apex-ai-academy\n  - academy.ase/periodic-system\n  - ad.getle/leads\n  - ad.inside/inside-ads\n  - ae.beachclubs/mcp\n- **Previous** and **Next** buttons for pagination.\n- A note stating that **Official Registry registration is preferred** and that **every submission is moderated before publication**.\n\nThe page provides a clear overview of the available MCPs and their descriptions, allowing users to inspect each one further.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t14"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 0,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 8253,
+          "promptTokens": 6263,
+          "outputTokens": 1421
+        }
+      },
+      "allowedActionTypes": [
+        "highlight"
+      ],
+      "latencyMs": 22885
+    },
+    {
+      "id": "auto-observed-field-description-guides-real-model",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "Preparing to fill the Region field with the value for the Northern service desk, which uses the code SYN-N42.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "SYN-N42"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1934,
+          "promptTokens": 4066,
+          "outputTokens": 199
+        }
+      },
+      "latencyMs": 3399
+    },
+    {
+      "id": "navigation-without-source-json",
+      "passed": true,
+      "answer": {
+        "intent": "navigate",
+        "message": "You can access the 'Saved synthetic records' page by following the link provided. This link is safe to navigate to.",
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r1n4"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1234,
+          "promptTokens": 4861,
+          "outputTokens": 59
+        },
+        "checkerRetries": 1
+      },
+      "latencyMs": 15350
+    },
+    {
+      "id": "fresh-menu-overrides-incomplete-saved-map",
+      "passed": true,
+      "answer": {
+        "intent": "navigate",
+        "message": "You can access the 'Saved synthetic records' page to view your saved records. This link is available for navigation.",
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r1n4"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 7031,
+          "promptTokens": 4907,
+          "outputTokens": 1012
+        }
+      },
+      "latencyMs": 8473
+    }
+  ],
+  "trace": [
+    {
+      "role": "maker",
+      "latencyMs": 4723,
+      "response": {
+        "message": "The current page is titled **MCP Universe · Flolah** and is located at **/free-tools/mcp-universe/**. It displays a collection of **24 approved listings** related to Model Context Protocol servers. The visible elements include:\n\n- **Search MCPs, publishers, capabilities…**: An input field for searching.\n- **Search**: A button to initiate the search.\n- **Inspect**: Buttons for inspecting various MCPs, including:\n  - ac.inference.sh/mcp\n  - ac.snag/snag\n  - ac.tandem/docs-mcp\n  - academy.apexai/apex-ai-academy\n  - academy.ase/periodic-system\n  - ad.getle/leads\n  - ad.inside/inside-ads\n  - ae.beachclubs/mcp\n- **Previous** and **Next** buttons for pagination.\n- A note stating that **Official Registry registration is preferred** and that **every submission is moderated before publication**.\n\nThe page provides a clear overview of the available MCPs and their descriptions, allowing users to inspect each one further.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t14"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6635,
+        "output": 254
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 5371,
+      "response": {
+        "decision": "revise",
+        "feedback": "The report is relevant and the highlight target r1t14 is an observed element, but it misstates the visible statistic. The page displays “1535 approved listings · page 1”; the loaded collection on this page contains 24 items. Do not describe the collection as “24 approved listings.” Correct the report to distinguish the displayed total (1535) from the 24 loaded items, and retain the highlight of r1t14 if pointing to the count is intended.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "fail",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6245,
+        "output": 817
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 4515,
+      "response": {
+        "message": "The current page is titled **MCP Universe · Flolah** and is located at **/free-tools/mcp-universe/**. It displays a total of **1535 approved listings** in the registry, but the currently loaded collection on this page contains **24 items** related to Model Context Protocol servers. The visible elements include:\n\n- **Search MCPs, publishers, capabilities…**: An input field for searching.\n- **Search**: A button to initiate the search.\n- **Inspect**: Buttons for inspecting various MCPs, including:\n  - ac.inference.sh/mcp\n  - ac.snag/snag\n  - ac.tandem/docs-mcp\n  - academy.apexai/apex-ai-academy\n  - academy.ase/periodic-system\n  - ad.getle/leads\n  - ad.inside/inside-ads\n  - ae.beachclubs/mcp\n- **Previous** and **Next** buttons for pagination.\n- A note stating that **Official Registry registration is preferred** and that **every submission is moderated before publication**.\n\nThe page provides a clear overview of the available MCPs and their descriptions, allowing users to inspect each one further.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t14"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 7241,
+        "output": 272
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 8253,
+      "response": {
+        "decision": "accept",
+        "feedback": "Accepted. The proposal accurately reports the rendered page title/path, distinguishes the displayed registry total of 1535 from the loaded 24-item collection, and lists visible controls and notices. It does not fill fields or repeat the search, and the highlight is read-only and grounded in the observed page.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6263,
+        "output": 1421
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1451,
+      "response": {
+        "intent": "edit",
+        "message": "Preparing to fill the Region field with the value for the Northern service desk, which uses the code SYN-N42.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "SYN-N42"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4679,
+        "output": 52
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1934,
+      "response": {
+        "decision": "accept",
+        "feedback": "Fill of the observed Region field (r1f0) with SYN-N42 is directly supported by the field description \"Northern service desk uses code SYN-N42.\" The task asks only to prepare the field, and the proposal includes no Save, so this is a reviewable fill consistent with the request.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4066,
+        "output": 199
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1380,
+      "response": {
+        "intent": "navigate",
+        "message": "You can access the 'Saved synthetic records' page by following the link provided. This link is safe to navigate to.",
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r1n4"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 5850,
+        "output": 46
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 1234,
+      "response": {
+        "decision": "accept",
+        "feedback": "Navigation to the observed 'Saved synthetic records' link (r1n4) matches the requested task; the ref is fresh and the action is read-only navigation.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4861,
+        "output": 59
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1436,
+      "response": {
+        "intent": "navigate",
+        "message": "You can access the 'Saved synthetic records' page to view your saved records. This link is available for navigation.",
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r1n4"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 5906,
+        "output": 45
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 7031,
+      "response": {
+        "decision": "accept",
+        "feedback": "Navigation to the observed “Saved synthetic records” link via r1n4 matches the request. It uses a current observed target and proposes no Save or write action.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4907,
+        "output": 1012
+      }
+    }
+  ],
+  "contexts": [
+    {
+      "bytes": 29940,
+      "task": "Inspect the currently rendered results and report what is visible. Do not fill fields or repeat the search."
+    },
+    {
+      "bytes": 24148,
+      "task": "Prepare Region for the Northern service desk using the on-screen field help. Do not save."
+    },
+    {
+      "bytes": 28562,
+      "task": "navigate saved synthetic records"
+    },
+    {
+      "bytes": 28859,
+      "task": "navigate saved synthetic records"
+    }
+  ],
+  "sharedSettingsUnchanged": true
+}

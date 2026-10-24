@@ -64,7 +64,17 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
    const access=requireMaintainer(scope),snapshot=validateSnapshot(input);
    if(!safePath(snapshot.path))throw new Error('This record-specific route cannot be saved as shared learning');
    const inventory=validateInventory(input.inventory);
-   const structure={path:snapshot.path,forms:snapshot.forms,fields:snapshot.fields.map(({key,label,type,required,form})=>({key:key||null,label,type,required,...(form?{form}:{})})),links:snapshot.links.filter(l=>safePath(l.path)).map(({label,path})=>({label,path})),...(inventory?{inventory}:{})};
+   // Save field-related public DOM semantics, never the free-form page text,
+   // rendered transaction rows, current input values or live executable refs.
+   let contextBudget=4000;
+   const fields=snapshot.fields.map(({key,label,type,required,form})=>{
+    const matches=(snapshot.pageContext?.structure||[]).filter(e=>e.label===label&&['input','select','textarea','combobox'].includes(e.role));
+    const descriptions=[...new Set(matches.map(e=>e.description).filter(Boolean))],regions=[...new Set(matches.map(e=>e.region).filter(Boolean))];
+    const context=matches.length===1?{...(descriptions.length===1?{description:descriptions[0]}:{}),...(regions.length===1?{region:regions[0]}:{})}:{};
+    const size=JSON.stringify(context).length;contextBudget-=size;
+    return {key:key||null,label,type,required,...(form?{form}:{}),...(contextBudget>=0?context:{})};
+   });
+   const structure={path:snapshot.path,title:snapshot.pageContext?.title||snapshot.screen,forms:snapshot.forms,fields,links:snapshot.links.filter(l=>safePath(l.path)).map(({label,path})=>({label,path})),...(inventory?{inventory}:{})};
    const record={...structure,embeddingId:access.embeddingId,audienceId:access.audienceId,fingerprint:hash(structure),observedAt:clock(),observationKind};maps.set(key(access,snapshot.path),record);
    return {path:record.path,limits:{fields:60,navigation:30},forms:record.forms,fields:record.fields,navigation:record.links,...(inventory?{inventory}:{}),formCount:record.forms.length,fieldCount:record.fields.length,navigationCount:record.links.length,fingerprint:record.fingerprint,status:'observed-not-tested'};
   },

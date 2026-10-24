@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSessionClient} from '../web/session-client.mjs';
+test('same-tab restore validates and rotates its credential before requesting history',async()=>{
+ let saved={sessionId:'same',sessionToken:'old',expiresAt:100,sessionExpiresAt:200},calls=[];const store={read:()=>saved,write:v=>saved=v,clear:()=>saved=null},client=createSessionClient({service:'https://copilot.test/',sessionStore:store,clock:()=>1,fetchImpl:async(url,o)=>{calls.push({path:url.pathname,token:o.headers.Authorization,data:JSON.parse(o.body)});return new Response(JSON.stringify(url.pathname==='/v1/renew'?{sessionId:'same',sessionToken:'rotated',expiresAt:101,sessionExpiresAt:200}:{messages:[]}));}});
+ await client.resume({identityToken:'current-host-proof'});await client.request('/v1/history');assert.equal(calls[0].path,'/v1/renew');assert.equal(calls[0].data.identityToken,'current-host-proof');assert.equal(calls[1].token,'Bearer rotated');assert.equal(saved.sessionToken,'rotated');
+});
+test('expired or denied tab restore does not revive its previous session',async()=>{
+ for(const expiresAt of [0,100]){let saved={sessionId:'old',sessionToken:'old',expiresAt,sessionExpiresAt:200},calls=0;const client=createSessionClient({service:'https://copilot.test/',sessionStore:{read:()=>saved,clear:()=>saved=null},clock:()=>1,fetchImpl:async()=>{calls++;return new Response('{}',{status:403});}});assert.equal(await client.resume(),null);assert.equal(saved,null);assert.equal(calls,expiresAt?1:0);}
+});
+test('transport failure during tab restore preserves proof and never creates a replacement session',async()=>{
+ let saved={sessionId:'same',sessionToken:'old',expiresAt:100,sessionExpiresAt:200},calls=0;const client=createSessionClient({service:'https://copilot.test/',sessionStore:{read:()=>saved,clear:()=>saved=null},clock:()=>1,fetchImpl:async()=>{calls++;throw new TypeError('offline');}});await assert.rejects(client.resume(),/interrupted/);assert.equal(saved.sessionId,'same');assert.equal(calls,1);
+});
 test('network-lost bootstrap retries once with the same high-entropy key; instances differ',async()=>{
  const seen=[];let count=0;
  const fetchImpl=async(url,options)=>{seen.push(JSON.parse(options.body).initializationKey);if(count++===0)throw new TypeError('response lost');return {ok:true,json:async()=>({sessionId:'one',sessionToken:'token',expiresAt:9999999999999,sessionExpiresAt:9999999999999})};};

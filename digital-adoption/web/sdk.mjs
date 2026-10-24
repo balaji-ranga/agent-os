@@ -1,3 +1,4 @@
+import {mayApplyFieldsAutomatically} from './field-approval.mjs';
 import {newlyAvailableFields} from './dependent-controls.mjs';
 import {createTaskController} from './task-controller.mjs';
 import {createVisitorAnalytics} from './visitor-analytics.mjs';
@@ -13,7 +14,7 @@ export async function mount(options) {
   const {serviceUrl,installationToken,theme={},getHostIdentity,getVerifiedOutcome,bindVerifiedSave,getActionOutcome}=options;
   const layout=options.layout||'floating',dockTarget=options.dockTarget;
   if(!['floating','docked'].includes(layout)||layout==='docked'&&(!(dockTarget instanceof HTMLElement)||!dockTarget.isConnected||dockTarget.ownerDocument!==document))throw new Error('Docked layout requires an explicit connected host container');
-  let expanded=false;
+  let expanded=false,approvalRequired=true,automaticFieldReview=false;
   if(window.frameElement?.dataset.adoptionObservation==='true')return {updateTheme(){},async destroy(){}};
   let appearance = normalizeTheme(theme);
   let hostAppearance=appearance;
@@ -21,7 +22,12 @@ export async function mount(options) {
   if (service.username || service.password || service.search || service.hash || !service.pathname.endsWith('/')) throw new Error('Service base URL must end with /');
   if (service.protocol !== 'https:' && !(service.protocol === 'http:' && ['127.0.0.1','localhost'].includes(service.hostname))) throw new Error('HTTPS required');
   let closed = false;
-  const client=createSessionClient({service});
+  // A same-tab route change may renew its still-authorized session. Keep this
+  // proof in tab storage only, scoped to the exact service and installation.
+  // The iframe never receives it; server origin/identity/expiry checks still run.
+  const sessionKey='flolah-copilot-active:'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(service.href+'\n'+installationToken))),b=>b.toString(16).padStart(2,'0')).join('');
+  const sessionStore={read(){try{return JSON.parse(sessionStorage.getItem(sessionKey)||'null');}catch{return null;}},write(value){try{sessionStorage.setItem(sessionKey,JSON.stringify(value));}catch{}},clear(){try{sessionStorage.removeItem(sessionKey);}catch{}}};
+  const client=createSessionClient({service,sessionStore});
   const request=(path,data)=>client.request(path,data);
   if(getHostIdentity!==undefined&&typeof getHostIdentity!=='function')throw new Error('Host identity must be a backend token callback');
   if(getVerifiedOutcome!==undefined&&typeof getVerifiedOutcome!=='function')throw new Error('Verified outcome must be a backend receipt callback');
@@ -29,7 +35,7 @@ export async function mount(options) {
   const readHostIdentity=async()=>{if(!getHostIdentity)return undefined;const identity=await getHostIdentity();if(typeof identity!=='string'||!identity)throw new Error('Host sign-in is required. Start a new copilot session after signing in.');return identity;};
   const bootstrapButton=document.createElement('button');bootstrapButton.dataset.adoptionWidget='true';bootstrapButton.type='button';bootstrapButton.textContent='Connecting copilot…';bootstrapButton.setAttribute('aria-label','Copilot connection status');bootstrapButton.disabled=true;bootstrapButton.style.cssText='position:fixed;bottom:20px;right:20px;z-index:2147483646;padding:12px;border-radius:12px';if(options.externalConnectionStatus!==true)document.body.append(bootstrapButton);
   let bootstrap;
-  try{bootstrap=await request('/v1/sessions',{installationToken,identityToken:await readHostIdentity()});bootstrapButton.remove();}
+  try{const identityToken=await readHostIdentity();bootstrap=await client.resume({identityToken})||await request('/v1/sessions',{installationToken,identityToken});bootstrapButton.remove();}
   catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=async()=>{bootstrapButton.disabled=true;try{await mount({...options,externalConnectionStatus:true});bootstrapButton.remove();}catch(error){bootstrapButton.disabled=false;bootstrapButton.title=error.message;}};throw error;}
   const visitorAnalytics=createVisitorAnalytics({document,setConsent:value=>client.setAnalyticsConsent(value),request:(path,data)=>client.background(path,data)});
   const inspector = createInspector(document);
@@ -108,7 +114,8 @@ export async function mount(options) {
       if(ownerOperation&&!(await request('/v1/capabilities')).capabilities.coach)throw new Error('Actions requires owner coaching access. Enable a short-lived coaching code in settings.');
       if(/^(task|pair)-/.test(message.type)){const extra=message.type==='task-peer-request'&&message.mode==='goal'?inspector.shareContext({includeValues:message.includeValues===true}):message.type==='task-peer-answer'&&message.goalId?{snapshot:peerSnapshot('Current supported forms and navigation')}:{};result=await privateClient.call(message.type,{...message,...extra});if(message.type==='task-remove'){currentSnapshot=null;taskGeneration++;frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'goal-context-changed'}},service.origin);}}
       else if(message.type==='access'){try{result=await request('/v1/capabilities');}finally{if(!result?.capabilities?.coach&&['recording','paused'].includes(recorder.state())){recorder.stop();recordedSteps=[];recordingId=null;recordingTitle=null;}}}
-      else if (message.type === 'config') result = {theme:appearance,presentation:{layout,expanded},hostContext:hostContext(),canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
+      else if(message.type==='approval-preference'){if(typeof message.required!=='boolean'||execution.busy)throw new Error('Wait for the current action before changing field approval.');approvalRequired=message.required;result={approvalRequired};}
+      else if (message.type === 'config') result = {approvalRequired,theme:appearance,presentation:{layout,expanded},hostContext:hostContext(),canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
       else if(message.type==='presentation'){expanded=message.expanded===true;applyAppearance();result={layout,expanded};}
       else if(message.type==='appearance'||message.type==='appearance-reset'){
         appearance=message.type==='appearance-reset'?hostAppearance:normalizeTheme({...appearance,...message.theme});applyAppearance();result={theme:appearance};
@@ -235,6 +242,7 @@ export async function mount(options) {
       }
       else if (message.type === 'approve') {
         if (!currentSnapshot) throw new Error('Inspect and review again');
+        if(message.automatic===true&&(approvalRequired!==false||!automaticFieldReview))throw new Error('This action requires explicit confirmation.');
         if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
         const generation=taskGeneration,reviewedSnapshot=currentSnapshot,reviewedRevision=currentSnapshot.revision;
         const proposal = privateClient.taskId&&!currentGoalProposal?await privateClient.call('task-approve',{id:message.proposalId,revision:reviewedRevision,approved:true}):await request('/v1/approve',{ id:message.proposalId,revision:reviewedRevision,approved:true });
@@ -245,6 +253,7 @@ export async function mount(options) {
           guidedQueue={actions:proposal.actions,revision:proposal.revision,index:0,generation};result=await nextGuidance();
         }else {
           const applied=await execution.execute(proposal,{verifyOutcome:verifyAction,settle:()=>inspector.settle({task:proposal.binding?'':currentTaskText,active:()=>!closed&&generation===taskGeneration}),active:()=>!closed&&generation===taskGeneration,beforeAction:async action=>{
+            if(message.automatic===true&&!mayApplyFieldsAutomatically({approvalRequired,actions:proposal.actions}))throw new Error('Field approval is required again. No further field was applied.');
             if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
             await request('/v1/history');
             if(action.type==='submit'&&message.learningConsent===true&&bindVerifiedSave){await bindVerifiedSave({sessionId:bootstrap.sessionId,proposalId:message.proposalId,path:currentSnapshot.path});await request('/v1/history');}
@@ -269,6 +278,7 @@ export async function mount(options) {
       if(result?.actions)inspector.rememberReview(result.actions,result.revision);if(result?.proposal?.actions)inspector.rememberReview(result.proposal.actions,result.proposal.revision);
       if(['plan','recipe-plan','revise'].includes(message.type)&&result?.actions)result={...result,hostContext:hostContext(),localReview:inspector.reviewValues(result.actions,result.revision)};
       if(result&&typeof result==='object'&&!Array.isArray(result))result={...result,hostContext:hostContext()};
+      const reviewActions=result?.proposal?.actions||result?.actions;if(Array.isArray(reviewActions))automaticFieldReview=reviewActions.length>0&&reviewActions.every(a=>a.type==='fill');
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
     } catch (error) { if(message.type==='approve')lastOutcome={path:currentSnapshot?.path||location.pathname,actionTypes:[],outcome:error.outcome==='unknown'?'unknown':'rejected',applied:error.results?.filter(r=>r.valueObserved).length||0};if(error.name==='AbortError'&&error.code!=='TASK_CANCELLED')error=Object.assign(new Error('The task was interrupted. Check the website outcome before trying again.'),{code:'TASK_INTERRUPTED',outcome:error.outcome,results:error.results});if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };

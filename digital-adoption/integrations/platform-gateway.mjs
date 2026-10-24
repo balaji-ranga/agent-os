@@ -21,7 +21,7 @@ export function createPlatformGateway({serviceToken,resolveActive,complete}) {
   if(config.quality?.enabled&&(!config.checker?.baseUrl||!config.checker?.model||!config.checker?.apiKey))throw Object.assign(new Error('Checker unavailable'),{code:'COPILOT_CHECKER_UNAVAILABLE'});
   const goalContext=body.purpose==='digital_adoption_goal'?JSON.parse(body.messages.at(-1).content):null;
   const planContext=body.purpose==='digital_adoption_plan'?JSON.parse(body.messages.at(-1).content):null;
-  const outputSchema=goalContext?goalResponseSchema(goalContext.stage,goalContext.peerGuidance):planContext?assistantResponseSchema(validateSnapshot(planContext.observed),{goalStep:!!planContext.goalContext?.currentStep}):undefined;
+  const outputSchema=goalContext?goalResponseSchema(goalContext.stage,goalContext.peerGuidance):planContext?assistantResponseSchema(validateSnapshot(planContext.observed),{goalStep:!!planContext.goalContext?.currentStep,allowedActionTypes:planContext.goalContext?.allowedActionTypes}):undefined;
   const result=body.purpose==='digital_adoption_review'?{content:JSON.stringify(body.draft)}:await complete({config,messages:body.messages,maxTokens:2000,signal,...(outputSchema?{outputSchema}:{})});
   if(!config.quality?.enabled)return {content:result.content,active:config.active,quality:{enabled:false}};
   const reviewed=await reviewCopilotResponse({config,messages:body.messages,purpose:body.purpose,draft:result.content,complete,signal});

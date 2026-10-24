@@ -1,0 +1,254 @@
+{
+  "manifest": {
+    "schema": 1,
+    "origin": "http://127.0.0.1:4194",
+    "reviewed": false,
+    "screens": [
+      {
+        "path": "/customer",
+        "title": "Flolah Digital Adoption — VPS demo",
+        "forms": [
+          {
+            "id": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "fields": [
+          {
+            "key": "company_name",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "contact_email",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "region",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer"
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity"
+          },
+          {
+            "path": "/note",
+            "label": "Note"
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal"
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records"
+          }
+        ]
+      },
+      {
+        "path": "/opportunity",
+        "title": "Flolah Digital Adoption — VPS demo",
+        "forms": [
+          {
+            "id": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "fields": [
+          {
+            "key": "opportunity_name",
+            "label": "Opportunity name",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "amount",
+            "label": "Amount",
+            "type": "number",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "currency",
+            "label": "Currency",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer"
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity"
+          },
+          {
+            "path": "/note",
+            "label": "Note"
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal"
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records"
+          }
+        ]
+      },
+      {
+        "path": "/note",
+        "title": "Flolah Digital Adoption — VPS demo",
+        "forms": [
+          {
+            "id": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "fields": [
+          {
+            "key": "title",
+            "label": "Title",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "body",
+            "label": "Body",
+            "type": "textarea",
+            "required": true,
+            "form": "demo-form"
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer"
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity"
+          },
+          {
+            "path": "/note",
+            "label": "Note"
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal"
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records"
+          }
+        ]
+      },
+      {
+        "path": "/goal",
+        "title": "Flolah Digital Adoption — VPS demo",
+        "forms": [
+          {
+            "id": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "fields": [
+          {
+            "key": "goal_title",
+            "label": "Goal title",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "instructions",
+            "label": "Instructions",
+            "type": "textarea",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "cadence",
+            "label": "Cadence",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "assigned_agent",
+            "label": "Assigned agent",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          }
+        ],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer"
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity"
+          },
+          {
+            "path": "/note",
+            "label": "Note"
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal"
+          },
+          {
+            "path": "/records",
+            "label": "Saved synthetic records"
+          }
+        ]
+      },
+      {
+        "path": "/records",
+        "title": "Saved synthetic records",
+        "forms": [],
+        "fields": [],
+        "links": [
+          {
+            "path": "/customer",
+            "label": "Customer"
+          },
+          {
+            "path": "/opportunity",
+            "label": "Opportunity"
+          },
+          {
+            "path": "/note",
+            "label": "Note"
+          },
+          {
+            "path": "/goal",
+            "label": "Scheduled goal"
+          }
+        ]
+      }
+    ]
+  },
+  "notes": "Observed structure combined with reviewed hints; no live refs or entered values. Descriptions are advisory. Review before re-import. Unkeyed, ambiguous or unsupported fields are omitted from the importable structure; the original observations remain unchanged."
+}

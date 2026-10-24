@@ -1,0 +1,29 @@
+{
+  "at": "2026-10-24T07:05:28.027Z",
+  "results": [
+    {
+      "id": "public-exact-long-search",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 160000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible\u001b[22m\n",
+      "screenshot": "public-exact-long-search.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": 0,
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": 0,
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 502,
+      "body": {
+        "error": "The assistant could not prepare a valid response. Nothing was changed."
+      }
+    }
+  ]
+}

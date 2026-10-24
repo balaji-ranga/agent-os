@@ -1,9 +1,10 @@
-const kinds=['navigate','fill','save','inspect','peer'];
+const kinds=['navigate','fill','save','activate','inspect','peer'];
 // Application facts supplied to both models; these do not authorize any action.
 export const goalExecutionContract={reviewPlanBeforeStart:true,reviewEveryFieldChange:true,reviewNavigation:true,confirmEverySaveSeparately:true,recipientReviewsDelegatedGoal:true,goalCannotUploadFiles:true,peerStepWaitsForActualOutcome:true,completedEffectsAreNotReplayed:true,failuresStopWithoutAutomaticReplay:true};
 export const goalOperationSemantics={
  navigate:'Open an observed destination after normal review.',
- fill:'Prepare compatible form field changes together; pause for review before applying.',
+ fill:'Prepare compatible form field changes together. For a search input derive a compact query from the specific sought topic, using the page title/category and field label as context rather than copying category names or instruction words into the query. Preserve an explicitly quoted query exactly. Ordinary field review or the visitor field-only opt-in precedes application.',
+ activate:'Prepare one observed non-submit button activation for separate confirmation and observe its UI effect. Its expected outcome is operation dispatch/UI refresh, not a positive match count or business success. An updated empty result set can prove a search ran; a host error or unknown outcome is different and must stop. Interpret returned contents in the separate inspect step. This is not a read-only highlight or a Save receipt.',
  save:'Propose the requested Save; the application always pauses for separate confirmation, even if the instruction does not repeat that guarantee.',
  inspect:'Read-only website inspection, explanation, or summary of recorded local effects and returned peer outcomes. Summary is represented by inspect; there is no summary kind. Never use this kind just to ask for approval or wait.',
  peer:'mode inspect returns recipient form structure; mode goal delegates its complete task and waits for its actual recorded outcome. Do not add a separate waiting step.'
@@ -11,7 +12,7 @@ export const goalOperationSemantics={
 export function goalResponseSchema(stage='plan',peers=[]){
  const string=(maxLength,minLength=1)=>({type:'string',minLength,maxLength});
  if(stage==='assess')return {type:'object',properties:{message:string(2000),status:{type:'string',enum:['complete','continue','clarify']},remainingInstruction:string(1600,0)},required:['message','status','remainingInstruction'],additionalProperties:false};
- const properties={title:string(120),kind:{type:'string',enum:['navigate','fill','save','inspect']},instruction:string(1600),expected:string(240)};
+ const properties={title:string(120),kind:{type:'string',enum:['navigate','fill','save','activate','inspect']},instruction:string(1600),expected:string(240)};
  const local={type:'object',properties,required:Object.keys(properties),additionalProperties:false};
  const ids=peers.map(p=>p.instanceId).filter(id=>typeof id==='string'&&id.length<=100),variants=[local];
  if(ids.length){const remote={...properties,kind:{type:'string',enum:['peer']},recipient:{type:'string',enum:[...new Set(ids)]},mode:{type:'string',enum:['inspect','goal']}};variants.push({type:'object',properties:remote,required:Object.keys(remote),additionalProperties:false});}

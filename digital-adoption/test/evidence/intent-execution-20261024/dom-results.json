@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-24T08:31:18.173Z",
+  "results": [
+    {
+      "id": "separate-native-submit-and-button-identities",
+      "passed": true
+    },
+    {
+      "id": "unapproved-and-read-only-target-clicks-refused",
+      "passed": true
+    },
+    {
+      "id": "confirmed-search-observes-actual-dynamic-results-once",
+      "passed": true,
+      "result": {
+        "activated": true,
+        "uiChanged": true,
+        "businessVerified": false
+      }
+    },
+    {
+      "id": "button-state-change-invalidates-approval",
+      "passed": true
+    },
+    {
+      "id": "click-without-result-is-unknown-and-is-not-repeated",
+      "passed": true,
+      "result": {
+        "activated": true,
+        "dispatched": true,
+        "uiChanged": false,
+        "businessVerified": false,
+        "reason": "No public UI change was observed after activation. Inspect the website; no retry was made."
+      }
+    },
+    {
+      "id": "public-search-control-has-separate-activation-ref",
+      "passed": true,
+      "buttons": 24
+    },
+    {
+      "id": "local-records-title-is-current-page-evidence",
+      "passed": true
+    }
+  ]
+}

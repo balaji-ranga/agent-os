@@ -18,6 +18,7 @@ export function createDiscoveryJobs(repository,learning,{clock=Date.now}={}){
   next(scope,id,{hasUnsavedWork}){
    return repository.transaction(()=>{const actor=access(scope),job=get(scope,id);if(hasUnsavedWork!==false){job.elapsedMs=elapsed(job);job.runningSince=null;job.status='paused';job.pauseReason='Host has an edited draft';jobs.set(id,job);return {paused:true,reason:job.pauseReason};}
     if(job.status!=='running')return {paused:true,status:job.status};
+    if(!job.active&&!job.frontier.length){job.elapsedMs=elapsed(job);job.runningSince=null;job.status=job.paths.some(path=>!job.nodes.some(node=>node.path===path))?'completed-with-gaps':'completed';jobs.set(id,job);return {done:true,report:report(job)};}
     if(elapsed(job)>=120_000||job.nodes.length>=job.maxPages){job.elapsedMs=elapsed(job);job.runningSince=null;job.status='bounded';jobs.set(id,job);return {done:true,report:report(job)};}
     if(job.active&&job.leaseUntil>clock()&&job.leaseSession!==actor.sessionId)throw new Error('Another authorized session is observing this page');
     if(!job.active)job.active=job.frontier.shift()||null;

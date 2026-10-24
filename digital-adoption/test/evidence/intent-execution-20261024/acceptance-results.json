@@ -1,0 +1,252 @@
+{
+  "at": "2026-10-24T08:47:45.937Z",
+  "release": "20261024-intent-execution-j",
+  "scope": "Local loopback synthetic host, independent Workshop fixture, public flolah.cloud MCP Universe, headless installed Chrome; test failures retained separately.",
+  "counts": {
+    "passed": 19,
+    "failed": 0,
+    "partial": 0
+  },
+  "results": [
+    {
+      "id": "local-reported-records-navigation",
+      "passed": true,
+      "path": "/records",
+      "exactReportedPrompt": true,
+      "screenshot": "local-reported-records-navigation.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "local-manual-route-retains-active-chat",
+      "passed": true,
+      "sameWebsiteActiveChatRetained": true,
+      "stableSessionAcrossRoutes": true,
+      "screenshot": "local-manual-route-retains-active-chat.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "public-exact-long-search",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Search now"
+      ],
+      "query": "MCP events",
+      "actualResult": "0 approved listings · page 1",
+      "screenshot": "public-exact-long-search.png",
+      "source": "goal-schema-retest/",
+      "runtime": "20261024-intent-execution-j"
+    },
+    {
+      "id": "public-exact-short-search",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Search now"
+      ],
+      "query": "events MCP",
+      "actualResult": "0 approved listings · page 1",
+      "screenshot": "public-exact-short-search.png",
+      "source": "goal-schema-retest/",
+      "runtime": "20261024-intent-execution-j"
+    },
+    {
+      "id": "independent-local-search-goal",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Apply query now"
+      ],
+      "screenshot": "independent-local-search-goal.png",
+      "source": "goal-schema-retest/",
+      "runtime": "20261024-intent-execution-j"
+    },
+    {
+      "id": "public-automatic-fields-still-confirms-search",
+      "passed": true,
+      "approvals": [
+        "Confirm Search now"
+      ],
+      "screenshot": "public-automatic-fields-still-confirms-search.png",
+      "source": "goal-schema-retest/",
+      "runtime": "20261024-intent-execution-j"
+    },
+    {
+      "id": "local-default-review-rejection",
+      "passed": true,
+      "screenshot": "local-default-review-rejection.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "local-automatic-fields-and-restore-approval",
+      "passed": true,
+      "screenshot": "local-automatic-fields-and-restore-approval.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "local-save-goal-once-with-independent-readback",
+      "passed": true,
+      "approvals": [
+        "Approve field changes",
+        "Confirm Save synthetic record now"
+      ],
+      "marker": "Intent certification 1792831581045",
+      "independentReadback": true,
+      "writes": 1,
+      "screenshot": "local-save-goal-once-with-independent-readback.png",
+      "source": "goal-schema-retest/",
+      "runtime": "20261024-intent-execution-j"
+    },
+    {
+      "id": "independent-native-submit-stays-separate",
+      "passed": true,
+      "approvals": [
+        "Confirm Register now"
+      ],
+      "screenshot": "independent-native-submit-stays-separate.png",
+      "source": "goal-schema-retest/",
+      "runtime": "20261024-intent-execution-j"
+    },
+    {
+      "id": "local-navigation-review-and-actual-route",
+      "passed": true,
+      "path": "/opportunity",
+      "screenshot": "local-navigation-review-and-actual-route.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "public-highlight-field",
+      "passed": true,
+      "screenshot": "public-highlight-field.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "local-highlight-field",
+      "passed": true,
+      "screenshot": "local-highlight-field.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "public-answer-count-no-effects",
+      "passed": true,
+      "observedCount": "1535",
+      "screenshot": "public-answer-count-no-effects.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "public-missing-query-clarification",
+      "passed": true,
+      "screenshot": "public-missing-query-clarification.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "local-bare-records-title-response",
+      "passed": true,
+      "answer": "The page titled \"Saved synthetic records\" contains a collection of 320 items that have been persisted by the local host, separate from the copilot state. The items include various records such as customers, opportunities, notes, and scheduled goals. Each record has associated details like company names, contact emails, and other relevant information. The displayed collection is a sample of these records, and the page provides links to navigate to specific types of records: Customer, Opportunity, Note, and Scheduled goal.↩",
+      "screenshot": "local-bare-records-title-response.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "public-reply-continuity-and-explicit-new-task",
+      "passed": true,
+      "replyTarget": "displayed statistic",
+      "newTask": "search input review",
+      "actualHostEffects": 0,
+      "screenshot": "public-reply-continuity-and-explicit-new-task.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "local-applied-field-continuity",
+      "passed": true,
+      "appliedCompany": "Continuity Intent UAT",
+      "saveCount": 0,
+      "screenshot": "local-applied-field-continuity.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    },
+    {
+      "id": "public-native-submission-needs-missing-details",
+      "passed": true,
+      "screenshot": "public-native-submission-needs-missing-details.png",
+      "source": "navigation-after/",
+      "runtime": "20261024-intent-execution-i"
+    }
+  ],
+  "cohorts": [
+    {
+      "name": "Live Chrome acceptance",
+      "total": 19,
+      "passed": 19,
+      "failed": 0,
+      "evidence": "acceptance-results.json"
+    },
+    {
+      "name": "Service regression · Windows",
+      "total": 489,
+      "passed": 489,
+      "failed": 0,
+      "evidence": "windows-tests.txt"
+    },
+    {
+      "name": "Service regression · Linux",
+      "total": 489,
+      "passed": 489,
+      "failed": 0,
+      "evidence": "linux-tests.txt"
+    },
+    {
+      "name": "DOM activation and stale-state checks",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "evidence": "dom-results.json"
+    },
+    {
+      "name": "Real maker/checker canaries",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "evidence": "model-final-results.json"
+    },
+    {
+      "name": "Pointing and bounded-observation checks",
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "evidence": "performance-final/browser-results.json"
+    },
+    {
+      "name": "Automatic coaching map and contextual fields",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "evidence": "auto-map/results.json"
+    }
+  ],
+  "historicalFailures": "live-d/results.json",
+  "validationProvenance": "Full 19-case Chrome matrix on I, followed by all six goal execution paths on J after narrowing each step schema to its allowed action types. Earlier failure remains in navigation-after/results.json. Full 489 service assertions rerun on J on Windows and Linux. Four real-model canaries use the final model source and unchanged shared checker settings.",
+  "deferred": [
+    "Real Safari/iOS",
+    "Android Chrome",
+    "Screen-reader device acceptance"
+  ],
+  "limitations": [
+    "Automatic coaching evidence uses an isolated persistent trusted-maintainer fixture, not live owner-console, email or DNS onboarding acceptance.",
+    "Finite scoped acceptance, not a statistical reliability guarantee or full Phase 1/2 certification.",
+    "Browser UI observations are not independent business-save proof; the local Save case also reads the persisted record independently.",
+    "No authenticated public-site submissions, private owner operations, or live Flolah workflow-engine run was performed in this visitor matrix. Existing workflow regressions are included in the service suite with synthetic adapters.",
+    "One new continuity assertion initially matched an API path without its deployed base prefix; actual traces already had all three highlights. The assertion was corrected and rerun. This is retained as a harness failure, not a product failure.",
+    "The 100-observation measurement is a short bounded client sample, not a 25-user load test or a long-session leak proof."
+  ]
+}

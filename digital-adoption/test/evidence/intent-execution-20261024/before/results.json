@@ -1,0 +1,2301 @@
+{
+  "at": "2026-10-24T06:28:40.290Z",
+  "results": [
+    {
+      "id": "public-search-long",
+      "passed": false,
+      "error": "{\"error\":\"Copilot service temporarily unavailable\",\"code\":\"COPILOT_REVIEW_FAILED\"}\n\n503 !== 200\n"
+    },
+    {
+      "id": "public-search-short",
+      "passed": true,
+      "message": "To search for events related to MCP, I will fill the search input field with the query \"events MCP\". After that, you can click the \"Search\" button to see the results.\nReview these 1 proposed field change. Nothing has been changed yet.",
+      "actions": [
+        {
+          "type": "fill",
+          "ref": "r1f0",
+          "label": "Search MCPs, publishers, capabilities…",
+          "value": "events MCP"
+        }
+      ]
+    },
+    {
+      "id": "local-fill",
+      "passed": true,
+      "message": "Preparing to fill the fields with the specified values: Company name with 'Intent UAT', Contact email with 'intent.uat@example.test', and Region with 'Singapore'.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+      "actions": [
+        {
+          "type": "fill",
+          "ref": "r1f0",
+          "label": "Company name",
+          "value": "Intent UAT"
+        },
+        {
+          "type": "fill",
+          "ref": "r1f1",
+          "label": "Contact email",
+          "value": "intent.uat@example.test"
+        },
+        {
+          "type": "fill",
+          "ref": "r1f2",
+          "label": "Region",
+          "value": "Singapore"
+        }
+      ]
+    },
+    {
+      "id": "local-navigation",
+      "passed": true,
+      "message": "You can open the Opportunity form by following the link provided below.\nI can open Opportunity, then continue your request on that screen.",
+      "actions": [
+        {
+          "type": "navigate",
+          "ref": "r1n1",
+          "label": "Opportunity",
+          "path": "/opportunity"
+        }
+      ]
+    }
+  ],
+  "traces": [
+    {
+      "id": "public-search-long",
+      "status": 503,
+      "request": {
+        "text": "search for events related MCP and get the results",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "key": "q",
+              "optionCount": 0,
+              "constraints": {
+                "maxlength": "120"
+              }
+            },
+            {
+              "ref": "r1f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport",
+              "optionCount": 4
+            }
+          ],
+          "forms": [],
+          "links": [],
+          "pageContext": {
+            "text": "✺ Free Tools\nDocs\nMCP Universe\nDiscover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.\nSearch\n1535 approved listings · page 1\nac.inference.sh/mcp\nrun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.\nac.inference.sh · streamable-http\nInspect\nac.snag/snag\nGives your coding agent the captured console, network, replay and screenshot evidence for a bug.\nac.snag · streamable-http\nInspect\nac.tandem/docs-mcp\nRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.\nac.tandem · streamable-http\nInspect\nacademy.apexai/apex-ai-academy\nCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.\nacademy.apexai · streamable-http\nInspect\nacademy.ase/periodic-system\nPractices for building software with coding agents, each with a test you check on your repo.\nacademy.ase · streamable-http\nInspect\nad.getle/leads\nFind B2B leads with verified work emails, find and verify emails, and run cold email outreach.\nad.getle · streamable-http\nInspect\nad.inside/inside-ads\nTelegram ad exchange: estimate reach and cost with no account, then create and run campaigns.\nad.inside · streamable-http\nInspect\nae.beachclubs/mcp\nSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.\nae.beachclubs · streamable-http\nInspect\nae.brainy/grocery-prices\nSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocation\nae.brainy · streamable-http\nInspect\nae.datadubai/dubai-real-estate\nDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.\nae.datadubai · streamable-http\nInspect\nae.easyvoice/tts\nHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.\nae.easyvoice · streamable-http\nInspect\nae.genosys/genosys\nShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.\nae.genosys · streamable-http\nInspect\nae.grovisor/grotax\nUAE Corporate Tax: CT computation, SBR, penalties, free zone test, TP and health-check.\nae.grovisor · streamable-http\nInspect\nae.plantguide/dubai-gardening\nWhat to plant in Dubai, indoor plants, plant care in the heat, garden styles and Garden Care prices.\nae.plantguide · streamable-http\nInspect\nae.projectory/mcp\nFind UAE off-plan developments and registered residential sales.\nae.projectory · streamable-http\nInspect\nae.propick/propick\nManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.\nae.propick · streamable-http\nInspect\nae.waggle/fenlight\nGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.\nae.waggle · streamable-http\nInspect\nae.waggle/vera\nScrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup\nae.waggle · streamable-http\nInspect\naero.events/events\nFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.\naero.events · streamable-http\nInspect\nafrica.ugc/ugc\nThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.\nafrica.ugc · streamable-http\nInspect\nag.hood/name-service\nResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.\nag.hood · streamable-http\nInspect\nagency.goji/goji\nAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.\nagency.goji · streamable-http\nInspect\nagency.justidea/justidea-agency\nServices, prices, inquiries and free analytics, AI and Google visibility scans by JustIdea, Poland.\nagency.justidea · streamable-http\nInspect\nagency.kesey/pretrip\nScreen regulated-health marketing copy against source-cited rulesets, all 50 states.\nagency.kesey · stdio\nInspect\nPrevious\nNext\nInclude your MCP\nOfficial Registry registration is preferred. Every submission is moderated before publication.\nSubmit an MCP",
+            "headings": [
+              {
+                "level": 1,
+                "label": "MCP Universe"
+              },
+              {
+                "level": 2,
+                "label": "ac.inference.sh/mcp"
+              },
+              {
+                "level": 2,
+                "label": "ac.snag/snag"
+              },
+              {
+                "level": 2,
+                "label": "ac.tandem/docs-mcp"
+              },
+              {
+                "level": 2,
+                "label": "academy.apexai/apex-ai-academy"
+              },
+              {
+                "level": 2,
+                "label": "academy.ase/periodic-system"
+              },
+              {
+                "level": 2,
+                "label": "ad.getle/leads"
+              },
+              {
+                "level": 2,
+                "label": "ad.inside/inside-ads"
+              },
+              {
+                "level": 2,
+                "label": "ae.beachclubs/mcp"
+              },
+              {
+                "level": 2,
+                "label": "ae.brainy/grocery-prices"
+              },
+              {
+                "level": 2,
+                "label": "ae.datadubai/dubai-real-estate"
+              },
+              {
+                "level": 2,
+                "label": "ae.easyvoice/tts"
+              },
+              {
+                "level": 2,
+                "label": "ae.genosys/genosys"
+              },
+              {
+                "level": 2,
+                "label": "ae.grovisor/grotax"
+              },
+              {
+                "level": 2,
+                "label": "ae.plantguide/dubai-gardening"
+              },
+              {
+                "level": 2,
+                "label": "ae.projectory/mcp"
+              },
+              {
+                "level": 2,
+                "label": "ae.propick/propick"
+              },
+              {
+                "level": 2,
+                "label": "ae.waggle/fenlight"
+              },
+              {
+                "level": 2,
+                "label": "ae.waggle/vera"
+              },
+              {
+                "level": 2,
+                "label": "aero.events/events"
+              },
+              {
+                "level": 2,
+                "label": "africa.ugc/ugc"
+              },
+              {
+                "level": 2,
+                "label": "ag.hood/name-service"
+              },
+              {
+                "level": 2,
+                "label": "agency.goji/goji"
+              },
+              {
+                "level": 2,
+                "label": "agency.justidea/justidea-agency"
+              },
+              {
+                "level": 2,
+                "label": "agency.kesey/pretrip"
+              },
+              {
+                "level": 2,
+                "label": "Include your MCP"
+              }
+            ],
+            "headingCount": 26,
+            "collections": [
+              {
+                "role": "div",
+                "itemCount": 24,
+                "labels": [
+                  "ac.inference.sh/mcp",
+                  "ac.snag/snag",
+                  "ac.tandem/docs-mcp",
+                  "academy.apexai/apex-ai-academy",
+                  "academy.ase/periodic-system",
+                  "ad.getle/leads",
+                  "ad.inside/inside-ads",
+                  "ae.beachclubs/mcp"
+                ],
+                "labelsTruncated": true,
+                "truncated": false,
+                "targetRef": "r1t16"
+              }
+            ],
+            "title": "MCP Universe · Flolah",
+            "structure": [
+              {
+                "role": "a",
+                "label": "✺ Free Tools",
+                "region": "",
+                "disabled": false,
+                "targetRef": "r1t17"
+              },
+              {
+                "role": "a",
+                "label": "Docs",
+                "region": "",
+                "disabled": false,
+                "targetRef": "r1t18"
+              },
+              {
+                "role": "p",
+                "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.",
+                "region": "MCP Universe",
+                "targetRef": "r1t13"
+              },
+              {
+                "role": "input",
+                "label": "Search MCPs, publishers, capabilities…",
+                "region": "MCP Universe",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Search",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t5"
+              },
+              {
+                "role": "p",
+                "label": "1535 approved listings · page 1",
+                "region": "MCP Universe",
+                "targetRef": "r1t14"
+              },
+              {
+                "role": "button",
+                "label": "Previous",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t20"
+              },
+              {
+                "role": "button",
+                "label": "Next",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t21"
+              },
+              {
+                "role": "p",
+                "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+                "region": "Include your MCP",
+                "targetRef": "r1t15"
+              },
+              {
+                "role": "button",
+                "label": "Submit an MCP",
+                "region": "Include your MCP",
+                "disabled": false,
+                "targetRef": "r1t22"
+              },
+              {
+                "role": "button",
+                "label": "Inspect",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t19"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates."
+            },
+            {
+              "ref": "r1t1",
+              "label": "ae.beachclubs/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.beachclubs/mcpSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.ae.beachclubs · streamable-http"
+            },
+            {
+              "ref": "r1t2",
+              "label": "aero.events/events",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "aero.events/eventsFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.aero.events · streamable-http"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Find aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Find aviation events: airshows, fly-ins, workshops and club meets. Public and read-only."
+            },
+            {
+              "ref": "r1t4",
+              "label": "aero.events · streamable-http",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "aero.events · streamable-http"
+            },
+            {
+              "ref": "r1t5",
+              "label": "Search",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Search"
+            },
+            {
+              "ref": "r1t6",
+              "label": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking."
+            },
+            {
+              "ref": "r1t7",
+              "label": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup"
+            },
+            {
+              "ref": "r1t8",
+              "label": "MCP Universe",
+              "kind": "content",
+              "role": "h1",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "MCP Universe"
+            },
+            {
+              "ref": "r1t9",
+              "label": "ac.inference.sh/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ac.inference.sh/mcprun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.ac.inference.sh · streamable-http"
+            },
+            {
+              "ref": "r1t10",
+              "label": "ac.tandem/docs-mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ac.tandem/docs-mcpRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.ac.tandem · streamable-http"
+            },
+            {
+              "ref": "r1t11",
+              "label": "ae.projectory/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.projectory/mcpFind UAE off-plan developments and registered residential sales.ae.projectory · streamable-http"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Include your MCP",
+              "kind": "content",
+              "role": "h2",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Include your MCP"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is nev",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed."
+            },
+            {
+              "ref": "r1t14",
+              "label": "1535 approved listings · page 1",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "1535 approved listings · page 1"
+            },
+            {
+              "ref": "r1t15",
+              "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Official Registry registration is preferred. Every submission is moderated before publication."
+            },
+            {
+              "ref": "r1t16",
+              "label": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag",
+              "kind": "content",
+              "role": "div",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag"
+            },
+            {
+              "ref": "r1t17",
+              "label": "✺ Free Tools",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "✺ Free Tools"
+            },
+            {
+              "ref": "r1t18",
+              "label": "Docs",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Docs"
+            },
+            {
+              "ref": "r1t19",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t20",
+              "label": "Previous",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Previous"
+            },
+            {
+              "ref": "r1t21",
+              "label": "Next",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Next"
+            },
+            {
+              "ref": "r1t22",
+              "label": "Submit an MCP",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Submit an MCP"
+            },
+            {
+              "ref": "r1t23",
+              "label": "Remote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Remote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 2,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [],
+          "navigationCandidates": [
+            "/free-tools/",
+            "/docs/"
+          ],
+          "screen": "MCP Universe | ac.inference.sh/mcp | ac.snag/snag",
+          "path": "/free-tools/mcp-universe/",
+          "ambiguousDialogs": false,
+          "blockedCount": 30
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "result": {
+        "error": "Copilot service temporarily unavailable",
+        "code": "COPILOT_REVIEW_FAILED"
+      }
+    },
+    {
+      "id": "public-search-short",
+      "status": 200,
+      "request": {
+        "text": "search for events MCP",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "key": "q",
+              "optionCount": 0,
+              "constraints": {
+                "maxlength": "120"
+              }
+            },
+            {
+              "ref": "r1f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport",
+              "optionCount": 4
+            }
+          ],
+          "forms": [],
+          "links": [],
+          "pageContext": {
+            "text": "✺ Free Tools\nDocs\nMCP Universe\nDiscover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.\nSearch\n1535 approved listings · page 1\nac.inference.sh/mcp\nrun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.\nac.inference.sh · streamable-http\nInspect\nac.snag/snag\nGives your coding agent the captured console, network, replay and screenshot evidence for a bug.\nac.snag · streamable-http\nInspect\nac.tandem/docs-mcp\nRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.\nac.tandem · streamable-http\nInspect\nacademy.apexai/apex-ai-academy\nCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.\nacademy.apexai · streamable-http\nInspect\nacademy.ase/periodic-system\nPractices for building software with coding agents, each with a test you check on your repo.\nacademy.ase · streamable-http\nInspect\nad.getle/leads\nFind B2B leads with verified work emails, find and verify emails, and run cold email outreach.\nad.getle · streamable-http\nInspect\nad.inside/inside-ads\nTelegram ad exchange: estimate reach and cost with no account, then create and run campaigns.\nad.inside · streamable-http\nInspect\nae.beachclubs/mcp\nSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.\nae.beachclubs · streamable-http\nInspect\nae.brainy/grocery-prices\nSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocation\nae.brainy · streamable-http\nInspect\nae.datadubai/dubai-real-estate\nDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.\nae.datadubai · streamable-http\nInspect\nae.easyvoice/tts\nHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.\nae.easyvoice · streamable-http\nInspect\nae.genosys/genosys\nShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.\nae.genosys · streamable-http\nInspect\nae.grovisor/grotax\nUAE Corporate Tax: CT computation, SBR, penalties, free zone test, TP and health-check.\nae.grovisor · streamable-http\nInspect\nae.plantguide/dubai-gardening\nWhat to plant in Dubai, indoor plants, plant care in the heat, garden styles and Garden Care prices.\nae.plantguide · streamable-http\nInspect\nae.projectory/mcp\nFind UAE off-plan developments and registered residential sales.\nae.projectory · streamable-http\nInspect\nae.propick/propick\nManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.\nae.propick · streamable-http\nInspect\nae.waggle/fenlight\nGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.\nae.waggle · streamable-http\nInspect\nae.waggle/vera\nScrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup\nae.waggle · streamable-http\nInspect\naero.events/events\nFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.\naero.events · streamable-http\nInspect\nafrica.ugc/ugc\nThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.\nafrica.ugc · streamable-http\nInspect\nag.hood/name-service\nResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.\nag.hood · streamable-http\nInspect\nagency.goji/goji\nAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.\nagency.goji · streamable-http\nInspect\nagency.justidea/justidea-agency\nServices, prices, inquiries and free analytics, AI and Google visibility scans by JustIdea, Poland.\nagency.justidea · streamable-http\nInspect\nagency.kesey/pretrip\nScreen regulated-health marketing copy against source-cited rulesets, all 50 states.\nagency.kesey · stdio\nInspect\nPrevious\nNext\nInclude your MCP\nOfficial Registry registration is preferred. Every submission is moderated before publication.\nSubmit an MCP",
+            "headings": [
+              {
+                "level": 1,
+                "label": "MCP Universe"
+              },
+              {
+                "level": 2,
+                "label": "ac.inference.sh/mcp"
+              },
+              {
+                "level": 2,
+                "label": "ac.snag/snag"
+              },
+              {
+                "level": 2,
+                "label": "ac.tandem/docs-mcp"
+              },
+              {
+                "level": 2,
+                "label": "academy.apexai/apex-ai-academy"
+              },
+              {
+                "level": 2,
+                "label": "academy.ase/periodic-system"
+              },
+              {
+                "level": 2,
+                "label": "ad.getle/leads"
+              },
+              {
+                "level": 2,
+                "label": "ad.inside/inside-ads"
+              },
+              {
+                "level": 2,
+                "label": "ae.beachclubs/mcp"
+              },
+              {
+                "level": 2,
+                "label": "ae.brainy/grocery-prices"
+              },
+              {
+                "level": 2,
+                "label": "ae.datadubai/dubai-real-estate"
+              },
+              {
+                "level": 2,
+                "label": "ae.easyvoice/tts"
+              },
+              {
+                "level": 2,
+                "label": "ae.genosys/genosys"
+              },
+              {
+                "level": 2,
+                "label": "ae.grovisor/grotax"
+              },
+              {
+                "level": 2,
+                "label": "ae.plantguide/dubai-gardening"
+              },
+              {
+                "level": 2,
+                "label": "ae.projectory/mcp"
+              },
+              {
+                "level": 2,
+                "label": "ae.propick/propick"
+              },
+              {
+                "level": 2,
+                "label": "ae.waggle/fenlight"
+              },
+              {
+                "level": 2,
+                "label": "ae.waggle/vera"
+              },
+              {
+                "level": 2,
+                "label": "aero.events/events"
+              },
+              {
+                "level": 2,
+                "label": "africa.ugc/ugc"
+              },
+              {
+                "level": 2,
+                "label": "ag.hood/name-service"
+              },
+              {
+                "level": 2,
+                "label": "agency.goji/goji"
+              },
+              {
+                "level": 2,
+                "label": "agency.justidea/justidea-agency"
+              },
+              {
+                "level": 2,
+                "label": "agency.kesey/pretrip"
+              },
+              {
+                "level": 2,
+                "label": "Include your MCP"
+              }
+            ],
+            "headingCount": 26,
+            "collections": [
+              {
+                "role": "div",
+                "itemCount": 24,
+                "labels": [
+                  "ac.inference.sh/mcp",
+                  "ac.snag/snag",
+                  "ac.tandem/docs-mcp",
+                  "academy.apexai/apex-ai-academy",
+                  "academy.ase/periodic-system",
+                  "ad.getle/leads",
+                  "ad.inside/inside-ads",
+                  "ae.beachclubs/mcp"
+                ],
+                "labelsTruncated": true,
+                "truncated": false,
+                "targetRef": "r1t16"
+              }
+            ],
+            "title": "MCP Universe · Flolah",
+            "structure": [
+              {
+                "role": "a",
+                "label": "✺ Free Tools",
+                "region": "",
+                "disabled": false,
+                "targetRef": "r1t17"
+              },
+              {
+                "role": "a",
+                "label": "Docs",
+                "region": "",
+                "disabled": false,
+                "targetRef": "r1t18"
+              },
+              {
+                "role": "p",
+                "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed.",
+                "region": "MCP Universe",
+                "targetRef": "r1t13"
+              },
+              {
+                "role": "input",
+                "label": "Search MCPs, publishers, capabilities…",
+                "region": "MCP Universe",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Search",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t5"
+              },
+              {
+                "role": "p",
+                "label": "1535 approved listings · page 1",
+                "region": "MCP Universe",
+                "targetRef": "r1t14"
+              },
+              {
+                "role": "button",
+                "label": "Previous",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t20"
+              },
+              {
+                "role": "button",
+                "label": "Next",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t21"
+              },
+              {
+                "role": "p",
+                "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+                "region": "Include your MCP",
+                "targetRef": "r1t15"
+              },
+              {
+                "role": "button",
+                "label": "Submit an MCP",
+                "region": "Include your MCP",
+                "disabled": false,
+                "targetRef": "r1t22"
+              },
+              {
+                "role": "button",
+                "label": "Inspect",
+                "region": "MCP Universe",
+                "disabled": false,
+                "targetRef": "r1t19"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Search UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates."
+            },
+            {
+              "ref": "r1t1",
+              "label": "ae.beachclubs/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.beachclubs/mcpSearch UAE beach clubs, day pass prices, amenities, opening hours and events across all 7 emirates.ae.beachclubs · streamable-http"
+            },
+            {
+              "ref": "r1t2",
+              "label": "aero.events/events",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "aero.events/eventsFind aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.aero.events · streamable-http"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Find aviation events: airshows, fly-ins, workshops and club meets. Public and read-only.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Find aviation events: airshows, fly-ins, workshops and club meets. Public and read-only."
+            },
+            {
+              "ref": "r1t4",
+              "label": "aero.events · streamable-http",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "aero.events · streamable-http"
+            },
+            {
+              "ref": "r1t5",
+              "label": "Search",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Search"
+            },
+            {
+              "ref": "r1t6",
+              "label": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Google search results, forum threads, local and shopping data, keyword ideas, AI answer tracking."
+            },
+            {
+              "ref": "r1t7",
+              "label": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scrape, search and extract the public web. 3,000 free credits at https://vera.waggle.ae/signup"
+            },
+            {
+              "ref": "r1t8",
+              "label": "MCP Universe",
+              "kind": "content",
+              "role": "h1",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "MCP Universe"
+            },
+            {
+              "ref": "r1t9",
+              "label": "ac.inference.sh/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ac.inference.sh/mcprun any ai model. compose agents, stack knowledge, connect tools. one api, pay per run.ac.inference.sh · streamable-http"
+            },
+            {
+              "ref": "r1t10",
+              "label": "ac.tandem/docs-mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ac.tandem/docs-mcpRemote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.ac.tandem · streamable-http"
+            },
+            {
+              "ref": "r1t11",
+              "label": "ae.projectory/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.projectory/mcpFind UAE off-plan developments and registered residential sales.ae.projectory · streamable-http"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Include your MCP",
+              "kind": "content",
+              "role": "h2",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Include your MCP"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is nev",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Discover Model Context Protocol servers imported from the official MCP Registry and reviewed community submissions. Provenance is shown; missing metadata is never guessed."
+            },
+            {
+              "ref": "r1t14",
+              "label": "1535 approved listings · page 1",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "1535 approved listings · page 1"
+            },
+            {
+              "ref": "r1t15",
+              "label": "Official Registry registration is preferred. Every submission is moderated before publication.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Official Registry registration is preferred. Every submission is moderated before publication."
+            },
+            {
+              "ref": "r1t16",
+              "label": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag",
+              "kind": "content",
+              "role": "div",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 24 items. Sample: ac.inference.sh/mcp; ac.snag/snag"
+            },
+            {
+              "ref": "r1t17",
+              "label": "✺ Free Tools",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "✺ Free Tools"
+            },
+            {
+              "ref": "r1t18",
+              "label": "Docs",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Docs"
+            },
+            {
+              "ref": "r1t19",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t20",
+              "label": "Previous",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Previous"
+            },
+            {
+              "ref": "r1t21",
+              "label": "Next",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Next"
+            },
+            {
+              "ref": "r1t22",
+              "label": "Submit an MCP",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Submit an MCP"
+            },
+            {
+              "ref": "r1t23",
+              "label": "Remote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Remote MCP server for Tandem docs, install guides, SDKs, workflows, and agent setup help."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 2,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [],
+          "navigationCandidates": [
+            "/free-tools/",
+            "/docs/"
+          ],
+          "screen": "MCP Universe | ac.inference.sh/mcp | ac.snag/snag",
+          "path": "/free-tools/mcp-universe/",
+          "ambiguousDialogs": false,
+          "blockedCount": 30
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "result": {
+        "id": "5ad01c47-b1b9-40c2-83b4-5d05fdbbfc2b",
+        "revision": 1,
+        "message": "To search for events related to MCP, I will fill the search input field with the query \"events MCP\". After that, you can click the \"Search\" button to see the results.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "value": "events MCP"
+          }
+        ],
+        "expiresAt": 1792823431562,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "c38ce1f4-f7e9-4fe8-8d40-05d18f43c5b5",
+            "version": 5,
+            "title": "UAT Reusable Search Filters"
+          }
+        ],
+        "messageId": "f12860ab-660b-40fc-86e7-7a7d7598098d"
+      }
+    },
+    {
+      "id": "local-fill",
+      "status": 200,
+      "request": {
+        "text": "Fill Company name with Intent UAT, Contact email with intent.uat@example.test, and Region with Singapore. Do not save.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r1n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r1n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r1n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r1n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r1t11"
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": "",
+                "targetRef": "r1t9"
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main",
+                "targetRef": "r1t1"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t12"
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t13"
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t14"
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t15"
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t16"
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false,
+                "targetRef": "r1t5"
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts",
+                "targetRef": "r1t10"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts",
+                "targetRef": "r1t0"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts",
+                "targetRef": "r1t3"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts",
+                "targetRef": "r1t6"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false,
+                "targetRef": "r1t17"
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false,
+                "targetRef": "r1t18"
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme",
+                "targetRef": "r1t4"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main",
+                "targetRef": "r1t19"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r1t1",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r1t2",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r1t3",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r1t4",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t5",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r1t6",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r1t7",
+              "label": "Digital Adoption test workspace",
+              "kind": "content",
+              "role": "header",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilotDigital Adoption test workspaceThe widget, model backend and knowledge retrieval run on the VPS."
+            },
+            {
+              "ref": "r1t8",
+              "label": "Generic changes and theme",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Generic changes and themeAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t9",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r1t10",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r1t11",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r1t14",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r1t15",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r1t16",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r1t17",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r1t18",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r1t19",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r1s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "result": {
+        "id": "38a74cdf-7af3-43ec-8a3f-b9bf341df092",
+        "revision": 1,
+        "message": "Preparing to fill the fields with the specified values: Company name with 'Intent UAT', Contact email with 'intent.uat@example.test', and Region with 'Singapore'.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Company name",
+            "value": "Intent UAT"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "intent.uat@example.test"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792823436546,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "89db845a-24da-43b6-89ef-1d06403f93ab"
+      }
+    },
+    {
+      "id": "local-navigation",
+      "status": 200,
+      "request": {
+        "text": "Open the Opportunity form.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r1n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r1n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r1n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r1n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "pageContext": {
+            "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+            "headings": [
+              {
+                "level": 1,
+                "label": "Digital Adoption test workspace"
+              },
+              {
+                "level": 2,
+                "label": "Customer draft"
+              },
+              {
+                "level": 2,
+                "label": "Try these prompts"
+              },
+              {
+                "level": 2,
+                "label": "Generic changes and theme"
+              }
+            ],
+            "headingCount": 4,
+            "collections": [
+              {
+                "role": "main",
+                "itemCount": 3,
+                "labels": [
+                  "Customer draft",
+                  "Try these prompts",
+                  "Generic changes and theme"
+                ],
+                "labelsTruncated": false,
+                "truncated": false,
+                "targetRef": "r1t7"
+              }
+            ],
+            "title": "Flolah Digital Adoption — VPS demo",
+            "structure": [
+              {
+                "role": "span",
+                "label": "Local host page · VPS-hosted copilot",
+                "region": "",
+                "targetRef": "r1t4"
+              },
+              {
+                "role": "p",
+                "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+                "region": "main",
+                "targetRef": "r1t5"
+              },
+              {
+                "role": "a",
+                "label": "Customer",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t8"
+              },
+              {
+                "role": "a",
+                "label": "Opportunity",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t1"
+              },
+              {
+                "role": "a",
+                "label": "Note",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t9"
+              },
+              {
+                "role": "a",
+                "label": "Scheduled goal",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t10"
+              },
+              {
+                "role": "a",
+                "label": "Saved synthetic records",
+                "region": "nav",
+                "disabled": false,
+                "targetRef": "r1t11"
+              },
+              {
+                "role": "label",
+                "label": "Company name",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Company name",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Contact email",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Contact email",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "label",
+                "label": "Region",
+                "region": "Customer draft"
+              },
+              {
+                "role": "input",
+                "label": "Region",
+                "region": "Customer draft",
+                "disabled": false,
+                "required": true
+              },
+              {
+                "role": "button",
+                "label": "Save synthetic record",
+                "region": "Customer draft",
+                "disabled": false,
+                "targetRef": "r1t12"
+              },
+              {
+                "role": "p",
+                "label": "Ask knowledge: What is the Alpha delivery promise?",
+                "region": "Try these prompts",
+                "targetRef": "r1t6"
+              },
+              {
+                "role": "p",
+                "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+                "region": "Try these prompts",
+                "targetRef": "r1t15"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+                "region": "Try these prompts",
+                "targetRef": "r1t2"
+              },
+              {
+                "role": "p",
+                "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+                "region": "Try these prompts",
+                "targetRef": "r1t16"
+              },
+              {
+                "role": "button",
+                "label": "Add Delivery city field",
+                "region": "Generic changes and theme",
+                "disabled": false,
+                "targetRef": "r1t13"
+              },
+              {
+                "role": "button",
+                "label": "Add native controls",
+                "region": "Generic changes and theme",
+                "disabled": false,
+                "targetRef": "r1t14"
+              },
+              {
+                "role": "button",
+                "label": "Add complex controls",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "button",
+                "label": "Hide/show host form",
+                "region": "Generic changes and theme",
+                "disabled": false,
+                "targetRef": "r1t0"
+              },
+              {
+                "role": "button",
+                "label": "Switch widget palette",
+                "region": "Generic changes and theme",
+                "disabled": false
+              },
+              {
+                "role": "p",
+                "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+                "region": "Generic changes and theme",
+                "targetRef": "r1t17"
+              },
+              {
+                "role": "status",
+                "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+                "region": "main",
+                "targetRef": "r1t18"
+              }
+            ],
+            "structureTruncated": false,
+            "truncated": false,
+            "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+          },
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Hide/show host form",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Hide/show host form"
+            },
+            {
+              "ref": "r1t1",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r1t2",
+              "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r1t4",
+              "label": "Local host page · VPS-hosted copilot",
+              "kind": "content",
+              "role": "span",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilot"
+            },
+            {
+              "ref": "r1t5",
+              "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host o",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP."
+            },
+            {
+              "ref": "r1t6",
+              "label": "Ask knowledge: What is the Alpha delivery promise?",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Ask knowledge: What is the Alpha delivery promise?"
+            },
+            {
+              "ref": "r1t7",
+              "label": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts",
+              "kind": "content",
+              "role": "main",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Loaded collection: 3 items. Sample: Customer draft; Try these prompts"
+            },
+            {
+              "ref": "r1t8",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r1t9",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r1t10",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r1t11",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r1t14",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r1t15",
+              "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com."
+            },
+            {
+              "ref": "r1t16",
+              "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”"
+            },
+            {
+              "ref": "r1t17",
+              "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+              "kind": "content",
+              "role": "p",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t18",
+              "label": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect.",
+              "kind": "content",
+              "role": "status",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Connected to VPS. Conversations start empty; confirmed pairing groups can reconnect."
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r1s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7
+        },
+        "replyTo": null,
+        "mode": "assist"
+      },
+      "result": {
+        "id": "0f4c4556-516d-4546-a054-82416b8cf737",
+        "revision": 1,
+        "message": "You can open the Opportunity form by following the link provided below.\nI can open Opportunity, then continue your request on that screen.",
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          }
+        ],
+        "expiresAt": 1792823439999,
+        "fields": [],
+        "matchedWorkflows": [],
+        "messageId": "f2ac9607-cd8f-4ded-89dc-473fd4cf026c"
+      }
+    }
+  ]
+}

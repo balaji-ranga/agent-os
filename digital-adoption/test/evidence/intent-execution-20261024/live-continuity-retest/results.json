@@ -1,0 +1,207 @@
+{
+  "at": "2026-10-24T07:55:50.484Z",
+  "results": [
+    {
+      "id": "local-applied-field-continuity",
+      "passed": true,
+      "appliedCompany": "Continuity Intent UAT",
+      "saveCount": 0,
+      "screenshot": "local-applied-field-continuity.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "local-applied-field-continuity",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "local-applied-field-continuity",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "aa4d8c76-df92-490f-b22d-17ac622fdddd",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I will prepare the fields for review with the following values: \n- **Company name**: Continuity Intent UAT \n- **Contact email**: continuity.intent@example.test \n- **Region**: Singapore. \nThis will not save the changes yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Company name",
+            "value": "Continuity Intent UAT"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "continuity.intent@example.test"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792828664541,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "96d8c22e-aafd-4cbd-8be7-c475a09b99d9"
+      }
+    },
+    {
+      "caseId": "local-applied-field-continuity",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Company name",
+            "value": "Continuity Intent UAT",
+            "actionId": "aa4d8c76-df92-490f-b22d-17ac622fdddd:0",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792828664541
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "continuity.intent@example.test",
+            "actionId": "aa4d8c76-df92-490f-b22d-17ac622fdddd:1",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792828664541
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "aa4d8c76-df92-490f-b22d-17ac622fdddd:2",
+            "fence": "[REDACTED one-use action fence]",
+            "grantExpiresAt": 1792828664541
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "local-applied-field-continuity",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "0b2aa857-a04d-412c-9657-384c71f5b05f",
+        "revision": 3,
+        "intent": "guide",
+        "message": "The last changes made are as follows: \n- **Company name**: Continuity Intent UAT \n- **Contact email**: continuity.intent@example.test \n- **Region**: Singapore. \n\nHere are the highlighted fields:\n- **Company name** (ref: r3f0)\n- **Contact email** (ref: r3f1)\n- **Region** (ref: r3f2)\nI can highlight 3 targets for you. No values will be changed.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r3f0",
+            "label": "Company name"
+          },
+          {
+            "type": "highlight",
+            "ref": "r3f1",
+            "label": "Contact email"
+          },
+          {
+            "type": "highlight",
+            "ref": "r3f2",
+            "label": "Region"
+          }
+        ],
+        "expiresAt": 1792828670008,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "c3c6cfd2-ed26-4cd4-a9bc-26730bba965e"
+      }
+    },
+    {
+      "caseId": "local-applied-field-continuity",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r3f0",
+            "label": "Company name"
+          },
+          {
+            "type": "highlight",
+            "ref": "r3f1",
+            "label": "Contact email"
+          },
+          {
+            "type": "highlight",
+            "ref": "r3f2",
+            "label": "Region"
+          }
+        ]
+      }
+    }
+  ]
+}

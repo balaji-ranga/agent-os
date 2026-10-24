@@ -16,7 +16,10 @@ manifest.write_text(json.dumps({'mode':'coordinator-only' if coordinator_only el
 gateway=json.loads(subprocess.check_output(['docker','inspect','flolah-adoption-adoption-model-gateway-1']))[0]
 (bundle/'gateway-previous.json').write_text(json.dumps({'imageId':gateway['Image'],'image':gateway['Config']['Image'],'composeFiles':gateway['Config']['Labels']['com.docker.compose.project.config_files']}))
 base='flolah-immediate-base:'+release
-subprocess.run(['docker','tag',current['Image'],base],check=True)
+coordinator_metadata=json.loads(subprocess.check_output(['docker','image','inspect',current['Image']]))[0]
+if len(coordinator_metadata.get('RootFS',{}).get('Layers',[]))>=96:
+ subprocess.run(['python3',str(bundle/'deploy/flatten-runtime-base.py'),current['Image'],base],check=True)
+else:subprocess.run(['docker','tag',current['Image'],base],check=True)
 def run(args,name):
  with (bundle/name).open('w') as log:subprocess.run(args,check=True,stdout=log,stderr=subprocess.STDOUT)
 run(['docker','build','--build-arg','BASE_IMAGE='+base,'-f',str(bundle/'deploy/immediate-phase.Dockerfile'),'-t','flolah-digital-adoption:'+release,str(bundle)],'coordinator-build.log')

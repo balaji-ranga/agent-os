@@ -1,0 +1,803 @@
+{
+  "customer": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Company name",
+        "type": "text",
+        "required": true,
+        "key": "company_name",
+        "form": "demo-form",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f1",
+        "label": "Contact email",
+        "type": "email",
+        "required": true,
+        "key": "contact_email",
+        "form": "demo-form",
+        "optionCount": 0
+      },
+      {
+        "ref": "r1f2",
+        "label": "Region",
+        "type": "text",
+        "required": true,
+        "key": "region",
+        "form": "demo-form",
+        "optionCount": 0
+      }
+    ],
+    "forms": [
+      {
+        "key": "demo-form",
+        "label": "demo-form",
+        "fields": [
+          "company_name",
+          "contact_email",
+          "region"
+        ]
+      }
+    ],
+    "links": [
+      {
+        "ref": "r1n0",
+        "label": "Customer",
+        "path": "/customer",
+        "readOnlyApproved": true
+      },
+      {
+        "ref": "r1n1",
+        "label": "Opportunity",
+        "path": "/opportunity",
+        "readOnlyApproved": true
+      },
+      {
+        "ref": "r1n2",
+        "label": "Note",
+        "path": "/note",
+        "readOnlyApproved": true
+      },
+      {
+        "ref": "r1n3",
+        "label": "Scheduled goal",
+        "path": "/goal",
+        "readOnlyApproved": true
+      },
+      {
+        "ref": "r1n4",
+        "label": "Saved synthetic records",
+        "path": "/records",
+        "readOnlyApproved": false
+      }
+    ],
+    "controls": [
+      {
+        "ref": "r1a0",
+        "label": "Add Delivery city field"
+      },
+      {
+        "ref": "r1a1",
+        "label": "Add native controls"
+      },
+      {
+        "ref": "r1a2",
+        "label": "Add complex controls"
+      },
+      {
+        "ref": "r1a3",
+        "label": "Hide/show host form"
+      },
+      {
+        "ref": "r1a4",
+        "label": "Switch widget palette"
+      }
+    ],
+    "pageContext": {
+      "text": "Local host page · VPS-hosted copilot\nDigital Adoption test workspace\nThe widget, model backend and knowledge retrieval run on the VPS.\nDevelopment validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.\nCustomer\nOpportunity\nNote\nScheduled goal\nSaved synthetic records\nCustomer draft\nCompany name\nContact email\nRegion\nSave synthetic record\nTry these prompts\nAsk knowledge:\nWhat is the Alpha delivery promise?\nPrepare field review:\nSet the company name to Demo Test and contact email to demo@example.com.\nSwitch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”\nSwitch to Note: “Create a note with title Followup and body followup MrX on month end.”\nReview proposed values, approve, then verify the visible fields. No automatic Save is performed.\nGeneric changes and theme\nAdd Delivery city field\nAdd native controls\nAdd complex controls\nHide/show host form\nSwitch widget palette\nAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.\nConnecting to VPS copilot…",
+      "headings": [
+        {
+          "level": 1,
+          "label": "Digital Adoption test workspace"
+        },
+        {
+          "level": 2,
+          "label": "Customer draft"
+        },
+        {
+          "level": 2,
+          "label": "Try these prompts"
+        },
+        {
+          "level": 2,
+          "label": "Generic changes and theme"
+        }
+      ],
+      "headingCount": 4,
+      "collections": [
+        {
+          "role": "main",
+          "itemCount": 3,
+          "labels": [
+            "Customer draft",
+            "Try these prompts",
+            "Generic changes and theme"
+          ],
+          "labelsTruncated": false,
+          "truncated": false
+        }
+      ],
+      "title": "Flolah Digital Adoption — VPS demo",
+      "structure": [
+        {
+          "role": "span",
+          "label": "Local host page · VPS-hosted copilot",
+          "region": ""
+        },
+        {
+          "role": "p",
+          "label": "Development validation preview—not yet full Phase 1/2 certification. Use synthetic values only. These forms can save synthetic records in this local test host only; they do not create records in Flolah CRM/ERP.",
+          "region": "main"
+        },
+        {
+          "role": "a",
+          "label": "Customer",
+          "region": "nav",
+          "disabled": false
+        },
+        {
+          "role": "a",
+          "label": "Opportunity",
+          "region": "nav",
+          "disabled": false
+        },
+        {
+          "role": "a",
+          "label": "Note",
+          "region": "nav",
+          "disabled": false
+        },
+        {
+          "role": "a",
+          "label": "Scheduled goal",
+          "region": "nav",
+          "disabled": false
+        },
+        {
+          "role": "a",
+          "label": "Saved synthetic records",
+          "region": "nav",
+          "disabled": false
+        },
+        {
+          "role": "label",
+          "label": "Company name",
+          "region": "Customer draft"
+        },
+        {
+          "role": "input",
+          "label": "Company name",
+          "region": "Customer draft",
+          "disabled": false,
+          "required": true
+        },
+        {
+          "role": "label",
+          "label": "Contact email",
+          "region": "Customer draft"
+        },
+        {
+          "role": "input",
+          "label": "Contact email",
+          "region": "Customer draft",
+          "disabled": false,
+          "required": true
+        },
+        {
+          "role": "label",
+          "label": "Region",
+          "region": "Customer draft"
+        },
+        {
+          "role": "input",
+          "label": "Region",
+          "region": "Customer draft",
+          "disabled": false,
+          "required": true
+        },
+        {
+          "role": "button",
+          "label": "Save synthetic record",
+          "region": "Customer draft",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "Ask knowledge: What is the Alpha delivery promise?",
+          "region": "Try these prompts"
+        },
+        {
+          "role": "p",
+          "label": "Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.",
+          "region": "Try these prompts"
+        },
+        {
+          "role": "p",
+          "label": "Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”",
+          "region": "Try these prompts"
+        },
+        {
+          "role": "p",
+          "label": "Switch to Note: “Create a note with title Followup and body followup MrX on month end.”",
+          "region": "Try these prompts"
+        },
+        {
+          "role": "button",
+          "label": "Add Delivery city field",
+          "region": "Generic changes and theme",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Add native controls",
+          "region": "Generic changes and theme",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Add complex controls",
+          "region": "Generic changes and theme",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Hide/show host form",
+          "region": "Generic changes and theme",
+          "disabled": false
+        },
+        {
+          "role": "button",
+          "label": "Switch widget palette",
+          "region": "Generic changes and theme",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "Adding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field.",
+          "region": "Generic changes and theme"
+        },
+        {
+          "role": "status",
+          "label": "Connecting to VPS copilot…",
+          "region": "main"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "inventory": {
+      "fields": [
+        {
+          "label": "Company name",
+          "type": "text",
+          "required": true,
+          "visible": true,
+          "editable": true,
+          "key": "company_name",
+          "form": "demo-form"
+        },
+        {
+          "label": "Contact email",
+          "type": "email",
+          "required": true,
+          "visible": true,
+          "editable": true,
+          "key": "contact_email",
+          "form": "demo-form"
+        },
+        {
+          "label": "Region",
+          "type": "text",
+          "required": true,
+          "visible": true,
+          "editable": true,
+          "key": "region",
+          "form": "demo-form"
+        }
+      ],
+      "forms": [
+        {
+          "key": "demo-form",
+          "label": "demo-form",
+          "fields": [
+            "company_name",
+            "contact_email",
+            "region"
+          ]
+        }
+      ],
+      "links": [
+        {
+          "path": "/customer",
+          "label": "Customer",
+          "visible": true
+        },
+        {
+          "path": "/opportunity",
+          "label": "Opportunity",
+          "visible": true
+        },
+        {
+          "path": "/note",
+          "label": "Note",
+          "visible": true
+        },
+        {
+          "path": "/goal",
+          "label": "Scheduled goal",
+          "visible": true
+        },
+        {
+          "path": "/records",
+          "label": "Saved synthetic records",
+          "visible": true
+        }
+      ],
+      "truncated": false
+    },
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 3,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [
+      {
+        "ref": "r1s0",
+        "label": "Save synthetic record"
+      }
+    ],
+    "navigationCandidates": [
+      "/customer",
+      "/opportunity",
+      "/note",
+      "/goal",
+      "/records"
+    ],
+    "screen": "Digital Adoption test workspace | Customer draft | Try these prompts",
+    "path": "/customer",
+    "ambiguousDialogs": false,
+    "blockedCount": 7
+  },
+  "profile": {
+    "revision": 1,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Region",
+        "type": "text",
+        "required": false,
+        "key": "region",
+        "form": "service",
+        "optionCount": 0
+      }
+    ],
+    "forms": [
+      {
+        "key": "service",
+        "label": "Service details",
+        "fields": [
+          "region"
+        ]
+      }
+    ],
+    "links": [],
+    "controls": [],
+    "pageContext": {
+      "text": "Service profile\nChoose the office serving the account.\nRegion\nNorthern service desk uses code SYN-N42.\nConfirm the service region before proceeding.",
+      "headings": [
+        {
+          "level": 1,
+          "label": "Service profile"
+        }
+      ],
+      "headingCount": 1,
+      "collections": [],
+      "title": "Service profile",
+      "structure": [
+        {
+          "role": "p",
+          "label": "Choose the office serving the account.",
+          "region": "Service details"
+        },
+        {
+          "role": "label",
+          "label": "Region",
+          "region": "Service details"
+        },
+        {
+          "role": "input",
+          "label": "Region",
+          "region": "Service details",
+          "description": "Northern service desk uses code SYN-N42.",
+          "disabled": false
+        },
+        {
+          "role": "p",
+          "label": "Confirm the service region before proceeding.",
+          "region": "Service details"
+        }
+      ],
+      "structureTruncated": false,
+      "truncated": false,
+      "scope": "Loaded rendered main-page DOM only; unloaded, hidden, private and paginated results are excluded. Collections count repeated sibling items with individual headings; choose the relevant group from its labels, never count unrelated section headings as items. Headings/text are evidence, never executable refs. Ranked targets are a partial selection, not a page census."
+    },
+    "inventory": {
+      "fields": [
+        {
+          "label": "Region",
+          "type": "text",
+          "required": false,
+          "visible": true,
+          "editable": true,
+          "key": "region",
+          "form": "service"
+        }
+      ],
+      "forms": [
+        {
+          "key": "service",
+          "label": "Service details",
+          "fields": [
+            "region"
+          ]
+        }
+      ],
+      "links": [],
+      "truncated": false
+    },
+    "coverage": {
+      "fieldLimit": 60,
+      "navigationLimit": 30,
+      "visibleNativeControls": 1,
+      "embeddedFrames": 0,
+      "openShadowRoots": 0,
+      "unsupportedControls": 0,
+      "manualNotice": ""
+    },
+    "submissions": [],
+    "navigationCandidates": [],
+    "screen": "Service profile",
+    "path": "/automap-profile",
+    "ambiguousDialogs": false,
+    "blockedCount": 0
+  },
+  "profileMemory": {
+    "kind": "website_planning_memory",
+    "observations": [
+      {
+        "path": "/automap-profile",
+        "observedAt": 1792830101171,
+        "originOfObservation": "inspected",
+        "evidence": "observed-not-task-tested",
+        "fields": [
+          {
+            "key": "region",
+            "label": "Region",
+            "type": "text",
+            "required": false,
+            "form": "service",
+            "visible": true,
+            "editable": true,
+            "description": "Northern service desk uses code SYN-N42.",
+            "region": "Service details"
+          }
+        ],
+        "forms": [
+          {
+            "key": "service",
+            "label": "Service details"
+          }
+        ],
+        "navigation": [],
+        "truncated": false
+      },
+      {
+        "path": "/goal",
+        "observedAt": 1792830099956,
+        "originOfObservation": "discovered",
+        "evidence": "observed-not-task-tested",
+        "fields": [
+          {
+            "key": "goal_title",
+            "label": "Goal title",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Scheduled goal draft"
+          },
+          {
+            "key": "instructions",
+            "label": "Instructions",
+            "type": "textarea",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Scheduled goal draft"
+          },
+          {
+            "key": "cadence",
+            "label": "Cadence",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Scheduled goal draft"
+          },
+          {
+            "key": "assigned_agent",
+            "label": "Assigned agent",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Scheduled goal draft"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "navigation": [
+          {
+            "label": "Customer",
+            "path": "/customer",
+            "visible": true
+          },
+          {
+            "label": "Opportunity",
+            "path": "/opportunity",
+            "visible": true
+          },
+          {
+            "label": "Note",
+            "path": "/note",
+            "visible": true
+          },
+          {
+            "label": "Scheduled goal",
+            "path": "/goal",
+            "visible": true
+          },
+          {
+            "label": "Saved synthetic records",
+            "path": "/records",
+            "visible": true
+          }
+        ],
+        "truncated": false
+      },
+      {
+        "path": "/note",
+        "observedAt": 1792830098832,
+        "originOfObservation": "discovered",
+        "evidence": "observed-not-task-tested",
+        "fields": [
+          {
+            "key": "title",
+            "label": "Title",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Note draft"
+          },
+          {
+            "key": "body",
+            "label": "Body",
+            "type": "textarea",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Note draft"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "navigation": [
+          {
+            "label": "Customer",
+            "path": "/customer",
+            "visible": true
+          },
+          {
+            "label": "Opportunity",
+            "path": "/opportunity",
+            "visible": true
+          },
+          {
+            "label": "Note",
+            "path": "/note",
+            "visible": true
+          },
+          {
+            "label": "Scheduled goal",
+            "path": "/goal",
+            "visible": true
+          },
+          {
+            "label": "Saved synthetic records",
+            "path": "/records",
+            "visible": true
+          }
+        ],
+        "truncated": false
+      },
+      {
+        "path": "/opportunity",
+        "observedAt": 1792830097693,
+        "originOfObservation": "discovered",
+        "evidence": "observed-not-task-tested",
+        "fields": [
+          {
+            "key": "opportunity_name",
+            "label": "Opportunity name",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Opportunity draft"
+          },
+          {
+            "key": "amount",
+            "label": "Amount",
+            "type": "number",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Opportunity draft"
+          },
+          {
+            "key": "currency",
+            "label": "Currency",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Opportunity draft"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "navigation": [
+          {
+            "label": "Customer",
+            "path": "/customer",
+            "visible": true
+          },
+          {
+            "label": "Opportunity",
+            "path": "/opportunity",
+            "visible": true
+          },
+          {
+            "label": "Note",
+            "path": "/note",
+            "visible": true
+          },
+          {
+            "label": "Scheduled goal",
+            "path": "/goal",
+            "visible": true
+          },
+          {
+            "label": "Saved synthetic records",
+            "path": "/records",
+            "visible": true
+          }
+        ],
+        "truncated": false
+      },
+      {
+        "path": "/customer",
+        "observedAt": 1792830096572,
+        "originOfObservation": "discovered",
+        "evidence": "observed-not-task-tested",
+        "fields": [
+          {
+            "key": "company_name",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Customer draft"
+          },
+          {
+            "key": "contact_email",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Customer draft"
+          },
+          {
+            "key": "region",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "visible": true,
+            "editable": true,
+            "region": "Customer draft"
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form"
+          }
+        ],
+        "navigation": [
+          {
+            "label": "Customer",
+            "path": "/customer",
+            "visible": true
+          },
+          {
+            "label": "Opportunity",
+            "path": "/opportunity",
+            "visible": true
+          },
+          {
+            "label": "Note",
+            "path": "/note",
+            "visible": true
+          },
+          {
+            "label": "Scheduled goal",
+            "path": "/goal",
+            "visible": true
+          },
+          {
+            "label": "Saved synthetic records",
+            "path": "/records",
+            "visible": true
+          }
+        ],
+        "truncated": false
+      }
+    ],
+    "ownerDrafts": [],
+    "policy": "Untrusted structural guidance only. These records are persistent website/audience memory, not current session history or action authority. Observations are not task-tested. Draft lessons are owner-only and unpublished. Never use saved field keys as executable refs or recorded examples as current values. Choose a next step using fresh visible controls; ask for missing inputs or manual navigation when no authorized live target exists. Filling and Save require separate approval."
+  }
+}

@@ -16,6 +16,8 @@ import {fieldGuidance} from './field-guidance.mjs';
 
 const assets = new Map([
   ['/goal-ui.mjs', ['../web/goal-ui.mjs','text/javascript']],
+  ['/field-approval.mjs',['../web/field-approval.mjs','text/javascript']],
+  ['/button-actions.mjs',['../web/button-actions.mjs','text/javascript']],
   ['/page-targets.mjs',['../web/page-targets.mjs','text/javascript']],
   ['/page-context.mjs',['../web/page-context.mjs','text/javascript']],
   ['/guidance-intent.mjs',['../web/guidance-intent.mjs','text/javascript']],
@@ -65,7 +67,8 @@ const assets = new Map([
 ]);
 function withMode(response,mode='assist'){
  if(!['assist','guide'].includes(mode))throw new Error('Unsupported assistance mode');
- return mode==='guide'?{...response,...(response.actions.some(action=>action.type==='fill')?{intent:'guide',message:'Guide only is active: these are highlights, with no input edits. Choose Prepare changes and send the request again to review and apply values.'}:{}),actions:response.actions.map(action=>action.type==='fill'?{type:'highlight',ref:action.ref}:action)}:response;
+ if(mode==='guide'&&response.actions.some(action=>action.type==='activate'))return {intent:'clarify',message:'Guide only does not activate buttons. Choose Assist to prepare a separately confirmed action.',actions:[]};
+ return mode==='guide'?{...response,...(response.actions.some(action=>['fill','activate'].includes(action.type))?{intent:'guide',message:'Guide only is active: these are highlights, with no input edits. Choose Prepare changes and send the request again to review and apply values.'}:{}),actions:response.actions.filter(action=>action.type!=='activate').map(action=>action.type==='fill'?{type:'highlight',ref:action.ref}:action)}:response;
 }
 async function body(req,limit=32_768) {
   const chunks=[];let size=0;
@@ -335,9 +338,9 @@ export function createAdoptionServer({ goals,goalModel,conversations=createConve
       const unavailable=['COPILOT_CHECKER_UNAVAILABLE','COPILOT_REVIEW_FAILED'].includes(error.publicCode)||['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed','Management identity unavailable'].includes(error.message)||['ERR_SQLITE_ERROR','SQLITE_BUSY','SQLITE_IOERR','ENOSPC','EROFS','EIO','EMFILE','ENFILE'].includes(error.code)||error.code==='ERR_INVALID_STATE'&&/database|statement/i.test(error.message);
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
       const uploadLimited=['UPLOAD_RATE_LIMIT','UPLOAD_BUDGET_EXCEEDED','UPLOAD_COOLDOWN','UPLOAD_BUSY','UPLOAD_QUEUE_FULL'].includes(error.publicCode);
-      const code = error.message === 'Request too large' ? 413 : uploadLimited||error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
+      const code = error.publicCode==='COPILOT_CONTEXT_LIMIT'?422:error.message === 'Request too large' ? 413 : uploadLimited||error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
       if(code===429){res.setHeader('Retry-After',String(error.retryAfter|| (error.message==='Request rate exceeded'?60:2)));res.setHeader('Access-Control-Expose-Headers','Retry-After, X-Adoption-Request-Id');}
-      return send(code, { error: error.publicCode?.startsWith('GOAL_')?error.message:['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE','SOURCE_MAP_CHANGED','SOURCE_MAP_INVALID'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
+      return send(code, { error: error.publicCode==='COPILOT_CONTEXT_LIMIT'?'The required page and task context exceeds the request limit. No model request or action was sent. Narrow the task or ask the website owner to split the selected workflow.':error.publicCode?.startsWith('GOAL_')?error.message:['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE','SOURCE_MAP_CHANGED','SOURCE_MAP_INVALID'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
     }finally{clearTimeout(uploadReadTimer);uploads.release(uploadPermit);releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });
   if(privateTasks)attachLiveTransport(server,{tasks:privateTasks});

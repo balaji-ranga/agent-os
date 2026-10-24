@@ -1,0 +1,58 @@
+{
+  "at": "2026-10-24T08:21:41.744Z",
+  "scope": "Real read-only browser adapters and isolated SQLite coaching store. Trusted maintainer fixture; not live owner-console/DNS acceptance. No manually imported map, no live backend seeding.",
+  "results": [
+    {
+      "id": "initial-dom-map-needs-no-import-and-sees-saved-records-menu",
+      "passed": true,
+      "currentLinks": [
+        {
+          "path": "/customer",
+          "label": "Customer",
+          "visible": true
+        },
+        {
+          "path": "/opportunity",
+          "label": "Opportunity",
+          "visible": true
+        },
+        {
+          "path": "/note",
+          "label": "Note",
+          "visible": true
+        },
+        {
+          "path": "/goal",
+          "label": "Scheduled goal",
+          "visible": true
+        },
+        {
+          "path": "/records",
+          "label": "Saved synthetic records",
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "all-approved-local-routes-observed-and-persisted-by-coaching",
+      "passed": true,
+      "pages": 5,
+      "fields": 12,
+      "navigation": 24
+    },
+    {
+      "id": "fresh-dom-context-includes-before-after-text-and-explicit-field-description",
+      "passed": true,
+      "descriptionInPersistentPlannerContext": true
+    },
+    {
+      "id": "public-rendered-page-mapping-also-needs-no-source-json",
+      "passed": true,
+      "fields": 2,
+      "links": 2,
+      "scope": "current loaded public page only"
+    }
+  ],
+  "hostWrites": 0,
+  "persistedAcrossReopen": true
+}

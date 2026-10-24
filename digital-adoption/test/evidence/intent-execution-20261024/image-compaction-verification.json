@@ -1,0 +1,9 @@
+{
+  "at": "2026-10-24T07:52:40.880061+00:00",
+  "release": "20261024-intent-execution-h",
+  "sourceLayers": 394,
+  "compactedBaseLayers": 1,
+  "deployedLayers": 5,
+  "imageMetadataPreserved": true,
+  "noRuntimeMountsExported": true
+}

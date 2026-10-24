@@ -503,3 +503,20 @@ Page observations are request-local citation sources, never indexed as shared kn
 ## Conversation recovery
 
 Transport loss is separate from End task: retain the visible transcript, invalidate private pending work and never replay effects. The provider adapter classifies truncated cloud output as incomplete. One existing checker retry may use a documented compact JSON mode on supported endpoints, with the same checker, output-token limit, deadline and strict all-pass verdict contract. This does not change the Admin maker/checker setting or local-model thinking policy.
+
+
+### Field approval and complete UI tasks
+
+Open **⋮ → Approval required**. It is checked by default. When unchecked, valid supported field changes are applied and the chat reports the values applied, without a field-approval button. This is a visitor preference for the current panel session; a new host session starts with approval required. Current constraints, stale-state checks and one-use action fences still apply. Some host sites autosave inputs. Navigation, ordinary button activation and native Save/submit retain their separate confirmations. The preference does not override server workflow Action Policies or enable owner-only Actions.
+
+A request whose outcome needs input, control activation and new results is handed to the real reviewed Goal planner using the complete original request. A routing response is not an executable plan and changes nothing. The Goal UI presents actual ordered steps before Start reviewed plan, then observes and verifies each supported effect. Button activation uses a separate fresh reference, distinct from read-only highlight references and native form-submit references. A click alone is not success: missing or unsettled UI results stop the task without automatic replay. A short page title without an operation is resolved from page/conversation context or answered with a focused clarification. No website-specific query or control rules are built into this behavior.
+
+An observed empty result set can complete a search dispatch; it is reported as no matches, not a failed click. A displayed host error or unknown outcome stops the task. A recorded activation cannot be repeated within the same plan step. Search terms are inferred from the requested topic and fresh field/page context, preserving an explicitly quoted query.
+
+### 24 October: intent execution and visitor field approval
+
+Runtime `20261024-intent-execution-j` adds **⋮ → Approval required** (checked by default), automatic field-only application with information in chat when unchecked, and a generic reviewed fill → button activation → observed-result path. Navigation and native submission remain separately confirmed; workflow Action Policies are unchanged. Empty results are distinguished from host failures, and a recorded button step cannot replay its activation.
+
+[Scoped acceptance and screenshots](test/evidence/intent-execution-20261024/index.html): 19/19 current live cases passed, 0 failed/partial; 489/489 service assertions passed on each of Windows and Linux. The full 19-case I matrix was followed by all six affected goal paths retested on J after per-step action-schema narrowing. Automatic DOM/coaching mapping covered five approved local routes without an imported schema. Manual navigation preserves the same validated active chat session. Four isolated coaching checks verify saved context; a real model used observed field help. Earlier product and harness failures remain retained with their retests. DOM guards (7), real maker/checker canaries (4) and bounded observation checks (6) have separate denominators. This is scoped acceptance, not a statistical reliability guarantee or full Phase 1/2 certification.
+
+Coordinator preparation now uses the existing metadata-preserving base compaction at the same layer threshold as the gateway. The final coordinator has 5 layers, down from a 394-layer captured base. No runtime mounts were exported; the display-only update kept the checker gateway, platform services, parser workers and global model settings unchanged.

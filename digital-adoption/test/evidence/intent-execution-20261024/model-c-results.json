@@ -1,0 +1,303 @@
+{
+  "at": "2026-10-24T07:00:28.090Z",
+  "results": [
+    {
+      "id": "public-routes-complete-search-to-real-plan",
+      "passed": true,
+      "answer": {
+        "intent": "plan",
+        "message": "Search for events related to MCP and get the results.",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 1,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2502,
+          "promptTokens": 3319,
+          "outputTokens": 286
+        }
+      },
+      "latencyMs": 6765
+    },
+    {
+      "id": "independent-routes-complete-search-to-real-plan",
+      "passed": true,
+      "answer": {
+        "intent": "plan",
+        "message": "To find robotics workshops, we will submit the search for 'Robotics'.",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "contractRepairs": 1,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3063,
+          "promptTokens": 2084,
+          "outputTokens": 361
+        }
+      },
+      "latencyMs": 6831
+    },
+    {
+      "id": "short-search-routes-complete-operation-to-plan",
+      "passed": true,
+      "answer": {
+        "intent": "plan",
+        "message": "Search for events related to MCPs.",
+        "actions": []
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 2,
+        "contractRepairs": 1,
+        "checkerRevisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3263,
+          "promptTokens": 3311,
+          "outputTokens": 402
+        }
+      },
+      "latencyMs": 16264
+    }
+  ],
+  "trace": [
+    {
+      "role": "maker",
+      "latencyMs": 2863,
+      "response": {
+        "intent": "plan",
+        "message": "To search for events related to MCP, we will fill in the search field and then activate the search button. Please provide the specific search term you would like to use in the search field.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "MCP events"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6655,
+        "output": 77
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1303,
+      "response": {
+        "intent": "plan",
+        "message": "Search for events related to MCP and get the results.",
+        "actions": []
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 6687,
+        "output": 21
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 2502,
+      "response": {
+        "decision": "accept",
+        "feedback": "Routing the full request to the Goal planner is appropriate: the visitor wants a search performed (query entered into the site's MCP search) and the resulting listings returned, which is a multi-stage operation (input, activation, then inspecting fresh results) rather than a single field edit or a direct factual answer. The rendered page offers a matching search field and Search control, and the loaded collection confirms this is an MCP directory, so grounding for the route is sound. Concrete parameter wording and result verification belong to the real planner.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 3319,
+        "output": 286
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1988,
+      "response": {
+        "intent": "plan",
+        "message": "To find robotics workshops, we need to fill in the search field with the query 'Robotics' and then activate the 'Apply query' button to submit the search. Here’s the plan:",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "Robotics"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4410,
+        "output": 78
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1757,
+      "response": {
+        "intent": "plan",
+        "message": "To find robotics workshops, we will submit the search for 'Robotics'.",
+        "actions": []
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 4642,
+        "output": 26
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3063,
+      "response": {
+        "decision": "accept",
+        "feedback": "Routing to the Goal planner is appropriate: the request requires searching with the provided query, applying it, and inspecting fresh matching results, which is a multi-stage current-page operation rather than a single field proposal or answer. The observed page supports this route.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 2084,
+        "output": 361
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1391,
+      "response": {
+        "intent": "edit",
+        "message": "To search for events related to MCPs, I will fill in the search field with the term 'events MCP'.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "events MCP"
+          }
+        ]
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 6650,
+        "output": 51
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 8692,
+      "response": {
+        "decision": "revise",
+        "feedback": "Revise to intent \"plan\" for the search operation. Filling the observed search field r1f0 with \"events MCP\" only prepares the query; it does not perform the requested search. Include activation/result inspection rather than stopping at field entry.",
+        "checks": {
+          "taskMatch": "fail",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 4869,
+        "output": 1390
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1861,
+      "response": {
+        "intent": "plan",
+        "message": "To perform the search for events related to MCPs, I will fill in the search field with the term 'events MCP' and then activate the search button to execute the query.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "events MCP"
+          },
+          {
+            "type": "activate",
+            "ref": "r1a0"
+          }
+        ]
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 6992,
+        "output": 74
+      }
+    },
+    {
+      "role": "maker",
+      "latencyMs": 1036,
+      "response": {
+        "intent": "plan",
+        "message": "Search for events related to MCPs.",
+        "actions": []
+      },
+      "receivedFeedback": true,
+      "tokens": {
+        "input": 6728,
+        "output": 18
+      }
+    },
+    {
+      "role": "checker",
+      "latencyMs": 3263,
+      "response": {
+        "decision": "accept",
+        "feedback": "The request is a complete current-page search operation: it requires entering a query and activating Search, then reviewing results. Routing to the Goal planner is appropriate; steps and exact query values belong to the real planner, not this routing response.",
+        "checks": {
+          "taskMatch": "pass",
+          "grounding": "pass",
+          "safety": "pass"
+        }
+      },
+      "receivedFeedback": false,
+      "tokens": {
+        "input": 3311,
+        "output": 402
+      }
+    }
+  ],
+  "contexts": [
+    {
+      "bytes": 29786,
+      "task": "search for events related MCP and get the results"
+    },
+    {
+      "bytes": 22075,
+      "task": "Find robotics workshops and show the matching results"
+    },
+    {
+      "bytes": 29758,
+      "task": "search for events MCP"
+    }
+  ],
+  "sharedSettingsUnchanged": true
+}
