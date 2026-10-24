@@ -1,0 +1,13 @@
+[
+  {
+    "id": "42f15427-fcc1-48a2-8aa3-b2fe6dea4f7f",
+    "path": "/customer",
+    "operationId": "e902f07d-47e2-4b07-90a7-a6e07da7ee8f",
+    "values": {
+      "company_name": "Autonomy 1792833642945",
+      "contact_email": "autonomous@example.test",
+      "region": "Singapore"
+    },
+    "createdAt": "2026-10-24T09:20:47.019Z"
+  }
+]

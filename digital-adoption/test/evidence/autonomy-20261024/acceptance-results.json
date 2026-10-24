@@ -1,0 +1,185 @@
+{
+  "at": "2026-10-24T09:25:05.172Z",
+  "release": "20261024-autonomy-b",
+  "cohorts": [
+    {
+      "name": "Deployed real maker/checker",
+      "passed": 5,
+      "total": 5
+    },
+    {
+      "name": "Isolated SDK/browser",
+      "passed": 13,
+      "total": 13
+    },
+    {
+      "name": "Windows service regression",
+      "passed": 490,
+      "total": 490
+    },
+    {
+      "name": "Linux service regression",
+      "passed": 490,
+      "total": 490
+    }
+  ],
+  "failed": 0,
+  "partial": 0,
+  "results": [
+    {
+      "id": "A01_DEFAULT_NAVIGATION_REQUIRES_APPROVAL",
+      "status": "passed",
+      "screenshot": "A01_DEFAULT_NAVIGATION_REQUIRES_APPROVAL.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A02_UNCHECKED_NAVIGATION_HAS_NO_APPROVAL",
+      "status": "passed",
+      "screenshot": "A02_UNCHECKED_NAVIGATION_HAS_NO_APPROVAL.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A03_RELOAD_RETAINS_AUTHORIZED_TAB_PREFERENCE",
+      "status": "passed",
+      "screenshot": "A03_RELOAD_RETAINS_AUTHORIZED_TAB_PREFERENCE.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A04_AUTONOMOUS_GOAL_START_FILL_AND_SAVE_ONCE",
+      "status": "passed",
+      "screenshot": "A04_AUTONOMOUS_GOAL_START_FILL_AND_SAVE_ONCE.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A05_CHECKED_PLAN_AND_FIELD_APPROVALS_RETURN",
+      "status": "passed",
+      "screenshot": "A05_CHECKED_PLAN_AND_FIELD_APPROVALS_RETURN.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A06_DIRECT_SAVE_AUTONOMOUS_ONLY_AFTER_REQUEST",
+      "status": "passed",
+      "screenshot": "A06_DIRECT_SAVE_AUTONOMOUS_ONLY_AFTER_REQUEST.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A07_AUTONOMOUS_FILL_BUTTON_INSPECT_NO_APPROVALS",
+      "status": "passed",
+      "screenshot": "A07_AUTONOMOUS_FILL_BUTTON_INSPECT_NO_APPROVALS.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A08_GUIDE_MODE_NEVER_MUTATES_DESPITE_AUTONOMY",
+      "status": "passed",
+      "screenshot": "A08_GUIDE_MODE_NEVER_MUTATES_DESPITE_AUTONOMY.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A09_REENABLE_WHILE_PLANNING_STOPS_AUTOMATIC_APPLICATION",
+      "status": "passed",
+      "screenshot": "A09_REENABLE_WHILE_PLANNING_STOPS_AUTOMATIC_APPLICATION.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A10_INVALID_FORM_BLOCKS_AUTONOMOUS_SAVE",
+      "status": "passed",
+      "screenshot": "A10_INVALID_FORM_BLOCKS_AUTONOMOUS_SAVE.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A11_UNKNOWN_BUTTON_OUTCOME_IS_NOT_REPLAYED",
+      "status": "passed",
+      "screenshot": "A11_UNKNOWN_BUTTON_OUTCOME_IS_NOT_REPLAYED.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A12_NEW_BROWSER_CONTEXT_DEFAULTS_TO_APPROVAL",
+      "status": "passed",
+      "screenshot": "A12_NEW_BROWSER_CONTEXT_DEFAULTS_TO_APPROVAL.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "A13_AUTOMATIC_FLAG_CANNOT_BYPASS_CHECKED_SETTING",
+      "status": "passed",
+      "screenshot": "A13_AUTOMATIC_FLAG_CANNOT_BYPASS_CHECKED_SETTING.png",
+      "passed": true,
+      "source": "browser-final/",
+      "cohort": "Isolated SDK/browser"
+    },
+    {
+      "id": "local-autonomous-records-navigation",
+      "passed": true,
+      "path": "/records",
+      "approvalPrompts": 0,
+      "preferenceRetained": true,
+      "screenshot": "local-autonomous-records-navigation.png",
+      "source": "live/",
+      "cohort": "Deployed real maker/checker"
+    },
+    {
+      "id": "local-autonomous-fill-and-save-once",
+      "passed": true,
+      "approvals": [],
+      "marker": "Autonomous live 1792833701048",
+      "independentReadback": true,
+      "writes": 1,
+      "screenshot": "local-autonomous-fill-and-save-once.png",
+      "source": "live/",
+      "cohort": "Deployed real maker/checker"
+    },
+    {
+      "id": "public-autonomous-search-no-approvals",
+      "passed": true,
+      "approvals": [],
+      "screenshot": "public-autonomous-search-no-approvals.png",
+      "source": "live/",
+      "cohort": "Deployed real maker/checker"
+    },
+    {
+      "id": "local-default-review-rejection",
+      "passed": true,
+      "screenshot": "local-default-review-rejection.png",
+      "source": "live/",
+      "cohort": "Deployed real maker/checker"
+    },
+    {
+      "id": "local-automatic-fields-and-restore-approval",
+      "passed": true,
+      "screenshot": "local-automatic-fields-and-restore-approval.png",
+      "source": "live/",
+      "cohort": "Deployed real maker/checker"
+    }
+  ],
+  "limitations": [
+    "Scoped finite acceptance, not a statistical reliability guarantee or full Phase 1/2 certification.",
+    "Isolated browser cases use deterministic planner/auth fixtures and disable Chrome address-space checks only for synthetic loopback responses; normal Chrome is used for all deployed live cases.",
+    "No public form submission, new pairing consent, private-data sharing consent, real Flolah workflow-engine run or long-session performance soak was exercised in this incremental release. Existing workflow policy, revocation, action-fence and no-replay regression tests are included in the service suite.",
+    "Restored blocked/uncertain tasks are not automatically resumed; explicitly inspect or continue them.",
+    "The shared checker configuration, platform backend/frontend and parser workers were preserved."
+  ],
+  "historicalFailure": "browser/results.json"
+}

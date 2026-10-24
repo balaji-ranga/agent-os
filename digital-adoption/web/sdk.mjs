@@ -1,4 +1,4 @@
-import {mayApplyFieldsAutomatically} from './field-approval.mjs';
+import {mayApplyAutomatically} from './field-approval.mjs';
 import {newlyAvailableFields} from './dependent-controls.mjs';
 import {createTaskController} from './task-controller.mjs';
 import {createVisitorAnalytics} from './visitor-analytics.mjs';
@@ -14,7 +14,7 @@ export async function mount(options) {
   const {serviceUrl,installationToken,theme={},getHostIdentity,getVerifiedOutcome,bindVerifiedSave,getActionOutcome}=options;
   const layout=options.layout||'floating',dockTarget=options.dockTarget;
   if(!['floating','docked'].includes(layout)||layout==='docked'&&(!(dockTarget instanceof HTMLElement)||!dockTarget.isConnected||dockTarget.ownerDocument!==document))throw new Error('Docked layout requires an explicit connected host container');
-  let expanded=false,approvalRequired=true,automaticFieldReview=false;
+  let expanded=false,approvalRequired=true,automaticProposalId=null;
   if(window.frameElement?.dataset.adoptionObservation==='true')return {updateTheme(){},async destroy(){}};
   let appearance = normalizeTheme(theme);
   let hostAppearance=appearance;
@@ -37,6 +37,8 @@ export async function mount(options) {
   let bootstrap;
   try{const identityToken=await readHostIdentity();bootstrap=await client.resume({identityToken})||await request('/v1/sessions',{installationToken,identityToken});bootstrapButton.remove();}
   catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=async()=>{bootstrapButton.disabled=true;try{await mount({...options,externalConnectionStatus:true});bootstrapButton.remove();}catch(error){bootstrapButton.disabled=false;bootstrapButton.title=error.message;}};throw error;}
+  const approvalStorageKey=sessionKey+':approval';
+  try{const saved=JSON.parse(sessionStorage.getItem(approvalStorageKey)||'null');if(saved?.sessionId===bootstrap.sessionId&&typeof saved.required==='boolean')approvalRequired=saved.required;}catch{}
   const visitorAnalytics=createVisitorAnalytics({document,setConsent:value=>client.setAnalyticsConsent(value),request:(path,data)=>client.background(path,data)});
   const inspector = createInspector(document);
   const peerSnapshot=task=>{const observer=createInspector(document);try{return observer.snapshot({task,inventory:true});}finally{observer.destroy();}};
@@ -114,7 +116,7 @@ export async function mount(options) {
       if(ownerOperation&&!(await request('/v1/capabilities')).capabilities.coach)throw new Error('Actions requires owner coaching access. Enable a short-lived coaching code in settings.');
       if(/^(task|pair)-/.test(message.type)){const extra=message.type==='task-peer-request'&&message.mode==='goal'?inspector.shareContext({includeValues:message.includeValues===true}):message.type==='task-peer-answer'&&message.goalId?{snapshot:peerSnapshot('Current supported forms and navigation')}:{};result=await privateClient.call(message.type,{...message,...extra});if(message.type==='task-remove'){currentSnapshot=null;taskGeneration++;frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'goal-context-changed'}},service.origin);}}
       else if(message.type==='access'){try{result=await request('/v1/capabilities');}finally{if(!result?.capabilities?.coach&&['recording','paused'].includes(recorder.state())){recorder.stop();recordedSteps=[];recordingId=null;recordingTitle=null;}}}
-      else if(message.type==='approval-preference'){if(typeof message.required!=='boolean'||execution.busy)throw new Error('Wait for the current action before changing field approval.');approvalRequired=message.required;result={approvalRequired};}
+      else if(message.type==='approval-preference'){if(typeof message.required!=='boolean'||execution.busy)throw new Error('Wait for the current action before changing approval mode.');approvalRequired=message.required;try{sessionStorage.setItem(approvalStorageKey,JSON.stringify({sessionId:bootstrap.sessionId,required:approvalRequired}));}catch{}result={approvalRequired};}
       else if (message.type === 'config') result = {approvalRequired,theme:appearance,presentation:{layout,expanded},hostContext:hostContext(),canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
       else if(message.type==='presentation'){expanded=message.expanded===true;applyAppearance();result={layout,expanded};}
       else if(message.type==='appearance'||message.type==='appearance-reset'){
@@ -242,7 +244,7 @@ export async function mount(options) {
       }
       else if (message.type === 'approve') {
         if (!currentSnapshot) throw new Error('Inspect and review again');
-        if(message.automatic===true&&(approvalRequired!==false||!automaticFieldReview))throw new Error('This action requires explicit confirmation.');
+        if(message.automatic===true&&(approvalRequired!==false||automaticProposalId!==message.proposalId))throw new Error('This action requires explicit confirmation.');
         if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
         const generation=taskGeneration,reviewedSnapshot=currentSnapshot,reviewedRevision=currentSnapshot.revision;
         const proposal = privateClient.taskId&&!currentGoalProposal?await privateClient.call('task-approve',{id:message.proposalId,revision:reviewedRevision,approved:true}):await request('/v1/approve',{ id:message.proposalId,revision:reviewedRevision,approved:true });
@@ -253,7 +255,7 @@ export async function mount(options) {
           guidedQueue={actions:proposal.actions,revision:proposal.revision,index:0,generation};result=await nextGuidance();
         }else {
           const applied=await execution.execute(proposal,{verifyOutcome:verifyAction,settle:()=>inspector.settle({task:proposal.binding?'':currentTaskText,active:()=>!closed&&generation===taskGeneration}),active:()=>!closed&&generation===taskGeneration,beforeAction:async action=>{
-            if(message.automatic===true&&!mayApplyFieldsAutomatically({approvalRequired,actions:proposal.actions}))throw new Error('Field approval is required again. No further field was applied.');
+            if(message.automatic===true&&!mayApplyAutomatically({approvalRequired,actions:proposal.actions}))throw new Error('Approval is required again. No further action was applied.');
             if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
             await request('/v1/history');
             if(action.type==='submit'&&message.learningConsent===true&&bindVerifiedSave){await bindVerifiedSave({sessionId:bootstrap.sessionId,proposalId:message.proposalId,path:currentSnapshot.path});await request('/v1/history');}
@@ -278,7 +280,7 @@ export async function mount(options) {
       if(result?.actions)inspector.rememberReview(result.actions,result.revision);if(result?.proposal?.actions)inspector.rememberReview(result.proposal.actions,result.proposal.revision);
       if(['plan','recipe-plan','revise'].includes(message.type)&&result?.actions)result={...result,hostContext:hostContext(),localReview:inspector.reviewValues(result.actions,result.revision)};
       if(result&&typeof result==='object'&&!Array.isArray(result))result={...result,hostContext:hostContext()};
-      const reviewActions=result?.proposal?.actions||result?.actions;if(Array.isArray(reviewActions))automaticFieldReview=reviewActions.length>0&&reviewActions.every(a=>a.type==='fill');
+      const reviewActions=result?.proposal?.actions||result?.actions;if(Array.isArray(reviewActions))automaticProposalId=reviewActions.length>0?(result?.proposal?.id||result?.id):null;
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
     } catch (error) { if(message.type==='approve')lastOutcome={path:currentSnapshot?.path||location.pathname,actionTypes:[],outcome:error.outcome==='unknown'?'unknown':'rejected',applied:error.results?.filter(r=>r.valueObserved).length||0};if(error.name==='AbortError'&&error.code!=='TASK_CANCELLED')error=Object.assign(new Error('The task was interrupted. Check the website outcome before trying again.'),{code:'TASK_INTERRUPTED',outcome:error.outcome,results:error.results});if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };

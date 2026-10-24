@@ -3,7 +3,7 @@ import {parseAssistantResponse,assistantResponseSchema}from'../src/assistant-con
 import {createProposalStore,validateSnapshot}from'../src/proposals.mjs';
 import {openRepository}from'../src/repository.mjs';
 import {createTaskController}from'../web/task-controller.mjs';
-import {mayApplyFieldsAutomatically}from'../web/field-approval.mjs';
+import {mayApplyAutomatically,automaticOutcomeMessage}from'../web/field-approval.mjs';
 import {createPlatformPlanner}from'../src/platform-model.mjs';import{deterministicReview}from'../integrations/checker-contract.mjs';
 import{createPlatformGateway}from'../integrations/platform-gateway.mjs';
 import{encodePlannerRequest}from'../src/planner-budget.mjs';
@@ -28,10 +28,10 @@ test('activation requires its own fresh namespace and sole action, never a read-
 test('activation reviews remain session scoped, one use and fenced like other host effects',()=>{
  const repository=openRepository();try{const store=createProposalStore(repository),scope={embeddingId:'site-a',sessionId:'visitor-a'},p=store.prepare(scope,snapshot,{intent:'activate',message:'Confirm Find',actions:[{type:'activate',ref:'r1a0'}]});assert.match(p.message,/not been clicked/);assert.throws(()=>store.consume({...scope,sessionId:'visitor-b'},{id:p.id,revision:1,approved:true}));const approved=store.consume(scope,{id:p.id,revision:1,approved:true});assert.equal(approved.actions[0].type,'activate');assert.throws(()=>store.consume(scope,{id:p.id,revision:1,approved:true}));}finally{repository.close();}
 });
-test('automatic field opt-in never grants navigation, activation, submit or mixed effects',()=>{
- const fill={type:'fill',ref:'r1f0',value:'events'};assert.equal(mayApplyFieldsAutomatically({actions:[fill]}),false);assert.equal(mayApplyFieldsAutomatically({approvalRequired:false,actions:[fill]}),true);
- for(const type of ['activate','navigate','submit','highlight'])assert.equal(mayApplyFieldsAutomatically({approvalRequired:false,actions:[{type}]}),false);
- assert.equal(mayApplyFieldsAutomatically({approvalRequired:false,mode:'guide',actions:[fill]}),false);assert.equal(mayApplyFieldsAutomatically({approvalRequired:false,actions:[]}),false);assert.equal(mayApplyFieldsAutomatically({approvalRequired:false,actions:[fill,{type:'activate'}]}),false);
+test('explicit autonomous opt-in covers requested effects but never guide mode or unsupported mixed actions',()=>{
+ const fill={type:'fill',ref:'r1f0',value:'events'};assert.equal(mayApplyAutomatically({actions:[fill]}),false);assert.equal(mayApplyAutomatically({approvalRequired:false,actions:[fill]}),true);
+ for(const type of ['activate','navigate','submit','highlight'])assert.equal(mayApplyAutomatically({approvalRequired:false,actions:[{type}]}),true);
+ assert.equal(mayApplyAutomatically({approvalRequired:false,mode:'guide',actions:[fill]}),false);assert.equal(mayApplyAutomatically({approvalRequired:false,actions:[]}),false);assert.equal(mayApplyAutomatically({approvalRequired:false,actions:[fill,{type:'activate'}]}),false);
 });
 test('button click alone is not success and a failed observation is never retried',async()=>{
  let clicks=0;const inspector={activate:async()=>{clicks++;return {activated:true,uiChanged:false,reason:'No UI change observed'};}},controller=createTaskController({inspector,request:async()=>{}});
@@ -66,4 +66,11 @@ test('production-style guidance fits by deduplicating canonical refs, not deleti
 test('current goal stage narrows the actual maker schema rather than merely advising it',()=>{
  const observed={...snapshot,links:[{ref:'r1n0',label:'Archive',path:'/archive'}]};
  for(const type of ['fill','activate','highlight','navigate']){const schema=assistantResponseSchema(observed,{goalStep:true,allowedActionTypes:[type]});assert.ok(schema.properties.actions.items.anyOf.length);assert.deepEqual([...new Set(schema.properties.actions.items.anyOf.map(a=>a.properties.type.const))],[type]);}
+});
+
+test('autonomous result information distinguishes field application, navigation and verified submission',()=>{
+ assert.match(automaticOutcomeMessage([{type:'navigate',label:'Records'}],[{navigated:true,verified:true}]),/Automatically opened Records/);
+ assert.match(automaticOutcomeMessage([{type:'submit',label:'Save'}],[{hostReported:'success'}]),/host reported success/);
+ assert.doesNotMatch(automaticOutcomeMessage([{type:'submit',label:'Save'}],[{hostReported:'success'}]),/Save was not clicked/);
+ assert.equal(mayApplyAutomatically({approvalRequired:false,actions:[{type:'unknown'}]}),false);
 });

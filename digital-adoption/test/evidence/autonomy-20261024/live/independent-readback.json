@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-24T09:25:53.742Z",
+  "matchedRecords": 1,
+  "record": {
+    "id": "c4b5ca57-a10b-4130-80fa-792d4c99413f",
+    "path": "/customer",
+    "operationId": "06ec96f3-57ce-4d90-b3d0-153e59b5504b",
+    "values": {
+      "company_name": "Autonomous live 1792833701048",
+      "contact_email": "autonomy.live@example.test",
+      "region": "Singapore"
+    },
+    "createdAt": "2026-10-24T09:21:53.077Z"
+  }
+}

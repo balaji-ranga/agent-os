@@ -1,4 +1,4 @@
-import {mayApplyFieldsAutomatically} from './field-approval.mjs';
+import {mayApplyAutomatically,automaticOutcomeMessage} from './field-approval.mjs';
 import {mountConversationUI} from './conversation-ui.mjs';
 import {mountGoalUI} from './goal-ui.mjs';
 import {barePointing} from './guidance-intent.mjs';
@@ -67,7 +67,7 @@ function showError(error){
  const banner=document.querySelector('#error-banner'),message=(error.message||String(error))+(error.code?` [${error.code}]`:'');if(document.querySelector('#error-message').textContent!==message)show(message,'guide','assistant');document.querySelector('#error-message').textContent=message;banner.hidden=false;
  if(document.querySelector('#settings')?.open)document.querySelector('#settings-status').textContent=message;actionFeedback.report(error.message||String(error),true);banner.scrollIntoView({block:'nearest'});
 }
-document.querySelector('#approval-required').onchange=async event=>{const field=event.target;field.disabled=true;try{const result=await call('approval-preference',{required:field.checked});approvalRequired=result.approvalRequired;field.checked=approvalRequired;document.querySelector('#settings-status').textContent=approvalRequired?'Field reviews require approval.':'Field changes will apply automatically for this panel session. Other effects still require confirmation.';}catch(error){field.checked=approvalRequired;showError(error);}finally{field.disabled=false;}};
+document.querySelector('#approval-required').onchange=async event=>{const field=event.target;field.disabled=true;try{const result=await call('approval-preference',{required:field.checked});approvalRequired=result.approvalRequired;field.checked=approvalRequired;document.querySelector('#settings-status').textContent=approvalRequired?'Actions require approval.':'Requested actions run autonomously for this authorized tab session. Permissions and Action Policies still apply.';}catch(error){field.checked=approvalRequired;showError(error);}finally{field.disabled=false;}};
 document.querySelector('#error-dismiss').onclick=()=>{document.querySelector('#error-banner').hidden=true;};
 const reviewObserver=new MutationObserver(()=>{const review=document.querySelector('#review');if(review.childElementCount){workspace?.reviewReady();if(!document.querySelector('#panel-guide').hidden){review.scrollIntoView({block:'nearest'});if(!review.contains(document.activeElement))review.focus({preventScroll:true});}}});
 reviewObserver.observe(document.querySelector('#review'),{childList:true});
@@ -105,7 +105,8 @@ document.querySelector('#save-review').onclick=async()=>{
   let learningConsent; if(verifiedLearningAvailable){const label=document.createElement('label');learningConsent=document.createElement('input');learningConsent.type='checkbox';label.append(learningConsent,document.createTextNode(' After a verified save, share the workflow structure for owner review. Field values and chat are excluded.'));review.append(label);}
   const confirm=document.createElement('button');confirm.textContent=`Confirm ${proposal.actions[0].label} now`;review.append(confirm);
   const reject=document.createElement('button');reject.textContent='Cancel save';reject.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();status.textContent='Save cancelled.';}catch(error){showError(error);}};review.append(reject);
-  confirm.onclick=async()=>{confirm.disabled=true;try{if(generation!==task)return;const result=await call('approve',{proposalId:proposal.id,learningConsent:learningConsent?.checked===true});if(generation!==task)return;review.replaceChildren();const outcome=result.results[0];status.textContent=outcome.businessVerified===true?'Saved record verified by the host readback receipt.':outcome.hostReported==='success'?`Host reported success: ${outcome.message} Verify the saved record; no retry was attempted.`:outcome.hostReported==='failure'?`Host reported a failure: ${outcome.message}`:outcome.reason||'Submission outcome is unverified. Inspect the host before retrying.';if(result.learning)status.textContent+=result.learning.created?' A parameterized draft was saved for owner review.':` No workflow was learned: ${result.learning.reason||'learning disabled'}.`;}catch(error){if(generation===task)showError(error);}};
+  confirm.onclick=async()=>{confirm.disabled=true;try{if(generation!==task)return;const result=await call('approve',{proposalId:proposal.id,automatic:!approvalRequired,learningConsent:learningConsent?.checked===true});if(generation!==task)return;review.replaceChildren();if(!approvalRequired)show(automaticOutcomeMessage(proposal.actions,result.results));const outcome=result.results[0];status.textContent=outcome.businessVerified===true?'Saved record verified by the host readback receipt.':outcome.hostReported==='success'?`Host reported success: ${outcome.message} Verify the saved record; no retry was attempted.`:outcome.hostReported==='failure'?`Host reported a failure: ${outcome.message}`:outcome.reason||'Submission outcome is unverified. Inspect the host before retrying.';if(result.learning)status.textContent+=result.learning.created?' A parameterized draft was saved for owner review.':` No workflow was learned: ${result.learning.reason||'learning disabled'}.`;}catch(error){if(generation===task)showError(error);}};
+  if(mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})){confirm.remove();reject.remove();await confirm.onclick();}
  }catch(error){showError(error);}
 };
 const clearChat=document.createElement('button');clearChat.type='button';clearChat.textContent='Clear this conversation';settings.append(clearChat);
@@ -153,7 +154,7 @@ async function prepare(text,generation,depth=0,repair=0){
     let proposal=await call('plan',{ text,replyTo:depth===0?replies.guide:null,mode:assistanceMode });
     if(generation!==task)return;renderExecution({stage:'awaiting_review'});
     if(proposal.intent==='plan'){if(!goalPlanningAvailable)throw new Error('This request needs a multi-step task, which is not configured. No action was applied.');workspace?.setMode('goal');await goalUI.start(text);return;}
-    show(mayApplyFieldsAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})?'Applying the prepared field changes automatically.':proposal.message,'guide','assistant',proposal.messageId);replies.guide=null;replyHints.guide.hidden=true;
+    show(mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})?'Executing the requested action automatically.':proposal.message,'guide','assistant',proposal.messageId);replies.guide=null;replyHints.guide.hidden=true;
     status.textContent=proposal.actions.length?'Current-page review only. For a multi-step or cross-website task, choose Plan complete task.':'';
     if(goalPlanningAvailable){
       const scope=document.createElement('p');scope.id='page-task-scope';scope.textContent='This review acts on this page only. It does not send instructions to another copilot.';review.append(scope);
@@ -173,17 +174,18 @@ async function prepare(text,generation,depth=0,repair=0){
         try {
           if(generation!==task)return;
           const result=await call('approve',{proposalId:proposal.id,automatic});if(generation!==task)return;
-          if(automatic)show('Automatically applied: '+proposal.actions.map(a=>a.label+': '+(a.displayValue||a.value)).join('; ')+'. Save was not clicked.','guide','assistant');
+          if(automatic)show(automaticOutcomeMessage(proposal.actions,result.results),'guide','assistant');
           review.replaceChildren();
           if(result.results.every(r=>r.highlighted)){remainingGuidance(result,generation);return;}
           if(result.results.some(r=>r.navigated&&r.verified)){status.textContent='Navigation verified. Continuing your original task…';await prepare(text,generation,depth+1);}
+          else if(result.results.some(r=>r.activated&&r.uiChanged)){status.textContent='Website action verified.';}
           else if(result.observeAgain&&repair<2){status.textContent='Search text verified. Inspecting the loaded results before preparing the next review…';await prepare(text,generation,depth,repair+1);}
           else if(result.observeAgain){document.querySelector('#save-review').hidden=true;status.textContent='Search text verified. Result selection is still unresolved; clarify the intended result before continuing.';}
           else if(result.followup?.length&&repair<2){status.textContent='Dependent controls are now available. Preparing a fresh review for '+result.followup.join(', ');await prepare(text,generation,depth,repair+1);}
           else {document.querySelector('#save-review').hidden=assistanceMode==='guide'||!result.results.every(r=>r.valueObserved);status.textContent=result.results.every(r=>r.highlighted)?'Guidance shown. No field values were changed.':result.results.every(r=>r.valueObserved)?`${result.results.length} ${automatic?'automatically applied':'approved'} field values verified in the form. Save was not clicked.`:'A field did not retain its value. Check the form; no retry was attempted.';}
         }
         catch(error){if(generation===task){showError(error);if(error.outcome!=='unknown'&&repair<2&&['SCREEN_CHANGED','FIELD_VALIDATION','CONTROL_UNAVAILABLE','HOST_REJECTED'].includes(error.code)){const retry=document.createElement('button');retry.type='button';retry.textContent='Review remaining request';retry.onclick=()=>prepare(text,++task,0,repair+1);review.append(retry);}}}finally{if(generation===task)document.querySelector('#stop').hidden=true;}
-      };approve.addEventListener('click',()=>applyChanges(false),{once:true});if(mayApplyFieldsAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})){approve.remove();reject.remove();await applyChanges(true);}
+      };approve.addEventListener('click',()=>applyChanges(false),{once:true});if(mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})){approve.remove();reject.remove();await applyChanges(true);}
     }
   }catch(error){if(generation===task){renderExecution({stage:'blocked'});showError(error);}}finally{if(generation===task){button.disabled=false;document.querySelector('#stop').hidden=true;}}
 }
@@ -263,12 +265,13 @@ async function recipeReview(recipe,parameters,step,generation,testRunId){
    approve.onclick=async()=>{
     approve.disabled=true;
     try{
-     const result=await call('approve',{proposalId:proposal.id});if(generation!==task)return;
+     const automatic=mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode}),result=await call('approve',{proposalId:proposal.id,automatic});if(generation!==task)return;if(automatic)show(automaticOutcomeMessage(proposal.actions,result.results));
      if(!result.results.every(r=>r.valueObserved||r.highlighted||r.navigated&&r.verified))throw new Error('The recorded step was not verified. Replay paused.');
      if(result.results.every(r=>r.highlighted)){remainingGuidance(result,generation,()=>recipeReview(recipe,parameters,proposal.nextStep,generation,testRunId));return;}
      await recipeReview(recipe,parameters,proposal.nextStep,generation,testRunId);
     }catch(error){showError(error);}
    };
+   if(mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})){approve.remove();cancel.remove();await approve.onclick();}
   }
  }
  catch(error){status.textContent=`Workflow paused: ${error.message}`;showError(error);}
@@ -302,7 +305,7 @@ document.querySelector('#capture-pause').onclick=()=>capture.state()==='paused'?
 document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';openUpload();};
 document.querySelector('#capture-download').onclick=()=>{if(!reviewBlob||!coachingEnabled)return;const url=URL.createObjectURL(reviewBlob),link=document.createElement('a');link.href=url;link.download=reviewBlob.type==='video/mp4'?'reviewed-screen-recording.mp4':'reviewed-screen-recording.webm';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);document.querySelector('#capture-status').textContent='Recording downloaded locally. Upload shared knowledge only in authenticated website management.';};
 window.addEventListener('pagehide',()=>{capture.discard();if(previewUrl)URL.revokeObjectURL(previewUrl);},{once:true});
-const goalUI=mountGoalUI(document,{requiresFieldApproval:()=>approvalRequired,call,show,showError,assist:()=>assistanceMode==='assist',isExpired:()=>sessionExpired});
+const goalUI=mountGoalUI(document,{requiresApproval:()=>approvalRequired,call,show,showError,assist:()=>assistanceMode==='assist',isExpired:()=>sessionExpired});
 document.querySelector('#choice-goal').onclick=()=>{workspace?.setMode('goal');const composer=document.querySelector('#message');if(!composer.value&&lastPageRequest)composer.value=lastPageRequest;composer.focus();status.textContent='Describe the complete goal, values and constraints. I will propose a plan before preparing any changes.';};
 let goalPlanningAvailable=false;
 const taskPanel=mountTaskPanel({call,showError,show,revealChat:()=>workspace?.showChat(),canReceiveGoal:()=>goalPlanningAvailable&&!goalUI.active,onIncomingGoal:async event=>{workspace?.setMode('goal');await goalUI.start(event.instruction,{peerRequestId:event.requestId,autoReadOnly:true});if(goalUI.peerRequestId!==event.requestId)throw new Error('The incoming goal was not prepared. Review its explanation and try again explicitly.');},isExpired:()=>sessionExpired,clearPrivate({preserveConversation=false}={}){if(!preserveConversation)goalUI.clear();task++;lastPageRequest='';if(!preserveConversation){log.replaceChildren();knowledgeLog.replaceChildren();}document.querySelector('#knowledge-message').value='';knowledgeStatus.textContent='';document.querySelector('#review').replaceChildren();if(!preserveConversation)document.querySelector('#message').value='';document.querySelector('#save-review').hidden=true;for(const key of ['guide','knowledge']){replies[key]=null;replyHints[key].hidden=true;}}});

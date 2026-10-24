@@ -1,0 +1,67 @@
+{
+  "at": "2026-10-24T09:17:58.030Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "A01_DEFAULT_NAVIGATION_REQUIRES_APPROVAL",
+      "status": "passed",
+      "screenshot": "A01_DEFAULT_NAVIGATION_REQUIRES_APPROVAL.png"
+    },
+    {
+      "id": "A02_UNCHECKED_NAVIGATION_HAS_NO_APPROVAL",
+      "status": "passed",
+      "screenshot": "A02_UNCHECKED_NAVIGATION_HAS_NO_APPROVAL.png"
+    },
+    {
+      "id": "A03_RELOAD_RETAINS_AUTHORIZED_TAB_PREFERENCE",
+      "status": "passed",
+      "screenshot": "A03_RELOAD_RETAINS_AUTHORIZED_TAB_PREFERENCE.png"
+    },
+    {
+      "id": "A04_AUTONOMOUS_GOAL_START_FILL_AND_SAVE_ONCE",
+      "status": "passed",
+      "screenshot": "A04_AUTONOMOUS_GOAL_START_FILL_AND_SAVE_ONCE.png"
+    },
+    {
+      "id": "A05_CHECKED_PLAN_AND_FIELD_APPROVALS_RETURN",
+      "status": "passed",
+      "screenshot": "A05_CHECKED_PLAN_AND_FIELD_APPROVALS_RETURN.png"
+    },
+    {
+      "id": "A06_DIRECT_SAVE_AUTONOMOUS_ONLY_AFTER_REQUEST",
+      "status": "passed",
+      "screenshot": "A06_DIRECT_SAVE_AUTONOMOUS_ONLY_AFTER_REQUEST.png"
+    },
+    {
+      "id": "A07_AUTONOMOUS_FILL_BUTTON_INSPECT_NO_APPROVALS",
+      "status": "passed",
+      "screenshot": "A07_AUTONOMOUS_FILL_BUTTON_INSPECT_NO_APPROVALS.png"
+    },
+    {
+      "id": "A08_GUIDE_MODE_NEVER_MUTATES_DESPITE_AUTONOMY",
+      "status": "passed",
+      "screenshot": "A08_GUIDE_MODE_NEVER_MUTATES_DESPITE_AUTONOMY.png"
+    },
+    {
+      "id": "A09_REENABLE_WHILE_PLANNING_STOPS_AUTOMATIC_APPLICATION",
+      "status": "passed",
+      "screenshot": "A09_REENABLE_WHILE_PLANNING_STOPS_AUTOMATIC_APPLICATION.png"
+    },
+    {
+      "id": "A10_INVALID_FORM_BLOCKS_AUTONOMOUS_SAVE",
+      "status": "passed",
+      "screenshot": "A10_INVALID_FORM_BLOCKS_AUTONOMOUS_SAVE.png"
+    },
+    {
+      "id": "A11_UNKNOWN_BUTTON_OUTCOME_IS_NOT_REPLAYED",
+      "status": "passed",
+      "screenshot": "A11_UNKNOWN_BUTTON_OUTCOME_IS_NOT_REPLAYED.png"
+    },
+    {
+      "id": "A12_NEW_BROWSER_CONTEXT_DEFAULTS_TO_APPROVAL",
+      "status": "passed",
+      "screenshot": "A12_NEW_BROWSER_CONTEXT_DEFAULTS_TO_APPROVAL.png"
+    }
+  ],
+  "errors": []
+}

@@ -1,5 +1,7 @@
 # Digital Adoption Copilot
 
+24 October 2026: runtime `20261024-autonomy-b` makes **⋮ → Approval required** govern all supported requested effects. Unchecked starts new plans and applies field changes, navigation, button actions and requested Save/submit without copilot approval prompts. Results stay visible; validation, session authorization, owner bindings, workflow Action Policies and no-replay protections remain enforced. The setting survives normal navigation/reload only within the same authorized tab session. Guide stays read-only. [Autonomy acceptance evidence](test/evidence/autonomy-20261024/index.html) supersedes the earlier field-only opt-in behavior.
+
 23 October 2026: current-page questions now include bounded loaded text, a heading outline and browser-computed repeated-item counts, independently of ranked highlight targets. The maker receives an explicit response schema and precise bounded repair feedback; schema repair does not consume the separate checker-feedback correction. Inspection remains read-only and excludes private/hidden content and input values. Evidence and measured overhead are recorded in `test/evidence/page-inspection-20261023/`. OpenClaw gateway recovery/configuration hardening is separately documented in `../deploy/test-evidence/gateway-config-20261023/`.
 
 19 October 2026: the immediate-phase implementation is available on coordinator
