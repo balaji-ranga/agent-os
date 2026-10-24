@@ -1,0 +1,401 @@
+{
+  "at": "2026-10-24T11:02:17.530Z",
+  "results": [
+    {
+      "id": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "passed": true,
+      "availableFieldsApplied": 2,
+      "missingFieldResolved": true,
+      "writes": 0,
+      "screenshot": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP.png"
+    },
+    {
+      "id": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 160000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().getByRole('button', { name: 'Approve field changes', exact: true }) to be visible\u001b[22m\n",
+      "screenshot": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "e89deedc-b285-4858-9293-3e8fe687b417",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792839661445,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "not_provided"
+            }
+          ]
+        },
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "0a67d511-6c8d-45a9-9594-cd77426ac453"
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com",
+            "actionId": "e89deedc-b285-4858-9293-3e8fe687b417:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839661445
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "e89deedc-b285-4858-9293-3e8fe687b417:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839661445
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "54b269ab-0b1b-41ae-aaea-53b22a809d78",
+        "revision": 3,
+        "intent": "edit",
+        "message": "Review these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Company name",
+            "value": "Orchid Labs"
+          }
+        ],
+        "expiresAt": 1792839667504,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "a96f3cd3-093f-401a-8037-bc2009341619"
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Company name",
+            "value": "Orchid Labs",
+            "actionId": "54b269ab-0b1b-41ae-aaea-53b22a809d78:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839667504
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "85a5d288-9eb5-4385-afb9-74d3156e7e13",
+        "revision": 1,
+        "message": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+        "actions": [],
+        "expiresAt": 1792839696355,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f5",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form",
+            "choices": [
+              "Home delivery",
+              "Store pickup"
+            ]
+          },
+          {
+            "ref": "r1f6",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form",
+            "choices": [
+              "Analytics",
+              "Inventory",
+              "Support"
+            ]
+          },
+          {
+            "ref": "r1f7",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f8",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f9",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form",
+            "choices": [
+              "Normal",
+              "No matches",
+              "Lookup error",
+              "Duplicate labels"
+            ]
+          },
+          {
+            "ref": "r1f10",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f11",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f12",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_1_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f13",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f14",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_2_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f15",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f16",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_3_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f17",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "974cfe2f-6214-4c03-966c-7f4ce3a734fc"
+      }
+    }
+  ]
+}

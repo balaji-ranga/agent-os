@@ -1,0 +1,372 @@
+{
+  "at": "2026-10-24T12:17:59.441Z",
+  "results": [
+    {
+      "id": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 160000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().getByRole('button', { name: 'Approve field changes', exact: true }) to be visible\u001b[22m\n",
+      "screenshot": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER.png"
+    },
+    {
+      "id": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 160000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().getByRole('button', { name: 'Approve field changes', exact: true }) to be visible\u001b[22m\n",
+      "screenshot": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS.png"
+    },
+    {
+      "id": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 160000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible\u001b[22m\n",
+      "screenshot": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "b1d84f8a-d736-4f88-9cf5-47139e7515e3",
+        "revision": 1,
+        "message": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+        "actions": [],
+        "expiresAt": 1792843855197,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "dba32420-5a79-45a2-9b33-296af007241f"
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "f8c38aa8-6263-4f30-bc75-6e693d4da445",
+        "revision": 1,
+        "message": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+        "actions": [],
+        "expiresAt": 1792844042202,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Individual",
+              "Business"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Overseas",
+              "Local"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "b49263b1-8c41-4e57-a96a-e365dadf8645"
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "2f626156-350a-487a-b02f-6d4a8e8ba34f",
+        "revision": 1,
+        "message": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+        "actions": [],
+        "expiresAt": 1792844238107,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f5",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form",
+            "choices": [
+              "Home delivery",
+              "Store pickup"
+            ]
+          },
+          {
+            "ref": "r1f6",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form",
+            "choices": [
+              "Analytics",
+              "Inventory",
+              "Support"
+            ]
+          },
+          {
+            "ref": "r1f7",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f8",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f9",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form",
+            "choices": [
+              "Normal",
+              "No matches",
+              "Lookup error",
+              "Duplicate labels"
+            ]
+          },
+          {
+            "ref": "r1f10",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f11",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f12",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_1_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f13",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f14",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_2_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f15",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f16",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_3_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f17",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "d8ab27f8-16e5-4deb-86ec-a22e8f545c57"
+      }
+    }
+  ]
+}

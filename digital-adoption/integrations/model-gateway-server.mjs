@@ -3,6 +3,7 @@
 import {createServer} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {MODEL_GATEWAY_TIMEOUT_MS} from '../web/model-timeouts.mjs';
+import {MODEL_TRANSPORT_BYTES,MODEL_CONTEXT_BYTES} from '../src/model-context-budget.mjs';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {createPlatformGateway} from './platform-gateway.mjs';
@@ -20,9 +21,9 @@ createServer(async(req,res)=>{
  res.on('close',()=>{if(!res.writableEnded)controller.abort();});
  const started=Date.now(),traceId=randomUUID();res.setHeader('X-Copilot-Trace-Id',traceId);
  try{
-  let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>32_768)throw new Error('Too large');}
+  let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>MODEL_TRANSPORT_BYTES)throw new Error('Too large');}
   const body=JSON.parse(raw),output=await handler({authorization:req.headers.authorization,body,signal});
-  console.info(JSON.stringify({event:'copilot_model',traceId,purpose:body.purpose,active:output.active,quality:output.quality,latencyMs:Date.now()-started}));
+  console.info(JSON.stringify({event:'copilot_model',traceId,purpose:body.purpose,requestBytes:Buffer.byteLength(raw),contextBudgetBytes:MODEL_CONTEXT_BYTES,active:output.active,quality:output.quality,latencyMs:Date.now()-started}));
   res.end(JSON.stringify(output));
  }catch(error){const code=['COPILOT_CHECKER_UNAVAILABLE','COPILOT_REVIEW_FAILED'].includes(error.code)?error.code:'MODEL_UNAVAILABLE';console.info(JSON.stringify({event:'copilot_model_failed',traceId,code,category:error.diagnosticCode||'REVIEW_FAILED',providerStatus:error.providerStatus,provider:error.providerDiagnostics,latencyMs:Date.now()-started}));if(!res.destroyed){res.writeHead(503);res.end(JSON.stringify({error:'Model review unavailable',code,traceId}));}}
 }).listen(4195,'0.0.0.0');

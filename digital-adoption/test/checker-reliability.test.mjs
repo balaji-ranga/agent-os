@@ -1,3 +1,4 @@
+import {MODEL_CONTEXT_BYTES} from '../src/model-context-budget.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -23,7 +24,7 @@ test('one compact checker retry still requires a complete all-pass verdict on th
  const config={active:'secondary',checker:{baseUrl:'https://checker.example/v1',model:'registered-passive',apiKey:'private',slot:'primary',maxTokens:2048}};
  const run=checks=>reviewCopilotResponse({config,messages,purpose:'digital_adoption_plan',draft,complete:async request=>{requests.push(request);if(!request.config.compactVerdict)throw Object.assign(Error('truncated'),{diagnosticCode:'PROVIDER_INCOMPLETE'});return {content:JSON.stringify({decision:'accept',feedback:'Reviewed.',checks})};}});
  const result=await run({taskMatch:'pass',grounding:'pass',safety:'pass'});assert.equal(result.quality.checkerRetries,1);assert.equal(requests.length,2);assert.ok(requests.every(r=>r.maxTokens===2048&&r.config.model==='registered-passive'));assert.equal(requests[1].config.compactVerdict,true);
- requests.length=0;await assert.rejects(()=>run({taskMatch:'pass',grounding:'pass',safety:'fail'}),e=>e.code==='COPILOT_CHECKER_UNAVAILABLE');assert.equal(requests.length,2);
+ requests.length=0;const refused=await run({taskMatch:'pass',grounding:'pass',safety:'fail'});assert.equal(refused.quality.decision,'reject');assert.equal(refused.quality.verdictCorrections,1);assert.deepEqual(JSON.parse(refused.content).actions,[]);assert.equal(requests.length,2);
 });
 test('explicit choices, mismatches, substitutions and advice-only constraints are checked before LLM acceptance',()=>{
  assert.equal(deterministicReview(context('Set Shipping method to Express. Do not save.',proposal('Express'))),null);
@@ -34,7 +35,7 @@ test('review context preserves task evidence, not maker system/schema/repair ins
  const c=context('Synthetic task',proposal('Express'));assert.ok(!JSON.stringify(c).includes('CANARY'));
  const evidence={text:'TASK_DOCUMENT_FACT'};const r=reviewContext([{role:'user',content:JSON.stringify({question:'Synthetic question',evidence:[evidence],history:[{role:'user',text:'Task history'}]})}],'digital_adoption_knowledge',{});
  assert.deepEqual(r.evidence,[evidence]);assert.equal(r.history[0].text,'Task history');
- assert.throws(()=>reviewContext([{content:JSON.stringify({task:'t',evidence:'x'.repeat(31_000)})}],'digital_adoption_plan',{}),e=>e.diagnosticCode==='REVIEW_CONTEXT_BUDGET');
+ assert.throws(()=>reviewContext([{content:JSON.stringify({task:'t',evidence:'x'.repeat(MODEL_CONTEXT_BYTES+1)})}],'digital_adoption_plan',{}),e=>e.diagnosticCode==='REVIEW_CONTEXT_BUDGET');
 });
 test('accept requires all structured checks to pass; extra authority and incomplete verdicts fail closed',()=>{
  const valid={decision:'accept',feedback:'Grounded proposal.',checks:{taskMatch:'pass',grounding:'pass',safety:'pass'}};

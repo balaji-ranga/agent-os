@@ -1,0 +1,51 @@
+{
+  "at": "2026-10-24T10:56:06.900Z",
+  "results": [
+    {
+      "id": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "passed": false,
+      "error": "The copilot service is temporarily unavailable. Check the current task before trying again.",
+      "screenshot": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP.png"
+    },
+    {
+      "id": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "passed": false,
+      "error": "The copilot service is temporarily unavailable. Check the current task before trying again.",
+      "screenshot": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 503,
+      "body": {
+        "error": "Copilot service temporarily unavailable"
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 503,
+      "body": {
+        "error": "Copilot service temporarily unavailable"
+      }
+    }
+  ]
+}

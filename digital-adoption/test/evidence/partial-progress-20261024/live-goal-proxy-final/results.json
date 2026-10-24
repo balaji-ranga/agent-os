@@ -1,0 +1,1335 @@
+{
+  "at": "2026-10-24T10:59:33.611Z",
+  "results": [
+    {
+      "id": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "passed": true,
+      "manualCustomerSave": 1,
+      "freshNavigationReview": true,
+      "completedBothForms": true,
+      "recordedOutcomesVisible": true,
+      "screenshot": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Filling the Customer form with synthetic values and preparing to fill the Opportunity form with synthetic values.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Filling the Customer form with synthetic values and preparing to fill the Opportunity form with synthetic values.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220,
+          "pendingProposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6"
+        },
+        "proposal": {
+          "id": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+          "revision": 2,
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r2f0",
+              "label": "Company name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f1",
+              "label": "Contact email",
+              "value": "demo@example.com"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f2",
+              "label": "Region",
+              "value": "Singapore"
+            }
+          ],
+          "expiresAt": 1792839675122,
+          "fields": [
+            {
+              "ref": "r2f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 2,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r2f0",
+            "label": "Company name",
+            "value": "Demo Test",
+            "actionId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839675122
+          },
+          {
+            "type": "fill",
+            "ref": "r2f1",
+            "label": "Contact email",
+            "value": "demo@example.com",
+            "actionId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839675122
+          },
+          {
+            "type": "fill",
+            "ref": "r2f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839675122
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "All requested fields have been filled with the specified synthetic values: Company name set to 'Demo Test', Contact email set to 'demo@example.com', and Region set to 'Singapore'. The local state has been verified for these changes.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form now.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220,
+          "pendingProposalId": "ab99d270-620d-4513-83fd-a2655240028a"
+        },
+        "proposal": {
+          "id": "ab99d270-620d-4513-83fd-a2655240028a",
+          "revision": 5,
+          "message": "Navigating to the Opportunity form now.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "ref": "r5n1",
+              "label": "Opportunity",
+              "path": "/opportunity",
+              "readOnlyApproved": true
+            }
+          ],
+          "expiresAt": 1792839682328,
+          "fields": []
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form now.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220,
+          "pendingProposalId": "ab99d270-620d-4513-83fd-a2655240028a"
+        },
+        "pendingOutcome": {
+          "proposalId": "ab99d270-620d-4513-83fd-a2655240028a",
+          "status": "pending",
+          "path": "/customer",
+          "responseMessage": "Navigating to the Opportunity form now.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "label": "Opportunity",
+              "destination": "/opportunity",
+              "outcome": "not_dispatched"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form now.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220,
+          "pendingProposalId": "ab99d270-620d-4513-83fd-a2655240028a"
+        },
+        "pendingOutcome": {
+          "proposalId": "ab99d270-620d-4513-83fd-a2655240028a",
+          "status": "pending",
+          "path": "/customer",
+          "responseMessage": "Navigating to the Opportunity form now.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "label": "Opportunity",
+              "destination": "/opportunity",
+              "outcome": "not_dispatched"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form now.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "To navigate to the Opportunity form, you can click on the link labeled \"Opportunity\" in the navigation section of the page. This link is currently enabled and will take you to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 2
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 12,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220,
+          "pendingProposalId": "b2ba182e-89b1-4361-8860-0d9debdcc300"
+        },
+        "proposal": {
+          "id": "b2ba182e-89b1-4361-8860-0d9debdcc300",
+          "revision": 6,
+          "message": "To navigate to the Opportunity form, you can click on the link labeled \"Opportunity\" in the navigation section of the page. This link is currently enabled and will take you to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "ref": "r6n1",
+              "label": "Opportunity",
+              "path": "/opportunity",
+              "readOnlyApproved": true
+            }
+          ],
+          "expiresAt": 1792839687180,
+          "fields": []
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r6n1",
+            "label": "Opportunity",
+            "path": "/opportunity",
+            "readOnlyApproved": true,
+            "actionId": "b2ba182e-89b1-4361-8860-0d9debdcc300:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839687180
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "The browser observed navigation to /opportunity.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "b2ba182e-89b1-4361-8860-0d9debdcc300",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "To navigate to the Opportunity form, you can click on the link labeled \"Opportunity\" in the navigation section of the page. This link is currently enabled and will take you to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 2,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 14,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "b2ba182e-89b1-4361-8860-0d9debdcc300",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "To navigate to the Opportunity form, you can click on the link labeled \"Opportunity\" in the navigation section of the page. This link is currently enabled and will take you to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 16,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220,
+          "pendingProposalId": "894bdd1d-57da-4738-a23a-97a469019962"
+        },
+        "proposal": {
+          "id": "894bdd1d-57da-4738-a23a-97a469019962",
+          "revision": 8,
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r8f0",
+              "label": "Opportunity name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r8f1",
+              "label": "Amount",
+              "value": "10000"
+            },
+            {
+              "type": "fill",
+              "ref": "r8f2",
+              "label": "Currency",
+              "value": "USD"
+            }
+          ],
+          "expiresAt": 1792839689353,
+          "fields": [
+            {
+              "ref": "r8f0",
+              "label": "Opportunity name",
+              "type": "text",
+              "required": true,
+              "key": "opportunity_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r8f1",
+              "label": "Amount",
+              "type": "number",
+              "required": true,
+              "key": "amount",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r8f2",
+              "label": "Currency",
+              "type": "text",
+              "required": true,
+              "key": "currency",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 8,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r8f0",
+            "label": "Opportunity name",
+            "value": "Demo Test",
+            "actionId": "894bdd1d-57da-4738-a23a-97a469019962:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839689353
+          },
+          {
+            "type": "fill",
+            "ref": "r8f1",
+            "label": "Amount",
+            "value": "10000",
+            "actionId": "894bdd1d-57da-4738-a23a-97a469019962:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839689353
+          },
+          {
+            "type": "fill",
+            "ref": "r8f2",
+            "label": "Currency",
+            "value": "USD",
+            "actionId": "894bdd1d-57da-4738-a23a-97a469019962:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839689353
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "All requested effects for the current step have been successfully observed and verified. The Opportunity name has been set to 'Demo Test', the Amount to '10000', and the Currency to 'USD'.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "b2ba182e-89b1-4361-8860-0d9debdcc300",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "To navigate to the Opportunity form, you can click on the link labeled \"Opportunity\" in the navigation section of the page. This link is currently enabled and will take you to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "894bdd1d-57da-4738-a23a-97a469019962",
+                  "status": "consumed",
+                  "path": "/opportunity",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Opportunity name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Amount",
+                      "value": "10000",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Currency",
+                      "value": "USD",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 18,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "99cd029f-54e0-4553-a6a6-ffc0478f1a8b",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "fa3bb083-c4af-440a-9eed-7daf1af45470",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "All requested effects for the current step have been successfully observed and verified. The Opportunity name has been set to 'Demo Test', the Amount to '10000', and the Currency to 'USD'.",
+          "steps": [
+            {
+              "title": "Fill Customer form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Company name to 'Demo Test', Contact email to 'demo@example.com', and Region to 'Singapore'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "2a507f5e-6fb5-4049-ab3f-5abc1230c5d6",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form.",
+              "expected": "Opportunity form is displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "b2ba182e-89b1-4361-8860-0d9debdcc300",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "To navigate to the Opportunity form, you can click on the link labeled \"Opportunity\" in the navigation section of the page. This link is currently enabled and will take you to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Prepare Opportunity form with synthetic values",
+              "kind": "fill",
+              "instruction": "Set the Opportunity name to 'Demo Test', Amount to '10000', and Currency to 'USD'.",
+              "expected": "Observable success condition",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "894bdd1d-57da-4738-a23a-97a469019962",
+                  "status": "consumed",
+                  "path": "/opportunity",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Opportunity name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Amount",
+                      "value": "10000",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Currency",
+                      "value": "USD",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 18,
+          "createdAt": 1792839553220,
+          "expiresAt": 1792925953220
+        }
+      }
+    }
+  ]
+}

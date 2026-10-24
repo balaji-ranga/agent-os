@@ -1,0 +1,204 @@
+{
+  "at": "2026-10-24T10:48:13.179Z",
+  "results": [
+    {
+      "id": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "passed": false,
+      "error": "Request refused; reconnect or review configuration [COPILOT_CONTEXT_LIMIT]",
+      "screenshot": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP.png"
+    },
+    {
+      "id": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 160000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().getByRole('button', { name: 'Approve field changes', exact: true }) to be visible\u001b[22m\n",
+      "screenshot": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "405af191-9ab7-45e3-8bcd-f3a6a9b40007",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792838834388,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "not_provided"
+            }
+          ]
+        },
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "6010e4e7-44c2-40a4-8b73-d6b1d8ce0ed9"
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com",
+            "actionId": "405af191-9ab7-45e3-8bcd-f3a6a9b40007:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792838834388
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "405af191-9ab7-45e3-8bcd-f3a6a9b40007:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792838834388
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 422,
+      "body": {
+        "error": "The required page and task context exceeds the request limit. No model request or action was sent. Narrow the task or ask the website owner to split the selected workflow.",
+        "code": "COPILOT_CONTEXT_LIMIT"
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "ed839062-87dd-42ce-8797-ad1cfd0797c5",
+        "revision": 1,
+        "message": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+        "actions": [],
+        "expiresAt": 1792838852663,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "5817a169-7cb6-4fce-8457-8c3e1233f935"
+      }
+    }
+  ]
+}

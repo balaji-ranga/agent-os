@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-24T10:21:00.659Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "R05_VERIFIED_FILL_RECOVERS_AFTER_OBSERVATION_RESPONSE_LOST",
+      "status": "passed",
+      "screenshot": "R05_VERIFIED_FILL_RECOVERS_AFTER_OBSERVATION_RESPONSE_LOST.png"
+    },
+    {
+      "id": "C01_SELECT_ENABLES_DELAYED_DEPENDENT_FIELD_FRESH_REVIEW",
+      "status": "passed",
+      "screenshot": "C01_SELECT_ENABLES_DELAYED_DEPENDENT_FIELD_FRESH_REVIEW.png"
+    },
+    {
+      "id": "C02_RADIO_ENABLES_PASSPORT_AND_DISABLES_LOCAL_ID",
+      "status": "passed",
+      "screenshot": "C02_RADIO_ENABLES_PASSPORT_AND_DISABLES_LOCAL_ID.png"
+    },
+    {
+      "id": "C03_REVERSE_CHOICE_DOES_NOT_FILL_DISABLED_DEPENDENCY",
+      "status": "failed",
+      "error": "Expected values to be strictly equal:\n\n'SYN-129' !== ''\n"
+    }
+  ],
+  "errors": []
+}

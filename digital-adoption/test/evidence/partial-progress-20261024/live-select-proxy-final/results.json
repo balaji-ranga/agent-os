@@ -1,0 +1,266 @@
+{
+  "at": "2026-10-24T11:02:32.428Z",
+  "results": [
+    {
+      "id": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "passed": true,
+      "delayedDependencyVerified": true,
+      "paraphrasedFieldResolved": true,
+      "writes": 0,
+      "screenshot": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "ec14f381-b3a6-40b0-ab43-78dc9bdb845d",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I can fill Customer category: Business; Contact email: conditional@example.test. What should I enter for National identifier? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Customer category",
+            "value": "Business"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Contact email",
+            "value": "conditional@example.test"
+          }
+        ],
+        "expiresAt": 1792839852020,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f3",
+              "reason": "unsupported_value"
+            }
+          ]
+        },
+        "matchedWorkflows": [],
+        "messageId": "70c2110c-4ea6-44fe-8519-f6dd2168a6e7"
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Customer category",
+            "value": "Business",
+            "actionId": "ec14f381-b3a6-40b0-ab43-78dc9bdb845d:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839852020
+          },
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Contact email",
+            "value": "conditional@example.test",
+            "actionId": "ec14f381-b3a6-40b0-ab43-78dc9bdb845d:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839852020
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "4901d424-6b74-4fac-88f2-7ae2c7f6a81c",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I can fill Customer category: Business; Registration identifier: SYN-129; Contact email: conditional@example.test. What should I enter for National identifier? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f1",
+            "label": "Customer category",
+            "value": "Business"
+          },
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "value": "SYN-129"
+          },
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Contact email",
+            "value": "conditional@example.test"
+          }
+        ],
+        "expiresAt": 1792839871507,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "type": "text",
+            "required": false,
+            "key": "registration",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f3",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r3f4",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r3f4",
+              "reason": "not_provided"
+            }
+          ]
+        },
+        "matchedWorkflows": [],
+        "messageId": "fbdb416c-b737-4cc3-a079-7608649bfa5d"
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f1",
+            "label": "Customer category",
+            "value": "Business",
+            "actionId": "4901d424-6b74-4fac-88f2-7ae2c7f6a81c:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839871507
+          },
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "value": "SYN-129",
+            "actionId": "4901d424-6b74-4fac-88f2-7ae2c7f6a81c:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839871507
+          },
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Contact email",
+            "value": "conditional@example.test",
+            "actionId": "4901d424-6b74-4fac-88f2-7ae2c7f6a81c:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839871507
+          }
+        ]
+      }
+    }
+  ]
+}

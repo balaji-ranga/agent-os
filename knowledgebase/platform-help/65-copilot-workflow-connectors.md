@@ -104,3 +104,8 @@ Pairing is required for this visitor-to-visitor exchange; server workflow delive
 Choose **Plan a task** / **Goal plan** before sending a coordinated multi-website request. **Current page & task** prepares one current-page proposal; its review identifies this boundary and offers Plan complete task to preserve the full request in Goal plan. Selecting Plan a task can reuse the last request for review; it does not start or approve it automatically. Review completed work and remove already completed effects before starting a new plan.
 
 A dropped live connection invalidates pending private context and actions but retains the visible historical conversation. Reconnection never replays a fill or Save. An ordinary conversation is not ended merely because its idle pairing socket closes. Explicit End task, conversation reset and actual authorization expiry retain their separate privacy behavior.
+
+
+### Workflows tab or link button is missing
+
+The owner/admin must enable **workflow access** for the selected website registration. When it is disabled, the visitor's Workflows tab and **Link this copilot to my Flolah workflows** button are hidden. Peer pairing may still be enabled independently; pairing does not grant server workflow access. After an authorized configuration change, reconnect the website copilot to load current capabilities. The visitor redeems the link code from their own signed-in Flolah workflow connector and reuses its saved target group for subsequent runs.

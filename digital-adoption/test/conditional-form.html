@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Conditional customer verification</title>
+<style>body{font:16px system-ui;max-width:760px;margin:32px}label,fieldset{display:block;margin:18px 0}input,select,button{font:inherit;padding:9px}small{display:block;color:#586174}input:disabled{background:#eee}</style>
+<h1>Conditional customer verification</h1><p>Synthetic local fixture. Choosing a category or verification route enables its dependent input after a short host update. No records are saved here.</p>
+<a href="/customer" data-adoption-navigation="safe">Customer</a>
+<form id="conditional"><label>Contact email <input name="email" type="email"></label>
+<label>Customer category <select name="category" aria-describedby="category-help"><option>Individual</option><option>Business</option></select></label>
+<small id="category-help">Business enables Registration identifier. Individual disables it.</small>
+<label>Registration identifier <input name="registration" disabled aria-describedby="registration-help"></label><small id="registration-help">The business registration code for a Business customer.</small>
+<fieldset><legend>Verification route</legend><label><input type="radio" name="route" value="local" checked>Local</label><label><input type="radio" name="route" value="overseas">Overseas</label></fieldset>
+<label>National identifier <input name="national" aria-describedby="national-help"></label><small id="national-help">Available only for Local verification.</small>
+<label>Travel document number <input name="travel" disabled aria-describedby="travel-help"></label><small id="travel-help">Passport number; enabled only by Overseas verification.</small>
+</form><p role="status" id="host-status">Ready</p>
+<script type="module">
+const form=document.querySelector('form'),state=document.querySelector('#host-status');let categoryVersion=0,routeVersion=0;
+form.elements.category.addEventListener('change',()=>{const version=++categoryVersion;form.elements.registration.disabled=true;state.textContent='Updating category…';form.setAttribute('aria-busy','true');setTimeout(()=>{if(version!==categoryVersion)return;form.elements.registration.disabled=form.elements.category.value!=='Business';if(form.elements.registration.disabled)form.elements.registration.value='';form.removeAttribute('aria-busy');state.textContent='Category controls ready';},650);});
+form.addEventListener('change',event=>{if(event.target.name!=='route')return;const version=++routeVersion;form.elements.national.disabled=true;form.elements.travel.disabled=true;form.setAttribute('aria-busy','true');state.textContent='Updating verification…';setTimeout(()=>{if(version!==routeVersion)return;const overseas=form.elements.route.value==='overseas';form.elements.travel.disabled=!overseas;form.elements.national.disabled=overseas;if(overseas)form.elements.national.value='';else form.elements.travel.value='';form.removeAttribute('aria-busy');state.textContent='Verification controls ready';},650);});
+const config=await(await fetch('/demo-config.json')).json();const {mount}=await import(config.serviceUrl+'sdk.mjs');await mount(config);
+</script></html>

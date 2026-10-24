@@ -1,0 +1,3138 @@
+{
+  "at": "2026-10-24T12:48:07.777Z",
+  "results": [
+    {
+      "id": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "passed": true,
+      "availableFieldsApplied": 2,
+      "missingFieldResolved": true,
+      "writes": 0,
+      "screenshot": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP.png"
+    },
+    {
+      "id": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "passed": true,
+      "delayedDependencyVerified": true,
+      "paraphrasedFieldResolved": true,
+      "writes": 0,
+      "screenshot": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER.png"
+    },
+    {
+      "id": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "passed": true,
+      "radioDependencyVerified": true,
+      "disabledControlUntouched": true,
+      "screenshot": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS.png"
+    },
+    {
+      "id": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "passed": true,
+      "manualCustomerSave": 1,
+      "freshNavigationReview": true,
+      "completedBothForms": true,
+      "recordedOutcomesVisible": true,
+      "screenshot": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES.png"
+    },
+    {
+      "id": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "passed": true,
+      "complexControlsAdded": true,
+      "sampleCoreFieldsFilled": true,
+      "noContextRefusal": true,
+      "unprovidedLookupNotInvented": true,
+      "utilityControlsPreserved": true,
+      "writes": 0,
+      "proposedFields": [
+        "Shipping method",
+        "Include gift wrap",
+        "Company name",
+        "Contact email",
+        "Region",
+        "Delivery preference",
+        "Interests",
+        "Delivery date",
+        "Suggested city",
+        "Lookup scenario",
+        "Item 1 quantity",
+        "Select Item 1",
+        "Item 2 quantity",
+        "Select Item 2",
+        "Item 3 quantity",
+        "Select Item 3"
+      ],
+      "screenshot": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "82b65037-78d9-4a63-a974-030535b1ddaa",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792846031687,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "unsupported_value"
+            }
+          ]
+        },
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "ebd0e778-eda3-465f-96c4-4cdc8c7a0933"
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com",
+            "actionId": "82b65037-78d9-4a63-a974-030535b1ddaa:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846031687
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "82b65037-78d9-4a63-a974-030535b1ddaa:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846031687
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "eb4e50a3-4ed6-4be4-beab-1d23665726d3",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I can fill Company name: Orchid Labs. Only the supported requested changes are included in this review.\nReview these 1 proposed field change. Nothing has been changed yet.\nOther required fields outside this review: Contact email, Region. Their current values are preserved.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Company name",
+            "value": "Orchid Labs"
+          }
+        ],
+        "expiresAt": 1792846038660,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r3f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "ce7a88d2-ce9e-4cc9-a3be-c55e601a880e"
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Company name",
+            "value": "Orchid Labs",
+            "actionId": "eb4e50a3-4ed6-4be4-beab-1d23665726d3:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846038660
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "9046c196-19e6-417d-9165-4193a276abf4",
+        "revision": 1,
+        "intent": "edit",
+        "message": "Review these 2 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Customer category",
+            "value": "Business"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Contact email",
+            "value": "conditional@example.test"
+          }
+        ],
+        "expiresAt": 1792846049383,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "017fc02d-61fa-4d58-8550-c30c8da550e0"
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Customer category",
+            "value": "Business",
+            "actionId": "9046c196-19e6-417d-9165-4193a276abf4:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846049383
+          },
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Contact email",
+            "value": "conditional@example.test",
+            "actionId": "9046c196-19e6-417d-9165-4193a276abf4:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846049383
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "08e5dd87-935a-4888-a935-5785b5264d81",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I can fill Registration identifier: SYN-129. Only the supported requested changes are included in this review.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "value": "SYN-129"
+          }
+        ],
+        "expiresAt": 1792846059034,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "type": "text",
+            "required": false,
+            "key": "registration",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f3",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r3f4",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "74bbd586-c78a-4192-b680-9602713c57f0"
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "value": "SYN-129",
+            "actionId": "08e5dd87-935a-4888-a935-5785b5264d81:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846059034
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "dc072644-5d60-44a8-a146-1dc4297190b1",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I can fill Verification route: Overseas. Only the supported requested changes are included in this review.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Verification route",
+            "value": "Overseas"
+          }
+        ],
+        "expiresAt": 1792846068023,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Individual",
+              "Business"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Overseas",
+              "Local"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "1e35a04e-0df7-4c35-a017-73596e128f78"
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Verification route",
+            "value": "Overseas",
+            "actionId": "dc072644-5d60-44a8-a146-1dc4297190b1:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846068023
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "4727d1d1-3f07-4901-a3f1-d711b9bb95a8",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I will fill in the Verification route as 'Overseas' and enter the passport number 'SYN-P887'. The customer category will remain unchanged as requested. Here are the proposed changes for review:\nReview these 2 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Verification route",
+            "value": "Overseas"
+          },
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "value": "SYN-P887"
+          }
+        ],
+        "expiresAt": 1792846075688,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Individual",
+              "Business"
+            ]
+          },
+          {
+            "ref": "r3f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Overseas",
+              "Local"
+            ]
+          },
+          {
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "type": "text",
+            "required": false,
+            "key": "travel",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "f0d1d435-f406-4cda-96f8-464d25e04caf"
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Verification route",
+            "value": "Overseas",
+            "actionId": "4727d1d1-3f07-4901-a3f1-d711b9bb95a8:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846075688
+          },
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "value": "SYN-P887",
+            "actionId": "4727d1d1-3f07-4901-a3f1-d711b9bb95a8:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846075688
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "The revised plan outlines the steps to fill the Customer form with synthetic values and navigate to the Opportunity form for further filling. The filling will include the required fields with generated values, ensuring compliance with the synthetic-values-only constraint.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "The revised plan outlines the steps to fill the Customer form with synthetic values and navigate to the Opportunity form for further filling. The filling will include the required fields with generated values, ensuring compliance with the synthetic-values-only constraint.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434,
+          "pendingProposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd"
+        },
+        "proposal": {
+          "id": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+          "revision": 2,
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r2f0",
+              "label": "Company name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f1",
+              "label": "Contact email",
+              "value": "demo@example.com"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f2",
+              "label": "Region",
+              "value": "Singapore"
+            }
+          ],
+          "expiresAt": 1792846112433,
+          "fields": [
+            {
+              "ref": "r2f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 2,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r2f0",
+            "label": "Company name",
+            "value": "Demo Test",
+            "actionId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846112433
+          },
+          {
+            "type": "fill",
+            "ref": "r2f1",
+            "label": "Contact email",
+            "value": "demo@example.com",
+            "actionId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846112433
+          },
+          {
+            "type": "fill",
+            "ref": "r2f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846112433
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "All requested fields have been filled with the synthetic values: Company name set to 'Demo Test', Contact email set to 'demo@example.com', and Region set to 'Singapore'. The local state has been verified for all fields.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434,
+          "pendingProposalId": "e64e681d-80c5-4686-b58d-767a4fad6afb"
+        },
+        "proposal": {
+          "id": "e64e681d-80c5-4686-b58d-767a4fad6afb",
+          "revision": 5,
+          "message": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "ref": "r5n1",
+              "label": "Opportunity",
+              "path": "/opportunity",
+              "readOnlyApproved": true
+            }
+          ],
+          "expiresAt": 1792846119736,
+          "fields": []
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434,
+          "pendingProposalId": "e64e681d-80c5-4686-b58d-767a4fad6afb"
+        },
+        "pendingOutcome": {
+          "proposalId": "e64e681d-80c5-4686-b58d-767a4fad6afb",
+          "status": "pending",
+          "path": "/customer",
+          "responseMessage": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "label": "Opportunity",
+              "destination": "/opportunity",
+              "outcome": "not_dispatched"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434,
+          "pendingProposalId": "e64e681d-80c5-4686-b58d-767a4fad6afb"
+        },
+        "pendingOutcome": {
+          "proposalId": "e64e681d-80c5-4686-b58d-767a4fad6afb",
+          "status": "pending",
+          "path": "/customer",
+          "responseMessage": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "label": "Opportunity",
+              "destination": "/opportunity",
+              "outcome": "not_dispatched"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 2
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 12,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434,
+          "pendingProposalId": "e531bd8d-ac8a-4c71-8347-652e2810feb1"
+        },
+        "proposal": {
+          "id": "e531bd8d-ac8a-4c71-8347-652e2810feb1",
+          "revision": 6,
+          "message": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+          "actions": [
+            {
+              "type": "navigate",
+              "ref": "r6n1",
+              "label": "Opportunity",
+              "path": "/opportunity",
+              "readOnlyApproved": true
+            }
+          ],
+          "expiresAt": 1792846123982,
+          "fields": []
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r6n1",
+            "label": "Opportunity",
+            "path": "/opportunity",
+            "readOnlyApproved": true,
+            "actionId": "e531bd8d-ac8a-4c71-8347-652e2810feb1:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846123982
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "The browser observed navigation to /opportunity.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "e531bd8d-ac8a-4c71-8347-652e2810feb1",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 2,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 14,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "e531bd8d-ac8a-4c71-8347-652e2810feb1",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 2,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 16,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434,
+          "pendingProposalId": "83a3738f-5fd6-429d-9039-86675a728533"
+        },
+        "proposal": {
+          "id": "83a3738f-5fd6-429d-9039-86675a728533",
+          "revision": 8,
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r8f0",
+              "label": "Opportunity name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r8f1",
+              "label": "Amount",
+              "value": "10000"
+            },
+            {
+              "type": "fill",
+              "ref": "r8f2",
+              "label": "Currency",
+              "value": "USD"
+            }
+          ],
+          "expiresAt": 1792846126210,
+          "fields": [
+            {
+              "ref": "r8f0",
+              "label": "Opportunity name",
+              "type": "text",
+              "required": true,
+              "key": "opportunity_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r8f1",
+              "label": "Amount",
+              "type": "number",
+              "required": true,
+              "key": "amount",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r8f2",
+              "label": "Currency",
+              "type": "text",
+              "required": true,
+              "key": "currency",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 8,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r8f0",
+            "label": "Opportunity name",
+            "value": "Demo Test",
+            "actionId": "83a3738f-5fd6-429d-9039-86675a728533:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846126210
+          },
+          {
+            "type": "fill",
+            "ref": "r8f1",
+            "label": "Amount",
+            "value": "10000",
+            "actionId": "83a3738f-5fd6-429d-9039-86675a728533:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846126210
+          },
+          {
+            "type": "fill",
+            "ref": "r8f2",
+            "label": "Currency",
+            "value": "USD",
+            "actionId": "83a3738f-5fd6-429d-9039-86675a728533:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846126210
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "All requested fields have been filled with the synthetic values: Opportunity name set to 'Demo Test', Amount set to '10000', and Currency set to 'USD'. The local state has been verified for these changes.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "e531bd8d-ac8a-4c71-8347-652e2810feb1",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "83a3738f-5fd6-429d-9039-86675a728533",
+                  "status": "consumed",
+                  "path": "/opportunity",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Opportunity name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Amount",
+                      "value": "10000",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Currency",
+                      "value": "USD",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 18,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "a3f5b861-e78d-4452-8b44-c55c4e1ac4af",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "8a9b3da9-4fe3-4d74-96d0-3262b6ac44e9",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "All requested fields have been filled with the synthetic values: Opportunity name set to 'Demo Test', Amount set to '10000', and Currency set to 'USD'. The local state has been verified for these changes.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore.",
+              "expected": "Fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "f0d446f3-1602-4a4b-b8ec-fbc25662bbbd",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link.",
+              "expected": "Opportunity form displayed.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "e531bd8d-ac8a-4c71-8347-652e2810feb1",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Navigating to the Opportunity form.\nI can open Opportunity, then continue your request on that screen.",
+                  "actions": [
+                    {
+                      "type": "navigate",
+                      "label": "Opportunity",
+                      "destination": "/opportunity",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2
+            },
+            {
+              "title": "Fill Opportunity form",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD.",
+              "expected": "Opportunity fields filled with synthetic values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "83a3738f-5fd6-429d-9039-86675a728533",
+                  "status": "consumed",
+                  "path": "/opportunity",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Opportunity name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Amount",
+                      "value": "10000",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Currency",
+                      "value": "USD",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 3,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 18,
+          "createdAt": 1792845990434,
+          "expiresAt": 1792932390434
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "b36c512c-3dfa-46b8-a8a7-ae56f80de8c9",
+        "revision": 1,
+        "intent": "plan",
+        "message": "Preparing a reviewable task plan for your complete request.",
+        "actions": [],
+        "expiresAt": 1792846152567,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f5",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form",
+            "choices": [
+              "Home delivery",
+              "Store pickup"
+            ]
+          },
+          {
+            "ref": "r1f6",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form",
+            "choices": [
+              "Analytics",
+              "Inventory",
+              "Support"
+            ]
+          },
+          {
+            "ref": "r1f7",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f8",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f9",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form",
+            "choices": [
+              "Normal",
+              "No matches",
+              "Lookup error",
+              "Duplicate labels"
+            ]
+          },
+          {
+            "ref": "r1f10",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f11",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f12",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_1_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f13",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f14",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_2_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f15",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f16",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_3_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f17",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "637a5f17-d966-48f5-be1e-1cd88eeed3de"
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "e0f68498-1d0a-4767-a275-d30f08b54c33",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "43761e02-e9b4-47a5-8109-251abd25d879",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "The plan outlines the steps to fill the Customer form with sample values without saving. It includes filling in all required fields with synthetic data where necessary.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Fill the Customer form with the following values: Shipping method: Standard, Include gift wrap: true, Company name: Demo Test, Contact email: demo@example.com, Region: Singapore, Delivery preference: Home delivery, Interests: Analytics, Delivery date: 2023-10-01, Suggested city: Singapore, Lookup scenario: Normal, Account search: , Table filter: , Item 1 quantity: 1, Select Item 1: true, Item 2 quantity: 1, Select Item 2: true, Item 3 quantity: 1, Select Item 3: true.",
+              "expected": "All fields in the Customer form are filled with the specified sample values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792846050361,
+          "expiresAt": 1792932450361
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "e0f68498-1d0a-4767-a275-d30f08b54c33",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "43761e02-e9b4-47a5-8109-251abd25d879",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "The plan outlines the steps to fill the Customer form with sample values without saving. It includes filling in all required fields with synthetic data where necessary.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Fill the Customer form with the following values: Shipping method: Standard, Include gift wrap: true, Company name: Demo Test, Contact email: demo@example.com, Region: Singapore, Delivery preference: Home delivery, Interests: Analytics, Delivery date: 2023-10-01, Suggested city: Singapore, Lookup scenario: Normal, Account search: , Table filter: , Item 1 quantity: 1, Select Item 1: true, Item 2 quantity: 1, Select Item 2: true, Item 3 quantity: 1, Select Item 3: true.",
+              "expected": "All fields in the Customer form are filled with the specified sample values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792846050361,
+          "expiresAt": 1792932450361
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "e0f68498-1d0a-4767-a275-d30f08b54c33",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "43761e02-e9b4-47a5-8109-251abd25d879",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "Filling the Customer form with the specified sample values. Here are the proposed values for the fields: \n- Shipping method: Standard\n- Include gift wrap: true\n- Company name: Demo Test\n- Contact email: demo@example.com\n- Region: Singapore\n- Delivery preference: Home delivery\n- Interests: Analytics\n- Delivery date: 2023-10-01\n- Suggested city: Singapore\n- Lookup scenario: Normal\n- Account search: (leave unselected)\n- Table filter: (leave empty)\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Fill the Customer form with the following values: Shipping method: Standard, Include gift wrap: true, Company name: Demo Test, Contact email: demo@example.com, Region: Singapore, Delivery preference: Home delivery, Interests: Analytics, Delivery date: 2023-10-01, Suggested city: Singapore, Lookup scenario: Normal, Account search: , Table filter: , Item 1 quantity: 1, Select Item 1: true, Item 2 quantity: 1, Select Item 2: true, Item 3 quantity: 1, Select Item 3: true.",
+              "expected": "All fields in the Customer form are filled with the specified sample values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792846050361,
+          "expiresAt": 1792932450361,
+          "pendingProposalId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c"
+        },
+        "proposal": {
+          "id": "538e2df5-112c-4f0e-b7e6-656738f9ad0c",
+          "revision": 3,
+          "message": "Filling the Customer form with the specified sample values. Here are the proposed values for the fields: \n- Shipping method: Standard\n- Include gift wrap: true\n- Company name: Demo Test\n- Contact email: demo@example.com\n- Region: Singapore\n- Delivery preference: Home delivery\n- Interests: Analytics\n- Delivery date: 2023-10-01\n- Suggested city: Singapore\n- Lookup scenario: Normal\n- Account search: (leave unselected)\n- Table filter: (leave empty)\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f0",
+              "label": "Shipping method",
+              "value": "Standard"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f1",
+              "label": "Include gift wrap",
+              "value": "true",
+              "displayValue": "Selected"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f2",
+              "label": "Company name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f3",
+              "label": "Contact email",
+              "value": "demo@example.com"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f4",
+              "label": "Region",
+              "value": "Singapore"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f5",
+              "label": "Delivery preference",
+              "value": "Home delivery"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f6",
+              "label": "Interests",
+              "value": "Analytics"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f7",
+              "label": "Delivery date",
+              "value": "2023-10-01"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f8",
+              "label": "Suggested city",
+              "value": "Singapore"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f9",
+              "label": "Lookup scenario",
+              "value": "Normal"
+            }
+          ],
+          "expiresAt": 1792846182012,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Shipping method",
+              "type": "select-one",
+              "required": false,
+              "key": "shipping_method",
+              "form": "demo-form",
+              "choices": [
+                "Standard",
+                "Choose",
+                "Express"
+              ]
+            },
+            {
+              "ref": "r3f1",
+              "label": "Include gift wrap",
+              "type": "checkbox",
+              "required": false,
+              "key": "gift_wrap",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f2",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f3",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f4",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f5",
+              "label": "Delivery preference",
+              "type": "radio",
+              "required": false,
+              "key": "delivery_preference",
+              "form": "demo-form",
+              "choices": [
+                "Home delivery",
+                "Store pickup"
+              ]
+            },
+            {
+              "ref": "r3f6",
+              "label": "Interests",
+              "type": "select-multiple",
+              "required": false,
+              "key": "interests",
+              "form": "demo-form",
+              "choices": [
+                "Analytics",
+                "Inventory",
+                "Support"
+              ]
+            },
+            {
+              "ref": "r3f7",
+              "label": "Delivery date",
+              "type": "date",
+              "required": false,
+              "key": "delivery_date",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f8",
+              "label": "Suggested city",
+              "type": "text",
+              "required": false,
+              "key": "suggested_city",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f9",
+              "label": "Lookup scenario",
+              "type": "select-one",
+              "required": false,
+              "key": "lookup-mode",
+              "form": "demo-form",
+              "choices": [
+                "Normal",
+                "No matches",
+                "Lookup error",
+                "Duplicate labels"
+              ]
+            },
+            {
+              "ref": "r3f10",
+              "label": "Account search",
+              "type": "combobox",
+              "required": false,
+              "key": "account_search",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f11",
+              "label": "Table filter",
+              "type": "text",
+              "required": false,
+              "key": "table-filter",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f12",
+              "label": "Item 1 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_1_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f13",
+              "label": "Select Item 1",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_1_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f14",
+              "label": "Item 2 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_2_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f15",
+              "label": "Select Item 2",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_2_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f16",
+              "label": "Item 3 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_3_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f17",
+              "label": "Select Item 3",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_3_selected",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Shipping method",
+            "value": "Standard",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f1",
+            "label": "Include gift wrap",
+            "value": "true",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Company name",
+            "value": "Demo Test",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Contact email",
+            "value": "demo@example.com",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:3",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f4",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:4",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f5",
+            "label": "Delivery preference",
+            "value": "Home delivery",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:5",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f6",
+            "label": "Interests",
+            "value": "Analytics",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:6",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f7",
+            "label": "Delivery date",
+            "value": "2023-10-01",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:7",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f8",
+            "label": "Suggested city",
+            "value": "Singapore",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:8",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          },
+          {
+            "type": "fill",
+            "ref": "r3f9",
+            "label": "Lookup scenario",
+            "value": "Normal",
+            "actionId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c:9",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846182012
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "e0f68498-1d0a-4767-a275-d30f08b54c33",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "43761e02-e9b4-47a5-8109-251abd25d879",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "Ten fields in the Customer form have been filled and verified: Shipping method (Standard), Include gift wrap (true), Company name (Demo Test), Contact email (demo@example.com), Region (Singapore), Delivery preference (Home delivery), Interests (Analytics), Delivery date (2023-10-01), Suggested city (Singapore), and Lookup scenario (Normal). However, the line-item fields remain unfilled: Item 1 quantity (1) and Select Item 1 (true), Item 2 quantity (1) and Select Item 2 (true), Item 3 quantity (1) and Select Item 3 (true). The Account search and Table filter fields were requested to be left unselected/empty.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Fill the Customer form with the following values: Shipping method: Standard, Include gift wrap: true, Company name: Demo Test, Contact email: demo@example.com, Region: Singapore, Delivery preference: Home delivery, Interests: Analytics, Delivery date: 2023-10-01, Suggested city: Singapore, Lookup scenario: Normal, Account search: , Table filter: , Item 1 quantity: 1, Select Item 1: true, Item 2 quantity: 1, Select Item 2: true, Item 3 quantity: 1, Select Item 3: true.",
+              "expected": "All fields in the Customer form are filled with the specified sample values.",
+              "status": "pending",
+              "effects": [
+                {
+                  "proposalId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Filling the Customer form with the specified sample values. Here are the proposed values for the fields: \n- Shipping method: Standard\n- Include gift wrap: true\n- Company name: Demo Test\n- Contact email: demo@example.com\n- Region: Singapore\n- Delivery preference: Home delivery\n- Interests: Analytics\n- Delivery date: 2023-10-01\n- Suggested city: Singapore\n- Lookup scenario: Normal\n- Account search: (leave unselected)\n- Table filter: (leave empty)\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Shipping method",
+                      "value": "Standard",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Include gift wrap",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery preference",
+                      "value": "Home delivery",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Interests",
+                      "value": "Analytics",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery date",
+                      "value": "2023-10-01",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Suggested city",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Lookup scenario",
+                      "value": "Normal",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1,
+              "remainingInstruction": "Set Item 1 quantity to 1 and Select Item 1 to true; set Item 2 quantity to 1 and Select Item 2 to true; set Item 3 quantity to 1 and Select Item 3 to true."
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792846050361,
+          "expiresAt": 1792932450361
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "e0f68498-1d0a-4767-a275-d30f08b54c33",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "43761e02-e9b4-47a5-8109-251abd25d879",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "Filling the Customer form with the specified sample values for the items. Here are the proposed values for the fields:\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 6 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Fill the Customer form with the following values: Shipping method: Standard, Include gift wrap: true, Company name: Demo Test, Contact email: demo@example.com, Region: Singapore, Delivery preference: Home delivery, Interests: Analytics, Delivery date: 2023-10-01, Suggested city: Singapore, Lookup scenario: Normal, Account search: , Table filter: , Item 1 quantity: 1, Select Item 1: true, Item 2 quantity: 1, Select Item 2: true, Item 3 quantity: 1, Select Item 3: true.",
+              "expected": "All fields in the Customer form are filled with the specified sample values.",
+              "status": "pending",
+              "effects": [
+                {
+                  "proposalId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Filling the Customer form with the specified sample values. Here are the proposed values for the fields: \n- Shipping method: Standard\n- Include gift wrap: true\n- Company name: Demo Test\n- Contact email: demo@example.com\n- Region: Singapore\n- Delivery preference: Home delivery\n- Interests: Analytics\n- Delivery date: 2023-10-01\n- Suggested city: Singapore\n- Lookup scenario: Normal\n- Account search: (leave unselected)\n- Table filter: (leave empty)\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Shipping method",
+                      "value": "Standard",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Include gift wrap",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery preference",
+                      "value": "Home delivery",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Interests",
+                      "value": "Analytics",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery date",
+                      "value": "2023-10-01",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Suggested city",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Lookup scenario",
+                      "value": "Normal",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2,
+              "remainingInstruction": "Set Item 1 quantity to 1 and Select Item 1 to true; set Item 2 quantity to 1 and Select Item 2 to true; set Item 3 quantity to 1 and Select Item 3 to true."
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792846050361,
+          "expiresAt": 1792932450361,
+          "pendingProposalId": "f7ca0b00-3626-430d-ae19-208b690809d7"
+        },
+        "proposal": {
+          "id": "f7ca0b00-3626-430d-ae19-208b690809d7",
+          "revision": 6,
+          "message": "Filling the Customer form with the specified sample values for the items. Here are the proposed values for the fields:\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 6 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r6f12",
+              "label": "Item 1 quantity",
+              "value": "1"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f13",
+              "label": "Select Item 1",
+              "value": "true",
+              "displayValue": "Selected"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f14",
+              "label": "Item 2 quantity",
+              "value": "1"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f15",
+              "label": "Select Item 2",
+              "value": "true",
+              "displayValue": "Selected"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f16",
+              "label": "Item 3 quantity",
+              "value": "1"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f17",
+              "label": "Select Item 3",
+              "value": "true",
+              "displayValue": "Selected"
+            }
+          ],
+          "expiresAt": 1792846201055,
+          "fields": [
+            {
+              "ref": "r6f12",
+              "label": "Item 1 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_1_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f13",
+              "label": "Select Item 1",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_1_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f14",
+              "label": "Item 2 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_2_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f15",
+              "label": "Select Item 2",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_2_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f16",
+              "label": "Item 3 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_3_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f17",
+              "label": "Select Item 3",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_3_selected",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r6f12",
+            "label": "Item 1 quantity",
+            "value": "1",
+            "actionId": "f7ca0b00-3626-430d-ae19-208b690809d7:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846201055
+          },
+          {
+            "type": "fill",
+            "ref": "r6f13",
+            "label": "Select Item 1",
+            "value": "true",
+            "actionId": "f7ca0b00-3626-430d-ae19-208b690809d7:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846201055
+          },
+          {
+            "type": "fill",
+            "ref": "r6f14",
+            "label": "Item 2 quantity",
+            "value": "1",
+            "actionId": "f7ca0b00-3626-430d-ae19-208b690809d7:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846201055
+          },
+          {
+            "type": "fill",
+            "ref": "r6f15",
+            "label": "Select Item 2",
+            "value": "true",
+            "actionId": "f7ca0b00-3626-430d-ae19-208b690809d7:3",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846201055
+          },
+          {
+            "type": "fill",
+            "ref": "r6f16",
+            "label": "Item 3 quantity",
+            "value": "1",
+            "actionId": "f7ca0b00-3626-430d-ae19-208b690809d7:4",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846201055
+          },
+          {
+            "type": "fill",
+            "ref": "r6f17",
+            "label": "Select Item 3",
+            "value": "true",
+            "actionId": "f7ca0b00-3626-430d-ae19-208b690809d7:5",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792846201055
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "e0f68498-1d0a-4767-a275-d30f08b54c33",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "43761e02-e9b4-47a5-8109-251abd25d879",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "All requested fields in the Customer form have been filled with the specified sample values, and the local state has been verified for each field. The current step is complete.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Fill the Customer form with the following values: Shipping method: Standard, Include gift wrap: true, Company name: Demo Test, Contact email: demo@example.com, Region: Singapore, Delivery preference: Home delivery, Interests: Analytics, Delivery date: 2023-10-01, Suggested city: Singapore, Lookup scenario: Normal, Account search: , Table filter: , Item 1 quantity: 1, Select Item 1: true, Item 2 quantity: 1, Select Item 2: true, Item 3 quantity: 1, Select Item 3: true.",
+              "expected": "All fields in the Customer form are filled with the specified sample values.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "538e2df5-112c-4f0e-b7e6-656738f9ad0c",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Filling the Customer form with the specified sample values. Here are the proposed values for the fields: \n- Shipping method: Standard\n- Include gift wrap: true\n- Company name: Demo Test\n- Contact email: demo@example.com\n- Region: Singapore\n- Delivery preference: Home delivery\n- Interests: Analytics\n- Delivery date: 2023-10-01\n- Suggested city: Singapore\n- Lookup scenario: Normal\n- Account search: (leave unselected)\n- Table filter: (leave empty)\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Shipping method",
+                      "value": "Standard",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Include gift wrap",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery preference",
+                      "value": "Home delivery",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Interests",
+                      "value": "Analytics",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery date",
+                      "value": "2023-10-01",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Suggested city",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Lookup scenario",
+                      "value": "Normal",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                },
+                {
+                  "proposalId": "f7ca0b00-3626-430d-ae19-208b690809d7",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Filling the Customer form with the specified sample values for the items. Here are the proposed values for the fields:\n- Item 1 quantity: 1\n- Select Item 1: true\n- Item 2 quantity: 1\n- Select Item 2: true\n- Item 3 quantity: 1\n- Select Item 3: true\n\nProceeding to fill the form with these values.\nReview these 6 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Item 1 quantity",
+                      "value": "1",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Select Item 1",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Item 2 quantity",
+                      "value": "1",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Select Item 2",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Item 3 quantity",
+                      "value": "1",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Select Item 3",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2,
+              "remainingInstruction": "Set Item 1 quantity to 1 and Select Item 1 to true; set Item 2 quantity to 1 and Select Item 2 to true; set Item 3 quantity to 1 and Select Item 3 to true."
+            }
+          ],
+          "current": 1,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792846050361,
+          "expiresAt": 1792932450361
+        }
+      }
+    }
+  ]
+}

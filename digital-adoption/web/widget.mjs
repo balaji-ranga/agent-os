@@ -154,7 +154,7 @@ async function prepare(text,generation,depth=0,repair=0){
     let proposal=await call('plan',{ text,replyTo:depth===0?replies.guide:null,mode:assistanceMode });
     if(generation!==task)return;renderExecution({stage:'awaiting_review'});
     if(proposal.intent==='plan'){if(!goalPlanningAvailable)throw new Error('This request needs a multi-step task, which is not configured. No action was applied.');workspace?.setMode('goal');await goalUI.start(text);return;}
-    show(mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})?'Executing the requested action automatically.':proposal.message,'guide','assistant',proposal.messageId);replies.guide=null;replyHints.guide.hidden=true;
+    show(mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})?'Executing the requested action automatically.':proposal.message,'guide','assistant',proposal.messageId);if(proposal.clarification&&mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode}))show(proposal.message,'guide','assistant',proposal.messageId);replies.guide=null;replyHints.guide.hidden=true;
     status.textContent=proposal.actions.length?'Current-page review only. For a multi-step or cross-website task, choose Plan complete task.':'';
     if(goalPlanningAvailable){
       const scope=document.createElement('p');scope.id='page-task-scope';scope.textContent='This review acts on this page only. It does not send instructions to another copilot.';review.append(scope);
@@ -174,7 +174,7 @@ async function prepare(text,generation,depth=0,repair=0){
         try {
           if(generation!==task)return;
           const result=await call('approve',{proposalId:proposal.id,automatic});if(generation!==task)return;
-          if(automatic)show(automaticOutcomeMessage(proposal.actions,result.results),'guide','assistant');
+          if(automatic)show(automaticOutcomeMessage(proposal.actions,result.results)+(proposal.clarification?' Still needed: '+proposal.clarification.missingFields.map(item=>proposal.fields.find(f=>f.ref===item.ref)?.label).join(', ')+'.':''),'guide','assistant');
           review.replaceChildren();
           if(result.results.every(r=>r.highlighted)){remainingGuidance(result,generation);return;}
           if(result.results.some(r=>r.navigated&&r.verified)){status.textContent='Navigation verified. Continuing your original task…';await prepare(text,generation,depth+1);}
@@ -182,7 +182,7 @@ async function prepare(text,generation,depth=0,repair=0){
           else if(result.observeAgain&&repair<2){status.textContent='Search text verified. Inspecting the loaded results before preparing the next review…';await prepare(text,generation,depth,repair+1);}
           else if(result.observeAgain){document.querySelector('#save-review').hidden=true;status.textContent='Search text verified. Result selection is still unresolved; clarify the intended result before continuing.';}
           else if(result.followup?.length&&repair<2){status.textContent='Dependent controls are now available. Preparing a fresh review for '+result.followup.join(', ');await prepare(text,generation,depth,repair+1);}
-          else {document.querySelector('#save-review').hidden=assistanceMode==='guide'||!result.results.every(r=>r.valueObserved);status.textContent=result.results.every(r=>r.highlighted)?'Guidance shown. No field values were changed.':result.results.every(r=>r.valueObserved)?`${result.results.length} ${automatic?'automatically applied':'approved'} field values verified in the form. Save was not clicked.`:'A field did not retain its value. Check the form; no retry was attempted.';}
+          else {document.querySelector('#save-review').hidden=!!proposal.clarification||assistanceMode==='guide'||!result.results.every(r=>r.valueObserved);status.textContent=result.results.every(r=>r.highlighted)?'Guidance shown. No field values were changed.':result.results.every(r=>r.valueObserved)?`${result.results.length} ${automatic?'automatically applied':'approved'} field values verified in the form. Save was not clicked.`:'A field did not retain its value. Check the form; no retry was attempted.';}
         }
         catch(error){if(generation===task){showError(error);if(error.outcome!=='unknown'&&repair<2&&['SCREEN_CHANGED','FIELD_VALIDATION','CONTROL_UNAVAILABLE','HOST_REJECTED'].includes(error.code)){const retry=document.createElement('button');retry.type='button';retry.textContent='Review remaining request';retry.onclick=()=>prepare(text,++task,0,repair+1);review.append(retry);}}}finally{if(generation===task)document.querySelector('#stop').hidden=true;}
       };approve.addEventListener('click',()=>applyChanges(false),{once:true});if(mayApplyAutomatically({approvalRequired,actions:proposal.actions,mode:assistanceMode})){approve.remove();reject.remove();await applyChanges(true);}

@@ -566,3 +566,16 @@ Goal-plan releases add `src/goal-contract.mjs` and the gateway purpose allowlist
 After private goal-bound proposals exist, repair forward; do not activate a legacy coordinator that ignores their live private-task bindings. New goal code uses the existing action fences and storage, without a destructive schema migration.
 
 The access-binding upgrade cancels older unbound preview plans and tags their cached proposals as revoked. It preserves all prior host effects and action-attempt records. Start a fresh reviewed plan after upgrading such a preview; no legacy action is replayed.
+
+
+### Configurable model input budget
+
+`ADOPTION_MODEL_CONTEXT_BYTES` is a deployment setting shared by coordinator and model gateway. Default: **60000 bytes**; allowed range: **16000–128000**. Set it in the deployment environment and recreate both services together. The supplied Compose file applies the same value to both. Gateway/observation admission permits an additional 4096 bytes for transport overhead; the checker uses the same context setting. This is not the Admin checker output-token budget, which is independent and unchanged.
+
+The planner removes exact duplicate live-reference metadata and duplicate chat turns before sending a request, preserving their canonical copies, current facts and explicit replies. Advisory excerpts are trimmed under pressure. Irreducible oversized requests fail before inference with content-free section-size diagnostics. Gateway telemetry records request bytes and the configured budget, alongside existing latency/token measurements; it does not log prompts or values. Raising this ceiling permits larger complex forms; it does not force every request to use it, raise retries or weaken permissions. Requests are made for user tasks, not continuous full-DOM polling. At the upper bound, input cost still requires workload measurement; this update is not a new memory or 25-user capacity certification.
+
+
+The internal model reverse proxy has a separate hard ceiling of **132096 bytes** (maximum allowed context plus 4096 transport overhead); it does not override the gateway's lower configured admission. `install-model-context-limit.py` changes only that exact location, keeps a rollback copy, validates Nginx and reloads it. Scoped installations invoke this alignment automatically. The initial setup template and updater use the same edge ceiling. A proxy 413 can otherwise appear as model unavailability even when the coordinator's new limit is correct.
+
+
+For an additive scoped release, export `ADOPTION_MODEL_CONTEXT_BYTES=96000` before invoking `install-immediate-phase.py` to apply that value to both service overrides. Omitting it preserves the coordinator’s captured override and uses the image default where none was configured. The resolved value is applied to both services. A coordinator-only deployment refuses a budget mismatch before changing services; paired installation verifies both running services report the same budget. Larger form edits retain the ten-actions-per-review boundary: Goal plan uses multiple verified batches rather than requesting an impossible oversized action array. Each batch describes only its own proposed changes; observed completed fields are excluded from subsequent batches.

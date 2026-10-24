@@ -8,11 +8,11 @@ export function requestedField(instruction,label,labels=[]){
  for(const longer of [...new Set(labels.map(normalize))].sort((a,b)=>b.length-a.length))if(longer!==name&&` ${longer} `.includes(` ${name} `))text=text.replaceAll(` ${longer} `,' ');
  return text.includes(` ${name} `);
 }
-export function newlyAvailableFields(before,after,instruction=''){
+export function newlyAvailableFields(before,after,instruction='',{semantic=false}={}){
  const labels=[...before.fields,...after.fields].map(f=>f.label);
  const choices=field=>JSON.stringify(field.choices&&[...new Set(field.choices)].sort());
  return after.fields.filter(field=>{
-  if(!requestedField(instruction,field.label,labels))return false;
+  if(!semantic&&!requestedField(instruction,field.label,labels))return false;
   const matches=before.fields.filter(old=>old.key===field.key&&old.label===field.label&&old.form===field.form&&old.type===field.type);
   return matches.length===0||matches.length===1&&choices(matches[0])!==choices(field);
  });

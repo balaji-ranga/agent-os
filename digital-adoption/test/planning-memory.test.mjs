@@ -49,7 +49,7 @@ test('fresh HTTP session supplies persisted observations and published lessons t
 
 test('planner byte budget trims advisory memory without dropping current task, live refs or selected workflow',()=>{
  const task='任务'.repeat(1000),workflow={id:'selected',steps:[{action:'fill',field:'inventory',parameter:'inventory'}]},context={task,observed:{fields:[{ref:'r1f0',label:'Inventory',type:'text'}]},recipeGuidance:{matches:[workflow]},siteGuidance:{observations:Array(5).fill({fields:['保存'.repeat(1500)]}),ownerDrafts:[]}};
- const body={messages:[{role:'system',content:'Policy'},{role:'assistant',content:'old '.repeat(3000)},{role:'user',content:JSON.stringify(context)}]},encoded=encodePlannerRequest(body),actual=JSON.parse(JSON.parse(encoded).messages.at(-1).content);
+ const body={messages:[{role:'system',content:'Policy'},{role:'assistant',content:'old '.repeat(3000)},{role:'user',content:JSON.stringify(context)}]},encoded=encodePlannerRequest(body,{maxBytes:30000}),actual=JSON.parse(JSON.parse(encoded).messages.at(-1).content);
  assert.ok(Buffer.byteLength(encoded)<=30000);assert.equal(actual.task,task);assert.equal(actual.observed.fields[0].ref,'r1f0');assert.deepEqual(actual.recipeGuidance.matches[0],workflow);assert.equal(actual.siteGuidance.omittedForRequestBudget,true);
- assert.throws(()=>encodePlannerRequest({messages:[{role:'system',content:'Policy'},{role:'user',content:JSON.stringify({task:'x'.repeat(40000)})}]}));
+ assert.throws(()=>encodePlannerRequest({messages:[{role:'system',content:'Policy'},{role:'user',content:JSON.stringify({task:'x'.repeat(40000)})}]},{maxBytes:30000}));
 });

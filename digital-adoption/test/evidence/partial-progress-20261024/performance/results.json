@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-24T12:20:17.557Z",
+  "passed": true,
+  "scope": "One synthetic complex local form; observation only, not full-browser memory or load capacity certification",
+  "iterations": 40,
+  "meanMs": 7.962500000745058,
+  "p95Ms": 12.299999982118607,
+  "maxMs": 15.199999988079071,
+  "maxSnapshotBytes": 18951,
+  "retainedBytes": 83188,
+  "observationHttpRequests": 0
+}

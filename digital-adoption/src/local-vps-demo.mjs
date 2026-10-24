@@ -7,6 +7,7 @@ const recordsFile=process.env.ADOPTION_DEMO_RECORDS||new URL('../.local/local-ho
 const records=existsSync(recordsFile)?JSON.parse(readFileSync(recordsFile,'utf8')):[];
 createServer(async(req,res)=>{
  res.setHeader('Cache-Control','no-store');
+ if(req.method==='GET'&&req.url==='/conditional'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(readFileSync(new URL('../test/conditional-form.html',import.meta.url)));return;}
  if(req.method==='GET'&&req.url==='/uat-evidence'){res.writeHead(302,{Location:'/uat-evidence/index.html'});res.end();return;}
  if(req.method==='GET'&&(req.url==='/uat-evidence/'||/^\/uat-evidence\/[A-Za-z0-9_.-]+\.(html|png|json|csv|tap|log)$/.test(req.url))){try{const name=req.url==='/uat-evidence/'?'index.html':req.url.split('/').at(-1);res.setHeader('Content-Type',name.endsWith('.png')?'image/png':name.endsWith('.json')?'application/json':name.endsWith('.csv')?'text/csv':(name.endsWith('.tap')||name.endsWith('.log'))?'text/plain':'text/html; charset=utf-8');res.end(readFileSync(new URL('../test/evidence/feedback-20261018/'+name,import.meta.url)));}catch{res.writeHead(404);res.end('Evidence has not been generated.');}return;}
  if(req.method==='GET'&&/^\/fixtures\/(react|angular)\.bundle\.mjs$/.test(req.url)){try{res.setHeader('Content-Type','text/javascript');res.end(readFileSync(new URL('../.local/frameworks/'+req.url.split('/').at(-1),import.meta.url)));}catch{res.writeHead(404);res.end('Build test/frameworks before using framework fixtures.');}return;}

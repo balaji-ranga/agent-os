@@ -49,7 +49,7 @@ export async function mount(options) {
   const recorder=createRecorder(document);
   let recordedSteps=[];
   let recordingId,recordingTitle;
-  let currentSnapshot = null,currentTaskText='',lastOutcome,currentGoalProposal=false,incomingPeerRequest;
+  let currentSnapshot = null,currentTaskText='',lastOutcome,currentGoalProposal=false,incomingPeerRequest,currentReview;
   const hostContext=()=>{const visible=e=>!e.closest('[data-adoption-widget],[data-adoption-private]')&&e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden',modal=[...document.querySelectorAll('[role=dialog][aria-modal=true],dialog[open]')].find(visible),root=modal||document.querySelector('main')||document,heading=[...root.querySelectorAll('h1,[role=heading][aria-level="1"]')].find(visible)||[...root.querySelectorAll('h2,[role=heading]')].find(visible);return {title:(heading?.textContent.trim()||[...document.forms].find(visible)?.getAttribute('aria-label')||document.title||location.pathname).slice(0,120),path:location.pathname,origin:location.origin};};
   let historyKey;const historyStorageKey=`flolah-copilot-history:${service.href}`;
   try{historyKey=localStorage.getItem(historyStorageKey);}catch{}
@@ -224,7 +224,7 @@ export async function mount(options) {
         else result=await request('/v1/goals/'+operation,goalInput);
         if(generation!==taskGeneration)throw Object.assign(new Error('Goal request stopped; response discarded'),{code:'TASK_CANCELLED'});
         if(result.proposal){currentGoalProposal=true;currentTaskText=result.goal.steps[result.goal.current].remainingInstruction||result.goal.steps[result.goal.current].instruction;result.proposal={...result.proposal,localReview:inspector.reviewValues(result.proposal.actions,result.proposal.revision)};}
-        else {currentSnapshot=null;currentGoalProposal=false;}
+        else if(operation!=='status') {currentSnapshot=null;currentGoalProposal=false;currentReview=null;}
       }
       else if (message.type === 'plan') {
         const generation=proposalGeneration=++taskGeneration;
@@ -243,7 +243,10 @@ export async function mount(options) {
         if(generation!==taskGeneration)throw new Error('Save review stopped');
       }
       else if (message.type === 'approve') {
-        if (!currentSnapshot) throw new Error('Inspect and review again');
+        if (!currentSnapshot) throw Object.assign(new Error('This review is no longer active. Resume the goal with a fresh review; completed changes will not be repeated.'),{code:'REVIEW_REFRESH_REQUIRED'});
+        // Check draft protection before consuming the server approval or reserving
+        // an action attempt. A refused navigation has not dispatched any effect.
+        if(currentReview?.id===message.proposalId&&currentReview.actions.some(a=>a.type==='navigate')&&inspector.hasDraft())throw Object.assign(new Error('This page has an unsaved draft. Save or discard it on the website, then resume with a fresh review. No navigation was attempted.'),{code:'DRAFT_UNSAVED'});
         if(message.automatic===true&&(approvalRequired!==false||automaticProposalId!==message.proposalId))throw new Error('This action requires explicit confirmation.');
         if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
         const generation=taskGeneration,reviewedSnapshot=currentSnapshot,reviewedRevision=currentSnapshot.revision;
@@ -254,7 +257,7 @@ export async function mount(options) {
         if(guided){
           guidedQueue={actions:proposal.actions,revision:proposal.revision,index:0,generation};result=await nextGuidance();
         }else {
-          const applied=await execution.execute(proposal,{verifyOutcome:verifyAction,settle:()=>inspector.settle({task:proposal.binding?'':currentTaskText,active:()=>!closed&&generation===taskGeneration}),active:()=>!closed&&generation===taskGeneration,beforeAction:async action=>{
+          const applied=await execution.execute(proposal,{verifyOutcome:verifyAction,settle:()=>inspector.settle({afterChoice:proposal.actions.some(a=>['select-one','radio','checkbox'].includes(reviewedSnapshot.fields.find(f=>f.ref===a.ref)?.type)),task:proposal.binding?'':currentTaskText,active:()=>!closed&&generation===taskGeneration}),active:()=>!closed&&generation===taskGeneration,beforeAction:async action=>{
             if(message.automatic===true&&!mayApplyAutomatically({approvalRequired,actions:proposal.actions}))throw new Error('Approval is required again. No further action was applied.');
             if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
             await request('/v1/history');
@@ -263,7 +266,7 @@ export async function mount(options) {
         }
         if(closed||generation!==taskGeneration)throw new Error('Task superseded after dispatch. Completed host changes remain; no further actions will run.');
         if(!guided)lastOutcome={path:reviewedSnapshot.path,actionTypes:proposal.actions.map(a=>a.type),outcome:results.at(-1)?.outcome||'prepared',...(results.some(r=>r.observeAgain)?{lookupOnly:true}:{}),applied:results.filter(r=>r.valueObserved||r.navigated&&r.verified).length};
-        let followup=[];if(!guided&&proposal.actions.every(a=>a.type==='fill')){followup=newlyAvailableFields(reviewedSnapshot,inspector.snapshot({task:currentTaskText}),currentTaskText).map(f=>f.label);}
+        let followup=[];if(!guided&&proposal.actions.every(a=>a.type==='fill')){followup=newlyAvailableFields(reviewedSnapshot,inspector.snapshot({task:currentTaskText}),currentTaskText,{semantic:true}).map(f=>f.label);}
         currentSnapshot=null;if(!guided)result={followup,observeAgain:results.some(r=>r.observeAgain),results,outcome:results.at(-1)?.outcome||'prepared',saved:false };
         if(!privateClient.taskId&&!guided&&proposal.actions[0]?.type==='submit'&&results[0]?.hostReported==='success'&&message.learningConsent===true){
           try{
@@ -280,7 +283,7 @@ export async function mount(options) {
       if(result?.actions)inspector.rememberReview(result.actions,result.revision);if(result?.proposal?.actions)inspector.rememberReview(result.proposal.actions,result.proposal.revision);
       if(['plan','recipe-plan','revise'].includes(message.type)&&result?.actions)result={...result,hostContext:hostContext(),localReview:inspector.reviewValues(result.actions,result.revision)};
       if(result&&typeof result==='object'&&!Array.isArray(result))result={...result,hostContext:hostContext()};
-      const reviewActions=result?.proposal?.actions||result?.actions;if(Array.isArray(reviewActions))automaticProposalId=reviewActions.length>0?(result?.proposal?.id||result?.id):null;
+      const reviewActions=result?.proposal?.actions||result?.actions;if(Array.isArray(reviewActions)){automaticProposalId=reviewActions.length>0?(result?.proposal?.id||result?.id):null;currentReview=reviewActions.length?{id:result?.proposal?.id||result?.id,actions:reviewActions}:null;}
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
     } catch (error) { if(message.type==='approve')lastOutcome={path:currentSnapshot?.path||location.pathname,actionTypes:[],outcome:error.outcome==='unknown'?'unknown':'rejected',applied:error.results?.filter(r=>r.valueObserved).length||0};if(error.name==='AbortError'&&error.code!=='TASK_CANCELLED')error=Object.assign(new Error('The task was interrupted. Check the website outcome before trying again.'),{code:'TASK_INTERRUPTED',outcome:error.outcome,results:error.results});if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };

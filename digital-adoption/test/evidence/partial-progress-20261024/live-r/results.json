@@ -1,0 +1,1859 @@
+{
+  "at": "2026-10-24T12:39:11.979Z",
+  "results": [
+    {
+      "id": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "passed": false,
+      "error": "The input did not match the regular expression /Company name/. Input:\n\n'Complete the customer infomration form for Mr.Balaji from Singapore, email is test@test.com\\n' +\n  '\\n' +\n  'Review these 2 proposed field changes. Nothing has been changed yet.\u21a9'\n",
+      "screenshot": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP.png"
+    },
+    {
+      "id": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "passed": true,
+      "delayedDependencyVerified": true,
+      "paraphrasedFieldResolved": true,
+      "writes": 0,
+      "screenshot": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER.png"
+    },
+    {
+      "id": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "passed": true,
+      "radioDependencyVerified": true,
+      "disabledControlUntouched": true,
+      "screenshot": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS.png"
+    },
+    {
+      "id": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "passed": false,
+      "error": "locator.waitFor: Timeout 160000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible\u001b[22m\n",
+      "screenshot": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES.png"
+    },
+    {
+      "id": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "passed": true,
+      "complexControlsAdded": true,
+      "sampleCoreFieldsFilled": true,
+      "noContextRefusal": true,
+      "unprovidedLookupNotInvented": true,
+      "utilityControlsPreserved": true,
+      "writes": 0,
+      "proposedFields": [
+        "Shipping method",
+        "Include gift wrap",
+        "Company name",
+        "Contact email",
+        "Region",
+        "Delivery preference",
+        "Interests",
+        "Delivery date",
+        "Suggested city",
+        "Lookup scenario",
+        "Item 1 quantity",
+        "Select Item 1",
+        "Item 2 quantity",
+        "Select Item 2",
+        "Item 3 quantity",
+        "Select Item 3"
+      ],
+      "screenshot": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "e11e65bc-a55b-4781-b0bf-517e22145c55",
+        "revision": 1,
+        "intent": "edit",
+        "message": "Review these 2 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ],
+        "expiresAt": 1792845356824,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "f76e8912-cacd-4d27-a167-32f564d14032"
+      }
+    },
+    {
+      "caseId": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Contact email",
+            "value": "test@test.com",
+            "actionId": "e11e65bc-a55b-4781-b0bf-517e22145c55:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845356824
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "e11e65bc-a55b-4781-b0bf-517e22145c55:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845356824
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "3fb55fd1-6e19-4516-9dbf-20a0867fb1e9",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I can fill Customer category: Business; Contact email: conditional@example.test. Only the supported requested changes are included in this review.\nReview these 2 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Customer category",
+            "value": "Business"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Contact email",
+            "value": "conditional@example.test"
+          }
+        ],
+        "expiresAt": 1792845365415,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "4017a6e4-1e9c-4855-b078-fce75aa04d8b"
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Customer category",
+            "value": "Business",
+            "actionId": "3fb55fd1-6e19-4516-9dbf-20a0867fb1e9:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845365415
+          },
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Contact email",
+            "value": "conditional@example.test",
+            "actionId": "3fb55fd1-6e19-4516-9dbf-20a0867fb1e9:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845365415
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "0efc4de5-5761-4dbf-bfb0-0cecd25f3edf",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I can fill Registration identifier: SYN-129. Only the supported requested changes are included in this review.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "value": "SYN-129"
+          }
+        ],
+        "expiresAt": 1792845375465,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Business",
+              "Individual"
+            ]
+          },
+          {
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "type": "text",
+            "required": false,
+            "key": "registration",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f3",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Local",
+              "Overseas"
+            ]
+          },
+          {
+            "ref": "r3f4",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "975af4de-7c24-457f-bf98-b9982d6e0900"
+      }
+    },
+    {
+      "caseId": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Registration identifier",
+            "value": "SYN-129",
+            "actionId": "0efc4de5-5761-4dbf-bfb0-0cecd25f3edf:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845375465
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "d504db68-88b8-4bd8-a205-a3eed4642e29",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I can fill Verification route: Overseas. Only the supported requested changes are included in this review.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Verification route",
+            "value": "Overseas"
+          }
+        ],
+        "expiresAt": 1792845384724,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Individual",
+              "Business"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Overseas",
+              "Local"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "565d0860-90cd-43f9-820d-da9a57da32f1"
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Verification route",
+            "value": "Overseas",
+            "actionId": "d504db68-88b8-4bd8-a205-a3eed4642e29:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845384724
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "c54bac1d-cc4f-4925-9b21-1573c37e828e",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I can fill Travel document number: SYN-P887. Only the supported requested changes are included in this review.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "value": "SYN-P887"
+          }
+        ],
+        "expiresAt": 1792845396234,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Individual",
+              "Business"
+            ]
+          },
+          {
+            "ref": "r3f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Overseas",
+              "Local"
+            ]
+          },
+          {
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "type": "text",
+            "required": false,
+            "key": "travel",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "7055637d-8c79-41c0-bf3a-d620d8d2aa3a"
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "value": "SYN-P887",
+            "actionId": "c54bac1d-cc4f-4925-9b21-1573c37e828e:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845396234
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 403,
+      "body": {
+        "error": "This plan contains Save without a request to save. Clarify the goal before continuing.",
+        "code": "GOAL_BLOCKED"
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "46e2dbaa-bb65-4958-a713-a05e7f2ccbe2",
+        "revision": 1,
+        "intent": "plan",
+        "message": "Preparing a reviewable task plan for your complete request.",
+        "actions": [],
+        "expiresAt": 1792845575938,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f5",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form",
+            "choices": [
+              "Home delivery",
+              "Store pickup"
+            ]
+          },
+          {
+            "ref": "r1f6",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form",
+            "choices": [
+              "Analytics",
+              "Inventory",
+              "Support"
+            ]
+          },
+          {
+            "ref": "r1f7",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f8",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f9",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form",
+            "choices": [
+              "Normal",
+              "No matches",
+              "Lookup error",
+              "Duplicate labels"
+            ]
+          },
+          {
+            "ref": "r1f10",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f11",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f12",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_1_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f13",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f14",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_2_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f15",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f16",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_3_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f17",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "5f139d4d-6cf2-4648-a4f6-dd21dffaefa7"
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f0b655e9-b543-4042-91e7-fab6d1ee5a99",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "5bf40c65-76c4-497c-bcdf-1a78fbe3a183",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "The plan is to fill the Customer form with sample values without saving. The following steps will be executed, incorporating the necessary revisions based on the feedback:",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave account_search unselected and report that no existing account was requested. Note that the Contact field is disabled and cannot be filled.",
+              "expected": "All applicable fields in the Customer form are filled with the specified sample values, except for the disabled Contact field and the unselected Account search.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792845487961,
+          "expiresAt": 1792931887961
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f0b655e9-b543-4042-91e7-fab6d1ee5a99",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "5bf40c65-76c4-497c-bcdf-1a78fbe3a183",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "The plan is to fill the Customer form with sample values without saving. The following steps will be executed, incorporating the necessary revisions based on the feedback:",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave account_search unselected and report that no existing account was requested. Note that the Contact field is disabled and cannot be filled.",
+              "expected": "All applicable fields in the Customer form are filled with the specified sample values, except for the disabled Contact field and the unselected Account search.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792845487961,
+          "expiresAt": 1792931887961
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f0b655e9-b543-4042-91e7-fab6d1ee5a99",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "5bf40c65-76c4-497c-bcdf-1a78fbe3a183",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. Only the supported requested changes are included in this review.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave account_search unselected and report that no existing account was requested. Note that the Contact field is disabled and cannot be filled.",
+              "expected": "All applicable fields in the Customer form are filled with the specified sample values, except for the disabled Contact field and the unselected Account search.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792845487961,
+          "expiresAt": 1792931887961,
+          "pendingProposalId": "45867298-a497-4679-8ad3-e5cd004a5f15"
+        },
+        "proposal": {
+          "id": "45867298-a497-4679-8ad3-e5cd004a5f15",
+          "revision": 3,
+          "message": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. Only the supported requested changes are included in this review.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f0",
+              "label": "Shipping method",
+              "value": "Standard"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f1",
+              "label": "Include gift wrap",
+              "value": "true",
+              "displayValue": "Selected"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f2",
+              "label": "Company name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f3",
+              "label": "Contact email",
+              "value": "demo@example.com"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f4",
+              "label": "Region",
+              "value": "Singapore"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f5",
+              "label": "Delivery preference",
+              "value": "Home delivery"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f6",
+              "label": "Interests",
+              "value": "Analytics, Support"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f7",
+              "label": "Delivery date",
+              "value": "2023-12-01"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f8",
+              "label": "Suggested city",
+              "value": "Singapore"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f9",
+              "label": "Lookup scenario",
+              "value": "Normal"
+            }
+          ],
+          "expiresAt": 1792845631700,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Shipping method",
+              "type": "select-one",
+              "required": false,
+              "key": "shipping_method",
+              "form": "demo-form",
+              "choices": [
+                "Standard",
+                "Choose",
+                "Express"
+              ]
+            },
+            {
+              "ref": "r3f1",
+              "label": "Include gift wrap",
+              "type": "checkbox",
+              "required": false,
+              "key": "gift_wrap",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f2",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f3",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f4",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f5",
+              "label": "Delivery preference",
+              "type": "radio",
+              "required": false,
+              "key": "delivery_preference",
+              "form": "demo-form",
+              "choices": [
+                "Home delivery",
+                "Store pickup"
+              ]
+            },
+            {
+              "ref": "r3f6",
+              "label": "Interests",
+              "type": "select-multiple",
+              "required": false,
+              "key": "interests",
+              "form": "demo-form",
+              "choices": [
+                "Analytics",
+                "Support",
+                "Inventory"
+              ]
+            },
+            {
+              "ref": "r3f7",
+              "label": "Delivery date",
+              "type": "date",
+              "required": false,
+              "key": "delivery_date",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f8",
+              "label": "Suggested city",
+              "type": "text",
+              "required": false,
+              "key": "suggested_city",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f9",
+              "label": "Lookup scenario",
+              "type": "select-one",
+              "required": false,
+              "key": "lookup-mode",
+              "form": "demo-form",
+              "choices": [
+                "Normal",
+                "No matches",
+                "Lookup error",
+                "Duplicate labels"
+              ]
+            },
+            {
+              "ref": "r3f10",
+              "label": "Account search",
+              "type": "combobox",
+              "required": false,
+              "key": "account_search",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f11",
+              "label": "Table filter",
+              "type": "text",
+              "required": false,
+              "key": "table-filter",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f12",
+              "label": "Item 1 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_1_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f13",
+              "label": "Select Item 1",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_1_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f14",
+              "label": "Item 2 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_2_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f15",
+              "label": "Select Item 2",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_2_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f16",
+              "label": "Item 3 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_3_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f17",
+              "label": "Select Item 3",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_3_selected",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Shipping method",
+            "value": "Standard",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f1",
+            "label": "Include gift wrap",
+            "value": "true",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Company name",
+            "value": "Demo Test",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Contact email",
+            "value": "demo@example.com",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:3",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f4",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:4",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f5",
+            "label": "Delivery preference",
+            "value": "Home delivery",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:5",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f6",
+            "label": "Interests",
+            "value": "Analytics, Support",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:6",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f7",
+            "label": "Delivery date",
+            "value": "2023-12-01",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:7",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f8",
+            "label": "Suggested city",
+            "value": "Singapore",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:8",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          },
+          {
+            "type": "fill",
+            "ref": "r3f9",
+            "label": "Lookup scenario",
+            "value": "Normal",
+            "actionId": "45867298-a497-4679-8ad3-e5cd004a5f15:9",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845631700
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f0b655e9-b543-4042-91e7-fab6d1ee5a99",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "5bf40c65-76c4-497c-bcdf-1a78fbe3a183",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "All applicable fields in the Customer form have been filled with the specified sample values, except for the disabled Contact field and the unselected Account search. The following fields were successfully filled: Shipping method, Include gift wrap, Company name, Contact email, Region, Delivery preference, Interests, Delivery date, and Suggested city. The Lookup scenario was also set to 'Normal'. The Table filter remains empty, and the line item fields (Item 1 quantity, Item 1 selected, Item 2 quantity, Item 2 selected, Item 3 quantity, Item 3 selected) have not yet been verified. The Account search remains unselected as no existing account was requested.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave account_search unselected and report that no existing account was requested. Note that the Contact field is disabled and cannot be filled.",
+              "expected": "All applicable fields in the Customer form are filled with the specified sample values, except for the disabled Contact field and the unselected Account search.",
+              "status": "pending",
+              "effects": [
+                {
+                  "proposalId": "45867298-a497-4679-8ad3-e5cd004a5f15",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. Only the supported requested changes are included in this review.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Shipping method",
+                      "value": "Standard",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Include gift wrap",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery preference",
+                      "value": "Home delivery",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Interests",
+                      "value": "Analytics, Support",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery date",
+                      "value": "2023-12-01",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Suggested city",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Lookup scenario",
+                      "value": "Normal",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1,
+              "remainingInstruction": "Fill line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave table-filter empty."
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792845487961,
+          "expiresAt": 1792931887961
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f0b655e9-b543-4042-91e7-fab6d1ee5a99",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "5bf40c65-76c4-497c-bcdf-1a78fbe3a183",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "I can fill Item 1 quantity: 1; Select Item 1: true; Item 2 quantity: 1; Select Item 2: true; Item 3 quantity: 1; Select Item 3: true. Only the supported requested changes are included in this review.\nReview these 6 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave account_search unselected and report that no existing account was requested. Note that the Contact field is disabled and cannot be filled.",
+              "expected": "All applicable fields in the Customer form are filled with the specified sample values, except for the disabled Contact field and the unselected Account search.",
+              "status": "pending",
+              "effects": [
+                {
+                  "proposalId": "45867298-a497-4679-8ad3-e5cd004a5f15",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. Only the supported requested changes are included in this review.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Shipping method",
+                      "value": "Standard",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Include gift wrap",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery preference",
+                      "value": "Home delivery",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Interests",
+                      "value": "Analytics, Support",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery date",
+                      "value": "2023-12-01",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Suggested city",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Lookup scenario",
+                      "value": "Normal",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2,
+              "remainingInstruction": "Fill line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave table-filter empty."
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792845487961,
+          "expiresAt": 1792931887961,
+          "pendingProposalId": "9fd61e45-3042-489a-84cd-f5ca63220beb"
+        },
+        "proposal": {
+          "id": "9fd61e45-3042-489a-84cd-f5ca63220beb",
+          "revision": 6,
+          "message": "I can fill Item 1 quantity: 1; Select Item 1: true; Item 2 quantity: 1; Select Item 2: true; Item 3 quantity: 1; Select Item 3: true. Only the supported requested changes are included in this review.\nReview these 6 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r6f12",
+              "label": "Item 1 quantity",
+              "value": "1"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f13",
+              "label": "Select Item 1",
+              "value": "true",
+              "displayValue": "Selected"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f14",
+              "label": "Item 2 quantity",
+              "value": "1"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f15",
+              "label": "Select Item 2",
+              "value": "true",
+              "displayValue": "Selected"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f16",
+              "label": "Item 3 quantity",
+              "value": "1"
+            },
+            {
+              "type": "fill",
+              "ref": "r6f17",
+              "label": "Select Item 3",
+              "value": "true",
+              "displayValue": "Selected"
+            }
+          ],
+          "expiresAt": 1792845655659,
+          "fields": [
+            {
+              "ref": "r6f0",
+              "label": "Shipping method",
+              "type": "select-one",
+              "required": false,
+              "key": "shipping_method",
+              "form": "demo-form",
+              "choices": [
+                "Choose",
+                "Standard",
+                "Express"
+              ]
+            },
+            {
+              "ref": "r6f1",
+              "label": "Include gift wrap",
+              "type": "checkbox",
+              "required": false,
+              "key": "gift_wrap",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f2",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f3",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f4",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f5",
+              "label": "Delivery preference",
+              "type": "radio",
+              "required": false,
+              "key": "delivery_preference",
+              "form": "demo-form",
+              "choices": [
+                "Home delivery",
+                "Store pickup"
+              ]
+            },
+            {
+              "ref": "r6f6",
+              "label": "Interests",
+              "type": "select-multiple",
+              "required": false,
+              "key": "interests",
+              "form": "demo-form",
+              "choices": [
+                "Analytics",
+                "Inventory",
+                "Support"
+              ]
+            },
+            {
+              "ref": "r6f7",
+              "label": "Delivery date",
+              "type": "date",
+              "required": false,
+              "key": "delivery_date",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f8",
+              "label": "Suggested city",
+              "type": "text",
+              "required": false,
+              "key": "suggested_city",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f9",
+              "label": "Lookup scenario",
+              "type": "select-one",
+              "required": false,
+              "key": "lookup-mode",
+              "form": "demo-form",
+              "choices": [
+                "Normal",
+                "No matches",
+                "Lookup error",
+                "Duplicate labels"
+              ]
+            },
+            {
+              "ref": "r6f10",
+              "label": "Account search",
+              "type": "combobox",
+              "required": false,
+              "key": "account_search",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f11",
+              "label": "Table filter",
+              "type": "text",
+              "required": false,
+              "key": "table-filter",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f12",
+              "label": "Item 1 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_1_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f13",
+              "label": "Select Item 1",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_1_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f14",
+              "label": "Item 2 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_2_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f15",
+              "label": "Select Item 2",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_2_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f16",
+              "label": "Item 3 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_3_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r6f17",
+              "label": "Select Item 3",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_3_selected",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 6,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r6f12",
+            "label": "Item 1 quantity",
+            "value": "1",
+            "actionId": "9fd61e45-3042-489a-84cd-f5ca63220beb:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845655659
+          },
+          {
+            "type": "fill",
+            "ref": "r6f13",
+            "label": "Select Item 1",
+            "value": "true",
+            "actionId": "9fd61e45-3042-489a-84cd-f5ca63220beb:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845655659
+          },
+          {
+            "type": "fill",
+            "ref": "r6f14",
+            "label": "Item 2 quantity",
+            "value": "1",
+            "actionId": "9fd61e45-3042-489a-84cd-f5ca63220beb:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845655659
+          },
+          {
+            "type": "fill",
+            "ref": "r6f15",
+            "label": "Select Item 2",
+            "value": "true",
+            "actionId": "9fd61e45-3042-489a-84cd-f5ca63220beb:3",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845655659
+          },
+          {
+            "type": "fill",
+            "ref": "r6f16",
+            "label": "Item 3 quantity",
+            "value": "1",
+            "actionId": "9fd61e45-3042-489a-84cd-f5ca63220beb:4",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845655659
+          },
+          {
+            "type": "fill",
+            "ref": "r6f17",
+            "label": "Select Item 3",
+            "value": "true",
+            "actionId": "9fd61e45-3042-489a-84cd-f5ca63220beb:5",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792845655659
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f0b655e9-b543-4042-91e7-fab6d1ee5a99",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "5bf40c65-76c4-497c-bcdf-1a78fbe3a183",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "All applicable fields in the Customer form have been filled with the specified sample values, except for the disabled Contact field and the unselected Account search. The remaining fields have been successfully filled as requested.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave account_search unselected and report that no existing account was requested. Note that the Contact field is disabled and cannot be filled.",
+              "expected": "All applicable fields in the Customer form are filled with the specified sample values, except for the disabled Contact field and the unselected Account search.",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "45867298-a497-4679-8ad3-e5cd004a5f15",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. Only the supported requested changes are included in this review.\nReview these 10 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Shipping method",
+                      "value": "Standard",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Include gift wrap",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery preference",
+                      "value": "Home delivery",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Interests",
+                      "value": "Analytics, Support",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery date",
+                      "value": "2023-12-01",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Suggested city",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Lookup scenario",
+                      "value": "Normal",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                },
+                {
+                  "proposalId": "9fd61e45-3042-489a-84cd-f5ca63220beb",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "I can fill Item 1 quantity: 1; Select Item 1: true; Item 2 quantity: 1; Select Item 2: true; Item 3 quantity: 1; Select Item 3: true. Only the supported requested changes are included in this review.\nReview these 6 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Item 1 quantity",
+                      "value": "1",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Select Item 1",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Item 2 quantity",
+                      "value": "1",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Select Item 2",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Item 3 quantity",
+                      "value": "1",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Select Item 3",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 2,
+              "remainingInstruction": "Fill line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true. Leave table-filter empty."
+            }
+          ],
+          "current": 1,
+          "status": "completed",
+          "clarifications": 0,
+          "version": 10,
+          "createdAt": 1792845487961,
+          "expiresAt": 1792931887961
+        }
+      }
+    }
+  ]
+}

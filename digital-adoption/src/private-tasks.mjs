@@ -466,12 +466,17 @@ export async function createPrivateTasks({
       taskFor(scope,t.id,input.instanceId);
       const contentRevision=t.contentRevision||0;
       if (!pointing&&[...t.files.values()].some(f => f.uploaderId === input.instanceId && ['queued', 'extracting', 'storing'].includes(f.status))) reject('EXTRACTION_PENDING');
+      const store = createProposalStore({
+        map: () => t.reviews,
+        transaction: fn => fn()
+      },{attempts:actionAttempts});
       const response = pointing||await planner({
         signal:input.requestSignal,
         text: input.text,
         snapshot,
         ...guidance(scope, input.text, snapshot),
         history: t.history.filter(m => m.instanceId === input.instanceId).slice(-12),
+        clarificationContext:store.clarificationContext(scope,snapshot.path,snapshot),
         replyContext:reply,
         privateGuidance: {
           untrusted: true,
@@ -481,15 +486,11 @@ export async function createPrivateTasks({
       });
       taskFor(scope, t.id, input.instanceId);
       if((t.contentRevision||0)!==contentRevision)reject('TASK_CHANGED');
-      const allowed = response.actions.every(a => a.type !== 'fill' || groundedValue(a.value,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...evidence.map(e=>e.text)],{synthetic:syntheticDataIntent(input.text)})&&(a.query===undefined||groundedValue(a.query,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...evidence.map(e=>e.text)])));
+      const allowed = response.actions.every(a => a.type !== 'fill' || groundedValue(a.value,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...t.history.filter(m=>m.instanceId===input.instanceId&&m.role==='user').map(m=>m.text),...(store.clarificationContext(scope,snapshot.path,snapshot)?.knownFields||[]).filter(f=>f.applied===true).map(f=>f.value),...evidence.map(e=>e.text)],{synthetic:syntheticDataIntent(input.text)})&&(a.query===undefined||groundedValue(a.query,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...t.history.filter(m=>m.instanceId===input.instanceId&&m.role==='user').map(m=>m.text),...(store.clarificationContext(scope,snapshot.path,snapshot)?.knownFields||[]).filter(f=>f.applied===true).map(f=>f.value),...evidence.map(e=>e.text)])));
       const checked = allowed ? response : {
         message: 'A proposed value lacked supporting task or document evidence. Clarify the missing values.',
         actions: []
       };
-      const store = createProposalStore({
-        map: () => t.reviews,
-        transaction: fn => fn()
-      },{attempts:actionAttempts});
       const proposal = store.prepare(scope, snapshot, input.mode === 'guide' ? {
         ...checked,
         ...(checked.actions.some(a=>a.type==='activate')?{intent:'clarify',message:'Guide only does not activate buttons. Choose Assist for a separately confirmed action.'}:checked.actions.some(a=>a.type==='fill')?{intent:'guide'}:{}),

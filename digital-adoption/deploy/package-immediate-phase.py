@@ -16,7 +16,7 @@ with out.open('xb') as stream,tarfile.open(fileobj=stream,mode='w:gz') as archiv
     if file.name.startswith('.env') or file.suffix in ['.pem','.key']:raise ValueError('Secret file in source selection')
     add(file.relative_to(service).as_posix(),file.read_bytes())
  for file in sorted((service/'test').glob('*.test.mjs')):add(file.relative_to(service).as_posix(),file.read_bytes())
- for name in ['fixture.html','acceptance-catalog.mjs','evidence-ledger.mjs']:add('test/'+name,(service/'test'/name).read_bytes())
+ for name in ['fixture.html','vps-demo.html','conditional-form.html','recovery-browser.mjs','complex-performance.mjs','partial-progress-live.mjs','autonomy-browser.mjs','acceptance-catalog.mjs','evidence-ledger.mjs']:add('test/'+name,(service/'test'/name).read_bytes())
  for file in sorted((service/'test/fixtures').rglob('*')):
   if file.is_file() and not file.is_symlink():add(file.relative_to(service).as_posix(),file.read_bytes())
  for name in ['package.json','package-lock.json','.dockerignore']:add(name,(service/name).read_bytes())

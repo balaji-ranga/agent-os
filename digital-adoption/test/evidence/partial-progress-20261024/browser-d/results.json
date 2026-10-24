@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-24T10:19:48.795Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "R01_UNSAVED_NAVIGATION_FRESH_REVIEW_AFTER_MANUAL_SAVE",
+      "status": "passed",
+      "screenshot": "R01_UNSAVED_NAVIGATION_FRESH_REVIEW_AFTER_MANUAL_SAVE.png"
+    },
+    {
+      "id": "R02_MANUAL_SAVE_BEFORE_APPROVAL_AND_STATUS_KEEP_REVIEW_VALID",
+      "status": "passed",
+      "screenshot": "R02_MANUAL_SAVE_BEFORE_APPROVAL_AND_STATUS_KEEP_REVIEW_VALID.png"
+    },
+    {
+      "id": "R03_DISAPPEARED_CARD_RETRY_ONLY_CURRENT_UNEXECUTED_STEP",
+      "status": "passed",
+      "screenshot": "R03_DISAPPEARED_CARD_RETRY_ONLY_CURRENT_UNEXECUTED_STEP.png"
+    },
+    {
+      "id": "R04_CHECK_OUTCOMES_SHOWS_COMPLETED_AND_PENDING_WITHOUT_INFERENCE",
+      "status": "passed",
+      "screenshot": "R04_CHECK_OUTCOMES_SHOWS_COMPLETED_AND_PENDING_WITHOUT_INFERENCE.png"
+    },
+    {
+      "id": "R05_VERIFIED_FILL_RECOVERS_AFTER_OBSERVATION_RESPONSE_LOST",
+      "status": "failed",
+      "error": "locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start')\u001b[22m\n"
+    }
+  ],
+  "errors": []
+}

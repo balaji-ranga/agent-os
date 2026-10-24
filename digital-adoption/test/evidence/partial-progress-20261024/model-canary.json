@@ -1,0 +1,592 @@
+{
+  "at": "2026-10-24T10:24:24.098Z",
+  "scope": "Isolated candidate planner and actual configured active maker/passive checker. Real Customer DOM. No UI actions, settings changes or imported map.",
+  "results": [
+    {
+      "id": "reported-person-org-1",
+      "text": "Complete the customer infomration form for Mr.Balaji from Singapore, email is test@test.com",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "value": "Singapore"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "not_provided"
+            }
+          ]
+        }
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "partial",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 4833,
+          "promptTokens": 5397,
+          "outputTokens": 705
+        },
+        "resolution": "partial_progress"
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "model": "gpt-4o-mini",
+          "response": {
+            "intent": "edit",
+            "message": "I will fill in the customer information form with the provided details for Mr. Balaji.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f0",
+                "value": "Mr. Balaji"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "test@test.com"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f2",
+                "value": "Singapore"
+              }
+            ]
+          },
+          "latencyMs": 2043
+        },
+        {
+          "role": "checker",
+          "model": "deepseek-v4-flash",
+          "response": {
+            "decision": "partial",
+            "feedback": "Contact email and Region can be filled as supplied. Company name was not provided; \u201cMr. Balaji\u201d is a person/contact name, not an organization, so it should not be entered as Company name. Please provide the company name.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            },
+            "resolution": {
+              "groundedRefs": [
+                "r1f1",
+                "r1f2"
+              ],
+              "missingFields": [
+                {
+                  "ref": "r1f0",
+                  "reason": "not_provided"
+                }
+              ]
+            }
+          },
+          "latencyMs": 4833
+        }
+      ],
+      "latencyMs": 6901
+    },
+    {
+      "id": "reported-person-org-2",
+      "text": "Complete the customer infomration form for Mr.Balaji from Singapore, email is test@test.com",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "value": "Singapore"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "not_provided"
+            }
+          ]
+        }
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "partial",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 10311,
+          "promptTokens": 5421,
+          "outputTokens": 1767
+        },
+        "resolution": "partial_progress"
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "model": "gpt-4o-mini",
+          "response": {
+            "intent": "edit",
+            "message": "I will fill in the customer information form with the provided details for Mr. Balaji. Here are the values to be filled: Company name: Demo Test, Contact email: test@test.com, Region: Singapore.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f0",
+                "value": "Demo Test"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "test@test.com"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f2",
+                "value": "Singapore"
+              }
+            ]
+          },
+          "latencyMs": 3432
+        },
+        {
+          "role": "checker",
+          "model": "deepseek-v4-flash",
+          "response": {
+            "decision": "partial",
+            "feedback": "Company name was not supplied; \u201cDemo Test\u201d comes from a page example, not from Mr. Balaji\u2019s details. The email and Region are supplied and can be reviewed/filled. Please provide the company name.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            },
+            "resolution": {
+              "groundedRefs": [
+                "r1f1",
+                "r1f2"
+              ],
+              "missingFields": [
+                {
+                  "ref": "r1f0",
+                  "reason": "not_provided"
+                }
+              ]
+            }
+          },
+          "latencyMs": 10311
+        }
+      ],
+      "latencyMs": 13759
+    },
+    {
+      "id": "reported-person-org-3",
+      "text": "Complete the customer infomration form for Mr.Balaji from Singapore, email is test@test.com",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "value": "Singapore"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "not_provided"
+            }
+          ]
+        }
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "partial",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 9652,
+          "promptTokens": 5421,
+          "outputTokens": 1508
+        },
+        "resolution": "partial_progress"
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "model": "gpt-4o-mini",
+          "response": {
+            "intent": "edit",
+            "message": "I will fill in the customer information form with the provided details for Mr. Balaji. Here are the values to be filled: Company name: Demo Test, Contact email: test@test.com, Region: Singapore.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f0",
+                "value": "Demo Test"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "test@test.com"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f2",
+                "value": "Singapore"
+              }
+            ]
+          },
+          "latencyMs": 1925
+        },
+        {
+          "role": "checker",
+          "model": "deepseek-v4-flash",
+          "response": {
+            "decision": "partial",
+            "feedback": "I can fill Contact email with test@test.com and Region with Singapore. Company name was not provided; \u201cDemo Test\u201d comes from a page example, not visitor data, so please supply the company name.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            },
+            "resolution": {
+              "groundedRefs": [
+                "r1f1",
+                "r1f2"
+              ],
+              "missingFields": [
+                {
+                  "ref": "r1f0",
+                  "reason": "not_provided"
+                }
+              ]
+            }
+          },
+          "latencyMs": 9652
+        }
+      ],
+      "latencyMs": 11589
+    },
+    {
+      "id": "reported-person-org-4",
+      "text": "Complete the customer infomration form for Mr.Balaji from Singapore, email is test@test.com",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "value": "Singapore"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "not_provided"
+            }
+          ]
+        }
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "partial",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 9741,
+          "promptTokens": 5421,
+          "outputTokens": 1551
+        },
+        "resolution": "partial_progress"
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "model": "gpt-4o-mini",
+          "response": {
+            "intent": "edit",
+            "message": "I will fill in the customer information form with the provided details for Mr. Balaji. Here are the values to be filled: Company name: Demo Test, Contact email: test@test.com, Region: Singapore.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f0",
+                "value": "Demo Test"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "test@test.com"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f2",
+                "value": "Singapore"
+              }
+            ]
+          },
+          "latencyMs": 1797
+        },
+        {
+          "role": "checker",
+          "model": "deepseek-v4-flash",
+          "response": {
+            "decision": "partial",
+            "feedback": "Email and Region match the supplied facts. The company name was not provided; \"Demo Test\" appears only in a page example and should not be used. Please provide the company name.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            },
+            "resolution": {
+              "groundedRefs": [
+                "r1f1",
+                "r1f2"
+              ],
+              "missingFields": [
+                {
+                  "ref": "r1f0",
+                  "reason": "not_provided"
+                }
+              ]
+            }
+          },
+          "latencyMs": 9741
+        }
+      ],
+      "latencyMs": 11553
+    },
+    {
+      "id": "reported-person-org-5",
+      "text": "Complete the customer infomration form for Mr.Balaji from Singapore, email is test@test.com",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "I can fill Contact email: test@test.com; Region: Singapore. What should I enter for Company name? These fields can remain pending while the available independent fields are filled.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "value": "Singapore"
+          }
+        ],
+        "clarification": {
+          "missingFields": [
+            {
+              "ref": "r1f0",
+              "reason": "ambiguous_mapping"
+            }
+          ]
+        }
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "partial",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 5042,
+          "promptTokens": 5397,
+          "outputTokens": 871
+        },
+        "resolution": "partial_progress"
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "model": "gpt-4o-mini",
+          "response": {
+            "intent": "edit",
+            "message": "I will fill in the customer information form with the provided details for Mr. Balaji.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f0",
+                "value": "Mr. Balaji"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "test@test.com"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f2",
+                "value": "Singapore"
+              }
+            ]
+          },
+          "latencyMs": 1905
+        },
+        {
+          "role": "checker",
+          "model": "deepseek-v4-flash",
+          "response": {
+            "decision": "partial",
+            "feedback": "Email and Region map correctly and can be prepared. \"Mr. Balaji\" is a person name, not an organization, so it can't fill Company name; that field is left out rather than guessed. Provide the company/organization name to complete the form.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            },
+            "resolution": {
+              "groundedRefs": [
+                "r1f1",
+                "r1f2"
+              ],
+              "missingFields": [
+                {
+                  "ref": "r1f0",
+                  "reason": "ambiguous_mapping"
+                }
+              ]
+            }
+          },
+          "latencyMs": 5042
+        }
+      ],
+      "latencyMs": 6961
+    },
+    {
+      "id": "explicit-company",
+      "text": "Complete the customer form with Company name Balaji, Region Singapore, and Contact email test@test.com. Do not save.",
+      "passed": true,
+      "answer": {
+        "intent": "edit",
+        "message": "I will prepare the field changes for the customer form with the following values: Company name set to 'Balaji', Region set to 'Singapore', and Contact email set to 'test@test.com'.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "Balaji"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "value": "test@test.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "value": "Singapore"
+          }
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "contractRepairs": 0,
+        "checkerRevisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3908,
+          "promptTokens": 5421,
+          "outputTokens": 584
+        }
+      },
+      "trace": [
+        {
+          "role": "maker",
+          "model": "gpt-4o-mini",
+          "response": {
+            "intent": "edit",
+            "message": "I will prepare the field changes for the customer form with the following values: Company name set to 'Balaji', Region set to 'Singapore', and Contact email set to 'test@test.com'.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f0",
+                "value": "Balaji"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "value": "test@test.com"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f2",
+                "value": "Singapore"
+              }
+            ]
+          },
+          "latencyMs": 2054
+        },
+        {
+          "role": "checker",
+          "model": "deepseek-v4-flash",
+          "response": {
+            "decision": "accept",
+            "feedback": "Correctly prepares the three requested values in the observed form fields without saving.",
+            "checks": {
+              "taskMatch": "pass",
+              "grounding": "pass",
+              "safety": "pass"
+            },
+            "resolution": null
+          },
+          "latencyMs": 3908
+        }
+      ],
+      "latencyMs": 5975
+    }
+  ],
+  "sharedSettingsUnchanged": true
+}

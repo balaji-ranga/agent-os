@@ -15,7 +15,7 @@ if(current.includes('location ^~ /free-tools/digital-adoption/')){
  if(!updated.includes('proxy_request_buffering off;'))updated=updated.replace('client_max_body_size 23m;','client_max_body_size 23m;\n    proxy_request_buffering off;\n    client_body_timeout 15s;');
  const internal=current.match(/location = \/internal\/digital-adoption-model\s*\{[^}]+\}/g);
  if(internal?.length!==1||!/proxy_read_timeout\s+\d+s;/.test(internal[0]))throw new Error('Expected one internal gateway timeout; refusing automatic edit');
- let next=current.replace(block,updated).replace(internal[0],internal[0].replace(/proxy_read_timeout\s+\d+s;/,'proxy_read_timeout 195s;'));
+ let next=current.replace(block,updated).replace(internal[0],internal[0].replace(/proxy_read_timeout\s+\d+s;/,'proxy_read_timeout 195s;').replace(/client_max_body_size\s+(?:32k|132096);/,'client_max_body_size 132096;'));
  const template=readFileSync('/release/deploy/nginx-host-locations.conf','utf8'),upload=template.match(/location = \/free-tools\/digital-adoption\/v1\/tasks\/upload\s*\{[\s\S]*?^\}/m)?.[0],limited=template.match(/location @adoption_upload_limited\s*\{[\s\S]*?^\}/m)?.[0];
  if(!upload)throw new Error('Upload location template missing');
  if(!limited)throw new Error('Upload refusal template missing');

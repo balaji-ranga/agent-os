@@ -22,7 +22,7 @@ test('one bounded repair preserves original request and observed contract; repea
  }});
  const text='Help me find the appropriate screen';
  const result=await planner({text,snapshot});assert.equal(result.actions[0].type,'navigate');assert.equal(requests.length,2);
- const repair=JSON.parse(requests[1].messages.at(-1).content);assert.equal(repair.task,text);assert.equal(repair.validation.category,'unobserved_field');assert.equal(repair.responseContract.links[0].ref,'r1n0');
+ const repair=JSON.parse(requests[1].messages.at(-1).content);assert.equal(repair.task,text);assert.equal(repair.validation.category,'unobserved_field');assert.equal(repair.observed.links[0].ref,'r1n0');
  valid=false;await assert.rejects(()=>planner({text,snapshot}),/Nothing was changed/);assert.equal(requests.length,4);
 });
 
@@ -37,7 +37,7 @@ test('empty creation proposals get one same-task input recheck, while genuinely 
 test('prior proposals remain quoted context and the model receives current form plus navigation evidence',async()=>{
  let sent;const current={revision:1,path:'/dispatch',fields:[{ref:'r1f0',label:'Office code',type:'text'},{ref:'r1f1',label:'Desk zone',type:'text'}],links:[{ref:'r1n0',label:'Reports',path:'/reports'}]};
  const planner=createPlatformPlanner({gatewayUrl:'https://model.example.com/gateway',serviceToken:'synthetic-service-token-for-contract-testing',fetchImpl:async(_url,input)=>{sent=JSON.parse(input.body);return {ok:true,json:async()=>({content:JSON.stringify({message:'Review',actions:[{type:'fill',ref:'r1f0',value:'A'},{type:'fill',ref:'r1f1',value:'West'}]})})};}});
- await planner({text:'Prepare office code A and desk zone West.',snapshot:current,history:[{role:'assistant',text:'I can open Reports, then continue your request.'}]});assert.deepEqual(sent.messages.map(m=>m.role),['system','assistant','user']);assert.equal(sent.messages[1].content,'I can open Reports, then continue your request.');const task=JSON.parse(sent.messages.at(-1).content);assert.equal(task.conversationContext[0].role,'assistant');assert.deepEqual(task.observed.links,current.links);assert.ok(task.responseContract.allowedActionTypes.includes('navigate'));assert.deepEqual((await planner({text:'Prepare office code A and desk zone West.',snapshot:current})).actions.map(a=>a.type),['fill','fill']);
+ await planner({text:'Prepare office code A and desk zone West.',snapshot:current,history:[{role:'assistant',text:'I can open Reports, then continue your request.'}]});assert.deepEqual(sent.messages.map(m=>m.role),['system','user']);const task=JSON.parse(sent.messages.at(-1).content);assert.equal(task.conversationContext[0].content,'I can open Reports, then continue your request.');assert.equal(task.conversationContext[0].role,'assistant');assert.deepEqual(task.observed.links,current.links);assert.ok(task.responseContract.allowedActionTypes.includes('navigate'));assert.deepEqual((await planner({text:'Prepare office code A and desk zone West.',snapshot:current})).actions.map(a=>a.type),['fill','fill']);
 });
 
 test('comma-and assignments resolve all explicit fields without model inference or unrelated writes',async()=>{

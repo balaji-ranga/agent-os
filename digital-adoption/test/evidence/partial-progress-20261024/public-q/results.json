@@ -1,0 +1,114 @@
+{
+  "at": "2026-10-24T12:26:50.425Z",
+  "results": [
+    {
+      "id": "public-answer-count-no-effects",
+      "passed": true,
+      "observedCount": "1535",
+      "screenshot": "public-answer-count-no-effects.png"
+    },
+    {
+      "id": "public-missing-query-clarification",
+      "passed": true,
+      "screenshot": "public-missing-query-clarification.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "public-answer-count-no-effects",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-answer-count-no-effects",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "ea2f4779-1890-4860-84c6-d2f095a6301a",
+        "revision": 1,
+        "intent": "explain",
+        "message": "The total number of listings currently observed on the page is 1535 approved listings. This count reflects the total number of entries available in the MCP Universe section.",
+        "actions": [],
+        "expiresAt": 1792844925370,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities\u2026",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport",
+            "choices": [
+              "All transports",
+              "streamable-http",
+              "sse",
+              "stdio"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "971e3d48-6dc0-446d-902b-b64c5fb1de1d"
+      }
+    },
+    {
+      "caseId": "public-missing-query-clarification",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "public-missing-query-clarification",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "c4b82aae-e291-404b-9abe-902f495b36e2",
+        "revision": 1,
+        "intent": "clarify",
+        "message": "What search value would you like to use for the search?",
+        "actions": [],
+        "expiresAt": 1792844929573,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities\u2026",
+            "type": "text",
+            "required": false,
+            "constraints": {
+              "maxlength": "120"
+            },
+            "key": "q"
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport",
+            "choices": [
+              "All transports",
+              "streamable-http",
+              "sse",
+              "stdio"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "89091331-5e96-4a5c-b30d-7a7b6adf3714"
+      }
+    }
+  ]
+}

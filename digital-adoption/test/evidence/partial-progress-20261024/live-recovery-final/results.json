@@ -1,0 +1,625 @@
+{
+  "at": "2026-10-24T10:57:20.431Z",
+  "results": [
+    {
+      "id": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "passed": true,
+      "radioDependencyVerified": true,
+      "disabledControlUntouched": true,
+      "screenshot": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS.png"
+    },
+    {
+      "id": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "passed": false,
+      "error": "The copilot service is temporarily unavailable. Check the current task before trying again.",
+      "screenshot": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "ae68ee99-f69b-492b-b8e3-47e563a94444",
+        "revision": 1,
+        "intent": "edit",
+        "message": "I will select 'Overseas' for the 'Verification route' and will wait to observe the newly enabled 'Travel document number' field before proposing to enter the passport number 'SYN-P887'. The customer category will remain unchanged as per your request.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Verification route",
+            "value": "Overseas"
+          }
+        ],
+        "expiresAt": 1792839505164,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Individual",
+              "Business"
+            ]
+          },
+          {
+            "ref": "r1f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Overseas",
+              "Local"
+            ]
+          },
+          {
+            "ref": "r1f3",
+            "label": "National identifier",
+            "type": "text",
+            "required": false,
+            "key": "national",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "e4e55f83-030e-4111-ba02-240032c1b630"
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 1,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Verification route",
+            "value": "Overseas",
+            "actionId": "ae68ee99-f69b-492b-b8e3-47e563a94444:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839505164
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "46be760d-559c-421b-a237-ff23b463cf18",
+        "revision": 3,
+        "intent": "edit",
+        "message": "I will fill in the 'Travel document number' with 'SYN-P887'. The 'Verification route' is already set to 'Overseas', and the customer category will remain unchanged as per your request. Here is the proposed change for review:\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "value": "SYN-P887"
+          }
+        ],
+        "expiresAt": 1792839521761,
+        "fields": [
+          {
+            "ref": "r3f0",
+            "label": "Contact email",
+            "type": "email",
+            "required": false,
+            "key": "email",
+            "form": "conditional"
+          },
+          {
+            "ref": "r3f1",
+            "label": "Customer category",
+            "type": "select-one",
+            "required": false,
+            "key": "category",
+            "form": "conditional",
+            "choices": [
+              "Individual",
+              "Business"
+            ]
+          },
+          {
+            "ref": "r3f2",
+            "label": "Verification route",
+            "type": "radio",
+            "required": false,
+            "key": "route",
+            "form": "conditional",
+            "choices": [
+              "Overseas",
+              "Local"
+            ]
+          },
+          {
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "type": "text",
+            "required": false,
+            "key": "travel",
+            "form": "conditional"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "62eccb6f-49b0-4422-80b7-640db6603b18"
+      }
+    },
+    {
+      "caseId": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Travel document number",
+            "value": "SYN-P887",
+            "actionId": "46be760d-559c-421b-a237-ff23b463cf18:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839521761
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f91f309b-d172-4f75-bfef-81fc0e8fb3e4",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "68fe6427-1608-457b-9227-f9d3d36a3963",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Prepare to fill the Customer form with synthetic values, then navigate to the Opportunity form and fill it with specified values.",
+          "steps": [
+            {
+              "title": "Fill Customer fields",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore",
+              "expected": "Company name field filled with 'Demo Test', contact email field filled with 'demo@example.com', and region field filled with 'Singapore'",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link",
+              "expected": "Navigated to the Opportunity form successfully",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity fields",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD",
+              "expected": "Opportunity fields filled with specified values",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792839434268,
+          "expiresAt": 1792925834268
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f91f309b-d172-4f75-bfef-81fc0e8fb3e4",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "68fe6427-1608-457b-9227-f9d3d36a3963",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Prepare to fill the Customer form with synthetic values, then navigate to the Opportunity form and fill it with specified values.",
+          "steps": [
+            {
+              "title": "Fill Customer fields",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore",
+              "expected": "Company name field filled with 'Demo Test', contact email field filled with 'demo@example.com', and region field filled with 'Singapore'",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link",
+              "expected": "Navigated to the Opportunity form successfully",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity fields",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD",
+              "expected": "Opportunity fields filled with specified values",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792839434268,
+          "expiresAt": 1792925834268
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f91f309b-d172-4f75-bfef-81fc0e8fb3e4",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "68fe6427-1608-457b-9227-f9d3d36a3963",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "steps": [
+            {
+              "title": "Fill Customer fields",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore",
+              "expected": "Company name field filled with 'Demo Test', contact email field filled with 'demo@example.com', and region field filled with 'Singapore'",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link",
+              "expected": "Navigated to the Opportunity form successfully",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity fields",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD",
+              "expected": "Opportunity fields filled with specified values",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792839434268,
+          "expiresAt": 1792925834268,
+          "pendingProposalId": "3b13751d-1815-45d9-9644-ce1f3947bb42"
+        },
+        "proposal": {
+          "id": "3b13751d-1815-45d9-9644-ce1f3947bb42",
+          "revision": 2,
+          "message": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r2f0",
+              "label": "Company name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f1",
+              "label": "Contact email",
+              "value": "demo@example.com"
+            },
+            {
+              "type": "fill",
+              "ref": "r2f2",
+              "label": "Region",
+              "value": "Singapore"
+            }
+          ],
+          "expiresAt": 1792839556370,
+          "fields": [
+            {
+              "ref": "r2f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 2,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r2f0",
+            "label": "Company name",
+            "value": "Demo Test",
+            "actionId": "3b13751d-1815-45d9-9644-ce1f3947bb42:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839556370
+          },
+          {
+            "type": "fill",
+            "ref": "r2f1",
+            "label": "Contact email",
+            "value": "demo@example.com",
+            "actionId": "3b13751d-1815-45d9-9644-ce1f3947bb42:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839556370
+          },
+          {
+            "type": "fill",
+            "ref": "r2f2",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "3b13751d-1815-45d9-9644-ce1f3947bb42:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792839556370
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f91f309b-d172-4f75-bfef-81fc0e8fb3e4",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "68fe6427-1608-457b-9227-f9d3d36a3963",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "All requested fields have been filled as per the instruction. The company name is set to 'Demo Test', the contact email is set to 'demo@example.com', and the region is set to 'Singapore'. These changes have been locally verified.",
+          "steps": [
+            {
+              "title": "Fill Customer fields",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore",
+              "expected": "Company name field filled with 'Demo Test', contact email field filled with 'demo@example.com', and region field filled with 'Singapore'",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "3b13751d-1815-45d9-9644-ce1f3947bb42",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link",
+              "expected": "Navigated to the Opportunity form successfully",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Fill Opportunity fields",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD",
+              "expected": "Opportunity fields filled with specified values",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792839434268,
+          "expiresAt": 1792925834268
+        }
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 503,
+      "body": {
+        "error": "Copilot service temporarily unavailable"
+      }
+    },
+    {
+      "caseId": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "f91f309b-d172-4f75-bfef-81fc0e8fb3e4",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "68fe6427-1608-457b-9227-f9d3d36a3963",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill Customer and Opportunity with sample values",
+          "message": "The next step could not be prepared. Inspect the explanation and resume explicitly; no new action was repeated.",
+          "steps": [
+            {
+              "title": "Fill Customer fields",
+              "kind": "fill",
+              "instruction": "Set the company name to Demo Test, contact email to demo@example.com, and region to Singapore",
+              "expected": "Company name field filled with 'Demo Test', contact email field filled with 'demo@example.com', and region field filled with 'Singapore'",
+              "status": "completed",
+              "effects": [
+                {
+                  "proposalId": "3b13751d-1815-45d9-9644-ce1f3947bb42",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "Review these 3 explicit field changes.  yet.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            },
+            {
+              "title": "Navigate to Opportunity form",
+              "kind": "navigate",
+              "instruction": "Open the Opportunity form at the observed link",
+              "expected": "Navigated to the Opportunity form successfully",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Fill Opportunity fields",
+              "kind": "fill",
+              "instruction": "Set the opportunity name to Demo Test, amount to 10000, and currency to USD",
+              "expected": "Opportunity fields filled with specified values",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 1,
+          "status": "blocked",
+          "clarifications": 0,
+          "version": 8,
+          "createdAt": 1792839434268,
+          "expiresAt": 1792925834268,
+          "interruptions": [
+            {
+              "step": 1,
+              "code": "GOAL_INTERRUPTED",
+              "message": "The next step could not be prepared. Inspect the explanation and resume explicitly; no new action was repeated.",
+              "at": 1792839439759
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

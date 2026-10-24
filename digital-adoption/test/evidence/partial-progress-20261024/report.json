@@ -1,0 +1,165 @@
+{
+  "at": "2026-10-24T12:48:48.917677+00:00",
+  "release": "20261024-recovery-t",
+  "scope": "Focused recovery, generic grounding, conditional/complex fields and configurable model context; not full Phase 1/2 certification",
+  "cohorts": [
+    {
+      "cohort": "Service regression",
+      "evidence": "logs/windows-tests.log",
+      "passed": 516,
+      "failed": 0,
+      "total": 516
+    },
+    {
+      "cohort": "Browser autonomy regression",
+      "evidence": "autonomy-final/results.json",
+      "passed": 13,
+      "failed": 0,
+      "total": 13
+    },
+    {
+      "cohort": "Browser goals and workflow regression",
+      "evidence": "goals-final/results.json",
+      "passed": 8,
+      "failed": 0,
+      "total": 8
+    },
+    {
+      "cohort": "Draft navigation and card recovery",
+      "evidence": "recovery-final/results.json",
+      "passed": 4,
+      "failed": 0,
+      "total": 4
+    },
+    {
+      "cohort": "Lost outcome and conditional controls",
+      "evidence": "conditional-r/results.json",
+      "passed": 6,
+      "failed": 0,
+      "total": 6
+    },
+    {
+      "cohort": "Sixteen-field verified batches",
+      "evidence": "batch-final/results.json",
+      "passed": 1,
+      "failed": 0,
+      "total": 1
+    },
+    {
+      "cohort": "Actual maker/checker Chrome acceptance",
+      "evidence": "live-t/results.json",
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    },
+    {
+      "cohort": "Public flolah.cloud regression",
+      "evidence": "public-t/results.json",
+      "passed": 2,
+      "failed": 0,
+      "total": 2
+    },
+    {
+      "cohort": "Complex DOM observation performance",
+      "evidence": "performance/results.json",
+      "passed": 1,
+      "failed": 0,
+      "total": 1
+    }
+  ],
+  "passed": 556,
+  "failed": 0,
+  "partial": 0,
+  "deferred": [
+    "Native Safari/iOS",
+    "Android Chrome",
+    "Full screen-reader checks"
+  ],
+  "linuxRepeatNotCountedTwice": true,
+  "performance": {
+    "at": "2026-10-24T12:20:17.557Z",
+    "passed": true,
+    "scope": "One synthetic complex local form; observation only, not full-browser memory or load capacity certification",
+    "iterations": 40,
+    "meanMs": 7.962500000745058,
+    "p95Ms": 12.299999982118607,
+    "maxMs": 15.199999988079071,
+    "maxSnapshotBytes": 18951,
+    "retainedBytes": 83188,
+    "observationHttpRequests": 0
+  },
+  "liveCases": [
+    {
+      "id": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP",
+      "passed": true,
+      "availableFieldsApplied": 2,
+      "missingFieldResolved": true,
+      "writes": 0,
+      "screenshot": "LIVE01_EXACT_PERSON_ORGANIZATION_PARTIAL_PROGRESS_AND_FOLLOWUP.png"
+    },
+    {
+      "id": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER",
+      "passed": true,
+      "delayedDependencyVerified": true,
+      "paraphrasedFieldResolved": true,
+      "writes": 0,
+      "screenshot": "LIVE02_SELECT_DEPENDENCY_WITH_PARAPHRASED_IDENTIFIER.png"
+    },
+    {
+      "id": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS",
+      "passed": true,
+      "radioDependencyVerified": true,
+      "disabledControlUntouched": true,
+      "screenshot": "LIVE03_RADIO_DEPENDENCY_PASSPORT_ALIAS.png"
+    },
+    {
+      "id": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES",
+      "passed": true,
+      "manualCustomerSave": 1,
+      "freshNavigationReview": true,
+      "completedBothForms": true,
+      "recordedOutcomesVisible": true,
+      "screenshot": "LIVE04_EXACT_GOAL_MANUAL_SAVE_FRESH_NAVIGATION_AND_OUTCOMES.png"
+    },
+    {
+      "id": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "passed": true,
+      "complexControlsAdded": true,
+      "sampleCoreFieldsFilled": true,
+      "noContextRefusal": true,
+      "unprovidedLookupNotInvented": true,
+      "utilityControlsPreserved": true,
+      "writes": 0,
+      "proposedFields": [
+        "Shipping method",
+        "Include gift wrap",
+        "Company name",
+        "Contact email",
+        "Region",
+        "Delivery preference",
+        "Interests",
+        "Delivery date",
+        "Suggested city",
+        "Lookup scenario",
+        "Item 1 quantity",
+        "Select Item 1",
+        "Item 2 quantity",
+        "Select Item 2",
+        "Item 3 quantity",
+        "Select Item 3"
+      ],
+      "screenshot": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL.png"
+    }
+  ],
+  "context": {
+    "defaultBytes": 60000,
+    "range": [
+      16000,
+      128000
+    ],
+    "setting": "ADOPTION_MODEL_CONTEXT_BYTES",
+    "transportOverheadBytes": 4096,
+    "edgeCeilingBytes": 132096,
+    "checkerOutputBudgetUnchanged": true
+  }
+}

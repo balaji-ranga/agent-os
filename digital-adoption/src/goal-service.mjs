@@ -1,3 +1,4 @@
+import {goalRequestsSave} from './goal-contract.mjs';
 import {goalRecordedSummary} from './goal-summary.mjs';
 import {validateSnapshot} from './proposals.mjs';
 import {constrainNavigation} from './navigation-intent.mjs';
@@ -5,10 +6,10 @@ import {constrainEdit} from './edit-intent.mjs';
 import {groundedValue,syntheticDataIntent} from './task-intent.mjs';
 const fail=(message,code='GOAL_BLOCKED')=>{throw Object.assign(new Error(message),{publicCode:code});};
 const checkPeers=(plan,peers)=>{if(plan.steps.some(s=>s.kind==='peer'&&!peers.some(p=>p.instanceId===s.recipient)))fail('A paired tab is missing or ambiguous. Select an online paired copilot before planning.','GOAL_PEER_UNAVAILABLE');};
-const checkSaveRequest=(text,plan)=>{if(plan.steps.some(s=>s.kind==='save')&&!/\b(save|submit)\b/i.test(text.replace(/\b(?:do not|don't|never)\s+(?:save|submit)\b[^.!;]*/gi,'')))fail('This plan contains Save without a request to save. Clarify the goal before continuing.');};
+const checkSaveRequest=(text,plan)=>{if(plan.steps.some(s=>s.kind==='save')&&!goalRequestsSave(text))fail('This plan contains Save without a request to save. Clarify the goal before continuing.');};
 export async function handleGoal({operation,scope,input,goals,goalModel,planner,proposals,privateTasks,sourceMap,learning,signal,stillCurrent}){
  if(!goals||!goalModel||!planner||!proposals)fail('Goal planning is not configured');
- if(operation==='status'){const row=input.id?goals.get(scope,input.id):goals.current(scope);if(row?.privateTask&&!privateTasks?.goalBinding(scope,row.privateTask)){goals.clear(scope);return {goal:null};}return {goal:row};}
+ if(operation==='status'){const row=input.id?goals.get(scope,input.id):goals.current(scope);if(row?.privateTask&&!privateTasks?.goalBinding(scope,row.privateTask)){goals.clear(scope);return {goal:null};}return {goal:row,...(row?.pendingProposalId?{pendingOutcome:proposals.goalEvidence(scope,row.pendingProposalId)}:{})};}
  const context=async(text,privateTask)=>{if(!privateTask)return;const found=await privateTasks?.goalContext(scope,{...privateTask,text})||fail('Private task context is unavailable');if(privateTask.contentRevision!==undefined&&found.contentRevision!==privateTask.contentRevision)fail('Task files changed. Cancel this goal and review a new plan.');return found;};
  let peerGuidance=input.instanceId&&privateTasks?privateTasks.peerCatalog(scope,input):[];
  const guidance=(text,snapshot)=>({sourceGuidance:sourceMap?.guidance(scope,text,snapshot),siteGuidance:learning?.planningMemory?.(scope,text,snapshot)});

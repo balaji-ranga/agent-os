@@ -1,5 +1,7 @@
 services:
   adoption:
+    environment:
+      ADOPTION_MODEL_CONTEXT_BYTES: ${ADOPTION_MODEL_CONTEXT_BYTES:-60000}
     image: flolah-digital-adoption:${ADOPTION_RELEASE:?release required}
     restart: unless-stopped
     ports: ["127.0.0.1:4193:4193"]
@@ -36,6 +38,8 @@ services:
       - ${ADOPTION_ROOT:?}/config/worker.json:/config/worker.json:ro
     networks: [workers]
   adoption-model-gateway:
+    environment:
+      ADOPTION_MODEL_CONTEXT_BYTES: ${ADOPTION_MODEL_CONTEXT_BYTES:-60000}
     image: flolah-digital-adoption:${ADOPTION_RELEASE:?release required}
     command: [node, integrations/model-gateway-server.mjs]
     restart: unless-stopped

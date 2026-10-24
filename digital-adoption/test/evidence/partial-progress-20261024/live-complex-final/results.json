@@ -1,0 +1,785 @@
+{
+  "at": "2026-10-24T11:21:35.596Z",
+  "results": [
+    {
+      "id": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "passed": false,
+      "error": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+      "screenshot": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL.png"
+    }
+  ],
+  "traces": [
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "body": {
+        "goal": null
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "body": {
+        "id": "3f7e46f4-3aa8-4363-a9aa-9a7647f14ce6",
+        "revision": 1,
+        "intent": "plan",
+        "message": "Preparing a reviewable task plan for your complete request.",
+        "actions": [],
+        "expiresAt": 1792840957425,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f5",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form",
+            "choices": [
+              "Home delivery",
+              "Store pickup"
+            ]
+          },
+          {
+            "ref": "r1f6",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form",
+            "choices": [
+              "Analytics",
+              "Inventory",
+              "Support"
+            ]
+          },
+          {
+            "ref": "r1f7",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f8",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f9",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form",
+            "choices": [
+              "Normal",
+              "No matches",
+              "Lookup error",
+              "Duplicate labels"
+            ]
+          },
+          {
+            "ref": "r1f10",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f11",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f12",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_1_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f13",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f14",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_2_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f15",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f16",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_3_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f17",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [
+          {
+            "id": "dca1f2f0-692e-4905-939c-f94ea3262264",
+            "version": 4,
+            "title": "UAT Generic Customer P"
+          }
+        ],
+        "messageId": "ceef8c0f-76ec-4a34-8b00-79936d11b130"
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d59e68bf-e715-4109-9ac5-000317447d7d",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e52bc37f-e3b4-48b9-92a1-69165b8bb63f",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "Prepare to fill the Customer form with sample values without saving.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', account_search to '', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true.",
+              "expected": "All fields filled with sample values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792840854959,
+          "expiresAt": 1792927254959
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d59e68bf-e715-4109-9ac5-000317447d7d",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e52bc37f-e3b4-48b9-92a1-69165b8bb63f",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "Prepare to fill the Customer form with sample values without saving.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', account_search to '', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true.",
+              "expected": "All fields filled with sample values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792840854959,
+          "expiresAt": 1792927254959
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d59e68bf-e715-4109-9ac5-000317447d7d",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e52bc37f-e3b4-48b9-92a1-69165b8bb63f",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. What should I enter for Account search, Table filter? These fields can remain pending while the available independent fields are filled.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', account_search to '', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true.",
+              "expected": "All fields filled with sample values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            }
+          ],
+          "current": 0,
+          "status": "awaiting_review",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792840854959,
+          "expiresAt": 1792927254959,
+          "pendingProposalId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7"
+        },
+        "proposal": {
+          "id": "eb61fa42-5b49-4b13-a031-aa39d6b655d7",
+          "revision": 3,
+          "message": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. What should I enter for Account search, Table filter? These fields can remain pending while the available independent fields are filled.",
+          "actions": [
+            {
+              "type": "fill",
+              "ref": "r3f0",
+              "label": "Shipping method",
+              "value": "Standard"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f1",
+              "label": "Include gift wrap",
+              "value": "true",
+              "displayValue": "Selected"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f2",
+              "label": "Company name",
+              "value": "Demo Test"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f3",
+              "label": "Contact email",
+              "value": "demo@example.com"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f4",
+              "label": "Region",
+              "value": "Singapore"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f5",
+              "label": "Delivery preference",
+              "value": "Home delivery"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f6",
+              "label": "Interests",
+              "value": "Analytics, Support"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f7",
+              "label": "Delivery date",
+              "value": "2023-12-01"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f8",
+              "label": "Suggested city",
+              "value": "Singapore"
+            },
+            {
+              "type": "fill",
+              "ref": "r3f9",
+              "label": "Lookup scenario",
+              "value": "Normal"
+            }
+          ],
+          "expiresAt": 1792840997881,
+          "fields": [
+            {
+              "ref": "r3f0",
+              "label": "Shipping method",
+              "type": "select-one",
+              "required": false,
+              "key": "shipping_method",
+              "form": "demo-form",
+              "choices": [
+                "Standard",
+                "Choose",
+                "Express"
+              ]
+            },
+            {
+              "ref": "r3f1",
+              "label": "Include gift wrap",
+              "type": "checkbox",
+              "required": false,
+              "key": "gift_wrap",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f2",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f3",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f4",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f5",
+              "label": "Delivery preference",
+              "type": "radio",
+              "required": false,
+              "key": "delivery_preference",
+              "form": "demo-form",
+              "choices": [
+                "Home delivery",
+                "Store pickup"
+              ]
+            },
+            {
+              "ref": "r3f6",
+              "label": "Interests",
+              "type": "select-multiple",
+              "required": false,
+              "key": "interests",
+              "form": "demo-form",
+              "choices": [
+                "Analytics",
+                "Support",
+                "Inventory"
+              ]
+            },
+            {
+              "ref": "r3f7",
+              "label": "Delivery date",
+              "type": "date",
+              "required": false,
+              "key": "delivery_date",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f8",
+              "label": "Suggested city",
+              "type": "text",
+              "required": false,
+              "key": "suggested_city",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f9",
+              "label": "Lookup scenario",
+              "type": "select-one",
+              "required": false,
+              "key": "lookup-mode",
+              "form": "demo-form",
+              "choices": [
+                "Normal",
+                "No matches",
+                "Lookup error",
+                "Duplicate labels"
+              ]
+            },
+            {
+              "ref": "r3f10",
+              "label": "Account search",
+              "type": "combobox",
+              "required": false,
+              "key": "account_search",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f11",
+              "label": "Table filter",
+              "type": "text",
+              "required": false,
+              "key": "table-filter",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f12",
+              "label": "Item 1 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_1_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f13",
+              "label": "Select Item 1",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_1_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f14",
+              "label": "Item 2 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_2_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f15",
+              "label": "Select Item 2",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_2_selected",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f16",
+              "label": "Item 3 quantity",
+              "type": "number",
+              "required": false,
+              "constraints": {
+                "min": "1"
+              },
+              "key": "line_3_quantity",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r3f17",
+              "label": "Select Item 3",
+              "type": "checkbox",
+              "required": false,
+              "key": "line_3_selected",
+              "form": "demo-form"
+            }
+          ],
+          "clarification": {
+            "missingFields": [
+              {
+                "ref": "r3f10",
+                "reason": "unsupported_value"
+              },
+              {
+                "ref": "r3f11",
+                "reason": "unsupported_value"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/approve",
+      "status": 200,
+      "body": {
+        "revision": 3,
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r3f0",
+            "label": "Shipping method",
+            "value": "Standard",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:0",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f1",
+            "label": "Include gift wrap",
+            "value": "true",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:1",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f2",
+            "label": "Company name",
+            "value": "Demo Test",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:2",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f3",
+            "label": "Contact email",
+            "value": "demo@example.com",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:3",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f4",
+            "label": "Region",
+            "value": "Singapore",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:4",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f5",
+            "label": "Delivery preference",
+            "value": "Home delivery",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:5",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f6",
+            "label": "Interests",
+            "value": "Analytics, Support",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:6",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f7",
+            "label": "Delivery date",
+            "value": "2023-12-01",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:7",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f8",
+            "label": "Suggested city",
+            "value": "Singapore",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:8",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          },
+          {
+            "type": "fill",
+            "ref": "r3f9",
+            "label": "Lookup scenario",
+            "value": "Normal",
+            "actionId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7:9",
+            "fence": "[redacted]",
+            "grantExpiresAt": 1792840997881
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "LIVE05_ALL_SAMPLE_FIELDS_WITH_COMPLEX_CONTROLS_NO_CONTEXT_REFUSAL",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "body": {
+        "goal": {
+          "id": "d59e68bf-e715-4109-9ac5-000317447d7d",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "e52bc37f-e3b4-48b9-92a1-69165b8bb63f",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Fill the Customer form all fields with sample values. Do not save.",
+          "message": "I could not verify a reliable response after review. Nothing was changed. Please describe the element or task more precisely, or refresh the page to inspect its current state again.",
+          "steps": [
+            {
+              "title": "Fill Customer form",
+              "kind": "fill",
+              "instruction": "Set shipping_method to 'Standard', gift_wrap to true, company_name to 'Demo Test', contact_email to 'demo@example.com', region to 'Singapore', delivery_preference to 'Home delivery', interests to ['Analytics', 'Support'], delivery_date to '2023-12-01', suggested_city to 'Singapore', lookup-mode to 'Normal', account_search to '', table-filter to '', line_1_quantity to '1', line_1_selected to true, line_2_quantity to '1', line_2_selected to true, line_3_quantity to '1', line_3_selected to true.",
+              "expected": "All fields filled with sample values.",
+              "status": "pending",
+              "effects": [
+                {
+                  "proposalId": "eb61fa42-5b49-4b13-a031-aa39d6b655d7",
+                  "status": "consumed",
+                  "path": "/customer",
+                  "responseMessage": "I can fill Shipping method: Standard; Include gift wrap: true; Company name: Demo Test; Contact email: demo@example.com; Region: Singapore; Delivery preference: Home delivery; Interests: Analytics, Support; Delivery date: 2023-12-01; Suggested city: Singapore; Lookup scenario: Normal. What should I enter for Account search, Table filter? These fields can remain pending while the available independent fields are filled.",
+                  "pendingFields": [
+                    {
+                      "label": "Account search",
+                      "reason": "unsupported_value"
+                    },
+                    {
+                      "label": "Table filter",
+                      "reason": "unsupported_value"
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": "fill",
+                      "label": "Shipping method",
+                      "value": "Standard",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Include gift wrap",
+                      "value": "true",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Company name",
+                      "value": "Demo Test",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Contact email",
+                      "value": "demo@example.com",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Region",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery preference",
+                      "value": "Home delivery",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Interests",
+                      "value": "Analytics, Support",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Delivery date",
+                      "value": "2023-12-01",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Suggested city",
+                      "value": "Singapore",
+                      "outcome": "local_state_verified"
+                    },
+                    {
+                      "type": "fill",
+                      "label": "Lookup scenario",
+                      "value": "Normal",
+                      "outcome": "local_state_verified"
+                    }
+                  ]
+                }
+              ],
+              "attempts": 1
+            }
+          ],
+          "current": 0,
+          "status": "blocked",
+          "clarifications": 0,
+          "version": 6,
+          "createdAt": 1792840854959,
+          "expiresAt": 1792927254959
+        }
+      }
+    }
+  ]
+}
