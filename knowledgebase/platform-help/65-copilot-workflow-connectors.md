@@ -109,3 +109,6 @@ A dropped live connection invalidates pending private context and actions but re
 ### Workflows tab or link button is missing
 
 The owner/admin must enable **workflow access** for the selected website registration. When it is disabled, the visitor's Workflows tab and **Link this copilot to my Flolah workflows** button are hidden. Peer pairing may still be enabled independently; pairing does not grant server workflow access. After an authorized configuration change, reconnect the website copilot to load current capabilities. The visitor redeems the link code from their own signed-in Flolah workflow connector and reuses its saved target group for subsequent runs.
+
+
+A visitor can acknowledge a stopped goal step as **Completed manually — continue** after completing it on the website. This advances the browser goal without replaying that step. Paired goal results retain the manual-completion label; it is not a verified host receipt or a new workflow permission. Later actions still follow website access and Action Policies.

@@ -1,0 +1,18 @@
+{
+  "at": "2026-10-24T13:15:25.000Z",
+  "results": [
+    {
+      "id": "LIVE_MANUAL_COMPLETION_AND_RELOAD",
+      "passed": true,
+      "saves": 0,
+      "manualAcknowledgement": true,
+      "automatedEffectsFabricated": false,
+      "persistsAfterReload": true,
+      "screenshots": [
+        "manual-completion-live.png",
+        "manual-completion-reloaded.png"
+      ],
+      "scope": "Actual deployed coordinator/maker/checker; human-style edits on the loopback fixture only."
+    }
+  ]
+}

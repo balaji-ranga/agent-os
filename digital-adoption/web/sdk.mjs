@@ -108,7 +108,7 @@ export async function mount(options) {
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result,proposalGeneration;
     try {
-      if(execution.busy&&['task-peer-request','goal-peer-send','conversation-archive','conversation-resume','goal-create','goal-next','goal-observe','goal-clarify','plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
+      if(execution.busy&&['task-peer-request','goal-manual-complete','goal-peer-send','conversation-archive','conversation-resume','goal-create','goal-next','goal-observe','goal-clarify','plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
       // Unblock the queue before the owner's fresh capability check. Waiting
       // for that check first would itself queue Pause behind the stalled read.
       if(['discovery-pause','discovery-stop'].includes(message.type))client.interruptRead();
@@ -216,7 +216,7 @@ export async function mount(options) {
       else if(message.type==='cancel'){currentGoalProposal=false;execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if(message.type.startsWith('goal-')){
-        const operation=message.type.slice(5);if(['create','next','clarify','peer-send','peer-check'].includes(operation)&&!privateClient.instanceId)await privateClient.call('pair-status');const goalInput={instanceId:privateClient.instanceId,peerRequestId:message.peerRequestId,shareConsent:message.shareConsent,id:message.goalId,version:message.version,action:message.action,text:message.text,answer:message.answer,edits:message.edits};if(['control','create','clarify'].includes(operation)){taskGeneration++;currentSnapshot=null;client.interruptRead();execution.stop();}
+        const operation=message.type.slice(5);if(['create','next','clarify','peer-send','peer-check'].includes(operation)&&!privateClient.instanceId)await privateClient.call('pair-status');const goalInput={instanceId:privateClient.instanceId,peerRequestId:message.peerRequestId,shareConsent:message.shareConsent,id:message.goalId,version:message.version,action:message.action,text:message.text,answer:message.answer,edits:message.edits,step:message.step,acknowledged:message.acknowledged};if(['control','create','clarify','manual-complete'].includes(operation)){taskGeneration++;currentSnapshot=null;client.interruptRead();execution.stop();}
         if(operation==='create')incomingPeerRequest=message.peerRequestId;
         const generation=proposalGeneration=taskGeneration;
         if(operation==='peer-send'){const packet=inspector.shareContext({includeValues:message.includeValues===true});result=await request('/v1/goals/peer-send',{...goalInput,...packet,...privateClient.taskScope});if(result.peerRequest)privateClient.adoptTask(result.peerRequest.taskId);}

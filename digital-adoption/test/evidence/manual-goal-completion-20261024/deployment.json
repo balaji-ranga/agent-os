@@ -1,0 +1,70 @@
+{
+  "at": "2026-10-24T13:14:55.805456+00:00",
+  "release": "20261024-manual-goal-a",
+  "sharedCheckerSettingsUnchanged": true,
+  "platformAndParserWorkersUntouched": true,
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "id": "3289e1da39a6514f406452943601ff9d7328ce40b431d86f5fd022cf5effdc25",
+      "image": "flolah-digital-adoption:20261024-manual-goal-a",
+      "running": true
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "id": "c39a8d1caee872f6a29c622aaa3b3a4c7eae505968da6004e28e1711686d3ac4",
+      "image": "flolah-digital-adoption:20261024-manual-goal-a-gateway",
+      "running": true
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "id": "1ce4a550ac9f3a3aba8f2de50207a26b996879c0ec3ef458f80fb8b912624f36",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "running": true
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "id": "21c597c5e75686f67c487a8396a83f46b574e903f197b38d8f1c7eef2e28962e",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "running": true
+    },
+    "agent-os-backend-1": {
+      "id": "1d0539e41f68daa7c2844c305285634cf730629202fdc928c452b65da6753e54",
+      "image": "agent-os-backend:20261023-config-guard-d",
+      "running": true
+    },
+    "agent-os-frontend-1": {
+      "id": "d074370ca9b2d81fb082a0e0b545aa628aa1f39fc2d74629b22f7f3e1d360f7b",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "running": true
+    }
+  },
+  "deployedSourceHashes": {
+    "flolah-adoption-adoption-1:src/goal-store.mjs": "636023be3471b5314707ec5369eb0192409f18602d120e213bf870cc07473e1f",
+    "flolah-adoption-adoption-1:src/peer-tasks.mjs": "f260196bf79e69c17b8d9c9072a2630b90a8a3c7a33d8f5a792649ad1439562a",
+    "flolah-adoption-adoption-1:src/goal-summary.mjs": "7e5103b524bcda7358b207d7d820e247dae3e8a9a9be31ad0820fbb582218466",
+    "flolah-adoption-adoption-1:src/model-context-budget.mjs": "9f2b3591ffffb2b275f76fad030bbf85bd3a5f38a599f2f9e277256126c35bcd",
+    "flolah-adoption-adoption-1:src/partial-progress.mjs": "9cac29b03b262c528aa97f3ec634711b44587788cab0527a6573139315041de6",
+    "flolah-adoption-adoption-1:src/goal-model.mjs": "798bf797d4b749666689bfa72108040509e08c5920e61ae00414dda60423d34a",
+    "flolah-adoption-adoption-1:web/goal-outcomes.mjs": "1ee7f3e98a1c1c74eae9085817f66acfa54666c5d42e8521e8e3c4a4284d9818",
+    "flolah-adoption-adoption-1:web/sdk.mjs": "d9e2a59485d9984b42e28220ef368d3895fed633b41644c43b55adb9384aa188",
+    "flolah-adoption-adoption-1:web/button-actions.mjs": "f39822a9e2954638161b7096cdcaaee405a8407ef17d16ea4edd4be807b1a258",
+    "flolah-adoption-adoption-1:web/field-approval.mjs": "9cf5b88c005ffdfa916be48516be7b2f22fc003409046df2ec0d601801d4a0ac",
+    "flolah-adoption-adoption-1:web/goal-ui.mjs": "9cdcf5ba9e699e5c28c23c3fd010c9bf2e18a67b540419633e2f461a2488b9ea",
+    "flolah-adoption-adoption-1:src/server.mjs": "1d941dce53b896505214af4534896a3b60ebe16aa08c1d778712c3fa3913ec0a",
+    "flolah-adoption-adoption-1:src/goal-service.mjs": "b458b251232a1f5065e5783a87cc0181609cc4001f280d8846c6956f83ce66c9",
+    "flolah-adoption-adoption-1:src/assistant-contract.mjs": "acccd6a7099b76cce4d95468915e46c89d25ec50fcc4790edceb3654d03c4472",
+    "flolah-adoption-adoption-1:src/goal-contract.mjs": "f84941b31735761082a52ad64c587e48570211f70c42c1e685443c7767886a0f",
+    "flolah-adoption-adoption-1:web/page-context.mjs": "b4f51d48a188fb849a81ab11fc583801ca80bbc79d3bddd3c65f4c048ad870fe",
+    "flolah-adoption-adoption-1:web/page-targets.mjs": "5d814632b7dc52dfee0058a052cea5f3e211fc4f167994b60559726ff7ee5c87",
+    "flolah-adoption-adoption-1:web/dom.mjs": "ff2b104e11b4144a0e2a02dfef0e73d67072fee9de8630efacb0a9420a112354",
+    "flolah-adoption-adoption-1:web/widget.mjs": "13e9216688f7fa3a5c761e9b71c8ab5bd61de975584c0de6d6e0260291b7506d",
+    "flolah-adoption-adoption-1:src/platform-model.mjs": "8ed303ce605cf5be7fa43ce9c120b0dcd1b95dce44654ca09dec68e32976cf47",
+    "flolah-adoption-adoption-1:src/planner-guidance.mjs": "cdaca9b7d26cfc185e1e7757d8cba5cbd02e99b8cf8737918b06eac9aa84c0d7",
+    "flolah-adoption-adoption-1:src/planner-budget.mjs": "8c26399ea411d6709436ab775d4ad31eb9b8b733c67a82a33de94687cf8356c3",
+    "flolah-adoption-adoption-1:src/proposals.mjs": "a0d44acf7c85ef3994c5b6a7978f6cdf4c54bfa82c9c424d5d30316a88b8adb3",
+    "flolah-adoption-adoption-1:src/page-understanding.mjs": "2310f12dd18a202eff7ca911f07fd9324d4cce7312e8ff0abe746c0676a35cbb",
+    "flolah-adoption-adoption-model-gateway-1:src/model-context-budget.mjs": "9f2b3591ffffb2b275f76fad030bbf85bd3a5f38a599f2f9e277256126c35bcd",
+    "flolah-adoption-adoption-model-gateway-1:src/partial-progress.mjs": "9cac29b03b262c528aa97f3ec634711b44587788cab0527a6573139315041de6",
+    "flolah-adoption-adoption-model-gateway-1:integrations/model-gateway-server.mjs": "04f826c9f1009c75f419069225c98aa45c705d1dc81a5a264d076472bb5e8d30",
+    "flolah-adoption-adoption-model-gateway-1:integrations/maker-checker.mjs": "6f52b2195144f1917a61aca43311c25e16f6dd862caba5c9a929b8d6e0dc5440",
+    "flolah-adoption-adoption-model-gateway-1:src/proposals.mjs": "a0d44acf7c85ef3994c5b6a7978f6cdf4c54bfa82c9c424d5d30316a88b8adb3",
+    "flolah-adoption-adoption-model-gateway-1:src/page-understanding.mjs": "2310f12dd18a202eff7ca911f07fd9324d4cce7312e8ff0abe746c0676a35cbb"
+  }
+}

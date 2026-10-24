@@ -1,0 +1,41 @@
+{
+  "release": "20261024-manual-goal-a",
+  "serviceTests": {
+    "passed": 522,
+    "failed": 0,
+    "platforms": [
+      "Windows",
+      "Linux"
+    ],
+    "linuxRepeatNotCountedTwice": true
+  },
+  "newManualCompletionUnitTests": 6,
+  "browserRecovery": [
+    {
+      "id": "M01_MANUAL_NAVIGATION_ACKNOWLEDGEMENT_CONTINUES_TO_NEXT_FORM",
+      "status": "passed",
+      "screenshot": "M01_MANUAL_NAVIGATION_ACKNOWLEDGEMENT_CONTINUES_TO_NEXT_FORM.png"
+    },
+    {
+      "id": "M02_MANUAL_COMPLETION_SURVIVES_RELOAD_WITHOUT_REPLAY",
+      "status": "passed",
+      "screenshot": "M02_MANUAL_COMPLETION_SURVIVES_RELOAD_WITHOUT_REPLAY.png"
+    }
+  ],
+  "deployedAcceptance": [
+    {
+      "id": "LIVE_MANUAL_COMPLETION_AND_RELOAD",
+      "passed": true,
+      "saves": 0,
+      "manualAcknowledgement": true,
+      "automatedEffectsFabricated": false,
+      "persistsAfterReload": true,
+      "screenshots": [
+        "manual-completion-live.png",
+        "manual-completion-reloaded.png"
+      ],
+      "scope": "Actual deployed coordinator/maker/checker; human-style edits on the loopback fixture only."
+    }
+  ],
+  "manualAcknowledgementIsNotIndependentVerification": true
+}

@@ -186,3 +186,10 @@ The planner removes exact duplicate live-reference metadata and duplicate chat t
 
 
 For a large form, Goal plan can apply several reviews of at most ten actions, recording each batch before preparing remaining fields. A batch message describes only its actual proposed changes. Sample data never creates a fictional identity in a lookup for existing records: independent supported fields proceed, while an unresolved lookup remains unselected and is reported by label in step outcomes. View filters and test/diagnostic controls retain their values unless the task explicitly requests them. Accessible DOM descriptions supply these field meanings without an imported JSON map.
+
+
+### Complete a goal step manually
+
+If a step is blocked, failed, paused or awaiting review, complete it on the website, then expand **Completed this step yourself?** in Goal plan. Select **I checked the website and completed this step manually**, then choose **Completed manually — continue**. The copilot advances to the next step using fresh page context and its normal permissions and approval setting. An old review is invalidated and earlier actions are not retried.
+
+The step and recorded outcomes show **completed manually**. This is your acknowledgement, not independently verified execution or Save success. Unknown earlier outcomes stay unknown. The acknowledgement is private to the same website, visitor and conversation, and survives reload within the existing goal retention period. Running requests must finish or be paused first; access-expired tasks cannot be revived this way.
