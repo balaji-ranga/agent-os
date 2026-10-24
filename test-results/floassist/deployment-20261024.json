@@ -1,0 +1,18 @@
+{
+  "deployed_at_utc": "2026-10-24T14:20:20Z",
+  "main_revision": "f55ff5fe3dc0c976aacd3a77a52f099165e2ebad",
+  "provider_mapping_revision": "28f1f50c",
+  "build_context": "/opt/agent-os-releases/floassist-f55ff5fe-20261024",
+  "services": {"backend": "healthy", "frontend": "healthy"},
+  "rollback_images": ["agent-os-backend:pre-floassist-20261024", "agent-os-frontend:pre-floassist-20261024"],
+  "database_backup_container_path": "/data/agent-os/release-backups/pre-floassist.db",
+  "tests": {"floassist_core": 77, "floassist_platform": 28, "floassist_browser": 16, "tenant_boundaries": 75, "action_policy": "passed", "channel_announce": "passed"},
+  "public_checks": {"registration": 200, "javascript": 200, "free_tools_listing": 200, "terms": 200, "privacy": 200, "config": 200, "unauthenticated_me": 401, "existing_login": 200},
+  "cron_check_utc": "2026-10-24T14:21:00Z",
+  "cron_errors": {"floassist_reminders": null, "scheduled_goals": null},
+  "oauth_preflight": {"gmail": "configured", "googlecalendar": "unconfigured", "googledrive": "unconfigured", "outlook": "unconfigured", "one_drive": "unconfigured", "outlook_calendar": "not_listed"},
+  "live_user_oauth_and_whatsapp_pairing": "pending user onboarding",
+  "smtp": "configuration present; actual OTP delivery pending",
+  "existing_unrelated_issue": "content-antivirus service unhealthy before release",
+  "notes": "Built refreshed main plus tested provider mapping from a clean release context. Preserved VPS-only npm script names and static website preview injection. Original VPS checkout contains historical drift; its Git HEAD is not the running release identity. No unrelated containers removed."
+}
