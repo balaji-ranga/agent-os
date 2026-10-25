@@ -10,7 +10,14 @@ for(const owner of ['a','b']){db.prepare('INSERT INTO platform_users VALUES (?,1
 let n=0;const eq=(a,b)=>{assert.deepEqual(a,b);n++;};const total=()=>db.prepare('SELECT count(*) n FROM floassist_notifications').get().n;
 try{
  eq(record('a','gmail','available',{db}).queued,false);
+ const invalidInput={provider_status:400,code:'invalid_input',message:'Action input does not match the action schema.'};
+ eq(connectorFailureState(invalidInput),null);
+ eq(record('a','gmail',connectorFailureState(invalidInput),{db}).ignored,true);
+ eq(db.prepare("SELECT state FROM floassist_connector_health WHERE owner_id='a' AND app_id='gmail'").get().state,'available');
+ eq(total(),0);
  eq(record('a','gmail','authorization',{db}).queued,true);
+ eq(record('a','gmail',connectorFailureState(invalidInput),{db}).ignored,true);
+ eq(db.prepare("SELECT state FROM floassist_connector_health WHERE owner_id='a' AND app_id='gmail'").get().state,'authorization');
  eq(db.prepare("SELECT text FROM floassist_notifications WHERE owner_id='a'").get().text.startsWith('*FloAssist · Priority Alerts*\nConnection health'),true);
  eq(record('a','gmail','authorization',{db}).queued,false);eq(total(),1);
  eq(record('a','outlook','authorization',{db}).ignored,true);eq(total(),1);
@@ -40,6 +47,9 @@ try{
  const stamp=Date.now();db.prepare('INSERT INTO floassist_notifications VALUES (?,?,?,?,?,?,?,?)').run('b:connector-health:gmail:legacy:recovered','b','fixture','Old success notification','pending',stamp,stamp,stamp+60000);
  const delivered=[];await tickFloAssistNotifications({db,send:async r=>{delivered.push(r.text);return {ok:true};}});
  eq(delivered.includes('Old success notification'),false);
+ await check('b',{db,getInventory:async()=>({connected:['gmail','googlecalendar']}),probe:async()=>{throw invalidInput;}});
+ eq(db.prepare("SELECT state FROM floassist_connector_health WHERE owner_id='b' AND app_id='gmail'").get().state,'unsupported');
+ eq(connectorFailureState({provider_status:401,code:'invalid_grant'}),'authorization');
  db.prepare("UPDATE floassist_profiles SET status='paused' WHERE owner_id='a'").run();eq(record('a','gmail','authorization',{db}).ignored,true);
  db.prepare("UPDATE platform_users SET enabled=0 WHERE id='b'").run();eq(record('b','gmail','available',{db}).ignored,true);
  console.log(`FLOASSIST_CONNECTOR_HEALTH_OK: ${n} checks`);

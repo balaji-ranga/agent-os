@@ -56,6 +56,10 @@ export function connectorFailureState(error){
   if(status===401||/invalid_grant|token.*revok|authorization.failed|not connected/i.test(String(error?.message||'')))return 'authorization';
   if(status===403)return 'permission';
   if(status>=500||/timeout|fetch failed|ECONN/i.test(String(error?.message||'')))return 'temporary';
+  // A malformed action request says nothing about the owner's connection.
+  // Preserve any prior health state rather than alerting or marking it healthy.
+  if(['invalid_input','input_validation_error','schema_validation_error'].includes(error?.code)||
+    (status===400&&/action input does not match the action schema/i.test(String(error?.message||''))))return null;
   return 'unknown';
 }
 
@@ -87,7 +91,11 @@ export async function checkFloAssistConnectorHealth(owner,{db=getDb(),getInvento
           await executeConnectorAction(owner,app.health_probe.action_id,app.health_probe.input,{source:p.agent_id,authorizationRetryDelaysMs:[]});
         }
         recordFloAssistConnectorHealth(owner,provider,'available',{db});
-      }catch(error){recordFloAssistConnectorHealth(owner,provider,connectorFailureState(error),{db});}
+      }catch(error){
+        // Invalid input in our fixed health probe is an unsupported/misconfigured
+        // check, not evidence that the user's OAuth connection was lost.
+        recordFloAssistConnectorHealth(owner,provider,connectorFailureState(error)||'unsupported',{db});
+      }
     }
   }
   return {checked};
