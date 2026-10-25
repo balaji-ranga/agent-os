@@ -874,7 +874,7 @@ function ScheduledGoalsPanel() {
                   <strong>Recent runs</strong>
                   {!history[g.id] ? <p>Loading runs…</p> : history[g.id].error ? <p role="alert">{history[g.id].error}</p> : history[g.id].length === 0 ? <p>No runs yet.</p> : history[g.id].map(run => <div key={run.id} style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:8}}>
                     <div>{new Date(run.created_at.endsWith('Z') ? run.created_at : run.created_at.replace(' ', 'T')+'Z').toLocaleString(undefined,{timeZone:g.timezone})} · {g.timezone} · {run.status} · {run.triggered_by === 'run_now' ? 'Run now' : 'Scheduled'}</div>
-                    <div style={{whiteSpace:'pre-wrap'}}>{run.error || (run.reply_preview?.trim() === 'FLOASSIST_NO_UPDATE' ? 'No actionable update; no alert sent.' : run.reply_preview) || 'No output recorded yet.'}</div>
+                    <div style={{whiteSpace:'pre-wrap'}}>{run.error || (run.reply_preview?.trim() === 'FLOASSIST_NO_UPDATE' ? 'Check completed with no additional summary. Task-backed alerts are delivered separately; check WhatsApp and Kanban.' : run.reply_preview) || 'No output recorded yet.'}</div>
                   </div>)}
                 </td></tr>}
                 {planOpenId === g.id ? (

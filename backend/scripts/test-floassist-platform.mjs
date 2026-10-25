@@ -117,8 +117,13 @@ try{
   check(authenticateUser('new@example.test','passwordless-disabled'),null,'sentinel is not a usable password');
   const {observeTracking,listTracking}=await import('../src/services/floassist/tracking.js');
   const {executeKanbanUserAction}=await import('../src/services/kanban-user-actions.js');
-  const finding={app_id:'gmail',account_id:'fixture-mailbox',source_id:'fixture-thread',category:'priority',title:'Fixture user approval',evidence:'Synthetic approval request'};
+  const finding={app_id:'gmail',account_id:'fixture-mailbox',source_id:'fixture-thread',category:'priority',title:'Fixture user approval',evidence:'Synthetic approval request',due_at:'2026-10-27T15:00:00+08:00'};
   const tracked=observeTracking(db,'owner-a',finding);
+  check(tracked.task.due_at,'2026-10-27T07:00:00.000Z','source deadline survives real Kanban default ETA trigger');
+  const unknownDue=observeTracking(db,'owner-a',{...finding,source_id:'no-deadline',due_at:null});
+  check(unknownDue.task.due_at,null,'unknown source deadline is not replaced by invented eight-hour SLA');
+  const ordinaryId=Number(db.prepare("INSERT INTO kanban_tasks(title,status,owner_user_id) VALUES ('Ordinary SLA task','open','owner-a')").run().lastInsertRowid);
+  check(Boolean(db.prepare('SELECT due_at FROM kanban_tasks WHERE id=?').get(ordinaryId).due_at),true,'ordinary Kanban SLA trigger remains active');
   check(db.prepare('SELECT assigned_user_id FROM kanban_tasks WHERE id=?').get(tracked.task.task_id).assigned_user_id,'owner-a','tracking creates real human-owned Kanban task');
   const actor=db.prepare('SELECT * FROM platform_users WHERE id=?').get('owner-a');
   const closed=await executeKanbanUserAction({ownerUserId:'owner-a',taskId:tracked.task.task_id,actor,proxyAgentId:'fixture-coo',channel:'whatsapp',action:'complete',evidence:'Already taken care of'});

@@ -87,6 +87,11 @@ export function observeTracking(db,owner,input,now=Date.now()){
     }else{
       id=Number(db.prepare(`INSERT INTO kanban_tasks(title,description,status,created_by,owner_user_id,assigned_user_id,due_at,due_date)
         VALUES (?,?,'open','floassist-tracking',?,?,?,?)`).run(title,`FloAssist ${category}\nSource: ${app} / ${account} / ${source}\nObligation: ${obligation}\n${url||''}\n${evidence}`,owner,owner,due,due?.slice(0,10)||null).lastInsertRowid);
+      // The generic AFTER INSERT SLA trigger supplies a work ETA and overwrites
+      // due_at. Restore the verified source deadline (including unknown/null)
+      // inside this transaction before any alert or observer can read the task.
+      // Leave the generic trigger unchanged for all other Kanban workflows.
+      db.prepare('UPDATE kanban_tasks SET due_at=?,due_date=? WHERE id=? AND owner_user_id=?').run(due,due?.slice(0,10)||null,id,owner);
     }
     db.prepare(`INSERT INTO floassist_task_tracking(owner_id,task_id,source_key,app_id,account_id,source_id,obligation_key,categories_json,source_url,fingerprint,last_seen_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(owner,id,key,app,account,source,obligation,JSON.stringify([category]),url,hash([due]),now);
