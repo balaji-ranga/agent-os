@@ -3,6 +3,8 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 const ids=['agent-os-content-tools','agent-os-bootstrap-watcher'];
 const sha=b=>createHash('sha256').update(b).digest('hex');
+// Git may export Windows CRLF. Compare executable JS text, not checkout EOLs.
+const codeHash=path=>sha(readFileSync(path,'utf8').replace(/\r\n/g,'\n'));
 export function verifyExtensionIntegrity(sourceRoot,runtimeRoot=null){
  const records=[];
  for(const id of ids){
@@ -12,8 +14,8 @@ export function verifyExtensionIntegrity(sourceRoot,runtimeRoot=null){
    const path=join(dir,item.name),rel=join(relative,item.name);
    if(item.isDirectory())walk(path,rel);
    else if(item.name.endsWith('.js')){
-    const digest=sha(readFileSync(path));
-    if(runtimeRoot){const active=join(runtimeRoot,id,rel);if(!existsSync(active)||sha(readFileSync(active))!==digest)throw new Error(`Extension source/runtime mismatch: ${id}/${rel}`);}
+    const digest=codeHash(path);
+    if(runtimeRoot){const active=join(runtimeRoot,id,rel);if(!existsSync(active)||codeHash(active)!==digest)throw new Error(`Extension source/runtime mismatch: ${id}/${rel}`);}
     records.push([`${id}/${rel.replaceAll('\\','/')}`,digest]);
    }
   }};walk(source);
