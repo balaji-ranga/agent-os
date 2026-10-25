@@ -116,5 +116,17 @@ try{
  eq(observe({source_id:'linked-source',existing_task_id:manual}).task.origin,'linked','manual link retains provenance');
  throws(()=>updateTracking(db,'owner-a',{...closure,task_id:manual,source_id:'linked-source'}));
  eq(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(manual).status,'open','linked task protected');
+ const pendingTrack=observe({source_id:'track-preserves-pending'}).task.task_id;
+ const pendingKey=db.prepare("SELECT source_key FROM floassist_notifications WHERE owner_id=? AND source_key LIKE ? AND status='pending'").get('owner-a',`owner-a:tracking:${pendingTrack}:%`).source_key;
+ eq(updateTracking(db,'owner-a',{task_id:pendingTrack,action:'track',evidence:'Keep tracking'},now).notification,'tracking_unchanged','active track is idempotent');
+ updateTracking(db,'owner-a',{task_id:pendingTrack,action:'track',evidence:'Tracking noted'},now);
+ eq(db.prepare('SELECT status FROM floassist_notifications WHERE source_key=?').get(pendingKey).status,'pending','track preserves queued WhatsApp alert');
+ eq(db.prepare("SELECT count(*) n FROM task_messages WHERE task_id=? AND role='user'").get(pendingTrack).n,0,'no fabricated user instruction for active no-op');
+ const pendingSent=[];
+ await tickFloAssistNotifications({db,now,send:async n=>{pendingSent.push(n.source_key);return {ok:true};}});
+ eq(pendingSent.filter(k=>k===pendingKey).length,1,'preserved alert delivered exactly once');
+ updateTracking(db,'owner-a',{task_id:pendingTrack,action:'track',evidence:'Keep tracking'},now);
+ await tickFloAssistNotifications({db,now,send:async n=>{pendingSent.push(n.source_key);return {ok:true};}});
+ eq(pendingSent.filter(k=>k===pendingKey).length,1,'track never replays sent notification');
  console.log(`FLOASSIST_TRACKING_OK: ${checks} checks; isolated DB, synthetic delivery, no external side effects`);
 }finally{db.close();}
