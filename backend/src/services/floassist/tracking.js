@@ -37,6 +37,13 @@ function row(db,owner,id){
 function audit(db,r,decision,reason,now){db.prepare('INSERT INTO floassist_tracking_audit(owner_id,task_id,decision,reason,created_at) VALUES (?,?,?,?,?)').run(r.owner_id,r.task_id,decision,reason,now);}
 function cancelled(db,r){db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE owner_id=? AND source_key LIKE ? AND status='pending'").run(r.owner_id,`${r.owner_id}:tracking:${r.task_id}:%`);}
 function view(r){return {...r,categories:JSON.parse(r.categories_json),closed:terminal.has(r.task_status),completion_basis:terminal.has(r.task_status)?'Kanban task status; consult task messages for user or provider evidence':null};}
+export function trackingAlertHeading(db,owner,runId){
+  if(!runId)return 'FloAssist';
+  const run=db.prepare(`SELECT g.source FROM scheduled_goal_runs r JOIN scheduled_goals g
+    ON g.id=r.goal_id AND g.owner_user_id=r.owner_user_id WHERE r.id=? AND r.owner_user_id=?`).get(runId,owner);
+  const label={'floassist:priority':'Priority Alerts','floassist:followups':'Follow-up','floassist:deadlines':'Deadline Tracking'}[run?.source];
+  return label?`FloAssist · ${label}`:'FloAssist';
+}
 function queue(db,r,kind,now,cycle=null){
   const p=profile(db,r.owner_id),prefs=parse(p.preferences_json);
   if(terminal.has(r.task_status)){cancelled(db,r);audit(db,r,'suppressed','task_closed',now);return 'task_closed';}
@@ -52,8 +59,9 @@ function queue(db,r,kind,now,cycle=null){
   const existing=db.prepare('SELECT status FROM floassist_notifications WHERE source_key=?').get(sourceKey);
   if(existing){audit(db,r,'suppressed',`already_${existing.status}`,now);return `already_${existing.status}`;}
   const due=r.due_at?new Intl.DateTimeFormat('en-GB',{timeZone:prefs.timezone||'UTC',dateStyle:'medium',timeStyle:'short'}).format(new Date(r.due_at)):null;
-  const message=kind==='clarification'?`FloAssist task #${r.task_id}: ${r.title}\nThis open task could not be confirmed from its source. Is it completed, or should I keep tracking it?`:
+  const body=kind==='clarification'?`FloAssist task #${r.task_id}: ${r.title}\nThis open task could not be confirmed from its source. Is it completed, or should I keep tracking it?`:
     `FloAssist task #${r.task_id}: ${r.title}${due?`\nDue: ${due} (${prefs.timezone||'UTC'})`:''}\nReply with the task number and done, stop tracking, or snooze. Ask me for source details.`;
+  const message=`*${trackingAlertHeading(db,r.owner_id,cycle)}*\n\n${body}`;
   db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(sourceKey,r.owner_id,p.agent_id,message,now,now,now+7*86400000);
   audit(db,r,'queued',kind,now);return 'queued';
 }

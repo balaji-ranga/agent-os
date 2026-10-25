@@ -11,6 +11,7 @@ let n=0;const eq=(a,b)=>{assert.deepEqual(a,b);n++;};const total=()=>db.prepare(
 try{
  eq(record('a','gmail','available',{db}).queued,false);
  eq(record('a','gmail','authorization',{db}).queued,true);
+ eq(db.prepare("SELECT text FROM floassist_notifications WHERE owner_id='a'").get().text.startsWith('*FloAssist · Priority Alerts*\nConnection health'),true);
  eq(record('a','gmail','authorization',{db}).queued,false);eq(total(),1);
  eq(record('a','outlook','authorization',{db}).ignored,true);eq(total(),1);
  eq(record('b','gmail','authorization',{db}).queued,true);eq(total(),2);

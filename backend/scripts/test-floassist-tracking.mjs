@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {initializeFloAssist} from '../src/services/floassist/core.js';
-import {observeTracking,listTracking,updateTracking,ensureTracking,trackingHistorySummary} from '../src/services/floassist/tracking.js';
+import {observeTracking,listTracking,updateTracking,ensureTracking,trackingHistorySummary,trackingAlertHeading} from '../src/services/floassist/tracking.js';
 import {tickFloAssistNotifications,floAssistDeliveryGate} from '../src/services/floassist/runtime.js';
 
 // Isolated database and fake delivery: no real mailbox, owner, task or WhatsApp send.
@@ -89,6 +89,15 @@ try{
  INSERT INTO scheduled_goals VALUES ('goal-a','owner-a','floassist:priority');
  INSERT INTO scheduled_goal_runs VALUES ('run-a','owner-a','goal-a','cycle-a','running'),('run-b','owner-a','goal-a','cycle-b','running'),('run-c','owner-a','goal-a','cycle-c','running');`);
  const cycle={source_id:'repeat-source',scheduled_goal_id:'goal-a',run_key:'cycle-a'};
+ db.exec(`INSERT INTO scheduled_goals VALUES ('goal-followup','owner-a','floassist:followups');
+ INSERT INTO scheduled_goal_runs VALUES ('run-followup','owner-a','goal-followup','followup-cycle','running');`);
+ eq(trackingAlertHeading(db,'owner-a','run-followup'),'FloAssist · Follow-up','heading uses actual run source');
+ eq(trackingAlertHeading(db,'owner-b','run-followup'),'FloAssist','cross-owner run never labels another owner alert');
+ eq(trackingAlertHeading(db,'owner-a',null),'FloAssist','legacy context uses honest generic heading');
+ const labelled=observe({source_id:'label-source',category:'deadlines',scheduled_goal_id:'goal-followup',run_key:'followup-cycle'}).task;
+ const labelText=db.prepare('SELECT text FROM floassist_notifications WHERE source_key=?').get(`owner-a:tracking:${labelled.task_id}:1:finding:run-followup`).text;
+ eq(labelText.startsWith('*FloAssist · Follow-up*'),true,'deadline task found by followup has followup heading');
+ eq(labelText.includes('run-followup'),false,'internal run ID not exposed');
  const repeat=observe(cycle).task.task_id;
  await tickFloAssistNotifications({db,now,send});
  eq(observe(cycle).notification,'already_sent','same-run replay suppressed');
