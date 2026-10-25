@@ -134,6 +134,15 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
   for(const row of rows){
     const p=enrolled(db,row.owner_id);
     if(!p||p.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id))continue;
+    const healthPrefix=`${row.owner_id}:connector-health:`;
+    if(row.source_key.startsWith(healthPrefix)){
+      const appId=row.source_key.slice(healthPrefix.length).split(':')[0];
+      const prefs=JSON.parse(p.preferences_json);
+      const current=db.prepare('SELECT state FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(row.owner_id,appId);
+      if(!prefs.responsibilities?.includes('priority')||!prefs.connectors?.includes(appId)||(row.source_key.endsWith(':recovered')&&current?.state!=='available')){
+        db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
+      }
+    }
     if(inQuietHours(JSON.parse(p.preferences_json),new Date(now)))continue;
     if(!db.prepare("UPDATE floassist_notifications SET status='sending',updated_at=? WHERE source_key=? AND status='pending'").run(now,row.source_key).changes)continue;
     let result;try{result=await send({...row,phone:p.phone});}catch{result={ok:false};}

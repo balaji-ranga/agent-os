@@ -1,3 +1,4 @@
+import {recordFloAssistConnectorHealth,connectorFailureState} from './floassist/connector-health.js';
 /**
  * OpenConnector facade: per-CEO runtime tokens + catalog / execute APIs.
  * UI should treat this as first-class connectors, even if the backend talks MCP under the hood.
@@ -505,6 +506,14 @@ async function fetchHttpServiceCatalog(userId, query = '') {
   );
 }
 
+export async function getConnectorRegistrationHealth(userId) {
+  const alias=getOpenConnectorLink(userId)?.connection_name||defaultConnectionName(userId);
+  const payload=await openConnectorFetch('/api/connections',{auth:'admin'});
+  const rows=Array.isArray(payload)?payload:Array.isArray(payload?.data)?payload.data:Array.isArray(payload?.connections)?payload.connections:null;
+  if(!rows)throw new Error('Connector inventory unavailable');
+  return {connected:rows.filter(r=>r&&r.configured!==false&&String(r.connectionName||r.connection_name||'')===alias).map(r=>r.service||r.app_id||r.provider||r.id)};
+}
+
 export async function getConnectedConnectorApps(userId) {
   const alias = getOpenConnectorLink(userId)?.connection_name || defaultConnectionName(userId);
   // /api/connections requires admin bearer on real OC; runtime tokens only work on /v1/*.
@@ -811,13 +820,18 @@ export async function executeConnectorAction(
   let retryIndex = 0;
   while (true) {
     try {
-      return await invoke();
+      const result=await invoke();
+      try{recordFloAssistConnectorHealth(userId,appGuess,'available');}catch(e){console.warn('[floassist-health] observation unavailable');}
+      return result;
     } catch (error) {
       const message = String(error?.message || error || '');
       const authorizationFailure = !['rate_limited', 'quota_exceeded'].includes(error.code) &&
         error.provider_status !== 403 && readOnly &&
         (error.provider_status === 401 || /(?:401|authorization[_ -]?failed|not connected|connect .*oauth)/i.test(message));
-      if (!authorizationFailure || !appGuess || !userId || retryIndex >= configuredDelays.length) throw error;
+      if (!authorizationFailure || !appGuess || !userId || retryIndex >= configuredDelays.length) {
+        try{recordFloAssistConnectorHealth(userId,appGuess,connectorFailureState(error));}catch{}
+        throw error;
+      }
       // OAuth refresh can briefly make both execution and the connection list
       // report disconnected. Wait for the exact owner's grant to reappear
       // across the bounded schedule; do not fail on the first transient read,
@@ -840,7 +854,7 @@ export async function executeConnectorAction(
           delay_ms: delayMs,
         });
       }
-      if (!connected) throw error;
+      if (!connected) {try{recordFloAssistConnectorHealth(userId,appGuess,connectorFailureState(error));}catch{} throw error;}
     }
   }
 }

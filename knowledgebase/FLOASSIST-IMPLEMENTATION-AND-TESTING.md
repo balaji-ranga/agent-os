@@ -100,3 +100,14 @@ The current nginx apex `/free-tools/` static location and `/api/` backend proxy 
 End-to-end transient-only processing is **not implemented** by this native-channel integration. WhatsApp, OpenClaw conversation sessions, task/history records, tool audit and upstream connectors retain data under their existing settings. The skill avoids copying raw connector bodies to long-term memory, and the FloAssist outbox cleans its own content, but neither guarantees deletion in downstream systems. The UI states this limitation rather than advertising zero retention. The original transient-processing acceptance target requires a separately validated runtime retention implementation before it can be claimed.
 
 No production deployment, live provider authorization, real WhatsApp scan, payment or booking was performed by these tests.
+
+
+## Connector-health priority alerts — 25 October 2026
+
+Selected FloAssist connectors are inspected before priority-check execution. This includes calendar and file connectors, even without a selected email app. The owner-scoped connection inventory detects missing registrations; successful catalogue registration is not proof of token validity. Actual connector execution records successful access and final authorization, permission or transient service failures after existing retries. Warnings use the existing WhatsApp notification queue and quiet hours, with one warning per persistent incident and a recovery notice after a successful action if the warning was delivered. Pending stale warnings are cancelled on recovery; deselected apps and disabled priority alerts do not receive queued health notices. Raw provider errors, tokens and message content are not stored in health records.
+
+Limit: a revoked token on an otherwise listed connection is detected when that app is next used, not by an independent provider-token probe. Provider-specific active probes remain future work. This health-state deduplication does not implement the separate email-item lifecycle in FA-GAP-001.
+
+Validation: 26 isolated connector-health checks, 86 core FloAssist checks, 46 platform integration checks and 75 tenant-boundary checks passed. The release image passed the connector-health fixture suite. The live selected Gmail inventory check returned checked=1. Live account credentials were not revoked for testing.
+
+Deployment: /opt/agent-os-releases/connector-health-20261025; backend image agent-os-backend:connector-health-20261025. Rollback metadata is saved in the release directory. Existing managed priority prompts were updated without changing schedule status or timing. Deadline body-coverage instructions from the previous release are retained; the post-deployment deadline verification found the report deadline on 27 October at 15:00 Singapore time.

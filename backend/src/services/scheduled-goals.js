@@ -635,6 +635,11 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     insertChatTurn({ agentId: agent.id, ownerUserId, role: 'user', content: `[Scheduled goal] ${row.title}\n\n${row.prompt}` });
   } catch (e) { console.warn('[scheduled-goals] chat user turn:', e.message); }
 
+  if (row.source === 'floassist:priority') {
+    try { await (await import('./floassist/connector-health.js')).checkFloAssistConnectorHealth(ownerUserId); }
+    catch (e) { console.warn('[floassist-health] check unavailable'); }
+  }
+
   // Prefer durable goal plan when approved stored plan or structured multi-step.
   const pStatus = planStatusOf(row);
   let planned = null;

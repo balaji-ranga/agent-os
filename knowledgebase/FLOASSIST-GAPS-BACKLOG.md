@@ -56,3 +56,26 @@ Scheduled goals needs explicit Goal plan / Direct agent selection and run histor
 Acceptance: persisted mode, preservation of saved plans on mode switches, direct runs visible with output/status, no planner call for approved saved plans, and unchanged owner isolation. Non-COO agents retain the existing direct-execution restriction.
 
 Validation for FA-GAP-004: 46 platform integration checks and 86 FloAssist core checks passed; frontend production build and its required checks passed. Live FloAssist schedules retained Direct agent mode and prior statuses. Deployed backend/frontend images: `agent-os-backend:scheduled-modes-20261025` and `agent-os-frontend:scheduled-modes-20261025`. Saved-plan execution was verified without a planner request in an isolated fixture.
+
+## FA-GAP-005 — Enforce selected connector access during execution
+
+Priority: High. Status: Open.
+
+Observed: the inspected COO has no connector-action allowlist and therefore retains legacy broad connector execution access. FloAssist's selected-app preferences guide prompts and schedule eligibility, but do not enforce an app restriction at connector execution. If Gmail and Outlook are connected under the same owner, selecting only Gmail in FloAssist does not itself block Outlook actions. Owner-specific credentials and connection-alias checks are separate existing controls; this finding is not evidence of cross-owner mailbox access.
+
+Required behaviour:
+
+- Enforce FloAssist's selected apps at execution time using trusted owner and work-context identity, not model-supplied claims or prompt compliance.
+- Intersect the selected apps with authorized owner connections, agent/action grants, provider scopes and effective action policy. Selection must never grant new credentials or override a denial.
+- Propagate the restriction through delegated agents, scheduled runs, retries and equivalent connector entry points. Unknown or missing authorization context must not silently broaden access.
+- Preserve the existing COO's separately authorized non-FloAssist work. Avoid changing shared agent grants globally to implement one user's preferences.
+- Apply selection changes to subsequent actions and record clear denial reasons without leaking connection secrets or another owner's data.
+
+Acceptance tests and prerequisites:
+
+- Owner with test Gmail and Outlook connections: select Gmail only; Gmail reads succeed when permitted, while Outlook reads and writes are rejected before provider execution, even if explicitly requested in a tool payload.
+- Delegated-agent and scheduled-run fixtures: the same restriction survives delegation, retry and alternate connector routes; caller-supplied owner/app/context fields cannot bypass it.
+- Two isolated owners using the same agent template: each owner's selections and credentials remain independent; cross-owner connection substitution is denied.
+- Policy fixtures: selecting an app does not override Advisory restrictions, prohibited actions, revoked authorization or missing agent grants.
+- Change selection during a workflow: subsequent actions against the removed app are denied. Adding an app permits only actions otherwise authorized.
+- Existing non-FloAssist COO workflow: unrelated authorized connector use remains functional, with no global grant mutation.
