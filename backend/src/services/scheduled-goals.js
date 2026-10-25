@@ -550,7 +550,9 @@ function buildRunMessage(row, ownerUserId, { runKey, force }) {
     `Title: ${row.title}\nSchedule: ${scheduleLabel(row)}\n${ends}\n\n` +
     `You are receiving a CEO scheduled prompt. Execute the following instructions now using your tools. ` +
     `Work autonomously; do not ask the CEO to re-confirm unless policy requires approval for publish/external actions. ` +
-    `When done, reply with a short summary of what you produced or delegated.\n\n` +
+    (String(row.source||'').startsWith('floassist:')
+      ? `This is a single proactive assistant check. Perform the selected-source checks directly in this session. Do not create a goal plan, Kanban task, subagent timer, or notification step. Do not call notify_ceo or messaging tools to report this check: the platform handles delivery of your final response. Return only a concise user-facing actionable finding, without task IDs, tool receipts, execution steps or progress reports. If nothing actionable was verified, return exactly FLOASSIST_NO_UPDATE. A duplicate-action block is not a fresh finding.\n\n`
+      : `When done, reply with a short summary of what you produced or delegated.\n\n`) +
     `--- CEO prompt ---\n${row.prompt}\n--- end ---`
   );
 }
@@ -627,9 +629,10 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   let planned = null;
   let planningGoal = null;
   const stored = parsePlanJson(row.plan_json);
-  if (stored?.steps?.length && pStatus === 'approved') {
+  const floAssistRun=String(row.source||'').startsWith('floassist:');
+  if (!floAssistRun && stored?.steps?.length && pStatus === 'approved') {
     planned = stored.steps.map((s) => normalizeStepSpec(s));
-  } else {
+  } else if (!floAssistRun) {
     planningGoal = createGoalPlanningRun({
       ownerUserId,
       agentId: agent.id,
@@ -719,7 +722,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       openclawId, [{ role: 'user', content: prompt }], sessionUser, false,
       {
         injectLearningsInstruction: false,
-        injectKanbanInstruction: true,
+        injectKanbanInstruction: !floAssistRun,
         injectSessionHistoryInstruction: false,
         timeoutMs: Number(process.env.SCHEDULED_GOAL_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
       }

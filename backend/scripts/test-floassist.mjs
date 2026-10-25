@@ -55,9 +55,14 @@ try{
   check(floAssistScheduleGate({source:'existing'},new Date(clock),db),{ok:true},'existing schedules untouched');
   const schedule={source:'floassist:briefing',owner_user_id:input.email,agent_id:'fixture-coo'};
   check(floAssistScheduleGate(schedule,new Date(clock),db).ok,true,'active daytime checks');
+  check(floAssistScheduleGate({...schedule,source:'floassist:conflicts'},new Date(clock),db).reason,'floassist_source_unavailable','Gmail cannot enable calendar checks');
   await s.setStatus(input.email,'paused');check(floAssistScheduleGate(schedule,new Date(clock),db).ok,false,'paused checks blocked');await s.setStatus(input.email,'active');
   const reminderInput={request_key:'message-1',text:'Call Sam',due_at:new Date(clock+1000).toISOString()};
   const r=createReminder(db,input.email,reminderInput,clock);check(createReminder(db,input.email,reminderInput,clock).id,r.id,'reminder retry dedupe');
+  check(r.timezone,'Asia/Kolkata','receipt uses owner timezone');check(r.due_local.includes('GMT+5:30'),true,'receipt formats India offset');check(listReminders(db,input.email)[0].due_local,r.due_local,'list uses local receipt');
+  await s.save(input.email,{timezone:'Asia/Singapore'});check(listReminders(db,input.email)[0].due_local.includes('GMT+8'),true,'Singapore display follows saved timezone');
+  await s.save(input.email,{timezone:'Asia/Jakarta'});check(listReminders(db,input.email)[0].due_local.includes('GMT+7'),true,'Indonesia display follows saved timezone');
+  await s.save(input.email,{timezone:'Asia/Kolkata'});
   throws(()=>createReminder(db,input.email,{...reminderInput,text:'Different'},clock),'request_reused');
   throws(()=>createReminder(db,input.email,{...reminderInput,due_at:'2026-10-25T09:00:00'},clock),'due_at');
   throws(()=>createReminder(db,input.email,{...reminderInput,repeat_minutes:1},clock),'repeat');
@@ -77,6 +82,9 @@ try{
   db.prepare("INSERT INTO floassist_resources VALUES (?,'schedule','briefing','owned-schedule')").run(input.email);
   await s.save(input.email,{quiet_start:'00:00',quiet_end:'00:00'});
   check(floAssistDeliveryGate({ownerUserId:input.email,scheduledGoalId:'owned-schedule',text:'FLOASSIST_NO_UPDATE'},db).skip,true,'no-update marker silent');
+  check(floAssistDeliveryGate({ownerUserId:input.email,scheduledGoalId:'owned-schedule',text:'Goal completed. Final output: FLOASSIST_NO_UPDATE — no notifications.'},db).reason,'no_update','wrapped sentinel silent');
+  check(floAssistDeliveryGate({ownerUserId:input.email,scheduledGoalId:'owned-schedule',sourceKey:'agr:old:terminal',text:'Goal failed: old'},db).reason,'internal_goal_report','legacy goal reports silent');
+  check(db.prepare('SELECT count(*) AS n FROM floassist_notifications').get().n,0,'suppressed reports never queue');
   const delivery={ownerUserId:input.email,scheduledGoalId:'owned-schedule',text:'New actionable deadline',sourceKey:'run-1'};
   check(floAssistDeliveryGate(delivery,db).authorizedTo,'+6581234567','scheduled delivery scoped to personal number');check(floAssistDeliveryGate(delivery,db).skip,true,'proactive dedupe');
   let notifications=0;const notify=async row=>{check(row.phone,'+6581234567','queued notification owner target');notifications++;return {ok:true};};

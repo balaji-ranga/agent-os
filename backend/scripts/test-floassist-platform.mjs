@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
 import { mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,8 +13,12 @@ process.env.AGENT_OS_INTERNAL_TOKEN='fixture-floassist-token';process.env.OPENSE
 mkdirSync(process.env.OPENCLAW_DIR,{recursive:true});
 writeFileSync(process.env.OPENCLAW_CONFIG_PATH,JSON.stringify({gateway:{mode:'local'},agents:{defaults:{workspace:join(root,'workspace')},list:[]},tools:{},channels:{}}));
 const originalFetch=globalThis.fetch;
+let chatRequests=[];
+const gateway=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;chatRequests.push(JSON.parse(body));res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:'FLOASSIST_NO_UPDATE'}}]}));});
+await new Promise(resolve=>gateway.listen(0,'127.0.0.1',resolve));
+process.env.OPENCLAW_GATEWAY_URL=`http://127.0.0.1:${gateway.address().port}`;
 let connectedProviders=['gmail'];
-globalThis.fetch=async url=>{
+globalThis.fetch=async (url,options)=>{
   if(String(url).includes('/api/connections'))return new Response(JSON.stringify(connectedProviders.map(service=>({service,connectionName:'ceo-owner-a',configured:true}))));
   throw Error('Unexpected external request in isolated test: '+String(url));
 };
@@ -57,9 +62,26 @@ try{
   check(db.prepare('SELECT * FROM agent_skill_assignments WHERE skill_id=?').all(old.id),before,'existing skill pin/disable/priority unchanged');
   const assigned=listAgentSkillAssignments('owner-a','fixture-coo');check(assigned.length,2,'one product skill appended');check(assigned.find(x=>x.skill_id!==old.id).ready,true,'product tools ready');
   check(listAgentSkillAssignments('owner-b','fixture-coo').length,0,'other owner not uplifted');
-  check(db.prepare("SELECT count(*) AS n FROM scheduled_goals WHERE owner_user_id='owner-a'").get().n,5,'five proactive responsibilities');
+  check(db.prepare("SELECT count(*) AS n FROM scheduled_goals WHERE owner_user_id='owner-a'").get().n,4,'only email-supported proactive responsibilities');
   check(db.prepare('SELECT * FROM ceo_agent_channels WHERE id=?').get(ch.id),channelBefore,'existing linked channel preserved');
-  await s.activate('owner-a');check(db.prepare("SELECT count(*) AS n FROM scheduled_goals WHERE owner_user_id='owner-a'").get().n,5,'activation retry does not duplicate schedules');check(listAgentSkillAssignments('owner-a','fixture-coo').length,2,'activation retry does not duplicate skills');
+  await s.activate('owner-a');check(db.prepare("SELECT count(*) AS n FROM scheduled_goals WHERE owner_user_id='owner-a'").get().n,4,'activation retry does not duplicate schedules');check(listAgentSkillAssignments('owner-a','fixture-coo').length,2,'activation retry does not duplicate skills');
+  connectedProviders=['gmail','googlecalendar'];await s.save('owner-a',{connectors:['gmail','google_calendar']});
+  check(db.prepare("SELECT status FROM scheduled_goals WHERE source='floassist:conflicts'").get().status,'active','calendar selection enables conflict checks');
+  await s.save('owner-a',{connectors:['gmail']});
+  check(db.prepare("SELECT status FROM scheduled_goals WHERE source='floassist:conflicts'").get().status,'paused','calendar removal pauses existing conflict checks');
+  await s.save('owner-a',{quiet_start:'00:00',quiet_end:'00:00'});
+  const {runScheduledGoal}=await import('../src/services/scheduled-goals.js');
+  const {ensureFloAssistRuntime}=await import('../src/services/floassist/runtime.js');ensureFloAssistRuntime(db);
+  const priority=db.prepare("SELECT id FROM scheduled_goals WHERE source='floassist:priority'").get();
+  const goalCount=db.prepare('SELECT count(*) AS n FROM agent_goal_runs').get().n;
+  const run=await runScheduledGoal('owner-a',priority.id,{force:true});
+  check(run.ok,true,'proactive run completes');check(run.mode,'chat','proactive run bypasses planner');
+  check(db.prepare('SELECT count(*) AS n FROM agent_goal_runs').get().n,goalCount,'no internal goal run created');
+  check(chatRequests.length,1,'one direct check only');
+  const {CHAT_INSTRUCTION_KANBAN}=await import('../src/gateway/openclaw.js');
+  check(chatRequests[0].messages.some(m=>m.content.includes(CHAT_INSTRUCTION_KANBAN)),false,'Kanban instructions excluded');
+  check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not call notify_ceo')),true,'platform handles notification');
+  check(db.prepare('SELECT count(*) AS n FROM floassist_notifications').get().n,0,'no-update check queues no notification');
   await s.setStatus('owner-a','stopped');check(listAgentChannels('owner-a')[0].status,'enabled','stop preserves pre-existing COO channel');
   check(db.prepare("SELECT count(*) AS n FROM scheduled_goals WHERE owner_user_id='owner-a' AND status='active'").get().n,0,'stop pauses only product schedules');
   s.setPolicy('owner-a',{preset:'administrative',financial:'autonomous'});check(s.view('owner-a').policy.find(x=>x.family==='financial_destructive').mode,'autonomous','explicit autonomous finance honored');
@@ -77,6 +99,7 @@ try{
   await new Promise(r=>setTimeout(r,300));
   console.log(`FLOASSIST_PLATFORM_OK: ${checks} checks (real DB, owner COO, native channel identity, skill uplift, policy preservation, five schedules, repeat activation)`);
 }finally{
+  gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));
   const {closeCeoDb}=await import('../src/db/ceo-db.js');
   for(const row of db?.prepare('SELECT id FROM platform_users').all()||[])closeCeoDb(row.id);
   globalThis.fetch=originalFetch;db?.close();rmSync(root,{recursive:true,force:true});

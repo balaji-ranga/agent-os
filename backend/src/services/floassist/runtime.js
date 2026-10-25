@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getDb } from '../../db/schema.js';
 import { fail } from './core.js';
+import { readFileSync } from 'node:fs';
+const product=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
+
+export function floAssistResponsibilityEnabled(preferences,responsibility){
+  return Boolean(responsibility&&preferences.responsibilities?.includes(responsibility.id)&&
+    responsibility.requires_any_connector?.some(id=>preferences.connectors?.includes(id)));
+}
 
 export function inQuietHours(preferences,date=new Date()){
   const parts=new Intl.DateTimeFormat('en-GB',{timeZone:preferences.timezone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date);
@@ -18,6 +25,8 @@ export function floAssistScheduleGate(row,date=new Date(),db=getDb()){
   const p=enrolled(db,row.owner_user_id);
   if(!p||p.status!=='active'||p.agent_id!==row.agent_id)return {ok:false,reason:'floassist_paused'};
   const preferences=JSON.parse(p.preferences_json);
+  const responsibility=product.responsibilities.find(r=>row.source===`floassist:${r.id}`);
+  if(!floAssistResponsibilityEnabled(preferences,responsibility))return {ok:false,reason:'floassist_source_unavailable'};
   if(inQuietHours(preferences,date))return {ok:false,reason:'floassist_quiet_hours'};
   return {ok:true};
 }
@@ -35,7 +44,12 @@ export function ensureFloAssistRuntime(db=getDb()){
 }
 export function createReminder(db,owner,input,now=Date.now()){
   ensureFloAssistRuntime(db);
-  return db.transaction(()=>createReminderLocked(db,owner,input,now))();
+  return reminderReceipt(db,owner,db.transaction(()=>createReminderLocked(db,owner,input,now))());
+}
+function reminderReceipt(db,owner,row){
+  const timezone=JSON.parse(enrolled(db,owner)?.preferences_json||'{}').timezone||'UTC';
+  const due_local=new Intl.DateTimeFormat('en-GB',{timeZone:timezone,day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'shortOffset'}).format(new Date(row.due_at));
+  return {...row,timezone,due_local,display_instruction:'Use due_local and timezone verbatim when confirming or listing this reminder. Do not display UTC unless it is the user’s configured timezone.'};
 }
 function createReminderLocked(db,owner,input,now){
   const text=String(input.text||'').trim(),key=String(input.request_key||'').trim();
@@ -57,7 +71,7 @@ function createReminderLocked(db,owner,input,now){
   db.prepare('INSERT INTO floassist_reminders(id,owner_id,request_key,request_hash,text,due_at,repeat_minutes,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)').run(id,owner,key,requestHash,text,due,repeat,now,now);
   return db.prepare('SELECT * FROM floassist_reminders WHERE id=?').get(id);
 }
-export function listReminders(db,owner){ensureFloAssistRuntime(db);return db.prepare('SELECT id,text,due_at,repeat_minutes,status FROM floassist_reminders WHERE owner_id=? ORDER BY due_at LIMIT 100').all(owner);}
+export function listReminders(db,owner){ensureFloAssistRuntime(db);return db.prepare('SELECT id,text,due_at,repeat_minutes,status FROM floassist_reminders WHERE owner_id=? ORDER BY due_at LIMIT 100').all(owner).map(row=>reminderReceipt(db,owner,row));}
 export function cancelReminder(db,owner,id){ensureFloAssistRuntime(db);const r=db.prepare("UPDATE floassist_reminders SET status='cancelled',text=NULL,updated_at=? WHERE owner_id=? AND id=? AND status='pending'").run(Date.now(),owner,String(id||''));if(!r.changes)fail(409,'reminder_unavailable','Reminder is missing, cancelled or already being sent.');return {cancelled:true};}
 
 /** Claim once before send. Uncertain sends are retained for reconciliation, never blindly retried. */
@@ -94,7 +108,10 @@ export function floAssistDeliveryGate({ownerUserId,scheduledGoalId,sourceKey,tex
   const r=db.prepare("SELECT 1 FROM floassist_resources WHERE owner_id=? AND kind='schedule' AND resource_id=?").get(ownerUserId,scheduledGoalId);
   if(!r)return {managed:false};
   if(p.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(ownerUserId))return {managed:true,skip:true,reason:'floassist_paused'};
-  if(!String(text||'').trim()||String(text||'').trim()==='FLOASSIST_NO_UPDATE')return {managed:true,skip:true,reason:'no_update'};
+  if(!String(text||'').trim()||/\bFLOASSIST_NO_UPDATE\b/.test(String(text)))return {managed:true,skip:true,reason:'no_update'};
+  // Old plan-mode runs may finish after upgrading. Their internal progress reports
+  // are retained in Flolah but are never personal-assistant notifications.
+  if(/^agr:.*:terminal$/.test(String(sourceKey||'')))return {managed:true,skip:true,reason:'internal_goal_report'};
   ensureFloAssistRuntime(db);
   const digest=createHash('sha256').update(String(text).trim()).digest('hex');
   const duplicate=db.prepare('SELECT 1 FROM floassist_deliveries WHERE owner_id=? AND content_hash=? AND created_at>?').get(ownerUserId,digest,Date.now()-86400000);
