@@ -15,6 +15,7 @@ function statusClass(status) {
 }
 
 const EMPTY_FORM = {
+  execution_mode: 'goal_plan',
   title: '',
   prompt: '',
   agent_id: '',
@@ -69,6 +70,14 @@ function ScheduledGoalsPanel() {
   const [enrichBusy, setEnrichBusy] = useState(false);
   const [agents, setAgents] = useState([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [historyId, setHistoryId] = useState(null);
+  const [history, setHistory] = useState({});
+  const loadHistory = async id => {
+    if (historyId === id) { setHistoryId(null); return; }
+    setHistoryId(id); setHistory(h => ({...h, [id]: null}));
+    try { const data = await api.scheduledGoalsGet(id); setHistory(h => ({...h, [id]: data.runs || []})); }
+    catch (e) { setHistory(h => ({...h, [id]: {error:e.message}})); }
+  };
   const [planOpenId, setPlanOpenId] = useState(null);
   const [planCache, setPlanCache] = useState({});
   const [planBusy, setPlanBusy] = useState(null);
@@ -161,6 +170,7 @@ function ScheduledGoalsPanel() {
   const openEdit = (g) => {
     setEditingId(g.id);
     setForm({
+      execution_mode: g.execution_mode || 'goal_plan',
       title: g.title || '',
       prompt: g.prompt || '',
       agent_id: g.agent_id || cooAgentId(agents),
@@ -238,15 +248,12 @@ function ScheduledGoalsPanel() {
 
   const save = async (e, opts = {}) => {
     if (e && e.preventDefault) e.preventDefault();
-    const planForCoo = agentIsCoo(agents, form.agent_id);
+    const planForCoo = agentIsCoo(agents, form.agent_id) && form.execution_mode === 'goal_plan';
     const approvePlan = !!opts.approvePlan;
-    if (planForCoo && approvePlan && !(draftPlan?.steps?.length)) {
-      setError('Approve needs at least one plan step. Generate a draft or amend the plan, then try again.');
-      return;
-    }
     setBusyId(editingId || 'create');
     setError(null);
     const body = {
+      execution_mode: agentIsCoo(agents, form.agent_id) ? form.execution_mode : 'direct_agent',
       title: form.title || undefined,
       prompt: form.prompt,
       agent_id: form.agent_id,
@@ -262,6 +269,7 @@ function ScheduledGoalsPanel() {
     try {
       if (editingId) {
         await api.scheduledGoalsUpdate(editingId, {
+          execution_mode: body.execution_mode,
           title: body.title,
           prompt: body.prompt,
           agent_id: body.agent_id,
@@ -271,14 +279,14 @@ function ScheduledGoalsPanel() {
           ends_at: body.ends_at,
           deliver_to: body.deliver_to,
         });
-        if (planForCoo && (draftPlan || planFeedback || approvePlan)) {
+        if (planForCoo && (draftPlan || planFeedback)) {
           await api.scheduledGoalsSetPlan(editingId, {
             plan: draftPlan,
             feedback: planFeedback || undefined,
             approve: approvePlan,
             prompt: form.prompt,
           });
-        } else if (!planForCoo && approvePlan) {
+        } else if (approvePlan) {
           await api.scheduledGoalsResume(editingId);
         }
         setMessage(
@@ -327,7 +335,7 @@ function ScheduledGoalsPanel() {
     }));
   };
 
-  const planForCoo = agentIsCoo(agents, form.agent_id);
+  const planForCoo = agentIsCoo(agents, form.agent_id) && form.execution_mode === 'goal_plan';
 
   return (
     <div className="page" style={{ maxWidth: 980 }}>
@@ -403,7 +411,7 @@ function ScheduledGoalsPanel() {
                 </>
               ) : (
                 <>
-                  This employee runs the prompt directly. Execution plans are COO-only.{' '}
+                  The selected agent runs the prompt directly. Any saved plan is retained for later use.{' '}
                   <strong>Save &amp; schedule</strong> to activate.
                 </>
               )}
@@ -426,6 +434,14 @@ function ScheduledGoalsPanel() {
               onChange={(ev) => setForm((f) => ({ ...f, prompt: ev.target.value }))}
               placeholder="Check MAGS vs previous close; if down ≥2%, notify me. Otherwise do not notify."
             />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span>Execution mode</span>
+            <select aria-label="Execution mode" value={agentIsCoo(agents, form.agent_id) ? form.execution_mode : 'direct_agent'} onChange={ev => setForm(f => ({...f, execution_mode: ev.target.value}))}>
+              <option value="goal_plan" disabled={!agentIsCoo(agents, form.agent_id)}>Goal plan</option>
+              <option value="direct_agent">Direct agent</option>
+            </select>
+            <small>{planForCoo ? 'Reuses the approved saved plan. With no saved plan, creates a plan when the schedule runs.' : 'Runs the prompt directly without creating a goal plan.'}</small>
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
@@ -633,8 +649,7 @@ function ScheduledGoalsPanel() {
               disabled={
                 busyId === (editingId || 'create') ||
                 enrichBusy ||
-                !form.prompt.trim() ||
-                (planForCoo && !draftPlan)
+                !form.prompt.trim()
               }
               onClick={() => save(null, { approvePlan: true })}
               title={!planForCoo ? COO_PLAN_TIP : undefined}
@@ -642,7 +657,7 @@ function ScheduledGoalsPanel() {
               {busyId === (editingId || 'create')
                 ? 'Saving...'
                 : planForCoo
-                  ? 'Approve plan & schedule'
+                  ? (draftPlan?.steps?.length ? 'Approve plan & schedule' : 'Save & schedule')
                   : 'Save & schedule'}
             </button>
             <button
@@ -746,7 +761,7 @@ function ScheduledGoalsPanel() {
                   <td data-label="Agent" style={{ padding: '0.5rem' }}>
                     <Link to={`/agents/${encodeURIComponent(g.agent_id)}/chat`}>{g.agent_name || g.agent_id}</Link>
                   </td>
-                  <td data-label="Schedule" style={{ padding: '0.5rem' }}>{g.schedule_label}</td>
+                  <td data-label="Schedule" style={{ padding: '0.5rem' }}>{g.schedule_label}<div>{g.execution_mode === 'direct_agent' ? 'Direct agent' : 'Goal plan'}</div></td>
                   <td data-label="Ends" style={{ padding: '0.5rem' }}>{g.ends_label || (g.is_perpetual ? 'Perpetual' : g.ends_at)}</td>
                   <td data-label="Status" style={{ padding: '0.5rem' }}>
                     <span className={statusClass(g.status)}>{g.status}{g.plan_status && g.plan_status !== 'none' ? ` · plan ${g.plan_status}` : ''}</span>
@@ -755,6 +770,7 @@ function ScheduledGoalsPanel() {
                     ) : null}
                   </td>
                   <td data-label="Last run" style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    <button type="button" className="btn-secondary" onClick={() => loadHistory(g.id)}>{historyId === g.id ? 'Hide history' : 'Run history'}</button>
                     <div>{g.last_run_status || '—'}
                     {g.run_count ? ` · ${g.run_count} run(s)` : ''}</div>
                     <button
@@ -800,7 +816,7 @@ function ScheduledGoalsPanel() {
                           Resume
                         </button>
                       ) : null}
-                      {(g.status === 'draft' || g.plan_status === 'draft') && g.is_coo && (
+                      {(g.status === 'draft' || g.plan_status === 'draft') && g.is_coo && g.execution_mode !== 'direct_agent' && (
                         <button
                           type="button"
                           className="btn-primary"
@@ -832,7 +848,7 @@ function ScheduledGoalsPanel() {
                       <button
                         type="button"
                         className="btn-secondary"
-                        disabled={busyId === g.id || g.status === 'draft' || g.plan_status === 'draft'}
+                        disabled={busyId === g.id || g.status === 'draft' || (g.execution_mode !== 'direct_agent' && g.plan_status === 'draft')}
                         onClick={() =>
                           runAction(g.id, () => api.scheduledGoalsRunNow(g.id), 'Run started — check agent chat.')
                         }
@@ -854,6 +870,13 @@ function ScheduledGoalsPanel() {
                     </div>
                   </td>
                 </tr>
+                {historyId === g.id && <tr><td colSpan={7} style={{padding:'0.75rem'}}>
+                  <strong>Recent runs</strong>
+                  {!history[g.id] ? <p>Loading runs…</p> : history[g.id].error ? <p role="alert">{history[g.id].error}</p> : history[g.id].length === 0 ? <p>No runs yet.</p> : history[g.id].map(run => <div key={run.id} style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:8}}>
+                    <div>{new Date(run.created_at.endsWith('Z') ? run.created_at : run.created_at.replace(' ', 'T')+'Z').toLocaleString(undefined,{timeZone:g.timezone})} · {g.timezone} · {run.status} · {run.triggered_by === 'run_now' ? 'Run now' : 'Scheduled'}</div>
+                    <div style={{whiteSpace:'pre-wrap'}}>{run.error || (run.reply_preview?.trim() === 'FLOASSIST_NO_UPDATE' ? 'No actionable update; no alert sent.' : run.reply_preview) || 'No output recorded yet.'}</div>
+                  </div>)}
+                </td></tr>}
                 {planOpenId === g.id ? (
                   <tr className="sg-plan-row" key={`${g.id}-plan`} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td colSpan={7} style={{ padding: '0.35rem 0.75rem 0.85rem' }}>

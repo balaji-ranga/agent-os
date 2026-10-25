@@ -127,7 +127,7 @@ async function provision(p){
     if(id&&!getScheduledGoal(p.owner_id,id))id=null;
     if(!id&&enabled){
       // A reviewed static single-step responsibility avoids LLM planning during registration.
-      const g=await createScheduledGoal(p.owner_id,{...input,skip_plan_review:true,plan:{manual:true,steps:[]}});
+      const g=await createScheduledGoal(p.owner_id,{...input,execution_mode:'direct_agent',skip_plan_review:true,plan:{manual:true,steps:[]}});
       id=g.id;remember(p.owner_id,'schedule',r.id,id);
     }
     if(id)updateScheduledGoal(p.owner_id,id,input);
