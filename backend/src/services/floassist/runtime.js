@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { getDb } from '../../db/schema.js';
 import { fail } from './core.js';
 import { readFileSync } from 'node:fs';
+import {tickTracking,trackingNotificationAllowed} from './tracking.js';
 const product=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
 
 export function floAssistResponsibilityEnabled(preferences,responsibility){
@@ -112,6 +113,10 @@ export function floAssistDeliveryGate({ownerUserId,scheduledGoalId,sourceKey,tex
   // Old plan-mode runs may finish after upgrading. Their internal progress reports
   // are retained in Flolah but are never personal-assistant notifications.
   if(/^agr:.*:terminal$/.test(String(sourceKey||'')))return {managed:true,skip:true,reason:'internal_goal_report'};
+  // Tracked responsibilities deliver only durable task notifications, never free-form
+  // summaries which could reintroduce a closed obligation with different wording.
+  if(db.prepare("SELECT 1 FROM floassist_resources WHERE owner_id=? AND kind='schedule' AND resource_id=? AND resource_key IN ('priority','deadlines','followups')").get(ownerUserId,scheduledGoalId))
+    return {managed:true,skip:true,reason:'kanban_tracking_delivery_only'};
   ensureFloAssistRuntime(db);
   const digest=createHash('sha256').update(String(text).trim()).digest('hex');
   const duplicate=db.prepare('SELECT 1 FROM floassist_deliveries WHERE owner_id=? AND content_hash=? AND created_at>?').get(ownerUserId,digest,Date.now()-86400000);
@@ -129,11 +134,15 @@ export function floAssistDeliveryGate({ownerUserId,scheduledGoalId,sourceKey,tex
 /** Proactive output waits through quiet hours instead of being lost at completion time. */
 export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()}={}){
   ensureFloAssistRuntime(db);let sent=0;
+  if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_task_tracking'").get())tickTracking(db,now);
   db.prepare("UPDATE floassist_notifications SET text=NULL,status='expired' WHERE expires_at<=? AND status='pending'").run(now);
   const rows=db.prepare("SELECT * FROM floassist_notifications WHERE status='pending' ORDER BY created_at LIMIT 40").all();
   for(const row of rows){
     const p=enrolled(db,row.owner_id);
     if(!p||p.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id))continue;
+    if(!trackingNotificationAllowed(db,row,now)){
+      db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
+    }
     const healthPrefix=`${row.owner_id}:connector-health:`;
     if(row.source_key.startsWith(healthPrefix)){
       const appId=row.source_key.slice(healthPrefix.length).split(':')[0];

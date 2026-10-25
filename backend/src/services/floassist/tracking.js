@@ -1,0 +1,147 @@
+import {createHash} from 'node:crypto';
+import {ensureFloAssistRuntime} from './runtime.js';
+
+const categories=['priority','deadlines','followups'];
+const terminal=new Set(['completed','closed','done','cancelled','failed']);
+const parse=s=>JSON.parse(s||'{}');
+const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
+const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function text(value,name,max=500){const s=String(value||'').trim();if(!s||s.length>max)fail(`${name} is required (up to ${max} characters).`);return s;}
+
+export function ensureTracking(db){
+  ensureFloAssistRuntime(db);
+  db.exec(`CREATE TABLE IF NOT EXISTS floassist_task_tracking (
+    owner_id TEXT NOT NULL,task_id INTEGER NOT NULL,source_key TEXT NOT NULL,
+    app_id TEXT NOT NULL,account_id TEXT NOT NULL,source_id TEXT NOT NULL,obligation_key TEXT NOT NULL,
+    categories_json TEXT NOT NULL,source_url TEXT,revision INTEGER NOT NULL DEFAULT 1,
+    fingerprint TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'open',snooze_until INTEGER,
+    last_seen_at INTEGER NOT NULL,clarification_revision INTEGER,UNIQUE(owner_id,source_key),PRIMARY KEY(owner_id,task_id));
+    CREATE TABLE IF NOT EXISTS floassist_tracking_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,owner_id TEXT NOT NULL,task_id INTEGER NOT NULL,
+    decision TEXT NOT NULL,reason TEXT NOT NULL,created_at INTEGER NOT NULL);`);
+}
+function profile(db,owner){
+  const p=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=?').get(owner);
+  if(!p)fail('FloAssist profile not found.',404);return p;
+}
+function row(db,owner,id){
+  const r=db.prepare(`SELECT f.*,k.title,k.status AS task_status,k.due_at FROM floassist_task_tracking f
+    JOIN kanban_tasks k ON k.id=f.task_id AND k.owner_user_id=f.owner_id WHERE f.owner_id=? AND f.task_id=?`).get(owner,id);
+  if(!r)fail('Tracked task not found.',404);return r;
+}
+function audit(db,r,decision,reason,now){db.prepare('INSERT INTO floassist_tracking_audit(owner_id,task_id,decision,reason,created_at) VALUES (?,?,?,?,?)').run(r.owner_id,r.task_id,decision,reason,now);}
+function cancelled(db,r){db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE owner_id=? AND source_key LIKE ? AND status='pending'").run(r.owner_id,`${r.owner_id}:tracking:${r.task_id}:%`);}
+function view(r){return {...r,categories:JSON.parse(r.categories_json),closed:terminal.has(r.task_status),completion_basis:terminal.has(r.task_status)?'Kanban task status; consult task messages for user or provider evidence':null};}
+function queue(db,r,kind,now){
+  const p=profile(db,r.owner_id),prefs=parse(p.preferences_json);
+  if(terminal.has(r.task_status)){cancelled(db,r);audit(db,r,'suppressed','task_closed',now);return 'task_closed';}
+  if(p.status!=='active'||!prefs.connectors?.includes(r.app_id)||!JSON.parse(r.categories_json).some(c=>prefs.responsibilities?.includes(c)))return 'tracking_disabled';
+  if(r.state==='acknowledged'&&kind==='finding')return 'acknowledged';
+  if(r.snooze_until>now)return 'snoozed';
+  const sourceKey=`${r.owner_id}:tracking:${r.task_id}:${r.revision}:${kind}`;
+  const existing=db.prepare('SELECT status FROM floassist_notifications WHERE source_key=?').get(sourceKey);
+  if(existing){audit(db,r,'suppressed',`already_${existing.status}`,now);return `already_${existing.status}`;}
+  const due=r.due_at?new Intl.DateTimeFormat('en-GB',{timeZone:prefs.timezone||'UTC',dateStyle:'medium',timeStyle:'short'}).format(new Date(r.due_at)):null;
+  const message=kind==='clarification'?`FloAssist task #${r.task_id}: ${r.title}\nThis open task could not be confirmed from its source. Is it completed, or should I keep tracking it?`:
+    `FloAssist task #${r.task_id}: ${r.title}${due?`\nDue: ${due} (${prefs.timezone||'UTC'})`:''}\nReply with the task number and done, acknowledge, or snooze. Ask me for source details.`;
+  db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(sourceKey,r.owner_id,p.agent_id,message,now,now,now+7*86400000);
+  audit(db,r,'queued',kind,now);return 'queued';
+}
+
+/** All identities are owner scoped. Obligation identity never includes alert wording or responsibility. */
+export function observeTracking(db,owner,input,now=Date.now()){
+  ensureTracking(db);
+  const p=profile(db,owner),prefs=parse(p.preferences_json);
+  const app=text(input.app_id,'app_id',80),account=text(input.account_id,'account_id',200),source=text(input.source_id,'source_id',300);
+  if(!prefs.connectors?.includes(app))fail('Select this app in FloAssist before tracking it.',403);
+  const category=text(input.category,'category',30);if(!categories.includes(category))fail('Unsupported tracking category.');
+  const obligation=String(input.obligation_key||'action').trim();if(!obligation||obligation.length>150)fail('Invalid obligation key.');
+  const title=text(input.title,'title',300),evidence=text(input.evidence,'evidence',1000);
+  const rawDue=input.due_at==null?null:String(input.due_at);
+  if(rawDue&&(!/T.*(?:Z|[+-]\d\d:\d\d)$/.test(rawDue)||!Number.isFinite(Date.parse(rawDue))))fail('due_at must include a timezone offset.');
+  const due=rawDue?new Date(rawDue).toISOString():null;
+  const url=input.source_url?String(input.source_url):null;if(url&&(!url.startsWith('https://')||url.length>2000))fail('Source link must be HTTPS.');
+  const key=hash([app,account,source,obligation]);
+  return db.transaction(()=>{
+    let existing=db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND source_key=?').get(owner,key);
+    if(existing){
+      let r=row(db,owner,existing.task_id);
+      const cats=[...new Set([...JSON.parse(r.categories_json),category])];
+      db.prepare('UPDATE floassist_task_tracking SET categories_json=?,last_seen_at=? WHERE owner_id=? AND task_id=?').run(JSON.stringify(cats),now,owner,r.task_id);
+      // Scans cannot reopen a completed task or clear a user acknowledgement.
+      if(terminal.has(r.task_status))return {task:view(r),notification:queue(db,r,'finding',now)};
+      if(input.due_at!==undefined&&due!==r.due_at){
+        db.prepare('UPDATE kanban_tasks SET due_at=?,due_date=?,updated_at=datetime(\'now\') WHERE id=? AND owner_user_id=?').run(due,due?.slice(0,10)||null,r.task_id,owner);
+        db.prepare("UPDATE floassist_task_tracking SET revision=revision+1,state='open',snooze_until=NULL,clarification_revision=NULL,fingerprint=? WHERE owner_id=? AND task_id=?").run(hash([due]),owner,r.task_id);
+        cancelled(db,r);audit(db,r,'changed',evidence,now);
+        db.prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'assistant',?)").run(r.task_id,`FloAssist deadline change: ${evidence}`);
+      }
+      r=row(db,owner,r.task_id);return {task:view(r),notification:queue(db,r,'finding',now)};
+    }
+    let id;
+    if(input.existing_task_id){
+      const task=db.prepare('SELECT * FROM kanban_tasks WHERE id=? AND owner_user_id=?').get(Number(input.existing_task_id),owner);
+      if(!task)fail('Existing task not found.',404);
+      if(db.prepare('SELECT 1 FROM floassist_task_tracking WHERE owner_id=? AND task_id=?').get(owner,task.id))fail('Task already has a source link; reuse its existing source identity.',409);
+      id=task.id;
+    }else{
+      id=Number(db.prepare(`INSERT INTO kanban_tasks(title,description,status,created_by,owner_user_id,assigned_user_id,due_at,due_date)
+        VALUES (?,?,'open','floassist-tracking',?,?,?,?)`).run(title,`FloAssist ${category}\nSource: ${app} / ${account} / ${source}\nObligation: ${obligation}\n${url||''}\n${evidence}`,owner,owner,due,due?.slice(0,10)||null).lastInsertRowid);
+    }
+    db.prepare(`INSERT INTO floassist_task_tracking(owner_id,task_id,source_key,app_id,account_id,source_id,obligation_key,categories_json,source_url,fingerprint,last_seen_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(owner,id,key,app,account,source,obligation,JSON.stringify([category]),url,hash([due]),now);
+    const r=row(db,owner,id);audit(db,r,'linked',evidence,now);
+    return {task:view(r),notification:queue(db,r,'finding',now)};
+  })();
+}
+
+export function listTracking(db,owner,{after_id=0,limit=50}={}){
+  ensureTracking(db);profile(db,owner);
+  const n=Math.max(1,Math.min(100,Number(limit)||50));
+  const rows=db.prepare(`SELECT f.*,k.title,k.status AS task_status,k.due_at FROM floassist_task_tracking f
+    JOIN kanban_tasks k ON k.id=f.task_id AND k.owner_user_id=f.owner_id WHERE f.owner_id=? AND f.task_id>? ORDER BY f.task_id LIMIT ?`).all(owner,Number(after_id)||0,n+1);
+  return {tasks:rows.slice(0,n).map(view),next_after_id:rows.length>n?rows[n-1].task_id:null,scope:'All tracked tasks including closed tasks; independent of source scan filters.'};
+}
+
+export function updateTracking(db,owner,input,now=Date.now()){
+  ensureTracking(db);
+  const evidence=text(input.evidence,'evidence',1000);
+  return db.transaction(()=>{
+    let r=row(db,owner,Number(input.task_id));
+    if(terminal.has(r.task_status)){cancelled(db,r);return {task:view(r),notification:'task_closed'};}
+    if(input.action==='clarify'){
+      if(input.source_checked!==true)fail('Check the original source directly before requesting clarification.');
+      if(r.clarification_revision===r.revision)return {task:view(r),notification:'clarification_already_requested'};
+      const outcome=queue(db,r,'clarification',now);
+      if(outcome==='queued')db.prepare('UPDATE floassist_task_tracking SET clarification_revision=? WHERE owner_id=? AND task_id=?').run(r.revision,owner,r.task_id);
+      audit(db,r,'clarification',evidence,now);return {task:view(r),notification:outcome};
+    }
+    if(!['acknowledge','snooze','track'].includes(input.action))fail('Use acknowledge, snooze, track or clarify. Complete tasks with kanban_user_action and exact user evidence.');
+    const until=input.action==='snooze'?Date.parse(input.until):null;
+    if(input.action==='snooze'&&(!Number.isFinite(until)||until<=now||!/T.*(?:Z|[+-]\d\d:\d\d)$/.test(String(input.until))))fail('Provide a future snooze time with timezone offset.');
+    // User says keep tracking: permit one later clarification, but no immediate repeat of the original alert.
+    cancelled(db,r);
+    db.prepare('UPDATE floassist_task_tracking SET state=?,snooze_until=?,clarification_revision=?,revision=revision+? WHERE owner_id=? AND task_id=?')
+      .run(input.action==='acknowledge'?'acknowledged':'open',until,input.action==='track'?r.revision:r.clarification_revision,input.action==='snooze'?1:0,owner,r.task_id);
+    db.prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'user',?)").run(r.task_id,`FloAssist ${input.action}: ${evidence}`);
+    audit(db,r,input.action,evidence,now);r=row(db,owner,r.task_id);return {task:view(r)};
+  })();
+}
+
+/** Called immediately before delivery: closing a Kanban card invalidates queued alerts too. */
+export function trackingNotificationAllowed(db,notification,now=Date.now()){
+  const prefix=`${notification.owner_id}:tracking:`;if(!notification.source_key.startsWith(prefix))return true;
+  ensureTracking(db);const [id,revision,kind]=notification.source_key.slice(prefix.length).split(':');
+  let r;try{r=row(db,notification.owner_id,Number(id));}catch{return false;}
+  const prefs=parse(profile(db,r.owner_id).preferences_json);
+  return !terminal.has(r.task_status)&&r.revision===Number(revision)&&!(r.snooze_until>now)&&
+    !(r.state==='acknowledged'&&kind==='finding')&&prefs.connectors?.includes(r.app_id)&&JSON.parse(r.categories_json).some(c=>prefs.responsibilities?.includes(c));
+}
+
+export function tickTracking(db,now=Date.now()){
+  ensureTracking(db);
+  const rows=db.prepare('SELECT f.owner_id,f.task_id FROM floassist_task_tracking f JOIN kanban_tasks k ON k.id=f.task_id AND k.owner_user_id=f.owner_id WHERE snooze_until IS NOT NULL AND snooze_until<=?').all(now);
+  for(const x of rows)db.transaction(()=>{const r=row(db,x.owner_id,x.task_id);const result=queue(db,r,'finding',now);if(result==='queued'||result==='task_closed'||result.startsWith('already_'))db.prepare('UPDATE floassist_task_tracking SET snooze_until=NULL WHERE owner_id=? AND task_id=?').run(x.owner_id,x.task_id);})();
+}
+
+export const TRACKING_RUN_INSTRUCTIONS=`For priority alerts, deadlines and follow-ups, use floassist_tracking_list (paginate all pages) before scanning. Correlate both open and closed Kanban tasks, including tasks outside this run's source filters. For each verified obligation call floassist_tracking_observe with stable app_id, account_id, source_id (thread ID when available), obligation_key (reuse the existing key; default action), category, title and concise evidence; include due_at only when verified. Use the same task across responsibilities. Link an existing owner task with existing_task_id rather than duplicating it. A new obligation in a thread needs a distinct stable key supported by new evidence; changed wording is not a new obligation. Closed tasks must not be reopened by scans. For open tasks missing from the scan, check their original source directly; absence from a filtered result is not completion. If still uncertain call floassist_tracking_update action clarify with source_checked:true and evidence; it queues at most one clarification per revision. Do not create tasks for empty scans or connector health. These tools queue the user alerts with stable task references; return FLOASSIST_NO_UPDATE after processing, never duplicate their notifications in the scheduled reply. Report coverage failures in the run history, without claiming success.`;

@@ -108,7 +108,7 @@ async function provision(p){
       description:'Personal assistant for WhatsApp, reminders, connected apps, browser tasks and purchase continuity.',
       skill_md:readFileSync(new URL('./assistant.md',import.meta.url),'utf8'),
       trigger_hints:['FloAssist','WhatsApp','remind me','morning briefing','booking','purchase','follow up'],
-      required_tools:['floassist_status','floassist_reminder_create','floassist_reminder_list','floassist_reminder_cancel']},p.owner_id);
+      required_tools:['floassist_status','floassist_reminder_create','floassist_reminder_list','floassist_reminder_cancel','floassist_tracking_list','floassist_tracking_observe','floassist_tracking_update','kanban_user_action']},p.owner_id);
     skillId=skill.id;remember(p.owner_id,'skill','assistant',skillId);
   }
   // Append exactly one owner-specific assignment; never rewrite existing assignments or pins.

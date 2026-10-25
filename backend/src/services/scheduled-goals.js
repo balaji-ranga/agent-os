@@ -26,6 +26,7 @@ import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel
 import { consumeWorkSteering, steeringPrompt, closeWorkSteering, handoffWorkSteering } from './work-steering.js';
 import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { floAssistScheduleGate } from './floassist/runtime.js';
+import {TRACKING_RUN_INSTRUCTIONS} from './floassist/tracking.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
@@ -561,7 +562,9 @@ function buildRunMessage(row, ownerUserId, { runKey, force }) {
     `Title: ${row.title}\nSchedule: ${scheduleLabel(row)}\n${ends}\n\n` +
     `You are receiving a CEO scheduled prompt. Execute the following instructions now using your tools. ` +
     `Work autonomously; do not ask the CEO to re-confirm unless policy requires approval for publish/external actions. ` +
-    (String(row.source||'').startsWith('floassist:')
+    (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
+      ? `This check must persist verified obligations using the FloAssist Kanban tracking tools. Do not call notify_ceo or messaging tools: tracking queues eligible task alerts. Do not create a new goal plan or generic scan-progress task. Return FLOASSIST_NO_UPDATE after processing.\n\n`
+      : String(row.source||'').startsWith('floassist:')
       ? `This is a single proactive assistant check. Perform the selected-source checks directly in this session. Do not create a goal plan, Kanban task, subagent timer, or notification step. Do not call notify_ceo or messaging tools to report this check: the platform handles delivery of your final response. Return only a concise user-facing actionable finding, without task IDs, tool receipts, execution steps or progress reports. If nothing actionable was verified, return exactly FLOASSIST_NO_UPDATE. A duplicate-action block is not a fresh finding.\n\n`
       : `When done, reply with a short summary of what you produced or delegated.\n\n`) +
     `--- CEO prompt ---\n${row.prompt}\n--- end ---`
@@ -619,7 +622,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const scheduleGuidanceNotes = consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`);
   const guidance = steeringPrompt(scheduleGuidanceNotes);
   handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
-  const steeredPrompt = row.prompt + guidance;
+  const steeredPrompt = row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${TRACKING_RUN_INSTRUCTIONS}`:'');
   let openclawId = agent.openclaw_agent_id || agent.id;
   try { openclawId = ensureTenantOpenClawAgent(agent, ownerUserId).openclawAgentId; }
   catch (e) { console.warn(`[scheduled-goals] tenant ensure failed agent=${agent.id}:`, e.message); }
@@ -727,6 +730,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
 
   let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
   prompt += guidance + steeringPrompt(consumeWorkSteering(ownerUserId, 'schedule_run', runId, 'scheduled_agent_dispatch'));
+  if(['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source))prompt+=`\n\n${TRACKING_RUN_INSTRUCTIONS}`;
   try {
     prompt = getPromptForFreshGoalRun(prompt);
   } catch (_) {}

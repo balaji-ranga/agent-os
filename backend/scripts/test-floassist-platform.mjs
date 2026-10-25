@@ -81,6 +81,8 @@ try{
   const {CHAT_INSTRUCTION_KANBAN}=await import('../src/gateway/openclaw.js');
   check(chatRequests[0].messages.some(m=>m.content.includes(CHAT_INSTRUCTION_KANBAN)),false,'Kanban instructions excluded');
   check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not call notify_ceo')),true,'platform handles notification');
+  check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('floassist_tracking_observe')),true,'direct checks receive durable tracking contract');
+  check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not create a goal plan, Kanban task')),false,'no conflicting prohibition against tracking tasks');
   check(db.prepare("SELECT count(*) AS n FROM floassist_notifications WHERE source_key LIKE '%:sg:%'").get().n,0,'no-update check queues no notification');
   const {createScheduledGoal,updateScheduledGoal,getScheduledGoal}=await import('../src/services/scheduled-goals.js');
   const dynamic=await createScheduledGoal('owner-a',{agent_id:'fixture-coo',prompt:'Fixture dynamic plan',approve_plan:true});
@@ -113,6 +115,18 @@ try{
   const newUser=await registerCeoUser({email:'new@example.test',name:'New',mobile:'+6581111111',country:'SG',accept_terms:true},{verifiedEmail:'new@example.test'});
   check(db.prepare('SELECT password_hash FROM platform_users WHERE id=?').get(newUser.id).password_hash,'passwordless-disabled','verified internal signup only');
   check(authenticateUser('new@example.test','passwordless-disabled'),null,'sentinel is not a usable password');
+  const {observeTracking,listTracking}=await import('../src/services/floassist/tracking.js');
+  const {executeKanbanUserAction}=await import('../src/services/kanban-user-actions.js');
+  const finding={app_id:'gmail',account_id:'fixture-mailbox',source_id:'fixture-thread',category:'priority',title:'Fixture user approval',evidence:'Synthetic approval request'};
+  const tracked=observeTracking(db,'owner-a',finding);
+  check(db.prepare('SELECT assigned_user_id FROM kanban_tasks WHERE id=?').get(tracked.task.task_id).assigned_user_id,'owner-a','tracking creates real human-owned Kanban task');
+  const actor=db.prepare('SELECT * FROM platform_users WHERE id=?').get('owner-a');
+  const closed=await executeKanbanUserAction({ownerUserId:'owner-a',taskId:tracked.task.task_id,actor,proxyAgentId:'fixture-coo',channel:'whatsapp',action:'complete',evidence:'Already taken care of'});
+  check(closed.status,'completed','existing verified user-action service closes tracked task');
+  check(observeTracking(db,'owner-a',{...finding,category:'deadlines',title:'Different wording'}).notification,'task_closed','later responsibility honors native Kanban completion');
+  check(listTracking(db,'owner-a').tasks[0].closed,true,'new session list includes completed task');
+  check(db.prepare('SELECT evidence FROM kanban_user_action_audit WHERE task_id=?').get(tracked.task.task_id).evidence,'Already taken care of','exact completion evidence retained');
+  await assert.rejects(()=>executeKanbanUserAction({ownerUserId:'owner-b',taskId:tracked.task.task_id,actor:{id:'owner-b',role:'ceo'},action:'complete',evidence:'Done'}),/Only the company/);checks++;
   await new Promise(r=>setTimeout(r,300));
   console.log(`FLOASSIST_PLATFORM_OK: ${checks} checks (real DB, owner COO, native channel identity, skill uplift, policy preservation, five schedules, repeat activation)`);
 }finally{

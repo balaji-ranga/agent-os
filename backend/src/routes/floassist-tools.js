@@ -4,6 +4,7 @@ import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
 import { getFloAssist } from '../services/floassist/platform.js';
 import { createReminder,listReminders,cancelReminder } from '../services/floassist/runtime.js';
+import {listTracking,observeTracking,updateTracking} from '../services/floassist/tracking.js';
 const router=Router();
 const run=fn=>async(req,res)=>{try{
   const owner=resolveToolOwnerUserId(req,req.body||{},resolveAuthenticatedCeoUserId);
@@ -15,4 +16,7 @@ router.post('/floassist-reminder-create',run((owner,b)=>({reminder:createReminde
 router.post('/floassist-reminder-list',run(owner=>({reminders:listReminders(getDb(),owner)})));
 router.post('/floassist-reminder-cancel',run((owner,b)=>cancelReminder(getDb(),owner,b.id)));
 router.post('/floassist-control',run((owner,b,s)=>s.setStatus(owner,b.status)));
+router.post('/floassist-tracking-list',run((owner,b)=>listTracking(getDb(),owner,b)));
+router.post('/floassist-tracking-observe',run((owner,b)=>observeTracking(getDb(),owner,b)));
+router.post('/floassist-tracking-update',run((owner,b)=>updateTracking(getDb(),owner,b)));
 export default router;

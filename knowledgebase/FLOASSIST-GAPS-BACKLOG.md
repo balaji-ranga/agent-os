@@ -6,7 +6,13 @@ This backlog records observed gaps, not implemented capabilities. Related scope:
 
 ## FA-GAP-001 — Durable alert determination and re-alert filters
 
-Priority: High. Status: Open.
+Priority: High. Status: Kanban-backed lifecycle delivered 25 October 2026; broader automatic escalation/filter configuration remains open.
+
+Implemented scope: verified priority/deadline/follow-up findings link to owner-assigned Kanban tasks using stable account/source/obligation identity across responsibilities. Existing tasks can be linked, including completed tasks. Native user-confirmed Kanban completion is authoritative for subsequent scans and pending delivery. The tracking list includes closed records and pagination independently of source filters. Acknowledgement, timed snooze, verified deadline changes and one-time clarification after an uncertain direct source check have durable metadata and audit reasons. Scheduled replies for these three responsibilities cannot bypass the task notification queue. Uncertain sends are not automatically replayed. Quiet hours, pause, selected-source preferences and owner isolation remain enforced.
+
+Validation: tracking harness 36 checks; platform harness 54 checks including actual Kanban user-action completion/audit and direct-schedule prompt compatibility. VPS isolated image harnesses passed. Live synthetic completed task #17291 suppressed priority and deadline observations with zero notifications. See implementation/testing notes for deployment and native-runtime verification.
+
+Remaining scope: configurable automatic escalation rules beyond explicit snooze and verified deadline changes; richer per-source relevance settings and a dedicated notification-reconciliation UI. Source interpretation, correlation of ambiguous legacy tasks and deciding whether provider evidence proves completion remain agent work; the tools enforce persisted task state, identity-based suppression and delivery claims. Old conversation-only acknowledgements cannot safely be bulk-migrated without identifying their source/task. Existing source/action authorization policies still apply; internal tracking writes require the effective write policy to permit them.
 
 Observed: two manual priority checks 26 seconds apart alerted on the same Gmail message with different wording. Current delivery deduplication hashes notification text; it cannot reliably identify the same source item across runs. Prompts request meaningful new findings, but there is no durable per-item acknowledgement/resolution lifecycle.
 
@@ -86,3 +92,27 @@ Acceptance tests and prerequisites:
 Priority: Medium. Status: Open; dependency unavailable.
 
 Active probes cover Gmail, Outlook Mail, Google Calendar, Google Drive and OneDrive. The installed Microsoft Calendar catalogue currently contains no actions. Add/enable the actual connector, inspect its read-only action schema and configure a minimal safe probe. Until then, report unsupported health checking rather than implying verified connectivity. Validate owner isolation, permissions, revoked-token detection and recovery with a test Microsoft Calendar account.
+
+## FA-GAP-007 — Enforce connector priority and explicit calendar fallback
+
+Priority: High. Status: Open; skill-level mitigation deployed.
+
+Observed: COO used the separate productivity calendar tools and ICS subscriptions despite a connected Google Calendar, then incorrectly described a missing productivity binding as a disconnected OAuth connector. The updated FloAssist skill prefers the selected provider connector, and a fresh COO read succeeded. This preference is not yet a backend-enforced routing rule and can be undermined by stale conversational context.
+
+Required behaviour:
+
+- Resolve the explicitly requested app/account first, within the owner's selected and authorized sources. Otherwise use the relevant selected connector; clarify ambiguity when multiple accounts or providers could satisfy the request. Do not impose a blanket Google-over-Microsoft priority.
+- Discover and execute the actual provider action and schema. A missing productivity binding must not be interpreted as missing OAuth authorization or trigger silent ICS substitution.
+- Use ICS only when explicitly requested or approved as a fallback. Identify it as a read-only mirror and expose source freshness and coverage limitations. A scheduled run without approved fallback must report the blocked source rather than silently switching.
+- Report actual provider failures, such as disabled API, insufficient scope or expired authorization. Refresh connection state before claiming an app is disconnected; old conversation summaries must not override current evidence.
+- Enforce the same source resolution in WhatsApp, direct scheduled goals, goal-plan steps, delegation and retries. Record the selected account, route, fallback consent and failure reason in owner-scoped execution history.
+- Routing must respect FA-GAP-005 execution restrictions, agent grants and action policy. Preserve explicitly configured ICS workflows and unrelated non-FloAssist COO work.
+
+Acceptance tests and prerequisites:
+
+- Owner with connected Google Calendar and an ICS fixture: a Google Calendar request executes the Google connector, even when productivity bindings are absent and stale conversation history claims it is disconnected.
+- Google and Microsoft calendar fixtures with multiple accounts: explicit account selection wins; ambiguous requests require clarification instead of arbitrary provider selection.
+- Provider error fixtures: disabled API, revoked token and insufficient scopes produce accurate errors with no silent account/provider/ICS fallback.
+- Explicit ICS request and approved fallback fixtures: reads use only the approved source and clearly label mirror freshness and partial coverage; no calendar writes are attempted through ICS.
+- WhatsApp, direct-run, goal-plan and delegated-run fixtures: the same routing decision and authorization checks apply after retries and selection changes.
+- Two isolated owners and existing ICS workflows: source credentials, consent and audit records remain owner-scoped; existing authorized workflows are unchanged.
