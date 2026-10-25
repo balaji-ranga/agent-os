@@ -3,7 +3,29 @@
   "base_image": "sha256:c0ad32df40b45ec7cf2e683a7048beb0ab1cfec6a047883aa5602b25c0619e22",
   "release_directory": "/opt/agent-os-releases/floassist-proactive-20261025",
   "rollback_image": "agent-os-backend:before-proactive-fix-20261025",
-  "scope": ["connector-specific schedule eligibility", "direct proactive checks without generic goal planner or Kanban injection", "suppress wrapped no-update and legacy goal reports", "localized reminder receipts"],
-  "validation": {"local_core_checks": 86, "platform_integration_checks": 37, "tenant_boundary_checks": 75, "image_core_checks": 84, "image_platform_checks": 37, "live_backend": "healthy", "public_config_http": 200, "live_calendar_gate": "floassist_source_unavailable", "queued_notifications": 0},
-  "notes": "Runtime sources matched local HEAD before patch. Layered current running image to preserve unrelated deployed changes; older /opt/agent-os checkout left untouched. Proactive schedules remain paused pending approval to resume. Live reminder receipt verified Asia/Singapore GMT+8; WhatsApp wording needs user retest."
+  "scope": [
+    "connector-specific schedule eligibility",
+    "direct proactive checks without generic goal planner or Kanban injection",
+    "suppress wrapped no-update and legacy goal reports",
+    "localized reminder receipts"
+  ],
+  "validation": {
+    "local_core_checks": 86,
+    "platform_integration_checks": 37,
+    "tenant_boundary_checks": 75,
+    "image_core_checks": 84,
+    "image_platform_checks": 37,
+    "live_backend": "healthy",
+    "public_config_http": 200,
+    "live_calendar_gate": "floassist_source_unavailable",
+    "queued_notifications": 0,
+    "live_priority_check": {
+      "ok": true,
+      "mode": "chat",
+      "no_update": true,
+      "goal_plans": 0,
+      "notifications": 0
+    }
+  },
+  "notes": "Runtime sources matched local HEAD before patch. Layered current running image to preserve unrelated deployed changes; older /opt/agent-os checkout left untouched. After explicit user approval, four Gmail-supported schedules resumed; calendar-conflict schedule remains paused. Live reminder receipt verified Asia/Singapore GMT+8; WhatsApp wording needs user retest."
 }
