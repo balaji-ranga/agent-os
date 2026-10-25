@@ -400,6 +400,7 @@ const PROVIDER_DISPLAY_NAMES = {
   github: 'GitHub',
   gmail: 'Gmail',
   google_drive: 'Google Drive',
+  googledrive: 'Google Drive',
   google_sheets: 'Google Sheets',
   hackernews: 'Hacker News',
   slack: 'Slack',
@@ -482,6 +483,7 @@ async function fetchHttpActionCatalog(userId, { service = '', query = '' } = {})
 
 async function fetchHttpServiceCatalog(userId, query = '') {
   const q = String(query || '').trim().toLowerCase();
+  const searchKey = q.replace(/[\s_-]+/g, '');
   // Prefer service-scoped lookup (real OC /v1/actions without service= returns stubs only).
   if (q && /^[a-z0-9_-]+$/i.test(q)) {
     try {
@@ -499,10 +501,10 @@ async function fetchHttpServiceCatalog(userId, query = '') {
     rows
       .map((r) => ({
         id: String(r.service || r.id || '').split('.')[0],
-        name: String(r.service || r.name || ''),
+        name: providerDisplayName(r.service || r.name || ''),
         connected: false,
       }))
-      .filter((r) => r.id && (!q || r.id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)))
+      .filter((r) => r.id && (!q || r.id.toLowerCase().replace(/[\s_-]+/g, '').includes(searchKey) || r.name.toLowerCase().replace(/[\s_-]+/g, '').includes(searchKey)))
   );
 }
 

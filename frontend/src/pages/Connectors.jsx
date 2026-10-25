@@ -12,7 +12,7 @@ const STARTERS = [
   { id: 'hackernews', name: 'Hacker News' },
   { id: 'github', name: 'GitHub' },
   { id: 'gmail', name: 'Gmail' },
-  { id: 'google_drive', name: 'Google Drive' },
+  { id: 'googledrive', name: 'Google Drive' },
 ];
 
 function ConnectorsPanel() {
@@ -983,7 +983,7 @@ function ConnectorsPanel() {
             <input
               value={oauthCfg.appId}
               onChange={(e) => setOauthCfg((c) => ({ ...c, appId: e.target.value }))}
-              placeholder="Provider id (github, gmail, google_drive)"
+              placeholder="Provider id (github, gmail, googledrive)"
             />
             <input
               value={oauthCfg.clientId}

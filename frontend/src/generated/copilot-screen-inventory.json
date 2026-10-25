@@ -8860,7 +8860,7 @@
         },
         {
           "id": "pages/Connectors.jsx:983:12",
-          "label": "Provider id (github, gmail, google_drive)",
+          "label": "Provider id (github, gmail, googledrive)",
           "type": "text",
           "required": false,
           "form_id": "pages/Connectors.jsx:982:10",
