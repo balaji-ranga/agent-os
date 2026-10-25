@@ -81,7 +81,7 @@ try{
   const {CHAT_INSTRUCTION_KANBAN}=await import('../src/gateway/openclaw.js');
   check(chatRequests[0].messages.some(m=>m.content.includes(CHAT_INSTRUCTION_KANBAN)),false,'Kanban instructions excluded');
   check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not call notify_ceo')),true,'platform handles notification');
-  check(db.prepare('SELECT count(*) AS n FROM floassist_notifications').get().n,0,'no-update check queues no notification');
+  check(db.prepare("SELECT count(*) AS n FROM floassist_notifications WHERE source_key LIKE '%:sg:%'").get().n,0,'no-update check queues no notification');
   const {createScheduledGoal,updateScheduledGoal,getScheduledGoal}=await import('../src/services/scheduled-goals.js');
   const dynamic=await createScheduledGoal('owner-a',{agent_id:'fixture-coo',prompt:'Fixture dynamic plan',approve_plan:true});
   check(dynamic.execution_mode,'goal_plan','default mode is goal plan');check(dynamic.plan,null,'no plan generated during save without explicit plan');

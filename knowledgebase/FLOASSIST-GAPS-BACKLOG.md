@@ -79,3 +79,10 @@ Acceptance tests and prerequisites:
 - Policy fixtures: selecting an app does not override Advisory restrictions, prohibited actions, revoked authorization or missing agent grants.
 - Change selection during a workflow: subsequent actions against the removed app are denied. Adding an app permits only actions otherwise authorized.
 - Existing non-FloAssist COO workflow: unrelated authorized connector use remains functional, with no global grant mutation.
+
+
+## FA-GAP-006 — Microsoft Calendar active health probe
+
+Priority: Medium. Status: Open; dependency unavailable.
+
+Active probes cover Gmail, Outlook Mail, Google Calendar, Google Drive and OneDrive. The installed Microsoft Calendar catalogue currently contains no actions. Add/enable the actual connector, inspect its read-only action schema and configure a minimal safe probe. Until then, report unsupported health checking rather than implying verified connectivity. Validate owner isolation, permissions, revoked-token detection and recovery with a test Microsoft Calendar account.

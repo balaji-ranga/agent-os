@@ -1,3 +1,4 @@
+import {listActionHistory} from './floassist/action-history.js';
 import { getDb } from '../db/schema.js';
 
 function clip(value, max = 1200) {
@@ -91,6 +92,7 @@ export function listAgentWorkHistory({
     agent_id: agent,
     days: windowDays,
     activity_count: activityCount,
+    actions: listActionHistory({ownerUserId:owner,agentId:agent,days:windowDays,limit:rowLimit,database:db}),
     counts: {
       total: activityCount,
       completed: Number(byStatus.completed || 0),

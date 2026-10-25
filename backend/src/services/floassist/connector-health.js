@@ -24,7 +24,7 @@ export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),
   const p=profile(db,owner);
   const app=product.connectors.find(a=>(a.provider_id||a.id)===provider);
   if(!p||!app||!p.preferences.connectors?.includes(app.id))return {ignored:true};
-  if(!['available','missing','authorization','permission','temporary','unknown'].includes(state))return {ignored:true};
+  if(!['available','missing','authorization','permission','temporary','unsupported','restricted','unknown'].includes(state))return {ignored:true};
   ensure(db);
   return db.transaction(()=>{
     const old=db.prepare('SELECT * FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(owner,app.id);
@@ -35,8 +35,8 @@ export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),
       episode=randomUUID();key=`${owner}:connector-health:${app.id}:${episode}`;
       const configuredBase=String(getPublicBaseUrl()||'').replace(/\/$/,'');
       const base=/^https:\/\//i.test(configuredBase)?configuredBase:'';
-      const reason=state==='missing'?'is no longer connected':state==='authorization'?'needs reconnection because authorization failed':state==='permission'?'could not be accessed with its current permissions':'is temporarily unavailable';
-      const action=state==='temporary'?'FloAssist will check again.':`Open FloAssist → Your apps to reconnect or review permissions${base?`: ${base}/free-tools/floassist/`:'.'}`;
+      const reason=state==='missing'?'is no longer connected':state==='authorization'?'needs reconnection because authorization failed':state==='permission'?'could not be accessed with its current permissions':state==='unsupported'?'has no supported connection check installed':state==='restricted'?'cannot be checked under the current agent permissions or policy':'is temporarily unavailable';
+      const action=['temporary','unsupported','restricted'].includes(state)?'FloAssist will check again when the service or permissions are available.':`Open FloAssist → Your apps to reconnect or review permissions${base?`: ${base}/free-tools/floassist/`:'.'}`;
       const text=`FloAssist connection alert: ${app.label} ${reason}. Checks depending on this app may be incomplete. ${action}`;
       db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(key,owner,p.agent_id,text,now,now,now+86400000);queued=true;
     }else if(!bad&&wasBad){
@@ -62,7 +62,7 @@ export function connectorFailureState(error){
 }
 
 /** Inventory proves registration, not token validity. Successful provider actions prove recovery. */
-export async function checkFloAssistConnectorHealth(owner,{db=getDb(),getInventory}={}){
+export async function checkFloAssistConnectorHealth(owner,{db=getDb(),getInventory,probe}={}){
   const p=profile(db,owner);if(!p)return {checked:0};
   const inventory=getInventory||((await import('../openconnector.js')).getConnectorRegistrationHealth);
   let result;try{result=await inventory(owner);}catch{
@@ -74,7 +74,23 @@ export async function checkFloAssistConnectorHealth(owner,{db=getDb(),getInvento
     const app=product.connectors.find(a=>a.id===id);if(!app)continue;
     const provider=app.provider_id||id;checked++;
     if(!result.connected.includes(provider))recordFloAssistConnectorHealth(owner,provider,'missing',{db});
-    // A listed connection may still have a revoked token. Do not falsely clear an incident.
+    else {
+      if(!app.health_probe){recordFloAssistConnectorHealth(owner,provider,'unsupported',{db});continue;}
+      try {
+        if(probe)await probe(owner,app.health_probe,p.agent_id);
+        else {
+          const {assertCallerMayExecuteConnectorAction,connectorPolicyToolName}=await import('../connector-action-grants.js');
+          const {getAgentToolGrants}=await import('../openclaw-agent-tools.js');
+          const {evaluateActionPolicy}=await import('../action-policy.js');
+          if(!db.prepare('SELECT 1 FROM user_agents WHERE user_id=? AND agent_id=? AND enabled=1').get(owner,p.agent_id)||!getAgentToolGrants(p.agent_id).includes('connector_execute_action')||!assertCallerMayExecuteConnectorAction(p.agent_id,app.health_probe.action_id).ok||!evaluateActionPolicy({ownerUserId:owner,toolName:connectorPolicyToolName(app.health_probe.action_id),context:{agent_id:p.agent_id}}).ok){recordFloAssistConnectorHealth(owner,provider,'restricted',{db});continue;}
+          const {executeConnectorAction,getConnectorActionGuide}=await import('../openconnector.js');
+          const guide=await getConnectorActionGuide(owner,app.health_probe.action_id);
+          if(!guide.input_schema){recordFloAssistConnectorHealth(owner,provider,'unsupported',{db});continue;}
+          await executeConnectorAction(owner,app.health_probe.action_id,app.health_probe.input,{source:p.agent_id,authorizationRetryDelaysMs:[]});
+        }
+        recordFloAssistConnectorHealth(owner,provider,'available',{db});
+      }catch(error){recordFloAssistConnectorHealth(owner,provider,connectorFailureState(error),{db});}
+    }
   }
   return {checked};
 }

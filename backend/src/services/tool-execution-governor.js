@@ -1,3 +1,5 @@
+import {linkActionContext,notifyActionOutcome} from './floassist/action-history.js';
+import {lookupSessionExecutionContext} from './tool-owner-scope.js';
 /**
  * Platform execution governor for OpenClaw content-tool calls.
  *
@@ -230,6 +232,7 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
       (id, owner_user_id, execution_key, agent_id, tool_name, capability, action_fingerprint, request_payload)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(id, ownerUserId, key, agentId, toolName, behaviour.capability, fp, json(redactForStorage(toolName==='multi-format-content-tool'?multiFormatInputAudit(canonicalParams):canonicalParams), '{}'));
+  linkActionContext(id,ownerUserId,lookupSessionExecutionContext(sessionKey,ownerUserId)||{});
   return { ok: true, id, execution_key: key, behaviour, canonicalParams };
 }
 
@@ -283,5 +286,6 @@ export function completeToolExecution(action, { httpStatus, data }) {
     `UPDATE tool_execution_actions SET observation_status = ?, reason_code = ?, progress = ?,
        response_summary = ?, completed_at = datetime('now') WHERE id = ?`
   ).run(observation.status, observation.reason_code, observation.progress ? 1 : 0, stored, action.id);
+  try{notifyActionOutcome(action.id);}catch(e){console.warn('[floassist-history] notification unavailable');}
   return { ...observation, action_id: action.id, execution_key: action.execution_key, verification_mode: action.behaviour.verification_mode };
 }

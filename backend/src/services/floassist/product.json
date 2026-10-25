@@ -4,12 +4,12 @@
   "countries": ["SG", "IN", "ID"],
   "timezones": { "SG": "Asia/Singapore", "IN": "Asia/Kolkata", "ID": "Asia/Jakarta" },
   "connectors": [
-    { "id": "gmail", "label": "Gmail" },
-    { "id": "google_calendar", "provider_id": "googlecalendar", "label": "Google Calendar" },
-    { "id": "outlook", "label": "Outlook Mail" },
+    {"id": "gmail", "label": "Gmail", "health_probe": {"action_id": "gmail.get_profile", "input": {}}},
+    {"id": "google_calendar", "provider_id": "googlecalendar", "label": "Google Calendar", "health_probe": {"action_id": "googlecalendar.list_calendars", "input": {"maxResults": 1}}},
+    {"id": "outlook", "label": "Outlook Mail", "health_probe": {"action_id": "outlook.get_profile", "input": {}}},
     { "id": "outlook_calendar", "label": "Microsoft Calendar" },
-    { "id": "google_drive", "provider_id": "googledrive", "label": "Google Drive" },
-    { "id": "onedrive", "provider_id": "one_drive", "label": "OneDrive" }
+    {"id": "google_drive", "provider_id": "googledrive", "label": "Google Drive", "health_probe": {"action_id": "googledrive.about.get", "input": {"fields": "kind"}}},
+    {"id": "onedrive", "provider_id": "one_drive", "label": "OneDrive", "health_probe": {"action_id": "one_drive.get_drive", "input": {"select": ["id"]}}}
   ],
   "responsibilities": [
     { "id": "briefing", "label": "Morning briefing", "cadence": "daily", "requires_any_connector": ["gmail", "outlook", "google_calendar", "outlook_calendar", "google_drive", "onedrive"], "prompt": "Prepare my morning briefing from my selected connected accounts: today's agenda, priority messages, deadlines and outstanding follow-ups. State unavailable sources. Do not change source systems unless my policy and standing instructions authorize it." },
