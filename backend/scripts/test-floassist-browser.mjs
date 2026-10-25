@@ -10,14 +10,14 @@ import {createFloAssist} from '../src/services/floassist/core.js';
 import {createFloAssistRouter} from '../src/routes/floassist.js';
 const {chromium}=await import(process.env.FLOASSIST_PLAYWRIGHT_MODULE?pathToFileURL(process.env.FLOASSIST_PLAYWRIGHT_MODULE).href:'playwright');
 const db=new Database(':memory:'),owners=new Map(),product=JSON.parse(readFileSync(new URL('../src/services/floassist/product.json',import.meta.url)));
-let paired=false,connections=false,failEmail=false,qrWaits=0;const requests=[],errors=[];
+let paired=false,connections=false,failEmail=false,failQrStart=false,qrWaits=0;const requests=[],errors=[];
 const s=createFloAssist({db,product,adapters:{settings:()=>({}),legal:()=>({terms_version:'fixture',privacy_version:'fixture'}),managementUrl:()=>'/login',
   findOwner:({id,email})=>owners.get(id||email),newOtp:()=>({code:'123456',codeHash:'fixture'}),matchesOtp:c=>c==='123456',
   sendEmail:async()=>{if(failEmail)throw Error('Synthetic mail failure');},verifyMfa:()=>{},
   createOwner:async r=>{const u={id:r.email,email:r.email,mobile:r.phone,enabled:true,role:'ceo'};owners.set(u.id,u);return u;},resolveCoo:()=>({id:'fixture-coo'}),assertCoo:()=>{},
   setPolicy:()=>{},policy:()=>[{family:'read',label:'Read / research',mode:'autonomous'},{family:'financial_destructive',label:'Financial / destructive',mode:'prohibited'}],
   channelView:()=>({connected:paired,number:paired?'+6599999999':null}),
-  qr:async(_p,op)=>{if(op==='wait'){qrWaits++;await new Promise(r=>setTimeout(r,100));}return {connected:paired,number:paired?'+6599999999':null,qr_data_url:paired?null:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aW9sAAAAASUVORK5CYII=',message:'Scan your dedicated number (fixture)'};},
+  qr:async(_p,op)=>{if(op==='start'&&failQrStart)throw Object.assign(new Error('QR gateway timed out'),{status:504});if(op==='wait'){qrWaits++;await new Promise(r=>setTimeout(r,100));}return {connected:paired,number:paired?'+6599999999':null,qr_data_url:paired?null:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aW9sAAAAASUVORK5CYII=',message:'Scan your dedicated number (fixture)'};},
   connections:async(_owner,ids)=>ids.map(id=>({id,connected:connections})),connect:async()=>({authorization_url:'https://provider.example.invalid/authorize'}),provision:async()=>{},pause:async()=>{}}});
 const app=express();app.use(express.json());app.use((req,_res,next)=>{requests.push({path:req.path,method:req.method,body:req.body});next();});
 app.use('/api/floassist',createFloAssistRouter(()=>s,()=> (_req,_res,next)=>next()));
@@ -52,7 +52,14 @@ try{
   await page.getByRole('button',{name:'Pause checks'}).click();await page.getByRole('button',{name:'Resume checks'}).waitFor();checks++;
   await page.getByRole('button',{name:'Resume checks'}).click();await page.getByRole('button',{name:'Pause checks'}).waitFor();checks++;
   await page.reload();await page.locator('#ready').waitFor({state:'visible'});checks++;
-  await page.getByRole('button',{name:'Manage setup'}).click();await page.getByRole('button',{name:'Sign out'}).click();await page.locator('#details').waitFor({state:'visible'});check(await page.evaluate(()=>sessionStorage.getItem('floassist.session')),null,'logout clears limited session');
+  await page.getByRole('button',{name:'Manage setup'}).click();
+  const starts=requests.filter(r=>r.path==='/api/floassist/whatsapp/start').length;failQrStart=true;
+  await page.getByRole('button',{name:'Continue to WhatsApp'}).click();await page.waitForFunction(()=>!document.getElementById('activate').disabled);
+  check(requests.filter(r=>r.path==='/api/floassist/whatsapp/start').length,starts,'existing pairing skips QR login even when login RPC fails');
+  paired=false;await page.getByRole('button',{name:'Show / refresh QR'}).click();await page.getByText('QR gateway timed out',{exact:true}).waitFor();
+  check(await page.locator('#qr-status').innerText(),'WhatsApp setup could not finish. Choose Show / refresh QR to retry.','failed start clears preparing state');
+  check(await page.getByRole('button',{name:'Show / refresh QR'}).isEnabled(),true,'failed QR can retry');
+  await page.getByRole('button',{name:'Back',exact:true}).click();await page.getByRole('button',{name:'Sign out'}).click();await page.locator('#details').waitFor({state:'visible'});check(await page.evaluate(()=>sessionStorage.getItem('floassist.session')),null,'logout clears limited session');
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:join(evidence,'registration-mobile.png'),fullPage:true});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'mobile has no horizontal overflow');
   await page.getByRole('button',{name:'Switch color theme'}).click();await page.screenshot({path:join(evidence,'registration-dark.png'),fullPage:true});
   check(requests.some(r=>r.path==='/api/floassist/policy'&&r.body.financial==='autonomous'),true,'explicit finance policy submitted');

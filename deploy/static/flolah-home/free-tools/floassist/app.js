@@ -51,7 +51,15 @@ function drawQr(data){
 async function pollQr(){if(polling)return;polling=true;try{
   while(current==='whatsapp'&&!document.hidden){const q=await api('/whatsapp/wait','POST',{});if(current!=='whatsapp')break;drawQr(q);if(q.connected)break;await new Promise(r=>setTimeout(r,1500));}
 }catch(e){if(current==='whatsapp')notice(e.message+' You can refresh the QR to retry.',true);}finally{polling=false;}}
-async function openWhatsApp(){show('whatsapp');const q=await api('/whatsapp/start','POST',{});drawQr(q);if(!q.connected)void pollQr();}
+async function openWhatsApp(){
+  show('whatsapp');drawQr({connected:false,message:'Checking your WhatsApp connection…'});
+  try{
+    const existing=await api('/whatsapp');
+    if(existing.connected){drawQr(existing);return;}
+    drawQr({connected:false,message:'Preparing your WhatsApp QR…'});
+    const q=await api('/whatsapp/start','POST',{});drawQr(q);if(!q.connected)void pollQr();
+  }catch(e){drawQr({connected:false,message:'WhatsApp setup could not finish. Choose Show / refresh QR to retry.'});throw e;}
+}
 function ready(){show('ready');const paused=me.status!=='active';$('ready').querySelector('h2').textContent=paused?'Proactive checks are paused':'Your assistant is ready';
   $('pause').textContent=paused?'Resume checks':'Pause checks';$('ready-copy').textContent=paused?'Resume here when you want briefings and reminders again.':'Your COO is now on WhatsApp. Send a message whenever you need a hand.';
   const number=me.channel?.number;$('chat-link').hidden=!number;if(number)$('chat-link').href='https://wa.me/'+number.replace(/\D/g,'');
