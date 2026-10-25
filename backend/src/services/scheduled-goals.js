@@ -26,7 +26,7 @@ import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel
 import { consumeWorkSteering, steeringPrompt, closeWorkSteering, handoffWorkSteering } from './work-steering.js';
 import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { floAssistScheduleGate } from './floassist/runtime.js';
-import {TRACKING_RUN_INSTRUCTIONS} from './floassist/tracking.js';
+import {TRACKING_RUN_INSTRUCTIONS,trackingHistorySummary} from './floassist/tracking.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
@@ -750,7 +750,8 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     );
     const reply = String(content || '').trim() || '(no response)';
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
-    const preview = reply.slice(0, 2000);
+    const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
+      ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);
     try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
     void deliverScheduledGoalOutcome({
       ownerUserId,

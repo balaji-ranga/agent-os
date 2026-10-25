@@ -108,6 +108,16 @@ export function listTracking(db,owner,{after_id=0,limit=50}={}){
   return {tasks:rows.slice(0,n).map(view),next_after_id:rows.length>n?rows[n-1].task_id:null,scope:'All tracked tasks including closed tasks; independent of source scan filters.'};
 }
 
+// A completion snapshot, not a claim about which provider reads or deliveries ran.
+export function trackingHistorySummary(db,owner){
+  ensureTracking(db);
+  const tasks=db.prepare(`SELECT k.id,k.status FROM floassist_task_tracking f
+    JOIN kanban_tasks k ON k.id=f.task_id AND k.owner_user_id=f.owner_id WHERE f.owner_id=?`).all(owner);
+  const open=tasks.filter(t=>!terminal.has(t.status));
+  const refs=open.slice(0,10).map(t=>`#${t.id}`).join(', ');
+  return `Check completed. Tracking snapshot: ${open.length} open task(s)${refs?` (${refs}${open.length>10?', …':''})`:''}; ${tasks.length-open.length} closed task(s). Open does not mean a new alert: unchanged alerts already sent are suppressed. Task-backed notifications are delivered separately. This snapshot does not confirm source coverage or delivery.`;
+}
+
 export function updateTracking(db,owner,input,now=Date.now()){
   ensureTracking(db);
   const evidence=text(input.evidence,'evidence',1000);

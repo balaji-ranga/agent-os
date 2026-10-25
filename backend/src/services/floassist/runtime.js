@@ -148,7 +148,7 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
       const appId=row.source_key.slice(healthPrefix.length).split(':')[0];
       const prefs=JSON.parse(p.preferences_json);
       const current=db.prepare('SELECT state FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(row.owner_id,appId);
-      if(!prefs.responsibilities?.includes('priority')||!prefs.connectors?.includes(appId)||(row.source_key.endsWith(':recovered')&&current?.state!=='available')){
+      if(!prefs.responsibilities?.includes('priority')||!prefs.connectors?.includes(appId)||row.source_key.endsWith(':recovered')||current?.state==='available'){
         db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
       }
     }

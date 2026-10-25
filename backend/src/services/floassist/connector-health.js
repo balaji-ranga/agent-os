@@ -28,23 +28,21 @@ export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),
   ensure(db);
   return db.transaction(()=>{
     const old=db.prepare('SELECT * FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(owner,app.id);
-    if(state==='unknown')return {unknown:true};
     const bad=state!=='available',wasBad=old&&old.state!=='available';
     let key=old?.notification_key||null,episode=old?.episode||null,queued=false;
-    if(bad&&!wasBad){
+    if(bad&&(!wasBad||old.state!==state)){
+      if(old?.notification_key)db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(old.notification_key);
       episode=randomUUID();key=`${owner}:connector-health:${app.id}:${episode}`;
       const configuredBase=String(getPublicBaseUrl()||'').replace(/\/$/,'');
       const base=/^https:\/\//i.test(configuredBase)?configuredBase:'';
-      const reason=state==='missing'?'is no longer connected':state==='authorization'?'needs reconnection because authorization failed':state==='permission'?'could not be accessed with its current permissions':state==='unsupported'?'has no supported connection check installed':state==='restricted'?'cannot be checked under the current agent permissions or policy':'is temporarily unavailable';
-      const action=['temporary','unsupported','restricted'].includes(state)?'FloAssist will check again when the service or permissions are available.':`Open FloAssist → Your apps to reconnect or review permissions${base?`: ${base}/free-tools/floassist/`:'.'}`;
+      const reason=state==='missing'?'is no longer connected':state==='authorization'?'needs reconnection because authorization failed':state==='permission'?'could not be accessed with its current permissions':state==='unsupported'?'has no supported connection check installed':state==='restricted'?'cannot be checked under the current agent permissions or policy':state==='unknown'?'connection health could not be verified':'is temporarily unavailable';
+      const action=['temporary','unsupported','restricted','unknown'].includes(state)?'FloAssist will check again during the next enabled priority check.':`Open FloAssist → Your apps to reconnect or review permissions${base?`: ${base}/free-tools/floassist/`:'.'}`;
       const text=`FloAssist connection alert: ${app.label} ${reason}. Checks depending on this app may be incomplete. ${action}`;
       db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(key,owner,p.agent_id,text,now,now,now+86400000);queued=true;
     }else if(!bad&&wasBad){
-      const delivered=db.prepare('SELECT status FROM floassist_notifications WHERE source_key=?').get(key);
       db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(key);
-      if(delivered?.status==='sent'){
-        db.prepare('INSERT OR IGNORE INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(`${key}:recovered`,owner,p.agent_id,`FloAssist: ${app.label} access is working again.`,now,now,now+86400000);queued=true;
-      }
+      // Recovery is durable state only. Priority notifications are exceptions-only.
+      db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(`${key}:recovered`);
       episode=null;key=null;
     }
     db.prepare('INSERT INTO floassist_connector_health VALUES (?,?,?,?,?,?) ON CONFLICT(owner_id,app_id) DO UPDATE SET state=excluded.state,episode=excluded.episode,notification_key=excluded.notification_key,checked_at=excluded.checked_at').run(owner,app.id,state,episode,key,now);

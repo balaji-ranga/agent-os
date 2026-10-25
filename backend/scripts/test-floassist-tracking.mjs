@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {initializeFloAssist} from '../src/services/floassist/core.js';
-import {observeTracking,listTracking,updateTracking,ensureTracking} from '../src/services/floassist/tracking.js';
+import {observeTracking,listTracking,updateTracking,ensureTracking,trackingHistorySummary} from '../src/services/floassist/tracking.js';
 import {tickFloAssistNotifications,floAssistDeliveryGate} from '../src/services/floassist/runtime.js';
 
 // Isolated database and fake delivery: no real mailbox, owner, task or WhatsApp send.
@@ -80,5 +80,9 @@ try{
  await Promise.all([1,2].map(()=>tickFloAssistNotifications({db,now,send:async r=>{race.push(r.source_key);await Promise.resolve();return {ok:true};}})));
  eq(race.filter(k=>k.includes(`:tracking:${unique}:`)).length,1,'concurrent ticks claim once');
  eq(db.prepare('SELECT count(*) n FROM floassist_tracking_audit WHERE owner_id=?').get('owner-a').n>0,true,'decisions audited');
+ const snapshot=trackingHistorySummary(db,'owner-a');
+ eq(snapshot.includes('unchanged alerts already sent are suppressed'),true,'history explains dedupe');
+ eq(snapshot.includes('open task(s)'),true,'history retains pending tasks');
+ eq(trackingHistorySummary(db,'owner-b').includes(`#${unique}`),false,'history owner isolation');
  console.log(`FLOASSIST_TRACKING_OK: ${checks} checks; isolated DB, synthetic delivery, no external side effects`);
 }finally{db.close();}
