@@ -12,6 +12,8 @@ Implemented scope: verified priority/deadline/follow-up findings link to owner-a
 
 Validation: tracking harness 36 checks; platform harness 54 checks including actual Kanban user-action completion/audit and direct-schedule prompt compatibility. VPS isolated image harnesses passed. Live synthetic completed task #17291 suppressed priority and deadline observations with zero notifications. See implementation/testing notes for deployment and native-runtime verification.
 
+Delivered follow-up: matching open obligations can alert once per validated owner schedule run; explicit stop/resume and origin-protected mail orphan closure with exact stored account/source/obligation and recorded provider evidence. Linked tasks are excluded from orphan closure. Source evidence interpretation is agent-mediated, not independently fetched by the closure endpoint.
+
 Remaining scope: configurable automatic escalation rules beyond explicit snooze and verified deadline changes; richer per-source relevance settings and a dedicated notification-reconciliation UI. Source interpretation, correlation of ambiguous legacy tasks and deciding whether provider evidence proves completion remain agent work; the tools enforce persisted task state, identity-based suppression and delivery claims. Old conversation-only acknowledgements cannot safely be bulk-migrated without identifying their source/task. Existing source/action authorization policies still apply; internal tracking writes require the effective write policy to permit them.
 
 Observed: two manual priority checks 26 seconds apart alerted on the same Gmail message with different wording. Current delivery deduplication hashes notification text; it cannot reliably identify the same source item across runs. Prompts request meaningful new findings, but there is no durable per-item acknowledgement/resolution lifecycle.
@@ -23,7 +25,7 @@ Required behaviour:
 - Apply explicit relevance filters: selected connected accounts, user priorities, tracked threads, meaningful changes, quiet hours and delivery preferences. Distinguish verified findings from unavailable sources or duplicate-blocked tool calls.
 - Alert once for a new actionable item. Different generated wording must not bypass suppression.
 - Distinguish acknowledged from resolved. Reading an email alone does not prove completion. Detect relevant replies or verified source changes; support WhatsApp done, dismiss and snooze commands with clarification when the target is ambiguous.
-- Re-alert only on a meaningful change, snooze expiry or configured deadline escalation. Do not repeat hourly solely because an item remains unread or unresolved.
+- Updated user policy (25 October): re-alert on each scheduled check when the exact source still matches an open tracked obligation. Deduplicate tool retries within a run and outstanding deliveries. Explicit stop tracking, completion and snooze suppress alerts; acknowledgement alone does not.
 - Make re-alert intervals, escalation windows and limits configurable; define defaults before implementation. Preserve user timezone and quiet-hour rules.
 - Claim pending deliveries atomically and reconcile uncertain sends. Concurrent/manual runs and retries must not duplicate the same alert.
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CEO scheduled goals — durable schedules for agent prompts.
  * Pause/delete are status/row only; platform tick ignores non-active; survives restarts.
  */
@@ -622,7 +622,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const scheduleGuidanceNotes = consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`);
   const guidance = steeringPrompt(scheduleGuidanceNotes);
   handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
-  const steeredPrompt = row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${TRACKING_RUN_INSTRUCTIONS}`:'');
+  const steeredPrompt = `[scheduled_goal_id: ${row.id}]\n[run_key: ${runKey}]\n` + row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${TRACKING_RUN_INSTRUCTIONS}`:'');
   let openclawId = agent.openclaw_agent_id || agent.id;
   try { openclawId = ensureTenantOpenClawAgent(agent, ownerUserId).openclawAgentId; }
   catch (e) { console.warn(`[scheduled-goals] tenant ensure failed agent=${agent.id}:`, e.message); }
