@@ -87,6 +87,12 @@ At that preflight, Gmail's platform OAuth client was configured. Google Calendar
 
 These live cases have **not** been executed in this implementation session.
 
+### Live reminder finding (2026-10-25)
+
+The first WhatsApp reminder attempt delegated a `sleep 180` to a subagent and did not create a FloAssist reminder record. Gateway logs explicitly listed all five `floassist_*` tools as unknown, despite their presence in the database grants, runtime allowlist, and shared tool catalog. The running plugin registry had not loaded the newly added descriptors. Tool grants and skill `ready` status alone therefore do not prove gateway tool availability. After first-time tool registration, refresh the gateway registry using the platform restart procedure and verify an owner-scoped read-only `floassist_status` / `floassist_reminder_list` call through the gateway before reminder acceptance testing. Preserve channel credentials and existing tasks; do not enable shell access as a workaround.
+
+The assistant skill now requires direct durable reminder-tool calls, prohibits subagent/shell/sleep timer fallbacks, and must report a failed schedule honestly. Past failed reminders must not be recreated silently at a new time. Reminder delivery is not accepted until a new user-requested reminder has a stored receipt and is delivered at the expected local time.
+
 ## Deployment and privacy limits
 
 The current nginx apex `/free-tools/` static location and `/api/` backend proxy already cover FloAssist. Deploy both backend changes and `deploy/static/flolah-home` together; no new public provider webhook or secret is required. `platform_settings.floassist_config` can disable new enrollment with `{"enabled":false}`; `floassist_management_url` optionally supplies the existing Flolah login URL. Existing gateway/SMTP/OAuth configuration remains the source of truth.
