@@ -75,7 +75,7 @@ try{
   const priority=db.prepare("SELECT id FROM scheduled_goals WHERE source='floassist:priority'").get();
   const goalCount=db.prepare('SELECT count(*) AS n FROM agent_goal_runs').get().n;
   const run=await runScheduledGoal('owner-a',priority.id,{force:true});
-  check(run.ok,true,'proactive run completes');check(run.mode,'chat','proactive run bypasses planner');
+  check(run.ok,false,'no-update reply without source reads is incomplete');check(run.mode,'chat','proactive run bypasses planner');
   check(db.prepare('SELECT count(*) AS n FROM agent_goal_runs').get().n,goalCount,'no internal goal run created');
   check(chatRequests.length,1,'one direct check only');
   const {CHAT_INSTRUCTION_KANBAN}=await import('../src/gateway/openclaw.js');

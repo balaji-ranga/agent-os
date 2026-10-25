@@ -54,12 +54,15 @@ export function createFloAssist({ db, product, adapters:a, now=Date.now }) {
     if(!row)fail(401,'session_expired','Verify your email again to continue setup.');return profile(row.owner_id);
   }
   function preferences(input={},previous={}){
-    const p={connectors:[],responsibilities:product.responsibilities.map(r=>r.id),timezone:'Asia/Singapore',briefing_time:'09:00',quiet_start:'22:00',quiet_end:'08:00',...previous};
+    const p={task_realert_hours:24,notification_batch_minutes:5,followup_wait_hours:48,connectors:[],responsibilities:product.responsibilities.map(r=>r.id),timezone:'Asia/Singapore',briefing_time:'09:00',quiet_start:'22:00',quiet_end:'08:00',...previous};
     for(const k of Object.keys(p))if(input[k]!==undefined)p[k]=input[k];
     for(const key of ['connectors','responsibilities']){
       if(!Array.isArray(p[key])||p[key].some(id=>!product[key].some(r=>r.id===id)))fail(400,'selection','Choose an available option.');
       p[key]=[...new Set(p[key])];
     }
+    if(!Number.isInteger(p.task_realert_hours)||p.task_realert_hours<0||p.task_realert_hours>720)fail(400,'realert','Task reminder interval must be between 0 and 720 hours.');
+    if(!Number.isInteger(p.notification_batch_minutes)||p.notification_batch_minutes<0||p.notification_batch_minutes>60)fail(400,'batch','Notification grouping must be between 0 and 60 minutes.');
+    if(!Number.isInteger(p.followup_wait_hours)||p.followup_wait_hours<1||p.followup_wait_hours>720)fail(400,'followup','Follow-up wait must be between 1 and 720 hours.');
     if(typeof p.timezone!=='string')fail(400,'timezone','Choose a valid timezone.');
     try{new Intl.DateTimeFormat('en',{timeZone:p.timezone}).format();}catch{fail(400,'timezone','Choose a valid timezone.');}
     for(const k of ['briefing_time','quiet_start','quiet_end'])if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(p[k]))fail(400,'time','Enter a valid time.');

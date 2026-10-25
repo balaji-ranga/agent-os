@@ -1,5 +1,7 @@
 # Agent OS — Container deployment
 
+For FloAssist, use the [source release and restart verification contract](FLOASSIST-RELEASE.md). Backend, frontend and gateway must be built from the same reviewed source revision; temporary container copies and historical hotfix build contexts are not final deployments.
+
 For OpenClaw recovery, configuration drift, tenant-volume preservation, and safe validation, follow [the OpenClaw recovery and drift-control runbook](../knowledgebase/OPENCLAW-RECOVERY-AND-DRIFT-RUNBOOK.md). Do not repair generated OpenClaw configuration inside a running container.
 
 ## Embeddings CPU quota

@@ -7,6 +7,8 @@
 # Chat 404 while container healthy = wiped openclaw.json gateway section — run
 #   bash deploy/scripts/vps-verify-openclaw-chat.sh
 FROM node:22-bookworm-slim
+ARG SOURCE_REVISION=unversioned
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -32,6 +34,7 @@ RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
 WORKDIR /opt/agent-os
 COPY . .
 RUN node deploy/scripts/validate-openclaw-seeds.mjs
+RUN node scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +
 
 # Audit belongs in dependency/security checks, not a production rollout network gate.

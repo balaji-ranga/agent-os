@@ -1,3 +1,5 @@
+import {claimScheduledRun} from './scheduled-run-claim.js';
+import {runEvidenceSummary} from './floassist/source-receipts.js';
 /**
  * CEO scheduled goals — durable schedules for agent prompts.
  * Pause/delete are status/row only; platform tick ignores non-active; survives restarts.
@@ -600,23 +602,9 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       run_key: runKey,
     };
   }
-  if (!force) {
-    const claim = db().prepare(
-      `UPDATE scheduled_goals SET last_run_key=?, last_run_at=datetime('now'), last_run_status='running', updated_at=datetime('now')
-       WHERE id=? AND owner_user_id=? AND (last_run_key IS NULL OR last_run_key != ?)`
-    ).run(runKey, id, ownerUserId, runKey);
-    if (!claim.changes) return { ok: false, skipped: true, reason: 'claim_failed', run_key: runKey };
-  } else {
-    db().prepare(
-      `UPDATE scheduled_goals SET last_run_key=?, last_run_at=datetime('now'), last_run_status='running', updated_at=datetime('now')
-       WHERE id=? AND owner_user_id=?`
-    ).run(runKey, id, ownerUserId);
-  }
-  const runId = `sgr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-  db().prepare(
-    `INSERT OR IGNORE INTO scheduled_goal_runs (id, goal_id, owner_user_id, run_key, status, agent_id, triggered_by)
-     VALUES (?, ?, ?, ?, 'running', ?, ?)`
-  ).run(runId, id, ownerUserId, runKey, row.agent_id, force ? 'run_now' : 'schedule');
+  const claim = claimScheduledRun(db(),row,runKey,{force,requestKey:opts.requestKey});
+  if(claim.skipped)return {ok:false,...claim};
+  const runId=claim.run_id;
 
   const agent = resolveAgentForOwner(ownerUserId, row.agent_id);
   // A schedule steer is one-fire guidance, not a permanent prompt/cadence change.
@@ -640,8 +628,11 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   } catch (e) { console.warn('[scheduled-goals] chat user turn:', e.message); }
 
   if (row.source === 'floassist:priority') {
+    (await import('./floassist/tracking.js')).queueWhatsAppTasks(db(),ownerUserId,runId);
     try { await (await import('./floassist/connector-health.js')).checkFloAssistConnectorHealth(ownerUserId); }
     catch (e) { console.warn('[floassist-health] check unavailable'); }
+    try { await (await import('./floassist/storage.js')).checkFloAssistStorage(ownerUserId); }
+    catch (e) { console.warn('[floassist-storage] check unavailable'); }
   }
 
   // Prefer durable goal plan when approved stored plan or structured multi-step.
@@ -745,6 +736,13 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         'kanban_get_task','kanban_user_action','agent_work_history'] : [];
     const selection=selectSessionContentTools({agentId:agent.id,ownerUserId,message:prompt,
       route:{executor_evidence:{capability_names:required}}});
+    if(floAssistRun){
+      // These checks do not need CRM, productivity/ICS, delegation or user-action
+      // tools. Retain permanent COO grants for its other work.
+      const allowed=required.filter(name=>name!=='kanban_user_action'&&name!=='agent_work_history');
+      selection.tools=selection.tools.filter(name=>allowed.includes(name));
+      selection.scoped=true;selection.selected_count=selection.tools.length;
+    }
     installSessionToolScope(scheduledSessionKey,selection);
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
     registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), ownerUserId, null, 'schedule', { scheduled_goal_run_id: runId, original_request: row.prompt, resolved_request: row.prompt });
@@ -758,6 +756,9 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       }
     );
     const reply = String(content || '').trim() || '(no response)';
+    const evidence=floAssistRun?runEvidenceSummary(db(),ownerUserId,runId):null;
+    const incomplete=evidence&&(evidence.errors>0||evidence.reads===0);
+    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} tool failures recorded. Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
       ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);
@@ -775,8 +776,12 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
        WHERE id=? AND owner_user_id=?`
     ).run(id, ownerUserId);
     db().prepare(`UPDATE scheduled_goal_runs SET status='ok', reply_preview=? WHERE id=?`).run(preview, runId);
+    if(incomplete){
+      db().prepare("UPDATE scheduled_goal_runs SET status='error',error=? WHERE id=?").run(evidenceError,runId);
+      db().prepare("UPDATE scheduled_goals SET last_run_status='error',last_run_error=? WHERE id=? AND owner_user_id=?").run(evidenceError,id,ownerUserId);
+    }
     if (isExpired(row.ends_at)) updateScheduledGoal(ownerUserId, id, { status: 'completed' });
-    return { ok: true, goal_id: id, run_id: runId, run_key: runKey, agent_id: agent.id, reply_preview: preview.slice(0, 500), mode: 'chat' };
+    return { ok: !incomplete, ...(evidenceError?{error:evidenceError}:{}), goal_id: id, run_id: runId, run_key: runKey, agent_id: agent.id, reply_preview: preview.slice(0, 500), mode: 'chat' };
   } catch (err) {
     const msg = err?.message || String(err);
     console.error(`[scheduled-goals] fail id=${id}:`, msg);
@@ -920,8 +925,10 @@ export function findGoalForOwner(ownerUserId, query) {
 }
 
 export function listRecentRuns(ownerUserId, goalId, limit = 20) {
-  return db().prepare(
+  const runs=db().prepare(
     `SELECT * FROM scheduled_goal_runs WHERE owner_user_id=? AND (? IS NULL OR goal_id=?)
      ORDER BY datetime(created_at) DESC LIMIT ?`
   ).all(ownerUserId, goalId || null, goalId || null, Math.min(Math.max(limit, 1), 100));
+  const hasNotifications=db().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_notifications'").get();
+  return runs.map(run=>({...run,notification_items:hasNotifications?db().prepare("SELECT status,count(*) count FROM floassist_notifications WHERE owner_id=? AND (source_key LIKE ? OR source_key LIKE ?) GROUP BY status").all(ownerUserId,`%:finding:${run.id}`,`%:sg:${run.goal_id}:${run.id}`):[]}));
 }

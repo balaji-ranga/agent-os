@@ -1541,7 +1541,9 @@ export const api = {
   scheduledGoalsUpdate: (id, body) => patch(`/scheduled-goals/${encodeURIComponent(id)}`, body),
   scheduledGoalsPause: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/pause`, {}),
   scheduledGoalsResume: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/resume`, {}),
-  scheduledGoalsRunNow: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/run-now`, {}),
+  floAssistDeliveries: () => get('/scheduled-goals/floassist/deliveries'),
+  floAssistReconcile: (body) => post('/scheduled-goals/floassist/deliveries/reconcile',body),
+  scheduledGoalsRunNow: (id, requestKey = crypto.randomUUID()) => post(`/scheduled-goals/${encodeURIComponent(id)}/run-now`, {request_key:requestKey}),
   scheduledGoalsDelete: (id) => del(`/scheduled-goals/${encodeURIComponent(id)}`),
 
   // Durable multi-intent agent goal plans (CRM→ERP etc.)

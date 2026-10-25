@@ -10,7 +10,7 @@ db.exec(`CREATE TABLE platform_users(id TEXT PRIMARY KEY,enabled INTEGER);
  CREATE TABLE kanban_tasks(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT,description TEXT,status TEXT,created_by TEXT,owner_user_id TEXT,assigned_user_id TEXT,due_at TEXT,due_date TEXT,updated_at TEXT);
  CREATE TABLE task_messages(id INTEGER PRIMARY KEY,task_id INTEGER,role TEXT,content TEXT);`);
 const now=Date.parse('2026-10-25T10:00:00+08:00');
-const prefs={connectors:['gmail'],responsibilities:['priority','deadlines','followups'],timezone:'Asia/Singapore',quiet_start:'00:00',quiet_end:'00:00'};
+const prefs={task_realert_hours:0,notification_batch_minutes:0,connectors:['gmail'],responsibilities:['priority','deadlines','followups'],timezone:'Asia/Singapore',quiet_start:'00:00',quiet_end:'00:00'};
 for(const owner of ['owner-a','owner-b']){
  db.prepare('INSERT INTO platform_users VALUES (?,1)').run(owner);
  db.prepare('INSERT INTO floassist_profiles VALUES (?,?,?,?,?,?,?,?)').run(owner,'fixture-coo','+6500000000','active',JSON.stringify(prefs),'{}',now,now);
@@ -81,7 +81,7 @@ try{
  eq(race.filter(k=>k.includes(`:tracking:${unique}:`)).length,1,'concurrent ticks claim once');
  eq(db.prepare('SELECT count(*) n FROM floassist_tracking_audit WHERE owner_id=?').get('owner-a').n>0,true,'decisions audited');
  const snapshot=trackingHistorySummary(db,'owner-a');
- eq(snapshot.includes('Matching open tasks alert once per check'),true,'history explains dedupe');
+ eq(snapshot.includes('unchanged tasks respect the reminder interval'),true,'history explains dedupe');
  eq(snapshot.includes('open task(s)'),true,'history retains pending tasks');
  eq(trackingHistorySummary(db,'owner-b').includes(`#${unique}`),false,'history owner isolation');
  db.exec(`CREATE TABLE scheduled_goals(id TEXT,owner_user_id TEXT,source TEXT);

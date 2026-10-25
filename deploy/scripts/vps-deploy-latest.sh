@@ -219,11 +219,16 @@ else
   echo "==> docker compose build $SERVICES"
 fi
 # shellcheck disable=SC2086
+if [[ "$COMPOSE_FILE" != *docker-compose.release.yml* ]]; then
+  BUILD_ARGS+=(--build-arg "SOURCE_REVISION=${FLOLAH_SOURCE_REVISION:-$(git -C "$ROOT" rev-parse HEAD)}")
+fi
 docker compose build "${BUILD_ARGS[@]}" $SERVICES
 
 # Validate the newly built gateway against the mounted configuration before
 # replacing any running service. Startup also gates fresh/generated config.
 if [[ " $SERVICES " == *" openclaw "* ]]; then
+  docker compose run --rm -T --no-deps --entrypoint node openclaw \
+    /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only
   docker compose run --rm -T --no-deps --entrypoint node openclaw \
     /opt/agent-os/deploy/scripts/validate-openclaw-config.mjs --if-present
 fi

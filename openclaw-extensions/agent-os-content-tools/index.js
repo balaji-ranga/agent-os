@@ -1,3 +1,4 @@
+import {floassistSchemas} from './floassist-schemas.js';
 /**
  * OpenClaw plugin: registers content tools from the Agent OS tools list file.
  * OpenClaw 2026.7+ requires definePluginEntry + contracts.tools in the manifest.
@@ -218,6 +219,7 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  ...floassistSchemas,
   'multi-format-content-tool': multiFormatSchema,
   download_file: {
     type: "object",

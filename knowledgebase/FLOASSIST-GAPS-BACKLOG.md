@@ -4,6 +4,27 @@ Updated: 25 October 2026 (Asia/Singapore).
 
 This backlog records observed gaps, not implemented capabilities. Related scope: [implementation and testing](FLOASSIST-IMPLEMENTATION-AND-TESTING.md).
 
+## 25 October evening validation update
+
+The first live multi-module test failed experience acceptance: overlapping tasks, stale thread interpretation and individual low-context messages. Successful transport was not successful semantic validation. Do not treat the earlier green run statuses as proof of coverage.
+
+The revised implementation requires distinct responsibilities: Priority identifies urgent/high-impact action now; Deadlines identifies explicit dated commitments; Follow-up identifies unanswered outgoing requests after a default 48-hour wait or an explicit elapsed reply deadline. Gmail observations require a current complete thread read, and follow-up verifies the latest message is outgoing. Earlier messages superseded by replies must not become separate follow-up tasks. Calendar appointments are excluded from automatic mail tracking.
+
+Verified findings now carry thread context, next action and why an alert is needed. Stable source/obligation identity is shared across responsibilities. Default delivery groups up to six task findings after a five-minute collection window, with bold headings and task references. Unchanged findings have a shared 24-hour reminder interval; verified deadline changes or crossing the deadline can escalate sooner. This supersedes the earlier requirement below to repeat every open task at every check. Completion, stop, snooze and quiet hours still apply.
+
+Delivery status as of this update:
+
+- FA-GAP-001/010: contextual rendering, current-thread checks, shared cooldown and grouping implemented; controlled live semantic retest in progress. Legacy ambiguous provenance requires explicit reconciliation, never title-based bulk closure.
+- FA-GAP-002: durable owner/request idempotency, running-work guard and UI action guard implemented and harness tested.
+- FA-GAP-003: owner-scoped reminder/delivery administration and audited uncertain-send reconciliation implemented; UI inspected. Cross-owner admin management remains out of scope of this panel.
+- FA-GAP-005: trusted FloAssist scope enforced in connector execution/retries and propagated to supported workflow/delegation paths. Comprehensive alternate/native/MCP path validation remains open.
+- FA-GAP-006: Microsoft Calendar action catalogue dependency still unavailable.
+- FA-GAP-007: silent productivity/ICS substitution blocked in FloAssist scope. Explicit approved ICS fallback routing remains open.
+- FA-GAP-008: selected Drive/OneDrive quota monitoring implemented; 90% threshold, silent normal/recovery, 88% reset, two-percentage-point worsening or 24-hour reminder. Storage-full error ingestion and broader provider coverage remain open.
+- FA-GAP-009: verified WhatsApp provenance and conservative explicit-urgency inclusion implemented; richer priority/deadline metadata and live ad hoc task acceptance remain open.
+
+Validation: isolated Linux harnesses passed 65 backlog, 57 platform, 86 core, 68 tracking and 46 connector-health checks; frontend build passed. Tests cover owner separation, current-thread incoming-reply suppression, module exclusions, grouping, cooldown, storage and delivery reconciliation. Live WhatsApp content acceptance is separate from these harness results. Existing schedules remain paused during controlled retesting, and temporary quiet-hour changes must be restored.
+
 ## FA-GAP-001 — Durable alert determination and re-alert filters
 
 Priority: High. Status: Kanban-backed lifecycle delivered 25 October 2026; broader automatic escalation/filter configuration remains open.
@@ -97,7 +118,7 @@ Active probes cover Gmail, Outlook Mail, Google Calendar, Google Drive and OneDr
 
 ## FA-GAP-007 — Enforce connector priority and explicit calendar fallback
 
-Priority: High. Status: Open; skill-level mitigation deployed.
+Priority: High. Status: Partially delivered; connector routing enforced, explicit ICS fallback pending.
 
 Observed: COO used the separate productivity calendar tools and ICS subscriptions despite a connected Google Calendar, then incorrectly described a missing productivity binding as a disconnected OAuth connector. The updated FloAssist skill prefers the selected provider connector, and a fresh COO read succeeded. This preference is not yet a backend-enforced routing rule and can be undermined by stale conversational context.
 
@@ -118,3 +139,68 @@ Acceptance tests and prerequisites:
 - Explicit ICS request and approved fallback fixtures: reads use only the approved source and clearly label mirror freshness and partial coverage; no calendar writes are attempted through ICS.
 - WhatsApp, direct-run, goal-plan and delegated-run fixtures: the same routing decision and authorization checks apply after retries and selection changes.
 - Two isolated owners and existing ICS workflows: source credentials, consent and audit records remain owner-scoped; existing authorized workflows are unchanged.
+
+## FA-GAP-008 — Source storage capacity in priority alerts
+
+Priority: High. Status: Partially delivered; quota reads implemented, provider-error coverage remains open. Scope: FloAssist priority alerts.
+
+Monitor storage usage and quota-related failures for the owner's selected, authorized connectors. Warn at 90% or more of the actual allocated storage; do not assume a fixed allowance such as 100 GB.
+
+Required behaviour:
+
+- Discover provider-supported read-only quota actions and required scopes. Read used and allocated bytes, account identity and measurement time; calculate utilization only when a valid finite quota is available.
+- Group services sharing the same verified storage pool (for example Gmail and Drive for the same Google account) into one owner-scoped alert. Do not combine different accounts or assume all services share a quota.
+- Alert at utilization >=90%, and on provider storage-full/quota errors that block email receipt, uploads or saving even if a quota percentage cannot be obtained. Distinguish storage exhaustion from API rate limits and request quotas.
+- Keep normal readings and recovery silent. Persist the incident and delivery state; suppress duplicate observations within a run or shared pool. Re-alert on worsening utilization or a configured unresolved-incident reminder interval, respecting quiet hours and pause/stop settings. Define worsening thresholds, reminder defaults and reset/hysteresis rules before implementation.
+- State the affected account/source, used versus allocated storage, percentage, observed impact and suggested next action. Suggestions must not perform cleanup; deletion and other mutations remain subject to existing user authorization and action policy.
+- If quota data is unsupported, unavailable, unlimited or missing, show coverage limitations in status/run history rather than claiming healthy storage or inventing a percentage. Deduplicate actionable monitoring failures and coordinate them with connector-health alerts.
+- Retain minimal owner-scoped quota/incident metadata and traceable send/suppress decisions. Use existing notification delivery safeguards; do not modify another owner's sources or unrelated scheduled goals.
+
+Acceptance tests and classified prerequisites:
+
+- **Unit/contract fixtures (no live provider):** below 90%, exactly 90%, above 90%, full, zero/missing/unlimited allocation, large byte counts and stale readings. No normal/recovery success alerts; invalid quotas never produce fabricated percentages.
+- **Provider integration prerequisites:** selected OAuth-connected Google account and OneDrive/other supported test accounts, enabled provider APIs, confirmed quota-action schemas and sufficient read scopes. Verify actual allocation and distinguish supported quota reads from unavailable coverage; do not fill a real account to test the threshold.
+- **Isolation/shared-pool fixtures:** Gmail and Drive referencing the same verified account/pool produce one incident; different pools/accounts and two owners remain separate. Deselected or unauthorized connectors are not read.
+- **Failure fixtures:** storage-full responses raise an exception without a quota reading; rate limiting is not mislabeled as storage exhaustion. Revoked grants, insufficient scopes and unsupported actions report accurate limitations without duplicate connector-health alerts.
+- **Delivery prerequisites:** fake sender and controlled clock for repeat suppression, worsening usage, configured reminder intervals, recovery/reset, concurrent runs, quiet hours, paused profiles and uncertain delivery. Live WhatsApp testing requires an explicitly authorized test incident.
+- **Policy/regression fixtures:** monitoring performs read-only actions under the effective policy; cleanup suggestions never trigger deletion. Existing priority email/task alerts, connector-health checks and unrelated scheduled goals retain their behavior.
+
+## FA-GAP-009 — WhatsApp ad hoc Kanban tasks in priority reporting
+
+Priority: High. Status: Partially delivered; provenance and explicit urgency implemented, richer priority metadata pending.
+
+Include the owner's ad hoc tasks requested through WhatsApp and stored by the COO in Kanban in priority evaluation, even when there is no email or other connector source.
+
+Required behaviour:
+
+- Persist explicit WhatsApp-to-COO provenance, owner, originating request/session reference and canonical Kanban task ID. Do not infer origin or ownership from similar titles.
+- Evaluate eligible open tasks using priority relevance, urgency, deadlines and user instructions. An open task is a candidate, not automatically urgent. Respect completion, explicit stop tracking, snooze, quiet hours and paused FloAssist status.
+- Reuse canonical tasks and existing lifecycle metadata across sessions and scheduled runs. Include qualifying tasks outside connector search filters; coordinate overlapping priority, deadline and follow-up checks to avoid duplicate notifications for the same finding.
+- Keep WhatsApp-origin tasks separate from connector-origin tasks. Missing/deleted email and connector orphan-closure logic must never auto-close a WhatsApp-origin task.
+- Record inclusion, suppression and delivery decisions with task and scheduled-run references. Preserve owner isolation, existing action policy and unrelated COO/Kanban workflows.
+
+Acceptance tests and classified prerequisites:
+
+- **Task/provenance fixtures:** owner-scoped WhatsApp-origin tasks, connector-origin tasks and unrelated tasks with identical titles; include only eligible owner tasks and never duplicate or misclassify provenance.
+- **Priority/lifecycle fixtures:** urgent versus nonurgent, dated versus undated, open/completed, stopped and snoozed tasks; verify expected inclusion and suppression, including after a new WhatsApp session.
+- **Scheduling/delivery fixtures:** controlled clock and fake sender for quiet hours, pause, retries and overlapping priority/deadline/follow-up runs; verify coordinated delivery and audit reasons.
+- **Integration prerequisites:** authenticated WhatsApp-to-COO channel, durable request-to-Kanban linkage and enabled Priority alerts. Create an authorized test task through WhatsApp, confirm it is considered in a run, then complete/stop it and verify suppression. Email deletion must leave it unchanged.
+
+## FA-GAP-010 — Identify the responsible module in WhatsApp notifications
+
+Priority: Medium. Status: Labels, context and grouped delivery implemented; live semantic acceptance pending.
+
+Clearly identify which handler or scheduled responsibility produced each FloAssist WhatsApp notification, such as `FloAssist · Priority alerts`, `FloAssist · Follow-ups` or `FloAssist · Deadline tracking`.
+
+Required behaviour:
+
+- Derive the user-facing label from trusted execution/notification metadata for the actual responsible handler, not guessed message content or all categories associated with a task.
+- Apply labels consistently to task findings, clarification messages and applicable connector-health/storage exceptions, plus other proactive responsibilities such as briefing and calendar conflicts. Distinguish ad hoc task responses from scheduled checks.
+- Preserve task references and concise actionable content. Keep internal goal/run IDs in traceability history rather than exposing them in the WhatsApp message.
+- When multiple checks identify the same finding, coordinate one notification with truthful origin attribution and retained history references. Labels must not change source identity or bypass deduplication.
+
+Acceptance tests and classified prerequisites:
+
+- **Rendering/metadata fixtures:** each responsibility, ad hoc replies and missing/legacy metadata; correct labels or an honest generic FloAssist fallback, without invented origin or internal run IDs.
+- **Lifecycle/concurrency fixtures:** one task shared by priority/deadlines/follow-ups, retries, snooze and clarification; retain task reference, avoid duplicate sends and attribute the actual producer.
+- **Integration prerequisites:** enabled test responsibilities, persisted notification-origin metadata and fake delivery for harness checks; an authorized WhatsApp test verifies readable labels and correlation to run history. Existing non-FloAssist messages remain unchanged.

@@ -1,3 +1,6 @@
+import {recordSourceReceipt} from './floassist/source-receipts.js';
+import {projectFloAssistMailResult} from './floassist/mail-result.js';
+import {assertFloAssistConnector,validateFloAssistMailWindow} from './floassist/execution-scope.js';
 import {recordFloAssistConnectorHealth,connectorFailureState} from './floassist/connector-health.js';
 /**
  * OpenConnector facade: per-CEO runtime tokens + catalog / execute APIs.
@@ -747,13 +750,15 @@ export async function executeConnectorAction(
   { connectionName = '', authorizationRetryDelaysMs = null, ...executionContext } = {}
 ) {
   const id = String(actionId || '').trim();
+  assertFloAssistConnector(userId,id);
+  validateFloAssistMailWindow(id,input);
   if(id.startsWith('digital_adoption.'))return copilotConnector().execute(executionContext.actorUserId||userId,id,input,{...executionContext,ownerUserId:userId});
   // One linked runtime connection per company. Model/workflow arguments may
   // name that connection, but cannot substitute another company's alias.
   const requestedAlias = String(connectionName || '').trim();
   const linkedAlias = String(getRuntimeTokenForUser(userId).connectionName || '').trim();
   if (requestedAlias && requestedAlias !== linkedAlias) {
-    throw Object.assign(new Error('Connector connection is not linked to the authenticated company'), { status: 403 });
+    throw Object.assign(new Error('Connector connection is not linked to the authenticated company. Omit connection_name to use the authenticated owner binding; mailbox addresses and provider names are not aliases.'), { status: 403 });
   }
   const appGuess = id.includes('.') ? id.split('.')[0] : '';
   const custom =
@@ -761,6 +766,7 @@ export async function executeConnectorAction(
 
   const readOnly = classifyConnectorAction({ id }).action_family === 'read';
   const run = async (actionInput = input) => {
+    assertFloAssistConnector(userId,id);
     const runtime = getRuntimeTokenForUser(userId);
     const alias = String(runtime.connectionName || '').trim();
     const headers = alias ? { 'x-oo-connector-alias': alias } : {};
@@ -822,7 +828,8 @@ export async function executeConnectorAction(
   let retryIndex = 0;
   while (true) {
     try {
-      const result=await invoke();
+      const result=projectFloAssistMailResult(id,await invoke());
+      recordSourceReceipt(userId,id,result);
       try{recordFloAssistConnectorHealth(userId,appGuess,'available');}catch(e){console.warn('[floassist-health] observation unavailable');}
       return result;
     } catch (error) {

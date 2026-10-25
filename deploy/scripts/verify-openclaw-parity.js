@@ -7,6 +7,8 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir, resolveOpenClawConfigPath } from '../../scripts/lib/openclaw-paths.js';
 import {assertOpenClawConfigContract} from '../../scripts/lib/openclaw-config-contract.js';
+import {verifyExtensionIntegrity} from '../../scripts/lib/openclaw-extension-integrity.js';
+import {fileURLToPath} from 'node:url';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   BROWSER_SESSION_CONTENT_TOOLS,
@@ -59,6 +61,10 @@ function fail(msg) {
 function warn(msg) {
   warnings.push(msg);
 }
+
+try {
+  verifyExtensionIntegrity(fileURLToPath(new URL('../../openclaw-extensions/',import.meta.url)),join(OPENCLAW_DIR,'extensions'));
+} catch(e) { fail(e.message); }
 
 if (!existsSync(CONFIG_PATH)) {
   console.error('Missing', CONFIG_PATH);

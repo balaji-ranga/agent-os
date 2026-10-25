@@ -1,3 +1,4 @@
+import {floassistSchemas} from './floassist-schemas.js';
 /**
  * OpenClaw plugin: registers content tools from the Agent OS tools list file.
  * OpenClaw 2026.7+ requires definePluginEntry + contracts.tools in the manifest.
@@ -253,6 +254,7 @@ type PromptBuildContext = {
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+  ...floassistSchemas,
   'multi-format-content-tool': multiFormatSchema,
   download_file: {
     type: "object",

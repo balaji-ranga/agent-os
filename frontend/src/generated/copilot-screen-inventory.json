@@ -1691,6 +1691,19 @@
       "controls": []
     },
     {
+      "source": "components/FloAssistDeliveries.jsx",
+      "form_count": 0,
+      "forms": [],
+      "links": [],
+      "headings": [
+        "FloAssist reminders and deliveries",
+        "Reminders",
+        "Recent notification deliveries",
+        "Storage monitoring"
+      ],
+      "controls": []
+    },
+    {
       "source": "components/GlobalSearch.jsx",
       "form_count": 0,
       "forms": [],
@@ -5613,7 +5626,7 @@
       ],
       "controls": [
         {
-          "id": "pages/AdminScheduledActivities.jsx:90:10",
+          "id": "pages/AdminScheduledActivities.jsx:92:10",
           "label": "Search scheduled activities",
           "type": "text",
           "required": false,
@@ -5622,7 +5635,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AdminScheduledActivities.jsx:91:10",
+          "id": "pages/AdminScheduledActivities.jsx:93:10",
           "label": "CEO filter",
           "type": "select",
           "required": false,
@@ -5639,7 +5652,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AdminScheduledActivities.jsx:94:10",
+          "id": "pages/AdminScheduledActivities.jsx:96:10",
           "label": "Activity type filter",
           "type": "select",
           "required": false,
@@ -5656,7 +5669,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AdminScheduledActivities.jsx:97:10",
+          "id": "pages/AdminScheduledActivities.jsx:99:10",
           "label": "Status filter",
           "type": "select",
           "required": false,
@@ -13080,7 +13093,7 @@
       "form_count": 1,
       "forms": [
         {
-          "id": "pages/ScheduledGoals.jsx:386:8",
+          "id": "pages/ScheduledGoals.jsx:392:8",
           "label": "Form 1",
           "submission": "manual_user_action",
           "validation": "existing_form_and_server",
@@ -13093,7 +13106,7 @@
       ],
       "controls": [
         {
-          "id": "pages/ScheduledGoals.jsx:373:8",
+          "id": "pages/ScheduledGoals.jsx:379:8",
           "label": "Filter status",
           "type": "select",
           "required": false,
@@ -13126,31 +13139,31 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:422:12",
+          "id": "pages/ScheduledGoals.jsx:428:12",
           "label": "Title (optional)",
           "type": "text",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:430:12",
+          "id": "pages/ScheduledGoals.jsx:436:12",
           "label": "Prompt (what to do each run)",
           "type": "textarea",
           "required": true,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:440:12",
+          "id": "pages/ScheduledGoals.jsx:446:12",
           "label": "Execution mode",
           "type": "select",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided",
@@ -13168,11 +13181,11 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:449:14",
+          "id": "pages/ScheduledGoals.jsx:455:14",
           "label": "Who runs it",
           "type": "select",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided",
@@ -13186,11 +13199,11 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:472:14",
+          "id": "pages/ScheduledGoals.jsx:478:14",
           "label": "Cadence",
           "type": "select",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided",
@@ -13216,11 +13229,11 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:482:16",
+          "id": "pages/ScheduledGoals.jsx:488:16",
           "label": "Weekday",
           "type": "select",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided",
@@ -13229,41 +13242,41 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:498:14",
+          "id": "pages/ScheduledGoals.jsx:504:14",
           "label": "Unlabelled or dynamically labelled control",
           "type": "time",
           "required": true,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:512:14",
+          "id": "pages/ScheduledGoals.jsx:518:14",
           "label": "Ends (optional) Empty = perpetual",
           "type": "date",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:529:14",
+          "id": "pages/ScheduledGoals.jsx:535:14",
           "label": "Also send the final outcome on this employee’s WhatsApp Needs Channels → WhatsApp enabled and a DM (allow-from or Profile mobile). Unpaired skips WhatsApp; web still works.",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:624:14",
+          "id": "pages/ScheduledGoals.jsx:630:14",
           "label": "Regenerate with feedback (optional) Feedback re-runs the planner and can replace manual edits. Prefer Amend for precise step changes.",
           "type": "textarea",
           "required": false,
-          "form_id": "pages/ScheduledGoals.jsx:386:8",
+          "form_id": "pages/ScheduledGoals.jsx:392:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
@@ -14363,6 +14376,7 @@
     {
       "path": "/admin/scheduled-activities",
       "modules": [
+        "components/FloAssistDeliveries.jsx",
         "pages/AdminScheduledActivities.jsx"
       ]
     },
@@ -14790,6 +14804,7 @@
     {
       "path": "/scheduled-goals",
       "modules": [
+        "components/FloAssistDeliveries.jsx",
         "components/GoalPlanManualEditor.jsx",
         "components/GoalPlanPanel.jsx",
         "components/GoalPlanTelemetry.jsx",

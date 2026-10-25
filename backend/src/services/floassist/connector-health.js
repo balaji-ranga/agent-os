@@ -64,6 +64,15 @@ export function connectorFailureState(error){
 }
 
 /** Inventory proves registration, not token validity. Successful provider actions prove recovery. */
+export async function probeFloAssistConnector(owner,config,agentId,db=getDb()){
+  const {assertCallerMayExecuteConnectorAction,connectorPolicyToolName}=await import('../connector-action-grants.js');
+  const {getAgentToolGrants}=await import('../openclaw-agent-tools.js');
+  const {evaluateActionPolicy}=await import('../action-policy.js');
+  if(!db.prepare('SELECT 1 FROM user_agents WHERE user_id=? AND agent_id=? AND enabled=1').get(owner,agentId)||!getAgentToolGrants(agentId).includes('connector_execute_action')||!assertCallerMayExecuteConnectorAction(agentId,config.action_id).ok||!evaluateActionPolicy({ownerUserId:owner,toolName:connectorPolicyToolName(config.action_id),context:{agent_id:agentId}}).ok)
+    throw Object.assign(new Error('Connection check restricted by policy'),{status:403});
+  const {executeConnectorAction}=await import('../openconnector.js');
+  return executeConnectorAction(owner,config.action_id,config.input,{source:agentId,authorizationRetryDelaysMs:[]});
+}
 export async function checkFloAssistConnectorHealth(owner,{db=getDb(),getInventory,probe}={}){
   const p=profile(db,owner);if(!p)return {checked:0};
   const inventory=getInventory||((await import('../openconnector.js')).getConnectorRegistrationHealth);

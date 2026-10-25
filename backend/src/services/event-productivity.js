@@ -1,3 +1,4 @@
+import {assertFloAssistCalendarRoute} from './floassist/execution-scope.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { parsePublicHttpsUrl } from '../lib/ssrf.js';
@@ -803,6 +804,7 @@ async function executeCalendarUrlRead(owner, operation, input, deps, subscriptio
 }
 
 export async function executeProductivityOperation(ownerUserId, operation, input = {}, deps = {}) {
+  assertFloAssistCalendarRoute(ownerUserId,operation);
   ensureEventProductivitySchema();
   const owner = assertOwner(ownerUserId);
   if (operation === 'productivity_capabilities') return getProductivitySummary(owner);

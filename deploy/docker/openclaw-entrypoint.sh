@@ -313,6 +313,8 @@ case "${MODE}" in
   gateway)
     quarantine_legacy_session_markers
     sync_extensions_from_image
+    # Never serve a silently restored, older plugin from the persistent volume.
+    node "${AGENT_OS_ROOT}/scripts/verify-openclaw-extension-integrity.mjs"
     run_gateway_with_platform_llm_watch
     ;;
   bootstrap)

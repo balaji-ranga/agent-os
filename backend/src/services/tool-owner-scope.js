@@ -1,3 +1,5 @@
+import {getDb} from '../db/schema.js';
+import {resolveFloAssistScope,bindFloAssistWork} from './floassist/execution-scope.js';
 ﻿/**
  * Resolve CEO user id for content-tool invocations (OpenClaw plugin, COO tools, logs).
  * Owner must come from authenticated session or registered AgentSystem session — never another CEO.
@@ -66,6 +68,8 @@ function pruneSessionOwners() {
 
 export function registerOpenClawSessionOwner(sessionKey, ownerUserId, actorUserId = null, channel = null, executionContext = null) {
   if (!sessionKey || !ownerUserId) return;
+  const scope=resolveFloAssistScope(getDb(),ownerUserId,null,executionContext||{},channel);
+  bindFloAssistWork(getDb(),ownerUserId,'session',sessionKey,scope);
   pruneSessionOwners();
   sessionOwnerRegistry.set(String(sessionKey), {
     ownerUserId: String(ownerUserId).trim(),

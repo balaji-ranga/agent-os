@@ -1,3 +1,4 @@
+import {bindFloAssistWork} from './floassist/execution-scope.js';
 /**
  * Generic multi-intent goal runs: plan steps, execute, advance on async child terminal.
  * Not CRM/ERP-specific - workflow_trigger / agent_continue / notify steps work for any owner/agent.
@@ -1751,6 +1752,7 @@ export function createGoalRun({
     throw Object.assign(new Error('Only a planning goal run can be finalized'), { status: 409 });
   }
   const id = reusable?.id || `agr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  bindFloAssistWork(db(),owner,'goal',id);
   if (reusable) {
     db().transaction(() => {
       const claimed = db().prepare(

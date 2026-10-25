@@ -28,6 +28,8 @@
 # platform MCP OAuth (mcp-oauth tables) + Meta Graph seed (seed-meta-graph-mcp.js) +
 # Connectors → MCPs (mcp-integrations routes).
 FROM node:22-bookworm-slim
+ARG SOURCE_REVISION=unversioned
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 
 # python3: custom workflow script sandbox (Python); make/g++: better-sqlite3 native build
 RUN apt-get update \
@@ -52,6 +54,7 @@ COPY openclaw-skills ./openclaw-skills
 COPY skills-catalog ./skills-catalog
 COPY .cursor/skills/ibkrnew-trade-strategy ./openclaw-skills/ibkrnew-trade-strategy
 COPY openclaw-extensions ./openclaw-extensions
+RUN node scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +
 COPY deploy ./deploy
 # Seeded as Master Data "Flolah User Guide" for every CEO (register + startup backfill; protected from purge/delete)

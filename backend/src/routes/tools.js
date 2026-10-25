@@ -1,3 +1,6 @@
+import {recordRunError} from '../services/floassist/source-receipts.js';
+import {registerWhatsAppTask} from '../services/floassist/tracking.js';
+import {withFloAssistScope,resolveFloAssistScope,currentFloAssistScope} from '../services/floassist/execution-scope.js';
 /**
  * Content tools API: summarize-url (Phase 1). Image and video endpoints in later phases.
  * Kanban tools: move-status, reassign-to-coo, assign-task, intent-classify-and-delegate.
@@ -938,7 +941,7 @@ router.use((req, res, next) => {
       clientTurnId: efficiencyExecutionContext?.client_turn_id || null,
       delegationTaskId: efficiencyExecutionContext?.delegation_task_id || null,
     },
-    () => next()
+    () => withFloAssistScope(resolveFloAssistScope(getDb(),ownerUserId,memberKey,{...efficiencyExecutionContext,session_key:req.headers['x-openclaw-session-key']||req.headers['x-session-key']},req.isInternalService ? req.headers['x-openclaw-message-channel']||'web' : 'web'),next)
   );
 });
 router.use(actionPolicyMiddleware);
@@ -1800,6 +1803,7 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
     const row = db.prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
     const sla = applyPolicyEtaToTask(row.id, ownerUserId, { etaHours: requestPayload.eta_hours, context: `${title}\n${description}` });
     Object.assign(row, sla || {});
+    if(currentFloAssistScope()?.origin==='whatsapp')registerWhatsAppTask(db,ownerUserId,row.id,req.headers['x-openclaw-session-key']);
     notifyKanbanTaskCreated({ userId: assignedUser?.id || ownerUserId, task: row });
     const out = {
       ok: true,
@@ -3087,6 +3091,7 @@ function resolveConnectorOwner(req, body = {}) {
 }
 
 function connectorToolError(req, toolName, requestPayload, res, e, source) {
+  recordRunError(e);
   const err = { error: e.message, code: e.code || undefined,
     provider_status: e.provider_status || undefined, retry_after_ms: e.retry_after_ms || undefined };
   if (e.retry_after_ms) res.set('Retry-After', String(Math.ceil(e.retry_after_ms / 1000)));

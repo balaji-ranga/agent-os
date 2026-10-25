@@ -1,3 +1,4 @@
+import {withFloAssistScope,resolveFloAssistScope} from './floassist/execution-scope.js';
 /**
  * Desktop-orchestrated workflow runs: create run + persist state on Flolah,
  * execute remote (non-local) nodes on the server when the client asks.
@@ -429,12 +430,12 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
           dynamicInput = { input: inputRaw };
         }
       }
-      const out = await executeConnectorAction(
+      const out = await withFloAssistScope(resolveFloAssistScope(getDb(),meta.ownerUserId,null,{...context,workflow_run_id:meta.runId}),()=>executeConnectorAction(
         meta.ownerUserId,
         actionId,
         {...staticInput, ...dynamicInput,...Object.fromEntries(Object.entries(config.copilot||{}).filter(([,value])=>value!==undefined&&value!=='')) },
         { connectionName: config.connectionName || config.connection_name || '',runId:meta.runId,nodeId:node.id,workflowId:meta.definitionId,actorUserId:context.actor?.type==='system'?meta.ownerUserId:context.actor?.id||meta.ownerUserId }
-      );
+      ));
       return {
         text: out.text || '',
         result: out.data || out,

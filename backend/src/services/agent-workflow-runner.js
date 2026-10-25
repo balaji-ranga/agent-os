@@ -1,3 +1,4 @@
+import {withFloAssistScope,resolveFloAssistScope,bindFloAssistWork} from './floassist/execution-scope.js';
 /**
  * Execute published agent workflows: agent nodes, tool nodes, parallel branches.
  * Integrates with delegation queue and Kanban (similar to job pipeline, separate tags).
@@ -914,6 +915,7 @@ export async function startAgentWorkflowRun(
 
   const runId = db().prepare('SELECT id FROM agent_workflow_runs ORDER BY id DESC LIMIT 1').get()?.id;
 
+  bindFloAssistWork(db(),ownerUserId,'workflow',runId);
   const inherited = getLlmopsContext() || {};
   const goalRunId = context.goal_run_id || inherited.goalRunId || null;
   const traceId = String(goalRunId || inherited.traceId || `wf:${runId}`);
@@ -1339,12 +1341,12 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       context,
       inputRecord,
       work: async () => {
-        const out = await executeConnectorAction(
+        const out = await withFloAssistScope(resolveFloAssistScope(db(),runRow.owner_user_id,null,{...context,workflow_run_id:runId}),()=>executeConnectorAction(
           runRow.owner_user_id,
           actionId,
           {...staticInput, ...dynamicInput,...Object.fromEntries(Object.entries(config.copilot||{}).filter(([,value])=>value!==undefined&&value!=='')),...(copilotApprovalTokens.has(`${runId}:${node.id}`)?{approval_token:copilotApprovalTokens.get(`${runId}:${node.id}`)}:{}) },
           { connectionName: config.connectionName || config.connection_name || '',runId,nodeId:node.id,workflowId:def.id,iteration:resolveLoopStepIteration(node,graph,context),actorUserId:context.actor?.type==='system'?runRow.owner_user_id:context.actor?.id||runRow.owner_user_id }
-        );
+        ));
         return {
           text: out.text || '',
           result: out.data || out,

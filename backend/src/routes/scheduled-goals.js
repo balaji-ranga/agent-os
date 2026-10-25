@@ -20,6 +20,8 @@ import {
 } from '../services/scheduled-goals.js';
 import { enrichGoalTextWithAi } from '../services/ceo-guardrails.js';
 import { getServerTimezone } from '../utils/format-datetime.js';
+import {getDb} from '../db/schema.js';
+import {managementView,reconcileDelivery} from '../services/floassist/management.js';
 
 const router = Router();
 router.use(attachAuthUser, requireAuth, requireCeoOrAdmin);
@@ -84,6 +86,15 @@ router.post('/plan-preview', async (req, res) => {
     console.warn('[scheduled-goals] plan-preview failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });
   }
+});
+
+router.get('/floassist/deliveries', (req,res)=>{
+  try{const owner=ownerOr403(req,res);if(owner)res.json(managementView(getDb(),owner));}
+  catch(e){res.status(e.status||500).json({error:e.message});}
+});
+router.post('/floassist/deliveries/reconcile', (req,res)=>{
+  try{const owner=ownerOr403(req,res);if(owner)res.json(reconcileDelivery(getDb(),owner,req.body||{},req.authUser.id));}
+  catch(e){res.status(e.status||500).json({error:e.message});}
 });
 
 router.get('/:id', (req, res) => {
@@ -176,7 +187,7 @@ router.post('/:id/run-now', async (req, res) => {
   try {
     const ownerUserId = ownerOr403(req, res);
     if (!ownerUserId) return;
-    const out = await runScheduledGoal(ownerUserId, req.params.id, { force: true });
+    const out = await runScheduledGoal(ownerUserId, req.params.id, { force: true, requestKey: req.headers['idempotency-key'] || req.body?.request_key || null });
     const goal = getScheduledGoal(ownerUserId, req.params.id);
     res.json({ ...out, goal });
   } catch (e) {

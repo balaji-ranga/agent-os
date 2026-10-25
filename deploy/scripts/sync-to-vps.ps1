@@ -122,6 +122,9 @@ $ssh = @("-i", $Key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
 
 Write-Host "==> Sync frontend (full src tree + package files + index.html + public)"
 ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/src $RemoteRoot/frontend/public $RemoteRoot/deploy/scripts $RemoteRoot/deploy/docker $RemoteRoot/deploy/nginx $RemoteRoot/backend/scripts $RemoteRoot/scripts"
+scp @ssh "$Repo\.dockerignore" "root@${HostIp}:$RemoteRoot/"
+scp @ssh "$Repo\deploy\docker-compose.release.yml" "$Repo\deploy\FLOASSIST-RELEASE.md" "root@${HostIp}:$RemoteRoot/deploy/"
+scp @ssh "$Repo\deploy\scripts\release-source-manifest.mjs" "root@${HostIp}:$RemoteRoot/deploy/scripts/"
 scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/"
 if (Test-Path "$Repo\THIRD_PARTY_NOTICES.md") {
   scp @ssh "$Repo\THIRD_PARTY_NOTICES.md" "root@${HostIp}:$RemoteRoot/"

@@ -33,3 +33,5 @@ backend/tmp/
 .codex-tmp/
 backend/.codex-tmp/
 backend/scripts/.tmp-*
+.local/
+releases/

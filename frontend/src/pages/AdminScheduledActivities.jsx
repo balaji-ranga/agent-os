@@ -1,3 +1,4 @@
+import FloAssistDeliveries from '../components/FloAssistDeliveries';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
@@ -81,6 +82,7 @@ export default function AdminScheduledActivities() {
           Review and control recurring agent work across CEOs. Pause is reversible. Removing a workflow schedule keeps the workflow and makes it non-scheduled; removing a standup or goal also removes its associated execution history.
         </p>
       </header>
+      <FloAssistDeliveries />
 
       {error && <div className="mcp-pg-banner mcp-pg-banner-err" style={{ marginBottom: 10 }}>{error}</div>}
       {notice && <div className="mcp-pg-banner mcp-pg-banner-ok" style={{ marginBottom: 10 }}>{notice}</div>}

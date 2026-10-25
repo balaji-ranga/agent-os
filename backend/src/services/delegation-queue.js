@@ -1,3 +1,4 @@
+import {bindFloAssistWork,currentFloAssistScope} from './floassist/execution-scope.js';
 /**
  * Delegation: schedule OpenClaw Gateway cron jobs (detailed prompt, agentId, webhook) per agent.
  * Uses OpenAI to classify intent from the COO's AGENTS.md (agents and use cases); no hardcoded agent list.
@@ -638,7 +639,7 @@ async function maybeAdvanceGoalRunFromDelegation(taskId) {
 export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ceoUserId = null, opts = {}) {
   const persist = opts.persist !== false;
   const notify = persist && opts.notify !== false;
-  const scheduleOpenClaw = persist && opts.scheduleOpenClaw !== false;
+  const scheduleOpenClaw = persist && opts.scheduleOpenClaw !== false && !currentFloAssistScope();
   const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
   const { getAgentsUnderOrchestratorForCeo } = await import('./org-context.js');
   let agents = opts.parentAgentId
@@ -809,6 +810,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
         })
       : [];
 
+  for(const row of taskRows)bindFloAssistWork(db(),ownerUserId,'delegation',row.taskId);
   let scheduledCount = 0;
   let cronScheduleFailures = 0;
   const cronBlockedIds = new Set();

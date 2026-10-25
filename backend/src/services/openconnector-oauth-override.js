@@ -14,6 +14,17 @@ function db() {
   return getDb();
 }
 
+function ensurePlatformClients() {
+  db().exec(`CREATE TABLE IF NOT EXISTS openconnector_platform_oauth_clients (
+    app_id TEXT PRIMARY KEY,client_id TEXT NOT NULL,client_secret TEXT NOT NULL,
+    scopes TEXT,extra_json TEXT,enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+  // Older databases without foreign-key enforcement may contain the legacy row.
+  db().exec(`INSERT OR IGNORE INTO openconnector_platform_oauth_clients
+    SELECT app_id,client_id,client_secret,scopes,extra_json,enabled,created_at,updated_at
+    FROM openconnector_oauth_client_overrides WHERE owner_user_id=''`);
+}
+
 function maskClientId(value) {
   const s = String(value || '').trim();
   if (!s) return null;
@@ -53,6 +64,10 @@ export function getOpenConnectorOauthOverrideRow(appId, ownerUserId) {
   const app = String(appId || '').trim().toLowerCase();
   if (!app) return null;
   const owner = ownerUserId == null ? '' : String(ownerUserId).trim();
+  if(!owner){
+    ensurePlatformClients();
+    return db().prepare("SELECT *,'' AS owner_user_id FROM openconnector_platform_oauth_clients WHERE app_id=?").get(app)||null;
+  }
   return (
     db()
       .prepare(
@@ -168,12 +183,13 @@ export function upsertOpenConnectorPlatformOauthClient(appId, body = {}) {
   }
   let extraJson = '{}';
   if (body.extra && typeof body.extra === 'object') extraJson = JSON.stringify(body.extra);
+  ensurePlatformClients();
   db()
     .prepare(
-      `INSERT INTO openconnector_oauth_client_overrides
-         (app_id, owner_user_id, client_id, client_secret, scopes, extra_json, enabled, updated_at)
-       VALUES (?, '', ?, ?, ?, ?, 1, datetime('now'))
-       ON CONFLICT(app_id, owner_user_id) DO UPDATE SET
+      `INSERT INTO openconnector_platform_oauth_clients
+         (app_id, client_id, client_secret, scopes, extra_json, enabled, updated_at)
+       VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+       ON CONFLICT(app_id) DO UPDATE SET
          client_id = excluded.client_id,
          client_secret = excluded.client_secret,
          scopes = excluded.scopes,

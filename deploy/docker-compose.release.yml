@@ -1,0 +1,25 @@
+# Canonical source release. One tag and source tree for the three application services.
+# Keep infrastructure/feature overlays before this file; never append temporary
+# build contexts or historical hotfix Compose files after it.
+services:
+  backend:
+    image: agent-os-backend:${FLOLAH_RELEASE_TAG:?Set the tested release tag}
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend.Dockerfile
+      args:
+        SOURCE_REVISION: ${FLOLAH_SOURCE_REVISION:?Set the source revision}
+  frontend:
+    image: agent-os-frontend:${FLOLAH_RELEASE_TAG:?Set the tested release tag}
+    build:
+      context: ..
+      dockerfile: deploy/docker/frontend.Dockerfile
+      args:
+        SOURCE_REVISION: ${FLOLAH_SOURCE_REVISION:?Set the source revision}
+  openclaw:
+    image: agent-os-openclaw:${FLOLAH_RELEASE_TAG:?Set the tested release tag}
+    build:
+      context: ..
+      dockerfile: deploy/docker/openclaw.Dockerfile
+      args:
+        SOURCE_REVISION: ${FLOLAH_SOURCE_REVISION:?Set the source revision}

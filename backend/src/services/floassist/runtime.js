@@ -122,10 +122,13 @@ export function floAssistDeliveryGate({ownerUserId,scheduledGoalId,sourceKey,tex
   const duplicate=db.prepare('SELECT 1 FROM floassist_deliveries WHERE owner_id=? AND content_hash=? AND created_at>?').get(ownerUserId,digest,Date.now()-86400000);
   if(duplicate)return {managed:true,skip:true,reason:'duplicate'};
   const key=`${ownerUserId}:${sourceKey||`${scheduledGoalId}:${digest}`}`;
+  const origin=db.prepare("SELECT resource_key FROM floassist_resources WHERE owner_id=? AND kind='schedule' AND resource_id=?").get(ownerUserId,scheduledGoalId);
+  const label={briefing:'Morning Briefing',conflicts:'Calendar Conflicts'}[origin?.resource_key];
+  const labeled=label?`*FloAssist · ${label}*\n\n${String(text)}`:String(text);
   const queued=db.transaction(()=>{
     if(!db.prepare('INSERT OR IGNORE INTO floassist_deliveries VALUES (?,?,?,?)').run(key,ownerUserId,digest,Date.now()).changes)return false;
     db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)')
-      .run(key,ownerUserId,p.agent_id,String(text).slice(0,12000),Date.now(),Date.now(),Date.now()+86400000);
+      .run(key,ownerUserId,p.agent_id,labeled.slice(0,12000),Date.now(),Date.now(),Date.now()+86400000);
     return true;
   })();
   return {managed:true,skip:true,reason:queued?'floassist_queued':'duplicate',authorizedTo:p.phone};
@@ -137,13 +140,22 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
   if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_task_tracking'").get())tickTracking(db,now);
   db.prepare("UPDATE floassist_notifications SET text=NULL,status='expired' WHERE expires_at<=? AND status='pending'").run(now);
   const rows=db.prepare("SELECT * FROM floassist_notifications WHERE status='pending' ORDER BY created_at LIMIT 40").all();
+  const handled=new Set();
   for(const row of rows){
+    if(handled.has(row.source_key))continue;
     const p=enrolled(db,row.owner_id);
     if(!p||p.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id))continue;
     if(!trackingNotificationAllowed(db,row,now)){
       db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
     }
     const healthPrefix=`${row.owner_id}:connector-health:`;
+    const storagePrefix=`${row.owner_id}:storage:`;
+    if(row.source_key.startsWith(storagePrefix)){
+      const app=row.source_key.slice(storagePrefix.length).split(':')[0],prefs=JSON.parse(p.preferences_json);
+      if(!prefs.connectors?.includes(app)||!prefs.responsibilities?.includes('priority')){
+        db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
+      }
+    }
     if(row.source_key.startsWith(healthPrefix)){
       const appId=row.source_key.slice(healthPrefix.length).split(':')[0];
       const prefs=JSON.parse(p.preferences_json);
@@ -153,6 +165,28 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
       }
     }
     if(inQuietHours(JSON.parse(p.preferences_json),new Date(now)))continue;
+    const preferences=JSON.parse(p.preferences_json);
+    const batchMinutes=Number(preferences.notification_batch_minutes??5);
+    if(batchMinutes>0&&row.source_key.startsWith(`${row.owner_id}:tracking:`)){
+      // Wait briefly to coalesce sequential responsibilities into one readable update.
+      if(now-row.created_at<batchMinutes*60000)continue;
+      const candidates=rows.filter(n=>n.owner_id===row.owner_id&&n.source_key.startsWith(`${row.owner_id}:tracking:`)&&!handled.has(n.source_key)&&trackingNotificationAllowed(db,n,now)).slice(0,6);
+      const claimed=db.transaction(()=>{
+        if(db.prepare('SELECT 1 FROM floassist_deliveries WHERE owner_id=? AND source_key LIKE ? AND created_at>?').get(row.owner_id,`${row.owner_id}:batch:%`,now-batchMinutes*60000))return [];
+        const group=candidates.filter(n=>db.prepare("UPDATE floassist_notifications SET status='sending',updated_at=? WHERE source_key=? AND status='pending'").run(now,n.source_key).changes);
+        if(group.length)db.prepare('INSERT OR IGNORE INTO floassist_deliveries VALUES (?,?,?,?)').run(`${row.owner_id}:batch:${row.source_key}`,row.owner_id,'grouped-action-update',now);
+        return group;
+      }).immediate();
+      if(!claimed.length)continue;
+      claimed.forEach(n=>handled.add(n.source_key));
+      const sections=new Map();
+      for(const n of claimed){const [heading,...body]=n.text.split('\n');const section=sections.get(heading)||[];section.push(body.join('\n').trim());sections.set(heading,section);}
+      const text=[`*FloAssist · Your action update*`,...Array.from(sections,([heading,bodies])=>`${heading}\n\n${bodies.join('\n\n')}`)].join('\n\n');
+      let result;try{result=await send({...row,text,phone:p.phone});}catch{result={ok:false};}
+      const status=result?.ok&&!result.skipped?'sent':result?.skipped?'pending':'uncertain';
+      db.transaction(()=>{for(const n of claimed)db.prepare("UPDATE floassist_notifications SET status=?,text=CASE WHEN ?='sent' THEN NULL ELSE text END,updated_at=? WHERE source_key=? AND status='sending'").run(status,status,now,n.source_key);})();
+      if(status==='sent')sent++;continue;
+    }
     if(!db.prepare("UPDATE floassist_notifications SET status='sending',updated_at=? WHERE source_key=? AND status='pending'").run(now,row.source_key).changes)continue;
     let result;try{result=await send({...row,phone:p.phone});}catch{result={ok:false};}
     if(result?.ok&&!result.skipped){db.prepare("UPDATE floassist_notifications SET status='sent',text=NULL,updated_at=? WHERE source_key=?").run(now,row.source_key);sent++;}

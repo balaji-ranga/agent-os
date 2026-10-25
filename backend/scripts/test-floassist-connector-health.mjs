@@ -5,7 +5,7 @@ import {recordFloAssistConnectorHealth as record,checkFloAssistConnectorHealth a
 import {tickFloAssistNotifications} from '../src/services/floassist/runtime.js';
 const db=new Database(':memory:');initializeFloAssist(db);
 db.exec('CREATE TABLE platform_users(id TEXT PRIMARY KEY,enabled INTEGER)');
-const prefs={connectors:['gmail','google_calendar'],responsibilities:['priority'],timezone:'Asia/Singapore',quiet_start:'00:00',quiet_end:'00:00'};
+const prefs={notification_batch_minutes:0,connectors:['gmail','google_calendar'],responsibilities:['priority'],timezone:'Asia/Singapore',quiet_start:'00:00',quiet_end:'00:00'};
 for(const owner of ['a','b']){db.prepare('INSERT INTO platform_users VALUES (?,1)').run(owner);db.prepare('INSERT INTO floassist_profiles VALUES (?,?,?,?,?,?,?,?)').run(owner,'fixture','+6581234567','active',JSON.stringify(prefs),'{}',0,0);}
 let n=0;const eq=(a,b)=>{assert.deepEqual(a,b);n++;};const total=()=>db.prepare('SELECT count(*) n FROM floassist_notifications').get().n;
 try{

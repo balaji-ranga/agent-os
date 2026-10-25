@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import FloAssistDeliveries from '../components/FloAssistDeliveries';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
@@ -111,17 +112,21 @@ function ScheduledGoalsPanel() {
 
   const filtered = goals.filter((g) => (filter === 'all' ? true : g.status === filter));
 
+  const activeActions = useRef(new Set());
   const runAction = async (id, fn, okMsg) => {
+    if(activeActions.current.has(id))return;
+    activeActions.current.add(id);
     setBusyId(id);
     setMessage(null);
     setError(null);
     try {
-      await fn();
-      setMessage(okMsg);
+      const result=await fn();
+      setMessage(result?.skipped ? `Run not started: ${result.reason.replaceAll('_',' ')}.` : okMsg);
       load();
     } catch (e) {
       setError(e.message || String(e));
     } finally {
+      activeActions.current.delete(id);
       setBusyId(null);
     }
   };
@@ -349,6 +354,7 @@ function ScheduledGoalsPanel() {
           bound channel (chat schedules: the reply; plan schedules: completed/failed nudge) — not each workflow terminal.
         </p>
       </header>
+      <FloAssistDeliveries />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
         <button
@@ -874,6 +880,7 @@ function ScheduledGoalsPanel() {
                   <strong>Recent runs</strong>
                   {!history[g.id] ? <p>Loading runs…</p> : history[g.id].error ? <p role="alert">{history[g.id].error}</p> : history[g.id].length === 0 ? <p>No runs yet.</p> : history[g.id].map(run => <div key={run.id} style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:8}}>
                     <div>{new Date(run.created_at.endsWith('Z') ? run.created_at : run.created_at.replace(' ', 'T')+'Z').toLocaleString(undefined,{timeZone:g.timezone})} · {g.timezone} · {run.status} · {run.triggered_by === 'run_now' ? 'Run now' : 'Scheduled'}</div>
+                    {!!run.notification_items?.length&&<p>Notification items (may share one WhatsApp summary): {run.notification_items.map(n=>`${n.count} ${n.status}`).join(' · ')}</p>}
                     <div style={{whiteSpace:'pre-wrap'}}>{run.error || (run.reply_preview?.trim() === 'FLOASSIST_NO_UPDATE' ? 'Check completed with no additional summary. Task-backed alerts are delivered separately; check WhatsApp and Kanban.' : run.reply_preview) || 'No output recorded yet.'}</div>
                   </div>)}
                 </td></tr>}

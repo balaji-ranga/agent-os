@@ -1,4 +1,5 @@
 import {writeValidatedOpenClawConfig} from './lib/openclaw-config-contract.js';
+import {verifyExtensionIntegrity} from './lib/openclaw-extension-integrity.js';
 /**
  * Sync Agent OS OpenClaw extensions from the repo image into ~/.openclaw/extensions.
  *
@@ -179,6 +180,7 @@ function main() {
   }
 
   const destRoot = resolveOpenClawExtensionsDir();
+  verifyExtensionIntegrity(SOURCE_ROOT);
   if (!existsSync(destRoot)) mkdirSync(destRoot, { recursive: true });
 
   console.log('Syncing OpenClaw extensions →', destRoot);
@@ -196,6 +198,7 @@ function main() {
   }
 
   ensurePluginLoadPaths();
+  console.log('Extension integrity:', verifyExtensionIntegrity(SOURCE_ROOT,destRoot));
   console.log('OpenClaw extension sync complete.');
 }
 
