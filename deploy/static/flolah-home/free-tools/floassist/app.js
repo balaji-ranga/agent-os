@@ -20,7 +20,7 @@ function drawApps(){
   $('connectors').replaceChildren();
   for(const app of config.connectors){
     const box=document.createElement('div');box.className='app-option';
-    const label=document.createElement('label');label.className='check';const check=document.createElement('input');check.type='checkbox';check.name='connector';check.value=app.id;check.checked=me.preferences.connectors.includes(app.id);
+    const label=document.createElement('label');label.className='check';const check=document.createElement('input');check.type='checkbox';check.name='connector';check.dataset.adoptionId='connector_'+app.id;check.value=app.id;check.checked=me.preferences.connectors.includes(app.id);
     const text=document.createElement('span');text.textContent=app.label;label.append(check,text);box.append(label);
     const connected=connectionState.some(c=>c.id===app.id&&c.connected);
     if(connected){const badge=document.createElement('span');badge.className='connected';badge.textContent='Connected';box.append(badge);}
@@ -36,7 +36,7 @@ function drawApps(){
 }
 function drawSettings(){
   drawApps();$('responsibilities').replaceChildren();
-  for(const r of config.responsibilities){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.name='responsibility';input.value=r.id;input.checked=me.preferences.responsibilities.includes(r.id);label.append(input,document.createTextNode(r.label));$('responsibilities').append(label);}
+  for(const r of config.responsibilities){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.name='responsibility';input.dataset.adoptionId='responsibility_'+r.id;input.value=r.id;input.checked=me.preferences.responsibilities.includes(r.id);label.append(input,document.createTextNode(r.label));$('responsibilities').append(label);}
   for(const key of ['timezone','briefing_time','quiet_start','quiet_end'])$('apps').elements[key].value=me.preferences[key];
   $('apps').elements.preset.value='';$('financial-label').hidden=true;$('privacy').textContent=config.privacy;
   $('policy-summary').replaceChildren(...me.policy.map(p=>{const li=document.createElement('li');li.textContent=p.label+': '+p.mode.replaceAll('_',' ');return li;}));

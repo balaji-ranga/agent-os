@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-25",
+  "website": "https://flolah.cloud",
+  "registration": "uat_71ae86ec212b4501a02f28488bfc7c22",
+  "publication": {
+    "method": "authenticated website management UI",
+    "knowledgeStatus": "ready",
+    "knowledgeRevisionPrefix": "1945b82f",
+    "sourceHints": {
+      "pages": 1,
+      "forms": 3,
+      "fields": 17,
+      "links": 4
+    },
+    "existingObservedPagesPreserved": 34
+  },
+  "staticRelease": "floassist-copilot-context-20261025",
+  "checks": {
+    "mapAndPlannerContextTests": 11,
+    "syntheticChromeOnboardingChecks": 25,
+    "failedFinalChecks": 0
+  },
+  "scope": {
+    "plannerTransportInContextTest": "synthetic",
+    "providersInChromeTest": "synthetic",
+    "realModelVisitorAcceptance": "not run: preview expired; user requested no renewal",
+    "realRegistrationOrConsentOrOAuthOrWhatsAppScan": false,
+    "runtimeRestarted": false,
+    "installationOrPolicyChanged": false
+  },
+  "sha256": {
+    "digital-adoption/content/flolah-cloud/floassist-onboarding.txt": "125520a02fe4010f8330520675a72a7f07ebcfaf8a99bfc5704f44041a6d7584",
+    "digital-adoption/content/flolah-cloud/floassist-map.json": "b5ecda0057fd1f5560285152ae3988cf38f81f32a3d84ade27032646d0685b6a",
+    "deploy/static/flolah-home/free-tools/floassist/index.html": "491b62911b1eb448e3dfe9dc8e507e694491ab44944c364bde4e82ddf8ba5a2f",
+    "deploy/static/flolah-home/free-tools/floassist/app.js": "06a6d0011ade6cb2485a9e92a333ebb946125e2e6911b89d081fc66acd25f516"
+  },
+  "evidence": [
+    "knowledge-ready.jpg",
+    "form-map.jpg",
+    "preview-expired.jpg"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "origin": "https://flolah.cloud",
+  "reviewed": false,
+  "screens": [{
+    "path": "/free-tools/floassist/",
+    "title": "FloAssist — personal WhatsApp assistant setup",
+    "description": "Staged setup on one URL: Your details, email verification, Your apps, WhatsApp linking, then Ready. FloAssist is the user's ongoing COO on WhatsApp; this Website Copilot only guides website onboarding. Inspect the currently visible stage after every transition. Fill supplied contact details and requested preferences, ask for missing facts and never invent a real identity. The user personally accepts legal consent, enters verification codes, authorizes providers and scans the private QR. Do not claim connection or activation from a checkbox or QR alone. More context is in the website's FloAssist onboarding knowledge source. Keep autonomy unchanged unless explicitly requested: it changes the COO policy across Flolah. Native time fields may require manual entry; equal quiet times disable quiet hours. This is owner guidance, not permission or evidence of live completion.",
+    "forms": [
+      {"id": "details", "label": "FloAssist contact details", "description": "Initial stage: email, personal recipient WhatsApp number and supported country. Ask for missing contact facts. The visitor personally reviews Terms, Privacy Policy and WhatsApp consent and then chooses Continue to send a code; preparing values is not consent."},
+      {"id": "verify", "label": "FloAssist email verification", "description": "Human-only email code and, when required, authenticator code. Do not read or fill these codes or request them in chat. Wait for the user to verify on the website. Change details / resend returns to details to start another code request."},
+      {"id": "apps", "label": "FloAssist apps and preferences", "description": "Available after verification. App checkboxes select intended apps, not authorization. Each Connect opens provider consent; the user completes it, then Check connections verifies status. Expand Preferences and autonomy for responsibilities, timezone, local briefing/quiet times and policy controls. Continue to WhatsApp saves these preferences. Every selected app must be connected before activation. Do not increase autonomy from a generic setup request."}
+    ],
+    "fields": [
+      {"key": "email", "label": "Email", "type": "email", "required": true, "form": "details", "description": "User-accessible email for verification. Existing Flolah users reuse their existing email to keep their COO. Ask if missing; do not use a fabricated address for real setup."},
+      {"key": "phone", "label": "Your personal WhatsApp number", "type": "tel", "required": true, "form": "details", "description": "Recipient's personal phone in international +country-code format. Different from the dedicated assistant sender number linked in step 3. Do not invent or exchange the two numbers."},
+      {"key": "country", "label": "Country", "type": "select-one", "form": "details", "description": "Select among the live choices Singapore, India and Indonesia. Native values SG, IN and ID. Use the user's country; ask if unavailable or ambiguous."},
+      {"key": "connector_gmail", "label": "Gmail", "type": "checkbox", "form": "apps", "description": "Select Gmail for Google email. Selection alone is not OAuth authorization; user completes Connect then Check connections."},
+      {"key": "connector_google_calendar", "label": "Google Calendar", "type": "checkbox", "form": "apps", "description": "Select Google Calendar for calendar access and conflict checks. It is separate from Gmail. Connection must be verified after provider consent."},
+      {"key": "connector_outlook", "label": "Outlook Mail", "type": "checkbox", "form": "apps", "description": "Microsoft email. Do not treat this as Microsoft Calendar authorization."},
+      {"key": "connector_outlook_calendar", "label": "Microsoft Calendar", "type": "checkbox", "form": "apps", "description": "Microsoft calendar selection depends on a supported configured provider. If connection is unavailable report it; do not silently substitute mail access."},
+      {"key": "connector_google_drive", "label": "Google Drive", "type": "checkbox", "form": "apps", "description": "Google file-source selection. User completes provider authorization; selection does not prove file access."},
+      {"key": "connector_onedrive", "label": "OneDrive", "type": "checkbox", "form": "apps", "description": "Microsoft file-source selection. User completes provider authorization; selection does not prove file access."},
+      {"key": "responsibility_briefing", "label": "Morning briefing", "type": "checkbox", "form": "apps", "description": "Request a daily briefing using selected connected apps. Visible inside Preferences and autonomy. The separate time control sets the briefing time."},
+      {"key": "responsibility_priority", "label": "Priority alerts", "type": "checkbox", "form": "apps", "description": "Request priority-message checks and selected-app connection warnings. Subject to quiet hours and available apps; do not promise instant comprehensive alerts."},
+      {"key": "responsibility_conflicts", "label": "Calendar conflicts", "type": "checkbox", "form": "apps", "description": "Request calendar-conflict checks; requires a selected supported connected calendar, not just an email app."},
+      {"key": "responsibility_deadlines", "label": "Deadline tracking", "type": "checkbox", "form": "apps", "description": "Request deadline checks in selected email and file sources. Enabling does not itself create a reminder or verify all source content."},
+      {"key": "responsibility_followups", "label": "Follow-up tracking", "type": "checkbox", "form": "apps", "description": "Request tracking of email threads the user wants followed up. Sending still follows the effective policy."},
+      {"key": "timezone", "label": "Timezone", "type": "text", "required": true, "form": "apps", "description": "IANA timezone used for local schedules. Singapore: Asia/Singapore; India: Asia/Kolkata. Indonesia spans Asia/Jakarta, Asia/Makassar and Asia/Jayapura; clarify location if needed. Do not infer a unique Indonesian timezone from country alone."},
+      {"key": "preset", "label": "Autonomy", "type": "select-one", "form": "apps", "description": "Keep my current COO policy preserves existing policy. New users start Advisory. Advisory reads/proposes; Managerial manages work and asks before publishing; Administrative includes financial/destructive policy choices. Changing this updates COO policy across Flolah. Leave unchanged unless explicitly requested."},
+      {"key": "financial", "label": "Financial and destructive actions", "type": "select-one", "form": "apps", "description": "Conditional: shown only after Administrative is selected. Choices Require my approval, Act autonomously and Do not allow. Re-inspect after its controller changes; do not prepare this hidden field or infer permission to increase autonomy."}
+    ],
+    "links": [
+      {"path": "/", "label": "Flolah home"},
+      {"path": "/free-tools/", "label": "Free Tools"},
+      {"path": "/legal/terms.html", "label": "Terms"},
+      {"path": "/legal/privacy.html", "label": "Privacy Policy"}
+    ]
+  }]
+}
