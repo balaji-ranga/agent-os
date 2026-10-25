@@ -27,6 +27,7 @@ import { consumeWorkSteering, steeringPrompt, closeWorkSteering, handoffWorkStee
 import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { floAssistScheduleGate } from './floassist/runtime.js';
 import {TRACKING_RUN_INSTRUCTIONS,trackingHistorySummary} from './floassist/tracking.js';
+import {selectSessionContentTools,installSessionToolScope,removeSessionToolScope} from './openclaw-session-tool-scope.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
@@ -736,7 +737,15 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   } catch (_) {}
   prompt = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\n${prompt}`;
 
+  const scheduledSessionKey = openclaw.sessionKeyFor(openclawId, sessionUser);
   try {
+    const required = String(row.source||'').startsWith('floassist:')
+      ? ['floassist_status','floassist_tracking_list','floassist_tracking_observe','floassist_tracking_update',
+        'connector_list_apps','connector_search_actions','connector_get_action_guide','connector_execute_action',
+        'kanban_get_task','kanban_user_action','agent_work_history'] : [];
+    const selection=selectSessionContentTools({agentId:agent.id,ownerUserId,message:prompt,
+      route:{executor_evidence:{capability_names:required}}});
+    installSessionToolScope(scheduledSessionKey,selection);
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
     registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), ownerUserId, null, 'schedule', { scheduled_goal_run_id: runId, original_request: row.prompt, resolved_request: row.prompt });
     const { content } = await openclaw.chatCompletions(
@@ -777,6 +786,9 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     ).run(msg.slice(0, 500), id, ownerUserId);
     db().prepare(`UPDATE scheduled_goal_runs SET status='error', error=? WHERE id=?`).run(msg.slice(0, 1000), runId);
     return { ok: false, goal_id: id, run_id: runId, error: msg };
+  } finally {
+    try { removeSessionToolScope(scheduledSessionKey); }
+    catch (e) { console.warn('[scheduled-goals] tool-scope cleanup:',e?.message||e); }
   }
 }
 
