@@ -151,3 +151,8 @@ assert.equal(connectorReferenceResult(db,'owner','googlecalendar.list_events',ca
 assert.equal(connectorReferenceResult(db,'owner','gmail.fetch_emails',calendar,null),calendar);
 db.close();
 console.log('FloAssist recovery: source isolation, exact recovery action and required deadline/followup schemas passed');
+
+const requiredReconciliationSchema=scopedFloAssistSchema('floassist_tracking_update',floassistSchemas.floassist_tracking_update,{floassist_module:'deadlines'});
+assert.ok(requiredReconciliationSchema.required.includes('source_checked'));
+assert.ok(requiredReconciliationSchema.required.includes('source_evidence'));
+assert.deepEqual(requiredReconciliationSchema.properties.source_checked.enum,[true]);
