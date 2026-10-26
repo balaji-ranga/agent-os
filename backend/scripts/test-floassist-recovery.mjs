@@ -1,4 +1,4 @@
-import {sourceReadInstructions} from '../src/services/floassist/responsibilities.js';
+import {sourceReadInstructions,reconciliationCandidates} from '../src/services/floassist/responsibilities.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {expandCalendarSelection,assertCalendarCoverage} from '../src/services/floassist/calendar-coverage.js';
@@ -80,5 +80,6 @@ db.prepare("UPDATE floassist_task_tracking SET state='stopped'").run();
 assert.equal(scheduledTrackingExclusion(db,'owner',{task_id:1},{...context,origin:'floassist:deadlines'}).reason,'tracking_stopped');
 assert.equal(scheduledTrackingExclusion(db,'owner',{task_id:1},{owner:'owner',origin:'whatsapp'}),null);
 assert.equal(db.prepare('SELECT state FROM floassist_task_tracking').get().state,'stopped');
+assert.deepEqual(reconciliationCandidates([{task_id:1,categories:['deadlines']},{task_id:2,categories:['followups'],closed:true},{task_id:3,categories:['followups'],state:'stopped'},{task_id:4,categories:['followups'],state:'open'}],'followups').map(t=>t.task_id),[4]);
 db.close();
-console.log('FloAssist recovery: 48 assertions passed');
+console.log('FloAssist recovery: 49 assertions passed');

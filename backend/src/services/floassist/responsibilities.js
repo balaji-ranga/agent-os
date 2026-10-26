@@ -16,3 +16,7 @@ export function sourceReadInstructions(preferences,id){
   return `${key}: read actual content using ${app?.content_read_actions?.join(' or ')||'the provider content-list action from discovery'}; read the exact action guide first`;
  }).join('; ')+'. For briefing, fetch today’s calendar events in the owner timezone and recent mail, not just account metadata. Do not finish until every selected source has been checked, or report the precise blocker. For deadline candidates inspect the complete current thread before observing; this supersedes any older single-message-only guidance.';
 }
+
+export function reconciliationCandidates(tasks,module){
+ return tasks.filter(t=>!t.closed&&t.state!=='stopped'&&(t.categories||[]).includes(module));
+}
