@@ -143,7 +143,7 @@ export function resolveTrackingErrors(db,owner,input,context=currentFloAssistSco
  }
 }
 export function canRetryTrackingObservation(db,owner,input,previous,context=currentFloAssistScope()){
- if(!context?.run||context.owner!==owner||!['permanent_error','blocked_prerequisite'].includes(previous?.observation_status)||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED'].includes(previous.reason_code))return false;
+ if(!context?.run||context.owner!==owner||!['permanent_error','blocked_prerequisite'].includes(previous?.observation_status)||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'].includes(previous.reason_code))return false;
  try{verifiedTrackingInput(db,owner,input,context);return true;}catch(e){return isTrackingExclusion(e);}
 }
 export function resolveConnectorSchemaError(owner,action,{db=getDb(),context=currentFloAssistScope()}={}){

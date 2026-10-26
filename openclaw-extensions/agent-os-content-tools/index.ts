@@ -825,7 +825,7 @@ export default definePluginEntry({
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
               const text = result.ok ? JSON.stringify(result.data) : JSON.stringify(result.data || { error: result.error });
-              return { content: [{ type: "text" as const, text }] };
+              return { ...(!result.ok || result.data?.ok === false ? { isError: true } : {}), content: [{ type: "text" as const, text }] };
             },
           };
         },

@@ -1149,7 +1149,7 @@ export default definePluginEntry({
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
               if (!result.ok) {
-                return { content: [{ type: "text", text: JSON.stringify(result.data || { error: result.error }) }] };
+                return { isError: true, content: [{ type: "text", text: JSON.stringify(result.data || { error: result.error }) }] };
               }
               let data = result.data;
               // Force WhatsApp-safe paste: MEDIA:/abs/path (not auth-gated https).
@@ -1188,7 +1188,7 @@ export default definePluginEntry({
                   };
                 }
               }
-              return { content: [
+              return { ...(data?.ok === false ? { isError: true } : {}), content: [
                 ...(data?._steering?.instruction ? [{ type:"text", text:data._steering.instruction }] : []),
                 { type: "text", text: JSON.stringify(data) },
               ] };
