@@ -1,3 +1,4 @@
+import {normalizeDriveReadInput,normalizeDriveReadError} from './floassist/drive-read-input.js';
 import {currentFloAssistScope} from './floassist/execution-scope.js';
 import {recordSourceReceipt,resolveConnectorSchemaError,canonicalThreadInput} from './floassist/source-receipts.js';
 import {projectFloAssistMailResult} from './floassist/mail-result.js';
@@ -761,6 +762,7 @@ export async function executeConnectorAction(
 ) {
   const id = String(actionId || '').trim();
   assertFloAssistConnector(userId,id);
+  input=normalizeDriveReadInput(id,input);
   input=canonicalThreadInput(db(),userId,id,input);
   input=await expandCalendarSelection(id,input,pageInput=>executeConnectorAction(userId,'googlecalendar.list_calendars',pageInput,{connectionName,authorizationRetryDelaysMs,...executionContext}));
   validateFloAssistMailWindow(id,input);
@@ -847,6 +849,7 @@ export async function executeConnectorAction(
       try{recordFloAssistConnectorHealth(userId,appGuess,'available');}catch(e){console.warn('[floassist-health] observation unavailable');}
       return result;
     } catch (error) {
+      normalizeDriveReadError(id,error);
       const message = String(error?.message || error || '');
       const authorizationFailure = !['rate_limited', 'quota_exceeded'].includes(error.code) &&
         error.provider_status !== 403 && readOnly &&

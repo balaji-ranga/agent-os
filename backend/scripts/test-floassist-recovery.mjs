@@ -1,3 +1,5 @@
+import {normalizeDriveReadInput,normalizeDriveReadError} from '../src/services/floassist/drive-read-input.js';
+import {connectorFailureState} from '../src/services/floassist/connector-health.js';
 import {sourceReadInstructions,reconciliationCandidates} from '../src/services/floassist/responsibilities.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
@@ -81,5 +83,10 @@ assert.equal(scheduledTrackingExclusion(db,'owner',{task_id:1},{...context,origi
 assert.equal(scheduledTrackingExclusion(db,'owner',{task_id:1},{owner:'owner',origin:'whatsapp'}),null);
 assert.equal(db.prepare('SELECT state FROM floassist_task_tracking').get().state,'stopped');
 assert.deepEqual(reconciliationCandidates([{task_id:1,categories:['deadlines']},{task_id:2,categories:['followups'],closed:true},{task_id:3,categories:['followups'],state:'stopped'},{task_id:4,categories:['followups'],state:'open'}],'followups').map(t=>t.task_id),[4]);
+assert.deepEqual(normalizeDriveReadInput('googledrive.files.list',{includeItemsFromAllDrives:true},context),{includeItemsFromAllDrives:true,supportsAllDrives:true});
+assert.deepEqual(normalizeDriveReadInput('googledrive.files.list',{includeItemsFromAllDrives:false},context),{includeItemsFromAllDrives:false});
+assert.deepEqual(normalizeDriveReadInput('googledrive.files.list',{includeItemsFromAllDrives:true},{}),{includeItemsFromAllDrives:true});
+assert.equal(connectorFailureState(normalizeDriveReadError('googledrive.files.list',{message:'The supportsAllDrives parameter was not set to true.',code:'authorization_failed',provider_status:403})),null);
+assert.equal(connectorFailureState(normalizeDriveReadError('googledrive.files.list',{message:'invalid_grant',provider_status:401})),'authorization');
 db.close();
-console.log('FloAssist recovery: 49 assertions passed');
+console.log('FloAssist recovery: 54 assertions passed');
