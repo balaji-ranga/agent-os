@@ -1,5 +1,6 @@
 import {linkActionContext,notifyActionOutcome} from './floassist/action-history.js';
 import {lookupSessionExecutionContext} from './tool-owner-scope.js';
+import {canRetryTrackingObservation} from './floassist/source-receipts.js';
 /**
  * Platform execution governor for OpenClaw content-tool calls.
  *
@@ -205,10 +206,12 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
           AND created_at >= datetime('now', ?)
         ORDER BY created_at DESC`
     ).all(ownerUserId, key, fp, `-${behaviour.duplicate_window_sec} seconds`);
-    const duplicate = prior[0];
+    const duplicate = toolName==='floassist_tracking_observe'
+      ? prior.find(p=>p.observation_status!=='duplicate_blocked')||prior[0] : prior[0];
     const allowedTransientRetry =
       duplicate?.observation_status === 'transient_error' && prior.length <= behaviour.retry_limit;
-    if (duplicate && !allowedTransientRetry) {
+    const evidenceRetry=toolName==='floassist_tracking_observe'&&canRetryTrackingObservation(getDb(),ownerUserId,canonicalParams,duplicate);
+    if (duplicate && !allowedTransientRetry && !evidenceRetry) {
       const observation = {
         status: 'duplicate_blocked', reason_code: 'duplicate_no_progress', progress: false,
         retryable: false, evidence: [],

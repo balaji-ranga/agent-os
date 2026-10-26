@@ -7,6 +7,8 @@ export function ensureSourceReceipts(db){
  CREATE TABLE IF NOT EXISTS floassist_run_errors(id INTEGER PRIMARY KEY,owner_id TEXT,run_id TEXT,code TEXT,created_at INTEGER);
  CREATE TABLE IF NOT EXISTS floassist_message_threads(owner_id TEXT,app_id TEXT,message_id TEXT,thread_id TEXT,PRIMARY KEY(owner_id,app_id,message_id));
  CREATE TABLE IF NOT EXISTS floassist_thread_receipts(owner_id TEXT,run_id TEXT,app_id TEXT,thread_id TEXT,latest_message_id TEXT,latest_at INTEGER,latest_sent INTEGER,message_count INTEGER,PRIMARY KEY(owner_id,run_id,app_id,thread_id));`);
+ const columns=new Set(db.prepare('PRAGMA table_info(floassist_run_errors)').all().map(c=>c.name));
+ for(const [name,type] of [['operation_key','TEXT'],['resolved_at','INTEGER']])if(!columns.has(name))db.exec(`ALTER TABLE floassist_run_errors ADD COLUMN ${name} ${type}`);
 }
 export function recordSourceReceipt(owner,action,result,{db=getDb(),context=currentFloAssistScope(),now=Date.now()}={}){
  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get()||!db.prepare('SELECT 1 FROM floassist_profiles WHERE owner_id=?').get(owner))return;
@@ -69,11 +71,31 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  if(account)return {...input,account_id:account.account_id};
  return input;
 }
-export function recordRunError(error,{db=getDb(),context=currentFloAssistScope()}={}){
+export const isTrackingExclusion=error=>['FLOASSIST_NOT_PRIORITY','FLOASSIST_NOT_A_FOLLOWUP'].includes(error?.code);
+function trackingKey(db,owner,input){
+ const thread=db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,input.app_id||'',input.source_id||'');
+ return JSON.stringify(['tracking',input.app_id||'',thread?.thread_id||input.source_id||'']);
+}
+export function resolveTrackingErrors(db,owner,input,context=currentFloAssistScope()){
+ if(!context?.run||context.owner!==owner)return;
+ ensureSourceReceipts(db);
+ db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_CONTEXT_REQUIRED','FLOASSIST_DEADLINE_REQUIRED')").run(Date.now(),owner,context.run,trackingKey(db,owner,input));
+}
+export function canRetryTrackingObservation(db,owner,input,previous,context=currentFloAssistScope()){
+ if(!context?.run||context.owner!==owner||previous?.observation_status!=='permanent_error'||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED'].includes(previous.reason_code))return false;
+ try{verifiedTrackingInput(db,owner,input,context);return true;}catch(e){return isTrackingExclusion(e);}
+}
+export function resolveConnectorSchemaError(owner,action,{db=getDb(),context=currentFloAssistScope()}={}){
+ if(!context?.run||context.owner!==owner)return;
+ ensureSourceReceipts(db);
+ db.prepare('UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=?').run(Date.now(),owner,context.run,JSON.stringify(['schema',action]));
+}
+export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,action}={}){
  if(!context?.run)return;ensureSourceReceipts(db);
- db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at) VALUES (?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now());
+ const key=trackingInput?trackingKey(db,context.owner,trackingInput):action&&error?.code==='invalid_input'&&/does not match the action schema/.test(error.message)?JSON.stringify(['schema',action]):null;
+ db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at,operation_key) VALUES (?,?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now(),key);
 }
 export function runEvidenceSummary(db,owner,runId){
  ensureSourceReceipts(db);
- return {errors:db.prepare('SELECT count(*) n FROM floassist_run_errors WHERE owner_id=? AND run_id=?').get(owner,runId).n,sources:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id NOT LIKE '@read:%'").get(owner,runId).n,reads:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id LIKE '@read:%'").get(owner,runId).n};
+ return {errors:db.prepare('SELECT count(*) n FROM floassist_run_errors WHERE owner_id=? AND run_id=? AND resolved_at IS NULL').get(owner,runId).n,sources:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id NOT LIKE '@read:%'").get(owner,runId).n,reads:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id LIKE '@read:%'").get(owner,runId).n};
 }

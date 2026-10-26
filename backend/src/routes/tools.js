@@ -3091,8 +3091,9 @@ function resolveConnectorOwner(req, body = {}) {
 }
 
 function connectorToolError(req, toolName, requestPayload, res, e, source) {
-  recordRunError(e);
+  recordRunError(e,{action:requestPayload?.action_id});
   const err = { error: e.message, code: e.code || undefined,
+    ...(e.action_input_guide?{action_input_guide:e.action_input_guide}:{}),
     provider_status: e.provider_status || undefined, retry_after_ms: e.retry_after_ms || undefined };
   if (e.retry_after_ms) res.set('Retry-After', String(Math.ceil(e.retry_after_ms / 1000)));
   logTool(req, toolName, requestPayload, err, 'error', source);
@@ -3197,6 +3198,12 @@ router.post('/connector-execute-action', optionalAuth, async (req, res) => {
     logTool(req, 'connector_execute_action', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {
+    if(currentFloAssistScope()?.run&&e.code==='invalid_input'&&/does not match the action schema/.test(e.message)){
+      try{
+        const guide=await getConnectorActionGuide(resolveConnectorOwner(req,requestPayload),requestPayload.action_id);
+        e.action_input_guide={input_schema:guide.input_schema,example_input:guide.example_input,guidance:'Correct the input using this schema and retry this action. A rejected input did not read the source.'};
+      }catch{/* Preserve the original failure if guide discovery is unavailable. */}
+    }
     connectorToolError(req, 'connector_execute_action', requestPayload, res, e, source);
   }
 });

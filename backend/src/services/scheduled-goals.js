@@ -609,7 +609,8 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const agent = resolveAgentForOwner(ownerUserId, row.agent_id);
   // A schedule steer is one-fire guidance, not a permanent prompt/cadence change.
   const scheduleGuidanceNotes = consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`);
-  const guidance = steeringPrompt(scheduleGuidanceNotes);
+  const guidance = steeringPrompt(scheduleGuidanceNotes)+(String(row.source||'').startsWith('floassist:')
+    ? '\nConnector verification protocol: Before each distinct connector action, call connector_get_action_guide and use its exact input_schema (including required fields); do not guess camelCase or snake_case names. If an input is rejected, correct it using the returned schema and retry. For Gmail, use the provider threadId from a fresh discovery result, not a message ID or a remembered task identifier. Read the full current thread before floassist_tracking_observe. A suppressed candidate is a completed relevance check, not a reason to force an alert. An unavailable source must be reported as incomplete, never silently replaced with memory.' : '');
   handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
   const steeredPrompt = `[scheduled_goal_id: ${row.id}]\n[run_key: ${runKey}]\n` + row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${TRACKING_RUN_INSTRUCTIONS}`:'');
   let openclawId = agent.openclaw_agent_id || agent.id;
@@ -758,7 +759,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const reply = String(content || '').trim() || '(no response)';
     const evidence=floAssistRun?runEvidenceSummary(db(),ownerUserId,runId):null;
     const incomplete=evidence&&(evidence.errors>0||evidence.reads===0);
-    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} tool failures recorded. Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
+    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures. Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
       ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);

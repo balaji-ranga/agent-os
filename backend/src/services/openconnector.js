@@ -1,4 +1,4 @@
-import {recordSourceReceipt} from './floassist/source-receipts.js';
+import {recordSourceReceipt,resolveConnectorSchemaError} from './floassist/source-receipts.js';
 import {projectFloAssistMailResult} from './floassist/mail-result.js';
 import {assertFloAssistConnector,validateFloAssistMailWindow} from './floassist/execution-scope.js';
 import {recordFloAssistConnectorHealth,connectorFailureState} from './floassist/connector-health.js';
@@ -830,6 +830,7 @@ export async function executeConnectorAction(
     try {
       const result=projectFloAssistMailResult(id,await invoke());
       recordSourceReceipt(userId,id,result);
+      resolveConnectorSchemaError(userId,id);
       try{recordFloAssistConnectorHealth(userId,appGuess,'available');}catch(e){console.warn('[floassist-health] observation unavailable');}
       return result;
     } catch (error) {

@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
+import {ensureSourceReceipts,recordSourceReceipt,recordRunError,runEvidenceSummary,resolveTrackingErrors,canRetryTrackingObservation,resolveConnectorSchemaError,isTrackingExclusion} from '../src/services/floassist/source-receipts.js';
+const db=new Database(':memory:');
+db.exec('CREATE TABLE floassist_profiles(owner_id TEXT,preferences_json TEXT)');
+db.prepare('INSERT INTO floassist_profiles VALUES (?,?)').run('owner','{}');
+ensureSourceReceipts(db);
+const context={owner:'owner',run:'run',origin:'floassist:priority'};
+const input={app_id:'gmail',source_id:'thread',urgency:'high',requested_action:'Review',why_now:'Urgent',thread_summary:'Pending request'};
+const options={db,context,trackingInput:input};
+const previous={observation_status:'permanent_error',reason_code:'FLOASSIST_THREAD_READ_REQUIRED'};
+recordRunError({code:previous.reason_code},options);
+recordRunError({code:previous.reason_code},{...options,trackingInput:{...input,source_id:'other'}});
+assert.equal(canRetryTrackingObservation(db,'owner',input,previous,context),false);
+recordSourceReceipt('owner','gmail.fetch_message_by_thread_id',{data:{threadId:'thread',messages:[{messageId:'message',threadId:'thread',messageTimestamp:new Date().toISOString(),labelIds:['INBOX']}]}},{db,context});
+assert.equal(canRetryTrackingObservation(db,'owner',input,previous,context),true);
+assert.equal(canRetryTrackingObservation(db,'other-owner',input,previous,context),false);
+assert.equal(canRetryTrackingObservation(db,'owner',input,previous,{...context,run:'other-run'}),false);
+assert.equal(canRetryTrackingObservation(db,'owner',input,{observation_status:'success'},context),false);
+resolveTrackingErrors(db,'owner',{...input,source_id:'message'},context);
+assert.equal(runEvidenceSummary(db,'owner','run').errors,1);
+assert.equal(db.prepare('SELECT count(*) n FROM floassist_run_errors').get().n,2); // audit retained
+recordRunError({code:'invalid_input',message:'Action input does not match the action schema.'},{db,context,action:'googlecalendar.list_events'});
+recordRunError({code:'invalid_input',message:'Requested entity was not found.'},{db,context,action:'googlecalendar.list_events'});
+resolveConnectorSchemaError('owner','googledrive.files.list',{db,context});
+assert.equal(runEvidenceSummary(db,'owner','run').errors,3);
+resolveConnectorSchemaError('owner','googlecalendar.list_events',{db,context});
+assert.equal(runEvidenceSummary(db,'owner','run').errors,2); // real provider failure remains
+assert.equal(isTrackingExclusion({code:'FLOASSIST_NOT_PRIORITY'}),true);
+assert.equal(isTrackingExclusion({code:'FLOASSIST_THREAD_READ_REQUIRED'}),false);
+assert.equal(canRetryTrackingObservation(db,'owner',{...input,urgency:'normal'},previous,context),true);
+db.close();
+console.log('FloAssist recovery: 12 assertions passed');
