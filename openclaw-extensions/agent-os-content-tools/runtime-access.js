@@ -76,3 +76,15 @@ export function safeApiSessionKey(api) {
     return api?.sessionKey || null;
   }
 }
+
+// Leave room for gateway-native tools under providers' 128-tool schema limit.
+// This changes discovery only; invocation still uses the complete grant check.
+export const MAX_UNSCOPED_CONTENT_TOOLS=96;
+export function visibleContentTools(agentId,sessionKey,descriptors,allowlists,configAllowByAgent,sessionScopes,at=Date.now()){
+ const scope=sessionScopes?.[String(sessionKey||'')];
+ const active=scope&&Array.isArray(scope.tools)&&Date.parse(scope.expires_at||'')>at;
+ const names=[...new Set(descriptors.map(t=>t.name).filter(n=>n&&!OPENCLAW_NATIVE_TOOL_NAMES.has(n)))].filter(n=>!agentId||isToolGrantedForSession(agentId,n,sessionKey,allowlists,configAllowByAgent,sessionScopes,at));
+ if(active||names.length<=MAX_UNSCOPED_CONTENT_TOOLS)return new Set(names);
+ const priority=n=>n==='content_tools_enquire'?0:/^(floassist_|connector_|ceo_profile|kanban_|intent_classify_and_delegate|agent_delegate|agent_goal_|agent_workflow_|agent_work_history|learnings_)/.test(n)?1:2;
+ return new Set(names.sort((a,b)=>priority(a)-priority(b)||a.localeCompare(b)).slice(0,MAX_UNSCOPED_CONTENT_TOOLS));
+}

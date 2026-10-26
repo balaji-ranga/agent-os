@@ -14,6 +14,7 @@ import { steeringToolBlock } from "./steering-guard.js";
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
 import {
   isToolGrantedForSession,
+  visibleContentTools,
   mergeRuntimeToolDescriptors,
   OPENCLAW_NATIVE_TOOL_NAMES,
   safeApiSessionKey,
@@ -1136,6 +1137,7 @@ export default definePluginEntry({
             api.logger?.info?.(`[agent-os-content-tools] tool-discovery name=${name} agent=${callerAgentId} allowed=${allowed}`);
           }
           if (!allowed) return null;
+          if (!visibleContentTools(callerAgentId,toolCtx?.sessionKey||safeApiSessionKey(api),tools,loadAllowlists(),loadOpenClawAllowByAgent(),loadSessionAllowlists()).has(name)) return null;
           return {
             name,
             description:

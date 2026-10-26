@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {visibleContentTools,isToolGrantedForSession} from '../../openclaw-extensions/agent-os-content-tools/runtime-access.js';
+const names=['content_tools_enquire','floassist_status','floassist_reminder_create','connector_execute_action','kanban_get_task','intent_classify_and_delegate',...Array.from({length:160},(_,i)=>`fixture_${String(i).padStart(3,'0')}`)];
+const tools=names.map(name=>({name})),grants={owner:names,other:['fixture_159']};
+const visible=visibleContentTools('owner','native',tools,grants,{},{});
+assert.equal(visible.size,96);
+for(const n of names.slice(0,6))assert.ok(visible.has(n));
+assert.equal(isToolGrantedForSession('owner','fixture_159','native',grants,{},{}),true);
+assert.deepEqual([...visibleContentTools('other','native',tools,grants,{},{})],['fixture_159']);
+assert.equal(visibleContentTools(null,null,tools,grants,{},{}).size,96);
+const scopes={scheduled:{tools:['fixture_159'],expires_at:new Date(Date.now()+60000).toISOString()}};
+assert.deepEqual([...visibleContentTools('owner','scheduled',tools,grants,{},scopes)],['fixture_159']);
+scopes.scheduled.expires_at=new Date(0).toISOString();
+assert.equal(visibleContentTools('owner','scheduled',tools,grants,{},scopes).size,96);
+assert.equal(visibleContentTools('missing','native',tools,grants,{},{}).size,0);
+console.log('NATIVE_CHANNEL_TOOL_BUDGET_OK: bounded discovery, core capabilities, grant isolation, explicit scopes and expiry');

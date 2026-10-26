@@ -576,6 +576,8 @@ function buildRunMessage(row, ownerUserId, { runKey, force }) {
 }
 
 export async function runScheduledGoal(ownerUserId, id, opts = {}) {
+  // Operator-only diagnostic session; public Run Now routes do not forward this option.
+  if(opts.diagnosticSessionTag&&!/^[a-z0-9-]{1,80}$/.test(opts.diagnosticSessionTag))throw new Error('Invalid diagnostic session tag');
   const force = !!opts.force;
   const row = getGoalRow(id, ownerUserId);
   if (!row) throw Object.assign(new Error('Scheduled goal not found'), { status: 404 });
@@ -625,7 +627,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const sessionUser = openclaw.sessionUserFor(
     openclawId,
     ownerUserId,
-    `sched-${String(id).replace(/^sg-/, '')}-${String(runId).replace(/^sgr-/, '').slice(0, 12)}`
+    opts.diagnosticSessionTag || `sched-${String(id).replace(/^sg-/, '')}-${String(runId).replace(/^sgr-/, '').slice(0, 12)}`
   );
 
   try {

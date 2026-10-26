@@ -1,3 +1,4 @@
+import {visibleContentTools} from './runtime-access.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
 /**
  * OpenClaw plugin: registers content tools from the Agent OS tools list file.
@@ -812,6 +813,7 @@ export default definePluginEntry({
           // context. Keep the descriptor visible then; execute() still
           // enforces the owner/agent grant through the backend lease.
           if (callerAgentId && !isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey)) return null;
+          if (!visibleContentTools(callerAgentId,toolCtx?.sessionKey||safeApiSessionKey(api),tools,loadAllowlists(),loadOpenClawAllowByAgent(),loadSessionAllowlists()).has(name)) return null;
           return {
             name,
             description:
