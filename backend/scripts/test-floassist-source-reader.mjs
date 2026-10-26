@@ -21,6 +21,7 @@ const execute=async(owner,action,input)=>{
  calls.push({owner,action,input});
  if(mode==='denied')throw Object.assign(new Error('Provider denied'),{status:403,code:'authorization_failed'});
  const data={
+  'gmail.list_drafts':{drafts:[{id:'older',message:{messageTimestamp:'2026-10-25T00:00:00Z',messageText:'old'}},{id:'latest',message:{messageTimestamp:'2026-10-26T00:00:00Z',messageText:'latest saved body',subject:'Draft'}}],...(mode==='more'?{nextPageToken:'next'}:{})},
   'gmail.list_threads':{threads:[{threadId:'real-thread'}]},
   'gmail.fetch_message_by_thread_id':{threadId:mode==='wrong'?'other':input.threadId,messages:[{subject:'Report',messageText:mode==='long'?'x'.repeat(13000)+passage:passage,messageTimestamp:'2026-10-26T10:00:00Z'}]},
   'outlook.list_messages':{messages:[{id:'outlook-real'}]},
@@ -79,4 +80,8 @@ const ambiguous='Please send by 03/04/2026 at 3 PM.';recordVerifiedSourceText('a
 const old='Please submit by 7 January 2026 at 3 PM SGT.';recordVerifiedSourceText('a',context,'google_drive','video',[{text:old,at:null}],now);const oldInput={app_id:'google_drive',source_id:'video',deadline_excerpt:old,due_at:'2026-01-07T15:00:00+08:00'};
 assert.throws(()=>assertDeadlineEvidence('a',context,oldInput,'Asia/Singapore',now),e=>e.code==='FLOASSIST_DEADLINE_CONFIRMATION_REQUIRED');assert.equal(historicalDeadlineConfirmed(db,'a',oldInput),false);
 db.prepare("INSERT INTO kanban_user_action_audit(owner_user_id,task_id,status,action,evidence) VALUES ('a',1,'ok','update','This is still required; keep tracking.')").run();assert.equal(historicalDeadlineConfirmed(db,'a',oldInput),true);assert.equal(historicalDeadlineConfirmed(db,'b',oldInput),false);assert.equal(assertDeadlineEvidence('a',context,oldInput,'Asia/Singapore',now,{historicalConfirmed:historicalDeadlineConfirmed(db,'a',oldInput)}).verified,true);
-db.close();console.log('FLOASSIST_SOURCE_READER_OK: provider bodies, pagination, provenance, revocation, policy denial, scope inheritance, MCP blocking, timezone/precision/ambiguity and confirmed historical obligations');
+console.log('FLOASSIST_SOURCE_READER_OK: provider bodies, pagination, provenance, revocation, policy denial, scope inheritance, MCP blocking, timezone/precision/ambiguity and confirmed historical obligations');
+
+mode='normal';calls=[];const draft=await readFloAssistSource('a',{app_id:'gmail',kind:'draft'},options);assert.equal(calls.length,1);assert.equal(draft.source_id,'latest');assert.match(draft.content,/latest saved body/);mode='more';await assert.rejects(readFloAssistSource('a',{app_id:'gmail',kind:'draft'},options),e=>e.code==='FLOASSIST_DRAFT_COVERAGE_LIMIT');console.log('FLOASSIST_DRAFT_READ_OK: bounded single call, latest timestamp selection, incomplete coverage rejected');
+
+db.close();
