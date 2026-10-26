@@ -1,5 +1,7 @@
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope} from './execution-scope.js';
+// Known read-action naming variants resolve only to their exact catalog operation.
+const readActionAliases={'googlecalendar.list_calendar_events':'googlecalendar.list_events','googledrive.list_files':'googledrive.files.list'};
 const providers={gmail:'gmail',googlecalendar:'google_calendar',outlook:'outlook',googledrive:'google_drive',one_drive:'onedrive'};
 export function ensureSourceReceipts(db){
  db.exec(`CREATE TABLE IF NOT EXISTS floassist_source_receipts(owner_id TEXT,run_id TEXT,app_id TEXT,source_id TEXT,checked_at INTEGER,PRIMARY KEY(owner_id,run_id,app_id,source_id));
@@ -110,7 +112,8 @@ export function resolveConnectorSchemaError(owner,action,{db=getDb(),context=cur
 }
 export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,action}={}){
  if(!context?.run)return;ensureSourceReceipts(db);
- const key=trackingInput?trackingKey(db,context.owner,trackingInput):action&&error?.code==='invalid_input'&&/does not match the action schema/.test(error.message)?JSON.stringify(['schema',action]):null;
+ const schemaAction=action&&error?.code==='invalid_input'&&(/does not match the action schema/.test(error.message)?action:/^unknown action:/.test(error.message)?readActionAliases[action]:null);
+ const key=trackingInput?trackingKey(db,context.owner,trackingInput):schemaAction?JSON.stringify(['schema',schemaAction]):null;
  db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at,operation_key) VALUES (?,?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now(),key);
 }
 export function runEvidenceSummary(db,owner,runId){

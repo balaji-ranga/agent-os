@@ -31,6 +31,12 @@ resolveConnectorSchemaError('owner','googledrive.files.list',{db,context});
 assert.equal(runEvidenceSummary(db,'owner','run').errors,3);
 resolveConnectorSchemaError('owner','googlecalendar.list_events',{db,context});
 assert.equal(runEvidenceSummary(db,'owner','run').errors,2); // real provider failure remains
+recordRunError({code:'invalid_input',message:'unknown action: googlecalendar.list_calendar_events'},{db,context,action:'googlecalendar.list_calendar_events'});
+recordRunError({code:'invalid_input',message:'unknown action: unknown.read'},{db,context,action:'unknown.read'});
+resolveConnectorSchemaError('owner','googledrive.files.list',{db,context});
+assert.equal(runEvidenceSummary(db,'owner','run').errors,4);
+resolveConnectorSchemaError('owner','googlecalendar.list_events',{db,context});
+assert.equal(runEvidenceSummary(db,'owner','run').errors,3); // unrelated/unknown failures remain
 assert.equal(isTrackingExclusion({code:'FLOASSIST_NOT_PRIORITY'}),true);
 assert.equal(isTrackingExclusion({code:'FLOASSIST_THREAD_READ_REQUIRED'}),false);
 assert.equal(canRetryTrackingObservation(db,'owner',{...input,urgency:'normal'},previous,context),true);
@@ -60,4 +66,4 @@ const blocked=classifyToolObservation({toolName:'floassist_tracking_observe',htt
 assert.equal(blocked.status,'blocked_prerequisite');assert.equal(blocked.retryable,true);
 assert.equal(canRetryTrackingObservation(db,'owner',input,{...previous,observation_status:'blocked_prerequisite'},context),true);
 db.close();
-console.log('FloAssist recovery: 37 assertions passed');
+console.log('FloAssist recovery: 39 assertions passed');
