@@ -1,7 +1,7 @@
 /** Rank catalog capabilities, not execution ledger IDs or untrusted result prose. */
 const STOP_WORDS = new Set('a an the me my on in of for to from and with find give get latest recent please use connector action execute'.split(' '));
 export function rankConnectorActions(actions, query) {
-  const text = String(query || '').toLowerCase();
+  const text = String(query || '').toLowerCase().replace(/[_-]+/g, ' ');
   const terms = [...new Set(text.match(/[a-z0-9_]+/g) || [])].filter(t => !STOP_WORDS.has(t));
   const news = /\b(news|headlines|hacker\s*news|hackernews)\b/.test(text);
   return actions.map(action => {

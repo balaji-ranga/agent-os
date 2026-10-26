@@ -1,3 +1,4 @@
+import {currentFloAssistScope} from './floassist/execution-scope.js';
 import {recordSourceReceipt,resolveConnectorSchemaError,canonicalThreadInput} from './floassist/source-receipts.js';
 import {projectFloAssistMailResult} from './floassist/mail-result.js';
 import {expandCalendarSelection,assertCalendarCoverage} from './floassist/calendar-coverage.js';
@@ -589,12 +590,17 @@ export async function searchConnectorApps(userId, query = '') {
 /** Agent discovery returns actionable, owner-available capabilities rather than app names. */
 export async function searchConnectorActions(userId, query = '', { source = '', appId = '' } = {}) {
   const q = String(query || '').trim().slice(0, 2000);
-  const requestedApp = String(appId || '').trim().toLowerCase();
+  let requestedApp = String(appId || '').trim().toLowerCase();
   if (requestedApp && !/^[a-z0-9_-]+$/.test(requestedApp)) throw new Error('Invalid app_id');
   const connected = await getConnectedConnectorApps(userId);
   const services = new Map(connected.apps.filter(a => a.connected).map(a => [a.id, a]));
   // Public no-key service; never mark suggested OAuth apps as connected.
   services.set('hackernews', { id: 'hackernews', name: 'Hacker News', connected: false, public: true });
+  if(requestedApp){
+    const compact=value=>String(value).toLowerCase().replace(/[^a-z0-9]/g,'');
+    const matches=[...services.keys()].filter(id=>compact(id)===compact(requestedApp));
+    if(matches.length===1)requestedApp=matches[0];
+  }
   const candidates = requestedApp ? [requestedApp] : [...services.keys()];
   const errors = [];
   const load = async service => {
@@ -618,7 +624,10 @@ export async function searchConnectorActions(userId, query = '', { source = '', 
   for (let i = 0; i < candidates.length; i += 4) {
     batches.push(...await Promise.all(candidates.slice(i, i + 4).map(load)));
   }
-  return { ...connectorDiscoveryResult(batches.flat(), q), errors };
+  const scope=currentFloAssistScope();
+  const scheduledRead=scope?.owner===userId&&scope?.run&&String(scope.origin||'').startsWith('floassist:');
+  const actions=scheduledRead?batches.flat().filter(a=>a.action_family==='read'):batches.flat();
+  return { ...connectorDiscoveryResult(actions, q), errors };
 }
 
 export async function listConnectorActions(userId, appId, query = '') {

@@ -6,6 +6,8 @@ import { connectorDiscoveryResult } from '../src/services/connector-discovery.js
 
 assert.equal(connectorDiscoveryResult([{id:'tea-fixture',app_id:'gmail'}], 'news').actions.length, 0);
 assert.equal(connectorDiscoveryResult([{id:'gmail.get_message',app_id:'gmail',description:'Read email'}], 'AI').actions.length, 0, 'AI must not match the middle of email');
+for(const query of ['google_calendar','google-calendar','Google Calendar'])assert.equal(connectorDiscoveryResult([{id:'googlecalendar.list_events',app_id:'googlecalendar',app_name:'Google Calendar'}],query).actions[0].id,'googlecalendar.list_events');
+assert.equal(connectorDiscoveryResult([{id:'googledrive.files.list',app_id:'googledrive',app_name:'Google Drive'}],'google_drive').actions[0].id,'googledrive.files.list');
 const dir=mkdtempSync(join(tmpdir(),'flolah-connector-discovery-'));
 process.env.AGENT_OS_DATA_DIR=dir;
 process.env.OPENCONNECTOR_URL='https://connector.invalid';
@@ -48,6 +50,11 @@ try {
   assert.deepEqual(news.actions[0].example_input.tags,['story']);
   assert.ok(Object.keys(news).indexOf('task_guidance') < Object.keys(news).indexOf('actions'),'guidance survives leading payload truncation');
   assert.ok(news.actions.every(a=>!a.raw));
+  const {withFloAssistScope}=await import('../src/services/floassist/execution-scope.js');
+  const scan=await withFloAssistScope({owner:'ceo-a',run:'fixture-run',origin:'floassist:briefing'},()=>searchConnectorActions('ceo-a','gmail',{source:'discovery-test'}));
+  assert.ok(scan.actions.length>0);assert.ok(scan.actions.every(a=>a.action_family==='read'));
+  const alias=await searchConnectorActions('ceo-a','',{source:'discovery-test',appId:'g_mail'});
+  assert.ok(alias.actions.every(a=>a.app_id==='gmail'));assert.ok(alias.actions.length>0);
   const mail=await searchConnectorActions('ceo-a','Send email',{source:'discovery-test',appId:'gmail'});
   assert.equal(mail.actions[0].action_id,'gmail.send_email');
   assert.equal(mail.actions[0].granted,false);
