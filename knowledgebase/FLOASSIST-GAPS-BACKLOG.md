@@ -208,3 +208,7 @@ Acceptance tests and classified prerequisites:
 ## 26 October production-readiness checkpoint
 
 Deadline Tracking remains under acceptance testing. Model-generated source-ID errors persisted despite valid Gmail/Drive reads. Backend revision b0b37c4f now supplies short run-scoped source references and resolves canonical provider IDs server-side; freshness/full-thread checks remain mandatory. Full local and isolated VPS regression suites pass. Repeat live validation of this latest fix is pending a quiet-hours test window. Four other responsibilities passed earlier controlled live runs, but this does not close broad provider, semantic-accuracy or handset-acceptance gaps. See the dated implementation/testing checkpoint for run IDs and deployed versions. Do not mark FloAssist production ready or resume schedules based on harness results alone.
+
+### Final recovery retest, 26 October 23:05 SGT
+
+The blocking repeat-Deadline regression passed twice on revision d40388f6 after requiring source-check evidence in the scheduled reconciliation schema. All five responsibilities passed live with zero unresolved verification errors, and native COO chat passed a synthetic probe. See the implementation/testing record for run IDs. User confirmed earlier notification content and requested formatting improvements, now deployed. This supersedes the earlier failed-run checkpoint for the repaired execution paths; broader provider, semantic and rollout acceptance gaps remain open. Recurring schedules remain paused.

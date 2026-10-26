@@ -246,3 +246,20 @@ Validation: complete FloAssist suite passed locally and in an isolated network-d
 Live evidence earlier in this recovery cycle: briefing `sgr-42c2dfbd3a6d458e`, priority `sgr-3bfb57ff4f0c4ceb`, conflicts `sgr-5521017f21554668`, followups `sgr-3104455463524299` passed with zero unresolved verification errors. Deadline passed once (`sgr-aae9c3c712904b56`) but later failed (`sgr-969484331cf14c3d`); this is not repeatable acceptance. Native synthetic WhatsApp-agent session passed with 107 tools and no abort. These results do not establish semantic correctness of every notification or broad Microsoft-provider coverage.
 
 The v19 live Deadline attempt after 22:00 was gated before a run was created. All five recurring schedules remain paused and quiet hours remain 22:00–08:00 Asia/Singapore. Temporary test-window approval is pending. Remaining acceptance: repeated successful Deadline runs on v19, regression of the other responsibilities on v19, notification grouping/content and ordinary WhatsApp chat confirmed by the user. Current live selected connectors are Gmail, Google Calendar and Google Drive. Broader open backlog items retain their existing status.
+
+### 26 October 23:05 SGT: final-release live retest
+
+User confirmed receipt and useful content of the earlier Deadline, Calendar and Briefing messages, and requested clearer WhatsApp formatting. User approved full-thread recovery within token safeguards and temporary quiet-hours suspension with restoration.
+
+Backend and gateway release `floassist-recovery-v21-20261026`, revision `d40388f6`: scheduled reconciliation now requires explicit source_checked and source_evidence in its tool schema; existing backend verification remains authoritative. Task messages have clearer spacing, bold action/reply labels and restrained date/action icons. Calendar/Briefing guidance requests single-asterisk WhatsApp headings and bullets instead of tables. No full-stack deployment; frontend unchanged. Source manifest verified 7,057 files without mismatch; gateway verified matching shipped/runtime plugin hash ef526cf360389e4be1a31d1cc90ebd799fdf688119823aaf1124d559138d649f.
+
+Final release live runs all completed with zero unresolved source/tool errors:
+- Deadline: sgr-99ad4f8c278146e1 and independent repeat sgr-e20bb61019e54f63.
+- Priority: sgr-25620aad43924919.
+- Follow-up: sgr-a59acf77557e43a2.
+- Calendar Conflicts: sgr-b8adf4b721034fc6.
+- Morning Briefing: sgr-b9515075ec8e434f.
+
+Reads were verified in the backend receipt ledger: Gmail current threads for tracked mail, Google Drive for deadlines/briefing, and Google Calendar event lists for conflicts/briefing. Full local and isolated VPS regression suites passed. Synthetic native COO chat returned the expected response with no tool-limit or balance error. Provider diagnostics showed no context-limit error during the final test window; supported mid-turn context prechecks remain enabled, and duplicate thread serialization remains removed.
+
+The sequential test runner restored original quiet hours in finally. A separate approved two-minute delivery window allows queued five-minute batches to drain and also restores quiet hours in finally. All recurring schedules remain paused. This validates the repaired paths for the selected Google connectors; it does not certify every open backlog item, Microsoft-provider integration, long-running soak behavior or the semantic accuracy of every possible email. Latest-format handset acceptance remains a separate user check.
