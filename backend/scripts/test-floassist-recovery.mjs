@@ -18,6 +18,7 @@ recordRunError({code:previous.reason_code},{...options,trackingInput:{...input,s
 assert.equal(canRetryTrackingObservation(db,'owner',input,previous,context),false);
 recordSourceReceipt('owner','gmail.fetch_message_by_thread_id',{data:{threadId:'thread',messages:[{messageId:'message',threadId:'thread',messageTimestamp:new Date().toISOString(),labelIds:['INBOX']}]}},{db,context});
 assert.equal(canRetryTrackingObservation(db,'owner',input,previous,context),true);
+assert.equal(runEvidenceSummary(db,'owner','run').errors,1); // exact full-thread read resolves only its prerequisite
 assert.equal(canRetryTrackingObservation(db,'other-owner',input,previous,context),false);
 assert.equal(canRetryTrackingObservation(db,'owner',input,previous,{...context,run:'other-run'}),false);
 assert.equal(canRetryTrackingObservation(db,'owner',input,{observation_status:'success'},context),false);
@@ -59,4 +60,4 @@ const blocked=classifyToolObservation({toolName:'floassist_tracking_observe',htt
 assert.equal(blocked.status,'blocked_prerequisite');assert.equal(blocked.retryable,true);
 assert.equal(canRetryTrackingObservation(db,'owner',input,{...previous,observation_status:'blocked_prerequisite'},context),true);
 db.close();
-console.log('FloAssist recovery: 36 assertions passed');
+console.log('FloAssist recovery: 37 assertions passed');

@@ -26,7 +26,12 @@ export function recordSourceReceipt(owner,action,result,{db=getDb(),context=curr
    if(action==='gmail.fetch_message_by_thread_id'&&data.threadId&&data.messages.length){
      const dated=data.messages.map(m=>({...m,at:/^\d+$/.test(m.messageTimestamp)?Number(m.messageTimestamp):Date.parse(m.messageTimestamp)})).filter(m=>Number.isFinite(m.at)).sort((a,b)=>b.at-a.at);
      const latest=dated[0];
-     if(latest)db.prepare('INSERT OR REPLACE INTO floassist_thread_receipts VALUES (?,?,?,?,?,?,?,?)').run(owner,context.run,app,data.threadId,latest.messageId,latest.at,latest.labelIds?.includes('SENT')?1:0,data.messages.length);
+     if(latest){
+       db.prepare('INSERT OR REPLACE INTO floassist_thread_receipts VALUES (?,?,?,?,?,?,?,?)').run(owner,context.run,app,data.threadId,latest.messageId,latest.at,latest.labelIds?.includes('SENT')?1:0,data.messages.length);
+       // A full current thread read satisfies this prerequisite even when the
+       // candidate is then correctly excluded without another observation.
+       db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code='FLOASSIST_THREAD_READ_REQUIRED'").run(now,owner,context.run,trackingKey(db,owner,{app_id:app,source_id:data.threadId}));
+     }
    }
  }
  const ids=new Set();let visited=0;
