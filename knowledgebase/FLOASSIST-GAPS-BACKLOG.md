@@ -204,3 +204,7 @@ Acceptance tests and classified prerequisites:
 - **Rendering/metadata fixtures:** each responsibility, ad hoc replies and missing/legacy metadata; correct labels or an honest generic FloAssist fallback, without invented origin or internal run IDs.
 - **Lifecycle/concurrency fixtures:** one task shared by priority/deadlines/follow-ups, retries, snooze and clarification; retain task reference, avoid duplicate sends and attribute the actual producer.
 - **Integration prerequisites:** enabled test responsibilities, persisted notification-origin metadata and fake delivery for harness checks; an authorized WhatsApp test verifies readable labels and correlation to run history. Existing non-FloAssist messages remain unchanged.
+
+## 26 October production-readiness checkpoint
+
+Deadline Tracking remains under acceptance testing. Model-generated source-ID errors persisted despite valid Gmail/Drive reads. Backend revision b0b37c4f now supplies short run-scoped source references and resolves canonical provider IDs server-side; freshness/full-thread checks remain mandatory. Full local and isolated VPS regression suites pass. Repeat live validation of this latest fix is pending a quiet-hours test window. Four other responsibilities passed earlier controlled live runs, but this does not close broad provider, semantic-accuracy or handset-acceptance gaps. See the dated implementation/testing checkpoint for run IDs and deployed versions. Do not mark FloAssist production ready or resume schedules based on harness results alone.
