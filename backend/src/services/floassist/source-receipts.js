@@ -37,7 +37,7 @@ export function recordSourceReceipt(owner,action,result,{db=getDb(),context=curr
    }
  }
  const ids=new Set();let visited=0;
- if(/(?:fetch_emails|fetch_message_by_thread_id|list_events|list_files|search_files|list_messages)/.test(action))ids.add(`@read:${action}`);
+ if(/(?:fetch_emails|fetch_message_by_thread_id|list_events|list_files|files\.list|search_files|list_messages)/.test(action))ids.add(`@read:${action}`);
  function walk(v,depth=0){
    if(!v||typeof v!=='object'||depth>12||visited++>10000)return;
    if(Array.isArray(v)){for(const x of v)walk(x,depth+1);return;}

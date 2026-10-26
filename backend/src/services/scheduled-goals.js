@@ -1,6 +1,6 @@
 import {claimScheduledRun} from './scheduled-run-claim.js';
 import {runEvidenceSummary} from './floassist/source-receipts.js';
-import {responsibilitySources} from './floassist/responsibilities.js';
+import {responsibilitySources,sourceReadInstructions} from './floassist/responsibilities.js';
 /**
  * CEO scheduled goals — durable schedules for agent prompts.
  * Pause/delete are status/row only; platform tick ignores non-active; survives restarts.
@@ -29,7 +29,7 @@ import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel
 import { consumeWorkSteering, steeringPrompt, closeWorkSteering, handoffWorkSteering } from './work-steering.js';
 import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { floAssistScheduleGate } from './floassist/runtime.js';
-import {TRACKING_RUN_INSTRUCTIONS,trackingHistorySummary} from './floassist/tracking.js';
+import {TRACKING_RUN_INSTRUCTIONS,trackingHistorySummary,listTracking} from './floassist/tracking.js';
 import {selectSessionContentTools,installSessionToolScope,removeSessionToolScope} from './openclaw-session-tool-scope.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
@@ -611,7 +611,9 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   // A schedule steer is one-fire guidance, not a permanent prompt/cadence change.
   const scheduleGuidanceNotes = consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`);
   const floAssistPrefs=String(row.source||'').startsWith('floassist:')?JSON.parse(db().prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(ownerUserId)?.preferences_json||'{}'):null;
-  const guidance = steeringPrompt(scheduleGuidanceNotes)+(floAssistPrefs?`\nCurrent responsibility source boundary (supersedes an older saved source list): ${responsibilitySources(floAssistPrefs,row.source.split(':')[1]).join(', ')}. Other apps are checked by their own responsibility. Scheduled scans must never call tracking_update with track, stop, snooze or acknowledge. Those require a user instruction. `:'')+(row.source==='floassist:conflicts'?'\nCalendar Conflicts requires individual events with start/end times and IDs. Use the selected calendar provider event-list action (for Google Calendar: googlecalendar.list_events_all_calendars or googlecalendar.list_events). Free/busy returns merged availability and cannot prove whether events overlap. Read the event-list guide, then fetch individual events. Do not create tracking tasks for a conflict scan. Use local-day boundaries in the owner timezone, with explicit UTC offsets rather than midnight UTC. If no overlaps exist, return exactly FLOASSIST_NO_UPDATE.':'')+(String(row.source||'').startsWith('floassist:')
+  const currentTracking=floAssistPrefs?listTracking(db(),ownerUserId,{limit:100}):null;
+  const trackingIdentity=currentTracking?JSON.stringify({tasks:currentTracking.tasks.map(({task_id,app_id,account_id,source_id,obligation_key,state,task_status,due_at})=>({task_id,app_id,account_id,source_id,obligation_key,state,task_status,due_at})),next_after_id:currentTracking.next_after_id}):'';
+  const guidance = (floAssistPrefs?sourceReadInstructions(floAssistPrefs,row.source.split(':')[1])+'\nAuthoritative current tracking identities (do not guess task IDs; paginate tracking_list if next_after_id is present): '+trackingIdentity+'\n':'')+steeringPrompt(scheduleGuidanceNotes)+(floAssistPrefs?`\nCurrent responsibility source boundary (supersedes an older saved source list): ${responsibilitySources(floAssistPrefs,row.source.split(':')[1]).join(', ')}. Other apps are checked by their own responsibility. Scheduled scans must never call tracking_update with track, stop, snooze or acknowledge. Those require a user instruction. `:'')+(row.source==='floassist:conflicts'?'\nCalendar Conflicts requires individual events with start/end times and IDs. Use the selected calendar provider event-list action (for Google Calendar: googlecalendar.list_events_all_calendars or googlecalendar.list_events). Free/busy returns merged availability and cannot prove whether events overlap. Read the event-list guide, then fetch individual events. Do not create tracking tasks for a conflict scan. Use local-day boundaries in the owner timezone, with explicit UTC offsets rather than midnight UTC. If no overlaps exist, return exactly FLOASSIST_NO_UPDATE.':'')+(String(row.source||'').startsWith('floassist:')
     ? '\nConnector verification protocol: Before each distinct connector action, call connector_get_action_guide and use its exact input_schema (including required fields); do not guess camelCase or snake_case names. If an input is rejected, correct it using the returned schema and retry. For Gmail, use the provider threadId from a fresh discovery result, not a message ID or a remembered task identifier. Read the full current thread before floassist_tracking_observe. A suppressed candidate is a completed relevance check, not a reason to force an alert. An unavailable source must be reported as incomplete, never silently replaced with memory.' : '');
   handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
   const steeredPrompt = `[scheduled_goal_id: ${row.id}]\n[run_key: ${runKey}]\n` + row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${TRACKING_RUN_INSTRUCTIONS}`:'');

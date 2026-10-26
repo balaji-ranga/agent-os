@@ -1,3 +1,4 @@
+import {sourceReadInstructions} from '../src/services/floassist/responsibilities.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {expandCalendarSelection,assertCalendarCoverage} from '../src/services/floassist/calendar-coverage.js';
@@ -65,5 +66,9 @@ assert.deepEqual(scopedFloAssistSchema('floassist_tracking_observe',floassistSch
 const blocked=classifyToolObservation({toolName:'floassist_tracking_observe',httpStatus:409,data:{code:'FLOASSIST_THREAD_READ_REQUIRED'},behaviour:{fallback_capabilities:[]}});
 assert.equal(blocked.status,'blocked_prerequisite');assert.equal(blocked.retryable,true);
 assert.equal(canRetryTrackingObservation(db,'owner',input,{...previous,observation_status:'blocked_prerequisite'},context),true);
+recordSourceReceipt('owner','googledrive.files.list',{data:{files:[]}},{db,context});
+assert.equal(runEvidenceSummary(db,'owner','run').reads,2);
+assert.match(sourceReadInstructions({connectors:['google_calendar','gmail']},'briefing'),/googlecalendar.list_events/);
+assert.doesNotMatch(sourceReadInstructions({connectors:['google_calendar','gmail']},'followups'),/googlecalendar.list_events/);
 db.close();
-console.log('FloAssist recovery: 39 assertions passed');
+console.log('FloAssist recovery: 42 assertions passed');
