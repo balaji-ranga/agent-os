@@ -15,7 +15,8 @@ async function busy(button,fn){if(button.disabled)return;const label=button.text
 function saveToken(value){sessionToken=value;if(value)sessionStorage.setItem('floassist.session',value);else{sessionStorage.removeItem('floassist.session');sessionStorage.removeItem('floassist.verifying');}}
 function safeUrl(raw){const url=new URL(raw,location.href);if(url.protocol!=='https:'&&url.origin!==location.origin)throw new Error('The service returned an invalid link.');return url.href;}
 function chosen(name){return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(e=>e.value);}
-function preferences(){const form=$('apps').elements;return {connectors:chosen('connector'),responsibilities:chosen('responsibility'),timezone:form.timezone.value,briefing_time:form.briefing_time.value,quiet_start:form.quiet_start.value,quiet_end:form.quiet_end.value};}
+const alertDefaults={task_realert_hours:24,overdue_realert_hours:24,deadline_warning_hours:0,task_alert_daily_limit:3,notification_batch_minutes:5};
+function preferences(){const form=$('apps').elements;const source_realert_hours={};for(const el of document.querySelectorAll('[data-alert-app]'))if(el.value!=='')source_realert_hours[el.dataset.alertApp]=Number(el.value);return {...Object.fromEntries(Object.keys(alertDefaults).map(k=>[k,Number(form[k].value)])),source_realert_hours,muted_alert_apps:chosen('muted_alert_app'),connectors:chosen('connector'),responsibilities:chosen('responsibility'),timezone:form.timezone.value,briefing_time:form.briefing_time.value,quiet_start:form.quiet_start.value,quiet_end:form.quiet_end.value};}
 function drawApps(){
   $('connectors').replaceChildren();
   for(const app of config.connectors){
@@ -37,6 +38,9 @@ function drawApps(){
 function drawSettings(){
   drawApps();$('responsibilities').replaceChildren();
   for(const r of config.responsibilities){const label=document.createElement('label');label.className='check';const input=document.createElement('input');input.type='checkbox';input.name='responsibility';input.dataset.adoptionId='responsibility_'+r.id;input.value=r.id;input.checked=me.preferences.responsibilities.includes(r.id);label.append(input,document.createTextNode(r.label));$('responsibilities').append(label);}
+  for(const [key,value]of Object.entries(alertDefaults))$('apps').elements[key].value=me.preferences[key]??value;
+  $('alert-app-rules').replaceChildren();
+  for(const app of config.connectors){const box=document.createElement('div');box.className='columns';const label=document.createElement('label');label.textContent=app.label+' repeat hours (blank = default)';const input=document.createElement('input');input.type='number';input.min='0';input.max='720';input.dataset.alertApp=app.id;input.value=me.preferences.source_realert_hours?.[app.id]??'';label.append(input);const mute=document.createElement('label');mute.className='check';const check=document.createElement('input');check.type='checkbox';check.name='muted_alert_app';check.value=app.id;check.checked=me.preferences.muted_alert_apps?.includes(app.id)||false;mute.append(check,document.createTextNode('Mute '+app.label+' task alerts'));box.append(label,mute);$('alert-app-rules').append(box);}
   for(const key of ['timezone','briefing_time','quiet_start','quiet_end'])$('apps').elements[key].value=me.preferences[key];
   $('apps').elements.preset.value='';$('financial-label').hidden=true;$('privacy').textContent=config.privacy;
   $('policy-summary').replaceChildren(...me.policy.map(p=>{const li=document.createElement('li');li.textContent=p.label+': '+p.mode.replaceAll('_',' ');return li;}));
@@ -86,3 +90,5 @@ try{config=await api('/config');if(!config.enabled)throw new Error('FloAssist re
   else if(sessionToken){try{me=await api('/me');if(['active','paused','stopped'].includes(me.status))ready();else{drawSettings();show('apps');}}catch(e){if(e.code==='session_expired'){saveToken('');show('details');}else throw e;}}
   else show('details');
 }catch(e){notice(e.message,true);}
+
+$('load-alert-history').onclick=e=>busy(e.target,async()=>{const data=await api('/alert-history');$('alert-history').replaceChildren();if(!data.decisions.length){$('alert-history').textContent='No alert decisions yet.';return;}for(const item of data.decisions){const p=document.createElement('p');p.textContent='#'+item.task_id+' · '+item.title+' — '+item.decision+': '+item.reason.replaceAll('_',' ')+' · '+new Date(item.created_at).toLocaleString(undefined,{timeZone:me.preferences.timezone})+' ('+me.preferences.timezone+')';$('alert-history').append(p);}});

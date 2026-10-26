@@ -739,7 +739,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const scheduledSessionKey = openclaw.sessionKeyFor(openclawId, sessionUser);
   try {
     const required = String(row.source||'').startsWith('floassist:')
-      ? ['floassist_status','floassist_tracking_list','floassist_tracking_observe','floassist_tracking_update',
+      ? ['floassist_status','floassist_source_read','floassist_tracking_list','floassist_tracking_observe','floassist_tracking_update',
         'connector_list_apps','connector_search_actions','connector_get_action_guide','connector_execute_action',
         'kanban_get_task','kanban_user_action','agent_work_history'] : [];
     const selection=selectSessionContentTools({agentId:agent.id,ownerUserId,message:prompt,

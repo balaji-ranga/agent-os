@@ -1,4 +1,4 @@
-import {withFloAssistScope,resolveFloAssistScope} from './floassist/execution-scope.js';
+import {assertFloAssistMcpRoute,withFloAssistScope,resolveFloAssistScope} from './floassist/execution-scope.js';
 /**
  * Desktop-orchestrated workflow runs: create run + persist state on Flolah,
  * execute remote (non-local) nodes on the server when the client asks.
@@ -445,6 +445,7 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
       };
     }
     case 'mcp_tool': {
+      assertFloAssistMcpRoute(resolveFloAssistScope(getDb(),meta.ownerUserId,null,{...context,workflow_run_id:meta.runId}));
       const mcpServerId = config.mcpServerId || config.mcp_server_id;
       const invokeKind = (config.mcpInvokeKind || config.mcp_invoke_kind || 'tool').toLowerCase();
       const toolName = config.toolName || config.tool_name;
@@ -482,7 +483,7 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
         out = await callMcpServerResource(mcpServerId, uri, ownerAuth, nodeAuth);
       } else {
         if (!toolName) throw new Error('MCP tool name required');
-        out = await callMcpServerTool(mcpServerId, toolName, mergedArgs, ownerAuth, nodeAuth);
+        out = await withFloAssistScope(resolveFloAssistScope(getDb(),meta.ownerUserId,null,{...context,workflow_run_id:meta.runId}),()=>callMcpServerTool(mcpServerId, toolName, mergedArgs, ownerAuth, nodeAuth));
       }
       return {
         text: typeof out === 'string' ? out : JSON.stringify(out),

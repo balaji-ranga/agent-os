@@ -57,6 +57,9 @@ try{
   const preferenceSnapshot=await inspect(),manifest=JSON.parse(readFileSync(new URL('../../digital-adoption/content/flolah-cloud/floassist-map.json',import.meta.url)));
   check(manifest.screens[0].fields.filter(f=>f.form==='apps').every(f=>preferenceSnapshot.fields.some(live=>live.key===f.key&&live.form===f.form)),true,'all fourteen mapped app/preference fields match fresh live DOM controls');
   check(preferenceSnapshot.fields.filter(f=>f.key?.startsWith('responsibility_')).map(f=>f.key),product.responsibilities.map(r=>'responsibility_'+r.id),'responsibilities stay individually addressable');
+  await page.getByText('Task alert timing',{exact:true}).click();
+  await page.locator('[name=overdue_realert_hours]').fill('12');
+  await page.locator('[name=task_alert_daily_limit]').fill('2');
   await page.screenshot({path:join(evidence,'preferences-desktop.png'),fullPage:true});
   await page.getByRole('button',{name:'Continue to WhatsApp'}).click();await page.locator('#qr').waitFor({state:'visible'});check(await page.getByRole('button',{name:'Start FloAssist'}).isDisabled(),true,'cannot activate before pairing');
   await page.screenshot({path:join(evidence,'whatsapp-desktop.png'),fullPage:true});
@@ -76,6 +79,7 @@ try{
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:join(evidence,'registration-mobile.png'),fullPage:true});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'mobile has no horizontal overflow');
   await page.getByRole('button',{name:'Switch color theme'}).click();await page.screenshot({path:join(evidence,'registration-dark.png'),fullPage:true});
   check(requests.some(r=>r.path==='/api/floassist/policy'&&r.body.financial==='autonomous'),true,'explicit finance policy submitted');
+  check(requests.some(r=>r.path==='/api/floassist/preferences'&&r.body.overdue_realert_hours===12&&r.body.task_alert_daily_limit===2),true,'alert lifecycle settings saved through real UI and HTTP');
   check(qrWaits>0,true,'native QR status polling');check(errors,[],'no browser errors');
   writeFileSync(join(evidence,'browser-results.json'),JSON.stringify({passed:true,checks,synthetic:true,viewports:['1280x1000','390x844']},null,2));
   console.log(`FLOASSIST_BROWSER_OK: ${checks} checks; real browser and HTTP, synthetic providers; screenshots in test-results/floassist`);

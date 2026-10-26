@@ -1,5 +1,7 @@
 import {verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion} from '../services/floassist/source-receipts.js';
 import { Router } from 'express';
+import {readFloAssistSource} from '../services/floassist/source-reader.js';
+import {verifyOrphanClosure} from '../services/floassist/reconcile-source.js';
 import {trackingReferenceResult,resolveSourceReference} from '../services/floassist/source-references.js';
 import { getDb } from '../db/schema.js';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
@@ -11,9 +13,10 @@ const router=Router();
 const run=fn=>async(req,res)=>{try{
   const owner=resolveToolOwnerUserId(req,req.body||{},resolveAuthenticatedCeoUserId);
   const service=getFloAssist();service.profile(owner);
-  res.json({ok:true,...trackingReferenceResult(getDb(),owner,await fn(owner,req.body||{},service))});
+  res.json({ok:true,...trackingReferenceResult(getDb(),owner,await fn(owner,req.body||{},service,req))});
 }catch(e){recordRunError(e,{trackingInput:req.path==='/floassist-tracking-observe'?req.body:undefined});res.status(e.status||500).json({ok:false,error:e.status?e.message:'FloAssist operation failed.',code:e.code,...(e.next_action?{next_action:e.next_action}:{})});}};
 router.post('/floassist-status',run((owner,_b,s)=>s.view(owner)));
+router.post('/floassist-source-read',run((owner,b,_s,req)=>readFloAssistSource(owner,b,{caller:req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']})));
 router.post('/floassist-reminder-create',run((owner,b)=>({reminder:createReminder(getDb(),owner,b)})));
 router.post('/floassist-reminder-list',run(owner=>({reminders:listReminders(getDb(),owner)})));
 router.post('/floassist-reminder-cancel',run((owner,b)=>cancelReminder(getDb(),owner,b.id)));
@@ -32,5 +35,5 @@ router.post('/floassist-tracking-observe',run((owner,b)=>{
   return {suppressed:true,reason:e.code,message:e.message};
  }
 }));
-router.post('/floassist-tracking-update',run((owner,b)=>{assertScheduledTrackingUpdate(b);b={...b,source_id:resolveSourceReference(getDb(),owner,b.app_id,b.source_id)};return scheduledTrackingExclusion(getDb(),owner,b)||updateTracking(getDb(),owner,b);}));
+router.post('/floassist-tracking-update',run(async(owner,b,_s,req)=>{assertScheduledTrackingUpdate(b);b={...b,source_id:resolveSourceReference(getDb(),owner,b.app_id,b.source_id)};const excluded=scheduledTrackingExclusion(getDb(),owner,b);if(excluded)return excluded;if(b.action==='close_orphan')b=await verifyOrphanClosure(owner,b,{caller:req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']});return updateTracking(getDb(),owner,b);}));
 export default router;

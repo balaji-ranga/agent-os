@@ -85,6 +85,11 @@ export function lookupSessionExecutionContext(sessionKey, ownerUserId) {
   const row = sessionOwnerRegistry.get(String(sessionKey || ''));
   return row?.ownerUserId === String(ownerUserId) ? row.executionContext : null;
 }
+export function lookupSessionChannel(sessionKey,ownerUserId){
+ pruneSessionOwners();
+ const row=sessionOwnerRegistry.get(String(sessionKey||''));
+ return row?.ownerUserId===String(ownerUserId)?row.channel:null;
+}
 
 /** Trusted human attached by the authenticated Dashboard chat route. */
 export function lookupOpenClawSessionActor(sessionKey) {

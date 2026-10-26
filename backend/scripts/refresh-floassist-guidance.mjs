@@ -4,10 +4,12 @@ import {listAgentSkillAssignments,addCompanySkillVersion} from '../src/services/
 import {resolveFloAssistCoo} from '../src/services/floassist/platform.js';
 import {ensureTenantOpenClawAgent} from '../src/services/openclaw-tenant.js';
 import {syncOrgContextToWorkspace} from '../src/services/org-context.js';
+import {seedFloAssistTools} from '../src/services/floassist/tools.js';
 const owner=process.argv[2];
 if(!owner)throw new Error('Explicit owner ID required');
 const db=getDb(),profile=db.prepare('SELECT agent_id FROM floassist_profiles WHERE owner_id=?').get(owner);
 if(!profile)throw new Error('FloAssist profile not found');
+seedFloAssistTools(profile.agent_id);
 const skill=listAgentSkillAssignments(owner,profile.agent_id,{includeMarkdown:true}).find(s=>s.slug==='floassist-personal-assistant');
 if(!skill)throw new Error('Assigned FloAssist skill not found');
 if(skill.pinned)throw new Error('FloAssist skill version is pinned; preserve the pin and review before migrating');

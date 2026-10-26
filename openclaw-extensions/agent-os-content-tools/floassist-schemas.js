@@ -4,6 +4,7 @@ identity.corrects_source_id={type:'string',description:'Only when correcting a p
 identity.deadline_excerpt={type:'string',minLength:12,maxLength:1200,description:'Required with due_at: exact source passage stating the outstanding action and its deadline, including year (or today/tomorrow anchored to the original message). Never quote file metadata, a task summary, or sent/created/modified timestamps as a deadline.'};
 const object=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 export const floassistSchemas={
+ floassist_source_read:object({app_id:{type:'string',enum:['gmail','outlook','google_drive','onedrive','google_calendar']},source_id:string,task_id:{type:'integer',minimum:1},query:{type:'string',maxLength:1000},offset:{type:'integer',minimum:0},time_min:string,time_max:string}),
  floassist_status:object({}),
  floassist_reminder_list:object({}),
  floassist_reminder_cancel:object({id:string},['id']),

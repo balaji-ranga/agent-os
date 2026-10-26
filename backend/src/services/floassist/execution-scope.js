@@ -24,18 +24,22 @@ export function resolveFloAssistScope(db,owner,agent,context={},channel='web'){
   const p=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=?').get(owner);
   if(!p)return null;
   for(const [kind,key] of [['session','session_key'],['delegation','delegation_task_id'],['goal','goal_run_id'],['workflow','workflow_run_id']]){
-    const bound=boundWork(db,owner,kind,context?.[key]);if(bound)return bound;
+    const bound=boundWork(db,owner,kind,context?.[key]);if(bound)return !bound.run&&!bound.session&&context.session_key?{...bound,session:context.session_key}:bound;
   }
-  if(channel==='whatsapp'&&p.agent_id===agent)return {owner,origin:'whatsapp'};
   let run=context?.scheduled_goal_run_id;
   if(!run&&context?.goal_run_id)run=db.prepare('SELECT scheduled_goal_run_id FROM agent_goal_runs WHERE id=? AND owner_user_id=?').get(context.goal_run_id,owner)?.scheduled_goal_run_id;
-  if(!run)return null;
+  if(!run){
+    if(channel==='whatsapp'&&p.agent_id===agent)return {owner,origin:'whatsapp',...(context.session_key?{session:context.session_key}:{})};
+    if(channel==='unknown'&&p.agent_id===agent)return {owner,origin:'unclassified',blocked:true};
+    return null;
+  }
   const r=db.prepare('SELECT g.source FROM scheduled_goal_runs r JOIN scheduled_goals g ON g.id=r.goal_id AND g.owner_user_id=r.owner_user_id WHERE r.id=? AND r.owner_user_id=?').get(run,owner);
   return r?.source?.startsWith('floassist:')?{owner,origin:r.source,run}:null;
 }
 export function assertFloAssistConnector(owner,action,db=getDb(),context=currentFloAssistScope()){
   if(!context)return;
   if(context.owner!==owner)throw Object.assign(new Error('FloAssist execution owner mismatch'),{status:403,code:'FLOASSIST_OWNER_DENIED'});
+  if(context.blocked)throw Object.assign(new Error('Trusted channel/work context is missing. Restore the registered execution context before accessing connectors.'),{status:403,code:'FLOASSIST_CONTEXT_REQUIRED'});
   const p=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=?').get(owner);
   const provider=String(action).split('.')[0];
   const app=product.connectors.find(a=>(a.provider_id||a.id)===provider);
@@ -43,6 +47,9 @@ export function assertFloAssistConnector(owner,action,db=getDb(),context=current
     throw Object.assign(new Error('This app is not enabled for this FloAssist execution. Manage apps before retrying.'),{status:403,code:'FLOASSIST_CONNECTOR_NOT_SELECTED'});
   if(context.run&&!responsibilitySources(JSON.parse(p.preferences_json),context.origin?.split(':')[1]).includes(app.id))
     throw Object.assign(new Error('This source belongs to another FloAssist responsibility. Use only the sources assigned to the current check.'),{status:403,code:'FLOASSIST_RESPONSIBILITY_MISMATCH'});
+}
+export function assertFloAssistMcpRoute(context=currentFloAssistScope()){
+ if(context)throw Object.assign(new Error('FloAssist connector access must use the owner-scoped connector facade. Arbitrary MCP routes cannot prove selected-app authorization.'),{status:403,code:'FLOASSIST_CONNECTOR_ROUTE_REQUIRED'});
 }
 export function assertFloAssistCalendarRoute(owner,operation,db=getDb(),context=currentFloAssistScope()){
   if(context&&operation.startsWith('email_'))

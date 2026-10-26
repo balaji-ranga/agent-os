@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { authRateLimit } from '../middleware/auth-rate-limit.js';
 import { getFloAssist } from '../services/floassist/platform.js';
+import {alertHistory} from '../services/floassist/management.js';
+import {getDb} from '../db/schema.js';
 
 export function createFloAssistRouter(service=getFloAssist, rateLimit=authRateLimit){
   const router=Router();
@@ -13,6 +15,7 @@ export function createFloAssistRouter(service=getFloAssist, rateLimit=authRateLi
   router.use((req,res,next)=>{try{req.floassist=service().session(token(req));next();}catch(e){res.status(e.status||401).json({error:e.message,code:e.code});}});
   const owner=req=>req.floassist.owner_id;
   router.get('/me',run((req,s)=>s.view(owner(req))));
+  router.get('/alert-history',run(req=>alertHistory(getDb(),owner(req))));
   router.put('/preferences',run((req,s)=>s.save(owner(req),req.body||{})));
   router.put('/policy',run((req,s)=>s.setPolicy(owner(req),req.body||{})));
   router.get('/connections',run((req,s)=>s.connections(owner(req))));

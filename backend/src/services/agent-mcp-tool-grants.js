@@ -252,6 +252,8 @@ function receipt({ owner, agent, serverId, toolName, status, args, result, start
 }
 
 export async function callBoundMcpTool(ownerUserId, agentId, { server_id, tool_name, arguments: args = {} } = {}) {
+  const {assertFloAssistMcpRoute}=await import('./floassist/execution-scope.js');
+  assertFloAssistMcpRoute();
   const { owner, agent } = requireScope(ownerUserId, agentId);
   const serverId = String(server_id || '').trim();
   const toolName = String(tool_name || '').trim();

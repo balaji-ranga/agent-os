@@ -1,3 +1,4 @@
+import {rememberRuntimeChannel,runtimeChannel} from './runtime-channel.js';
 import {visibleContentTools} from './runtime-access.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
 /**
@@ -654,7 +655,7 @@ async function callInvoke(
   }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
-  const messageChannel = toolCtx?.messageChannel || toolCtx?.deliveryContext?.channel || toolCtx?.channel || api.context?.messageChannel || api.context?.channel;
+  const messageChannel = runtimeChannel(toolCtx,api.context);
   if (messageChannel) headers["x-openclaw-message-channel"] = String(messageChannel);
   if (toolCtx?.agentAccountId) headers["x-openclaw-account-id"] = String(toolCtx.agentAccountId);
   if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
@@ -772,6 +773,7 @@ export default definePluginEntry({
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
       api.on("before_prompt_build", async (event: PromptBuildEvent, ctx: PromptBuildContext) => {
+        rememberRuntimeChannel(ctx);
         const result = await correlateInboundCampaign(api, event, ctx);
         if (!result?.matched) return;
         const campaign = result.campaign || {};
@@ -824,6 +826,11 @@ export default definePluginEntry({
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
+              // The native harness classifies thrown failures reliably; some
+              // adapters discard an isError field on a normally returned result.
+              if (result.data?._execution?.status === "duplicate_blocked") {
+                throw new Error("DUPLICATE_NO_PROGRESS: This exact action already ran. Do not repeat it or vary arguments to evade the guard. Use the earlier successful observation to answer. If it is unavailable, report that precise blocker and end this turn. No provider request was made by this blocked call.");
+              }
               const text = result.ok ? JSON.stringify(result.data) : JSON.stringify(result.data || { error: result.error });
               return { ...(!result.ok || result.data?.ok === false ? { isError: true } : {}), content: [{ type: "text" as const, text }] };
             },

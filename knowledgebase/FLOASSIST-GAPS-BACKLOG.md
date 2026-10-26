@@ -25,6 +25,14 @@ Delivery status as of this update:
 
 Validation: isolated Linux harnesses passed 65 backlog, 57 platform, 86 core, 68 tracking and 46 connector-health checks; frontend build passed. Tests cover owner separation, current-thread incoming-reply suppression, module exclusions, grouping, cooldown, storage and delivery reconciliation. Live WhatsApp content acceptance is separate from these harness results. Existing schedules remain paused during controlled retesting, and temporary quiet-hour changes must be restored.
 
+## Active completion scope — 27 October 2026
+
+User-approved scope: **FA-GAP-011 → FA-GAP-005, plus FA-GAP-001**. Complete source-content reliability, execution-level connector isolation, and the Kanban-backed alert lifecycle together. Deploy only affected services/assets; no full deployment. Keep recurring schedules paused and restore quiet hours after any approved live test.
+
+FA-GAP-001 implementation in progress adds owner-configurable normal/overdue intervals, pre-deadline escalation, per-task daily limits, per-app intervals/muting, and an owner-visible decision history. Kanban remains authoritative for completion. The closure endpoint independently re-reads the exact stored mail source: verified deletion may close only a FloAssist-created task; access errors cannot close it, and a present source with uncertain external fulfillment requests clarification. Similar titles and linked user tasks are never sufficient closure evidence.
+
+Local validation: full FloAssist regression suite and real-browser onboarding/preferences harness passed, including the new source-reader and alert-lifecycle tests. VPS rollout and live acceptance of this revision remain pending; these results do not claim production completion.
+
 ## FA-GAP-001 — Durable alert determination and re-alert filters
 
 Priority: High. Status: Kanban-backed lifecycle delivered 25 October 2026; broader automatic escalation/filter configuration remains open.

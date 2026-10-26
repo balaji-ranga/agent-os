@@ -1,5 +1,5 @@
 import {resolveSourceReference,sourceReference} from './source-references.js';
-import {recordDeadlineText,assertDeadlineEvidence} from './deadline-evidence.js';
+import {recordDeadlineText,assertDeadlineEvidence,historicalDeadlineConfirmed} from './deadline-evidence.js';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope} from './execution-scope.js';
 // Known read-action naming variants resolve only to their exact catalog operation.
@@ -24,8 +24,8 @@ export function recordSourceReceipt(owner,action,result,{db=getDb(),context=curr
  if(action==='googledrive.about.get')account=data?.user?.emailAddress;
  if(action==='one_drive.get_drive')account=data?.id;
  if(account)db.prepare('INSERT OR REPLACE INTO floassist_account_receipts VALUES (?,?,?,?)').run(owner,app,String(account),now);
+ if(context?.owner===owner)recordDeadlineText(owner,context,action,result,now);
  if(!context?.run||context.owner!==owner)return;
- recordDeadlineText(owner,context,action,result,now);
  if(app==='gmail'&&Array.isArray(data?.messages)){
    for(const m of data.messages)if(m.messageId&&m.threadId)db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run(owner,app,m.messageId,m.threadId);
    if(action==='gmail.fetch_message_by_thread_id'&&data.threadId&&data.messages.length){
@@ -53,7 +53,14 @@ export function recordSourceReceipt(owner,action,result,{db=getDb(),context=curr
  db.prepare('DELETE FROM floassist_source_receipts WHERE checked_at<?').run(now-7*86400000);
 }
 export function verifiedTrackingInput(db,owner,input,context=currentFloAssistScope()){
- if(!context?.run)return input;
+ if(!context?.run){
+  if(context?.session&&input.due_at){
+   const prefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner)?.preferences_json||'{}');
+   const verified=assertDeadlineEvidence(owner,context,input,prefs.timezone||'UTC',Date.now(),{historicalConfirmed:historicalDeadlineConfirmed(db,owner,input)});
+   return {...input,due_precision:verified.precision,...(verified.due_at?{due_at:verified.due_at}:{})};
+  }
+  return input;
+ }
  ensureSourceReceipts(db);
  input={...input};
  input.app_id=providers[input.app_id]||input.app_id;
@@ -88,7 +95,9 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  if(module==='deadlines'&&!input.due_at)throw Object.assign(new Error('Deadline tracking requires the due_at JSON field with the verified obligation deadline as an ISO datetime with timezone offset. A date in title/evidence does not populate due_at. Correct the input before retrying; skip this candidate if the freshly read source has no deadline.'),{status:400,code:'FLOASSIST_DEADLINE_REQUIRED'});
  if(input.due_at&&['priority','deadlines','followups'].includes(module)){
    const prefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner)?.preferences_json||'{}');
-   assertDeadlineEvidence(owner,context,input,prefs.timezone||'UTC');
+   const verified=assertDeadlineEvidence(owner,context,input,prefs.timezone||'UTC',Date.now(),{historicalConfirmed:historicalDeadlineConfirmed(db,owner,input)});
+   input.due_precision=verified.precision;
+   if(verified.due_at)input.due_at=verified.due_at;
  }
  if(module==='priority'&&input.urgency!=='high'&&!(input.due_at&&Date.parse(input.due_at)<=Date.now()+86400000))throw Object.assign(new Error('Priority Alerts requires a high-impact action now or an obligation due within 24 hours. Ordinary open tasks belong in their own module or briefing.'),{status:409,code:'FLOASSIST_NOT_PRIORITY'});
  const account=db.prepare('SELECT account_id FROM floassist_account_receipts WHERE owner_id=? AND app_id=?').get(owner,input.app_id);

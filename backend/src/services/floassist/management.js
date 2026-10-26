@@ -1,5 +1,10 @@
 import {ensureFloAssistRuntime,listReminders} from './runtime.js';
 import {ensureStorage} from './storage.js';
+import {ensureTracking} from './tracking.js';
+export function alertHistory(db,owner){
+ ensureTracking(db);
+ return {decisions:db.prepare(`SELECT a.task_id,k.title,k.status AS task_status,f.app_id,f.state AS tracking_state,a.decision,a.reason,a.created_at FROM floassist_tracking_audit a JOIN floassist_task_tracking f ON f.owner_id=a.owner_id AND f.task_id=a.task_id JOIN kanban_tasks k ON k.id=a.task_id AND k.owner_user_id=a.owner_id WHERE a.owner_id=? ORDER BY a.id DESC LIMIT 100`).all(owner)};
+}
 
 export function managementView(db,owner){
   ensureFloAssistRuntime(db);ensureStorage(db);

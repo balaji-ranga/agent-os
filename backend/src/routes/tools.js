@@ -1,7 +1,7 @@
 import {recordRunError} from '../services/floassist/source-receipts.js';
 import {floAssistTaskSource} from '../services/floassist/task-source.js';
 import {registerWhatsAppTask} from '../services/floassist/tracking.js';
-import {withFloAssistScope,resolveFloAssistScope,currentFloAssistScope} from '../services/floassist/execution-scope.js';
+import {withFloAssistScope,resolveFloAssistScope,currentFloAssistScope,bindFloAssistWork} from '../services/floassist/execution-scope.js';
 /**
  * Content tools API: summarize-url (Phase 1). Image and video endpoints in later phases.
  * Kanban tools: move-status, reassign-to-coo, assign-task, intent-classify-and-delegate.
@@ -17,7 +17,7 @@ import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool, getAgentToolGrants } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
-import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor, lookupActiveDashboardChat, lookupSessionExecutionContext } from '../services/tool-owner-scope.js';
+import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor, lookupActiveDashboardChat, lookupSessionExecutionContext,lookupSessionChannel } from '../services/tool-owner-scope.js';
 import {validateKanbanCompletion} from '../services/kanban-completion-guard.js';
 import { resolveChannelActor, loadCompanyActor } from '../services/channel-user-identity.js';
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
@@ -928,6 +928,10 @@ router.use((req, res, next) => {
     body.goal_run_id || body.trace_id || req.headers['x-llmops-trace-id'] || sessionGoal?.goal_run_id || ''
   ).trim();
   const efficiencyExecutionContext = lookupSessionExecutionContext(req.headers['x-openclaw-session-key'] || req.headers['x-session-key'], ownerUserId);
+  const floSession=req.headers['x-openclaw-session-key']||req.headers['x-session-key'];
+  const trustedChannel=lookupSessionChannel(floSession,ownerUserId)||((req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))?req.headers['x-openclaw-message-channel']||'unknown':'web');
+  const floScope=resolveFloAssistScope(getDb(),ownerUserId,memberKey,{...efficiencyExecutionContext,session_key:floSession},trustedChannel);
+  if(floScope&&!floScope.blocked&&floSession)bindFloAssistWork(getDb(),ownerUserId,'session',floSession,floScope);
   withLlmopsContext(
     {
       ownerUserId,
@@ -942,7 +946,7 @@ router.use((req, res, next) => {
       clientTurnId: efficiencyExecutionContext?.client_turn_id || null,
       delegationTaskId: efficiencyExecutionContext?.delegation_task_id || null,
     },
-    () => withFloAssistScope(resolveFloAssistScope(getDb(),ownerUserId,memberKey,{...efficiencyExecutionContext,session_key:req.headers['x-openclaw-session-key']||req.headers['x-session-key']},req.isInternalService ? req.headers['x-openclaw-message-channel']||'web' : 'web'),next)
+    () => withFloAssistScope(floScope,next)
   );
 });
 router.use(actionPolicyMiddleware);

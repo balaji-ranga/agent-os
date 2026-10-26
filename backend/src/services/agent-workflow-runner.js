@@ -1,4 +1,4 @@
-import {withFloAssistScope,resolveFloAssistScope,bindFloAssistWork} from './floassist/execution-scope.js';
+import {assertFloAssistMcpRoute,withFloAssistScope,resolveFloAssistScope,bindFloAssistWork} from './floassist/execution-scope.js';
 /**
  * Execute published agent workflows: agent nodes, tool nodes, parallel branches.
  * Integrates with delegation queue and Kanban (similar to job pipeline, separate tags).
@@ -1365,6 +1365,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
   }
 
   if (node.type === 'mcp_tool') {
+    assertFloAssistMcpRoute(resolveFloAssistScope(db(),runRow.owner_user_id,null,{...context,workflow_run_id:runId}));
     const config = node.data?.taskConfig || node.data?.config || {};
     const mcpServerId = config.mcpServerId || config.mcp_server_id;
     const invokeKind = (config.mcpInvokeKind || config.mcp_invoke_kind || 'tool').toLowerCase();
@@ -1440,7 +1441,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
           out = await callMcpServerResource(mcpServerId, uri, ownerAuth, nodeAuth);
           stepLabel = `MCP resource ${uri}`;
         } else {
-          out = await callMcpServerTool(mcpServerId, toolName, mergedArgs, ownerAuth, nodeAuth);
+          out = await withFloAssistScope(resolveFloAssistScope(db(),runRow.owner_user_id,null,{...context,workflow_run_id:runId}),()=>callMcpServerTool(mcpServerId, toolName, mergedArgs, ownerAuth, nodeAuth));
           stepLabel = `MCP ${toolName}`;
         }
         if (out.is_error) {

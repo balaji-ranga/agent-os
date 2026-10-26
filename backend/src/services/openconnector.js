@@ -338,6 +338,7 @@ async function openConnectorFetch(path, { method = 'GET', headers = {}, body, au
 }
 
 async function callOpenConnectorMcpTool(userId, toolName, args = {}, connectionName = '') {
+  if(toolName==='execute_action')assertFloAssistConnector(userId,args.actionId);
   const env = getOpenConnectorEnvConfig();
   if (!env.mcp_url) throw new Error('OPENCONNECTOR_MCP_URL not configured');
   const runtime = getRuntimeTokenForUser(userId);
@@ -356,6 +357,19 @@ async function callOpenConnectorMcpTool(userId, toolName, args = {}, connectionN
     throw connectorExecutionError(502, parsed.structured || { message: parsed.text || `OpenConnector tool failed: ${toolName}` });
   }
   return parsed;
+}
+
+/** Read only a transit ID obtained by the server from this owner's export.
+ * Never accepts a URL, forwards credentials to redirects, or persists bytes. */
+export async function readConnectorTransitFile(userId,fileId,{fetchImpl=fetch}={}){
+  if(!/^[A-Za-z0-9_-]{16,128}(?:\.[A-Za-z0-9]{1,10})?$/.test(String(fileId||'')))throw Object.assign(new Error('Invalid exported transit file identifier'),{status:422,code:'FLOASSIST_SOURCE_READ_FAILED'});
+  const config=getOpenConnectorEnvConfig(),runtime=getRuntimeTokenForUser(userId);
+  const response=await fetchImpl(`${config.url.replace(/\/$/,'')}/api/files/${encodeURIComponent(fileId)}`,{redirect:'error',headers:{Authorization:`Bearer ${runtime.token}`,'x-oo-connector-alias':runtime.connectionName},signal:AbortSignal.timeout(30000)});
+  if(!response.ok)throw connectorExecutionError(response.status,{message:'Exported document content could not be read'});
+  const limit=5*1024*1024,chunks=[];let length=0;
+  if(Number(response.headers.get('content-length'))>limit){await response.body?.cancel();throw Object.assign(new Error('Export exceeds the 5 MiB review limit'),{status:422,code:'FLOASSIST_SOURCE_SIZE_LIMIT'});}
+  for await(const chunk of response.body){length+=chunk.length;if(length>limit)throw Object.assign(new Error('Export exceeds the 5 MiB review limit'),{status:422,code:'FLOASSIST_SOURCE_SIZE_LIMIT'});chunks.push(chunk);}
+  return Buffer.concat(chunks);
 }
 
 function parseAppsFromListApps(result) {

@@ -39,6 +39,14 @@
           <label>Timezone<input name="timezone" list="timezones" required><datalist id="timezones"><option>Asia/Singapore</option><option>Asia/Kolkata</option><option>Asia/Jakarta</option><option>Asia/Makassar</option><option>Asia/Jayapura</option></datalist></label>
           <div class="columns"><label>Morning briefing<input type="time" name="briefing_time" required></label><label>Quiet from<input type="time" name="quiet_start" required></label><label>Until<input type="time" name="quiet_end" required></label></div>
           <p class="muted">Equal quiet times mean no quiet hours. Reminders due during quiet hours arrive afterwards.</p>
+          <details><summary>Task alert timing</summary>
+            <p class="muted">Kanban completion stops alerts. Acknowledging an alert does not complete its task. Snooze and stop tracking still take priority.</p>
+            <div class="columns"><label>Repeat open tasks after (hours)<input type="number" name="task_realert_hours" min="0" max="720" required></label><label>Repeat overdue tasks after (hours)<input type="number" name="overdue_realert_hours" min="1" max="720" required></label></div>
+            <div class="columns"><label>Warn before deadline (hours; 0 = off)<input type="number" name="deadline_warning_hours" min="0" max="168" required></label><label>Maximum alerts per task in 24 hours<input type="number" name="task_alert_daily_limit" min="1" max="20" required></label></div>
+            <label>Group updates for (minutes)<input type="number" name="notification_batch_minutes" min="0" max="60" required></label>
+            <p class="muted">A verified deadline change or escalation can alert sooner, within your daily limit. Per-app settings below affect task alerts, not connection-health warnings.</p>
+            <div id="alert-app-rules"></div>
+          </details>
           <label>Autonomy<select name="preset"><option value="">Keep my current COO policy</option><option value="advisory">Advisory — read and propose</option><option value="managerial">Managerial — manage work, ask before publishing</option><option value="administrative">Administrative — manage work, finances and deletion</option></select></label>
           <label id="financial-label" hidden>Financial and destructive actions<select name="financial"><option value="approval_required">Require my approval</option><option value="autonomous">Act autonomously</option><option value="prohibited">Do not allow</option></select></label>
           <p class="muted">New accounts start in Advisory. Saving a different level updates your COO’s policy across Flolah. More specific task policies still apply.</p><ul id="policy-summary" class="muted"></ul>
@@ -58,6 +66,7 @@
         <a id="chat-link" class="button" target="_blank" rel="noopener" hidden>Open WhatsApp</a>
         <div class="examples"><p>“Remind me tomorrow at 9 to call Sam.”</p><p>“What’s on my calendar today?”</p><p>“Find a flight for my next trip.”</p></div>
         <div class="actions"><button class="secondary" id="manage" type="button">Manage setup</button><button class="secondary" id="pause" type="button">Pause checks</button></div>
+        <details><summary>Why did I receive an alert?</summary><button class="secondary small" id="load-alert-history" type="button">View recent alert decisions</button><div id="alert-history" aria-live="polite"></div></details>
         <p class="footnote">Everyday use stays in WhatsApp. <a id="management" target="_blank" rel="noopener">Open Flolah</a> only when you need more settings. For your first dashboard visit, use “Forgot password” to set a password for your verified email.</p>
       </section>
     </section>

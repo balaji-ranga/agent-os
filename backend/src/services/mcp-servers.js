@@ -392,6 +392,8 @@ export async function connectMcpServer(id, authUser, authSource = null) {
 }
 
 export async function callMcpServerTool(id, toolName, args, authUser, authSource = null) {
+  const {assertFloAssistMcpRoute}=await import('./floassist/execution-scope.js');
+  assertFloAssistMcpRoute();
   const server = getMcpServer(id, authUser);
   if (!server) throw new Error('MCP server not found');
   if (server.status !== 'healthy') throw new Error('MCP server is not healthy — connect first');
