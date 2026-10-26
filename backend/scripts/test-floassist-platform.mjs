@@ -78,6 +78,7 @@ try{
   check(run.ok,false,'no-update reply without source reads is incomplete');check(run.mode,'chat','proactive run bypasses planner');
   check(db.prepare('SELECT count(*) AS n FROM agent_goal_runs').get().n,goalCount,'no internal goal run created');
   check(chatRequests.length,1,'one direct check only');
+  check(chatRequests[0].messages.some(m=>m.role==='system'&&m.content.includes('Finishing this check does not complete')),true,'scheduled reconciliation contract is explicit at the system boundary');
   const {CHAT_INSTRUCTION_KANBAN}=await import('../src/gateway/openclaw.js');
   check(chatRequests[0].messages.some(m=>m.content.includes(CHAT_INSTRUCTION_KANBAN)),false,'Kanban instructions excluded');
   check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not call notify_ceo')),true,'platform handles notification');

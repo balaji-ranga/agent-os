@@ -751,8 +751,11 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     installSessionToolScope(scheduledSessionKey,selection);
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
     registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), ownerUserId, null, 'schedule', { scheduled_goal_run_id: runId, original_request: row.prompt, resolved_request: row.prompt });
+    const checkContract=floAssistRun?{
+      role:'system',content:`FloAssist scheduled source check (${row.source.split(':')[1]}). This is a bounded check, not a task-completion workflow. Use tools only when needed, not merely because they are available. Finishing this check does not complete, stop, resume or acknowledge any user task. Skip closed/stopped records. Never call close_orphan just to mark the scan complete: it requires exact stored app_id, account_id, source_id, obligation_key and fresh provider evidence of deletion or actual fulfillment, with source_checked, source_outcome and source_evidence. An upcoming submission remains open until fulfilled; reading its email is not fulfillment. If no reconciliation is needed, do not call tracking_update. Briefing and conflict checks report verified facts only and do not create tracking tasks. ${guidance}${['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n${TRACKING_RUN_INSTRUCTIONS}`:''}`
+    }:null;
     const { content } = await openclaw.chatCompletions(
-      openclawId, [{ role: 'user', content: prompt }], sessionUser, false,
+      openclawId, [...(checkContract?[checkContract]:[]),{ role: 'user', content: prompt }], sessionUser, false,
       {
         injectLearningsInstruction: false,
         injectKanbanInstruction: !directRun,
