@@ -68,7 +68,7 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
    if(!latest||!latest.latest_sent||input.latest_message_id!==latest.latest_message_id||input.awaiting_reply!==true||(!aged&&!overdue))
      throw Object.assign(new Error('Follow-up requires a freshly read complete mail thread, its exact latest outgoing request still awaiting a reply, and an elapsed follow-up interval or explicit reply deadline. A sent message, later incoming reply, calendar event or submission deadline is not sufficient.'),{status:409,code:'FLOASSIST_NOT_A_FOLLOWUP'});
  }
- if(module==='deadlines'&&!input.due_at)throw Object.assign(new Error('Deadline tracking requires a verified obligation due date.'),{status:400,code:'FLOASSIST_DEADLINE_REQUIRED'});
+ if(module==='deadlines'&&!input.due_at)throw Object.assign(new Error('Deadline tracking requires the due_at JSON field with the verified obligation deadline as an ISO datetime with timezone offset. A date in title/evidence does not populate due_at. Correct the input before retrying; skip this candidate if the freshly read source has no deadline.'),{status:400,code:'FLOASSIST_DEADLINE_REQUIRED'});
  if(module==='priority'&&input.urgency!=='high'&&!(input.due_at&&Date.parse(input.due_at)<=Date.now()+86400000))throw Object.assign(new Error('Priority Alerts requires a high-impact action now or an obligation due within 24 hours. Ordinary open tasks belong in their own module or briefing.'),{status:409,code:'FLOASSIST_NOT_PRIORITY'});
  const account=db.prepare('SELECT account_id FROM floassist_account_receipts WHERE owner_id=? AND app_id=?').get(owner,input.app_id);
  if(account)return {...input,account_id:account.account_id};
