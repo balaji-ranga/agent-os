@@ -740,10 +740,13 @@ if (!config.agents.defaults.sessionStore.agentId) config.agents.defaults.session
 console.log('Set default OpenClaw owner=', systemAgentId);
 config.agents.defaults.model.primary = primarySlug;
 console.log('Set agents.defaults.model.primary=', primarySlug);
-if (primaryIsOllama && !config.agents.defaults.compaction) {
+if (!config.agents.defaults.compaction) {
   config.agents.defaults.compaction = { mode: 'safeguard' };
-  console.log('Set agents.defaults.compaction.mode=safeguard for local Ollama primary');
+  console.log('Set agents.defaults.compaction.mode=safeguard');
 }
+// Tool-heavy checks can overflow inside one turn, before turn-end compaction.
+// Use the installed gateway's pressure guard; preserve explicit operator policy.
+config.agents.defaults.compaction.midTurnPrecheck ??= { enabled: true };
 if (primaryIsOllama) {
   const ocTimeoutSec = resolveLocalOllamaTimeoutSeconds(
     process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS

@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 
 const script = resolve('deploy/scripts/configure-openclaw-docker.js');
 
-function runCase({ name, baseUrl, model, marker = null, routing = false, marketingInboundAttribution = false }) {
+function runCase({ name, baseUrl, model, marker = null, routing = false, marketingInboundAttribution = false, compaction = undefined }) {
   const dir = mkdtempSync(join(tmpdir(), `flolah-openclaw-runtime-${name}-`));
   const configPath = join(dir, 'openclaw.json');
   const originalAgent = {
@@ -19,7 +19,7 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
     configPath,
     `${JSON.stringify({
       gateway: { mode: 'local' },
-      agents: { defaults: { model: { primary: model } }, list: [originalAgent] },
+      agents: { defaults: { model: { primary: model }, ...(compaction?{compaction}:{}) }, list: [originalAgent] },
       models: { providers: {} },
       plugins: { entries: { codex: { enabled: true } }, allow: ['codex'] },
       tools: { sessions: { visibility: 'agent' } },
@@ -56,6 +56,8 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
     });
     assert.equal(result.status, 0, `${name}: configure failed\n${result.stderr}\n${result.stdout}`);
     const configured = JSON.parse(readFileSync(configPath, 'utf8'));
+    assert.equal(configured.agents.defaults.compaction.midTurnPrecheck.enabled,compaction?.midTurnPrecheck?.enabled??true);
+    assert.equal(configured.agents.defaults.compaction.mode,compaction?.mode||'safeguard');
     const expectedProvider = routing ? 'litellm-secondary' : 'openai';
     assert.equal(configured.models.providers[expectedProvider].agentRuntime?.id, 'openclaw');
     if (routing) {
@@ -89,6 +91,12 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
   }
 }
 
+runCase({
+  name: 'preserve-explicit-compaction-policy',
+  baseUrl: 'https://api.openai.com/v1',
+  model: 'openai/gpt-4o-mini',
+  compaction: {mode:'default',midTurnPrecheck:{enabled:false}},
+});
 runCase({
   name: 'official-openai',
   baseUrl: 'https://api.openai.com/v1',
