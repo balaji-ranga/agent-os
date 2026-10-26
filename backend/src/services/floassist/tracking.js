@@ -93,7 +93,7 @@ function queue(db,r,kind,now,cycle=null){
   const due=r.due_at&&r.origin!=='whatsapp_request'?new Intl.DateTimeFormat('en-GB',{timeZone:prefs.timezone||'UTC',dateStyle:'medium',timeStyle:'short'}).format(new Date(r.due_at)):null;
   const details=parse(r.context_json);
   const body=kind==='clarification'?`*#${r.task_id} · ${r.title}*\nThis open task could not be confirmed from its source. Is it completed, or should I keep tracking it?`:
-    `*#${r.task_id} · ${r.title}*${due?`\n*Due:* ${due} (${prefs.timezone||'UTC'})`:''}${details.thread_summary?`\n*Context:* ${details.thread_summary}`:''}${details.requested_action?`\n*Next action:* ${details.requested_action}`:''}${details.why_now?`\n*Why now:* ${details.why_now}`:''}\n*Source:* ${r.app_id}${r.source_url?` · ${r.source_url}`:''}\nReply #${r.task_id} done, stop tracking, or snooze.`;
+    `*#${r.task_id} · ${r.title}*${due?`\n\u{1F5D3} *Due:* ${due} (${prefs.timezone||'UTC'})`:''}${details.thread_summary?`\n\n*Context:* ${details.thread_summary}`:''}${details.requested_action?`\n\u{27A1} *Next action:* ${details.requested_action}`:''}${details.why_now?`\n*Why now:* ${details.why_now}`:''}\n*Source:* ${r.app_id}${r.source_url?` · ${r.source_url}`:''}\n\n*Reply:* #${r.task_id} done, stop tracking, or snooze.`;
   const message=`*${trackingAlertHeading(db,r.owner_id,cycle)}*\n\n${body}`;
   db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(sourceKey,r.owner_id,p.agent_id,message,now,now,now+7*86400000);
   audit(db,r,'queued',kind,now);return 'queued';
