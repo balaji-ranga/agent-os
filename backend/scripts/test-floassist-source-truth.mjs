@@ -1,0 +1,25 @@
+import {withFloAssistRuntimeGuidance} from '../src/services/floassist/runtime-guidance.js';
+import {normalizeDriveReadInput} from '../src/services/floassist/drive-read-input.js';
+import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
+import {recordDeadlineText,assertDeadlineEvidence} from '../src/services/floassist/deadline-evidence.js';
+import {floAssistTaskSource} from '../src/services/floassist/task-source.js';
+const now=Date.parse('2026-10-27T00:00:00Z'),scope={owner:'a',run:'run'},quote='Please submit the report by 27 October 2026 at 3 PM SGT.';
+recordDeadlineText('a',scope,'gmail.fetch_message_by_thread_id',{data:{threadId:'t',messages:[{messageText:quote,messageTimestamp:'2026-10-26T08:00:00Z'}]}},now);
+const input={app_id:'gmail',source_id:'t',due_at:'2026-10-27T15:00:00+08:00',deadline_excerpt:quote};
+assert.equal(assertDeadlineEvidence('a',scope,input,'Asia/Singapore',now).verified,true);
+for(const bad of [{...input,deadline_excerpt:'Invented deadline by 27 October 2026'},{...input,due_at:'2026-01-07T15:00:00+08:00'},{...input,app_id:'google_drive'},{...input,due_at:'2026-10-27T12:00:00+08:00'}])assert.throws(()=>assertDeadlineEvidence('a',scope,bad,'Asia/Singapore',now),e=>e.code==='FLOASSIST_DEADLINE_EVIDENCE_REQUIRED');
+assert.throws(()=>assertDeadlineEvidence('b',scope,input,'Asia/Singapore',now));
+assert.throws(()=>assertDeadlineEvidence('a',{...scope,run:'another'},input,'Asia/Singapore',now));
+assert.throws(()=>assertDeadlineEvidence('a',scope,input,'Asia/Singapore',now+31*60000));
+const db=new Database(':memory:');assert.equal(floAssistTaskSource(db,'a',1),null);
+db.exec('CREATE TABLE floassist_task_tracking(owner_id TEXT,task_id INTEGER,app_id TEXT,account_id TEXT,source_id TEXT,source_url TEXT,obligation_key TEXT,origin TEXT,state TEXT)');
+db.prepare('INSERT INTO floassist_task_tracking VALUES (?,?,?,?,?,?,?,?,?)').run('a',1,'google_drive','own','file','https://example.test/file','action','floassist_created','open');
+assert.equal(floAssistTaskSource(db,'a',1).provider,'googledrive');assert.equal(floAssistTaskSource(db,'b',1),null);db.exec('CREATE TABLE floassist_profiles(owner_id TEXT,agent_id TEXT,status TEXT)');db.prepare('INSERT INTO floassist_profiles VALUES (?,?,?)').run('a','coo-test','active');
+const first=withFloAssistRuntimeGuidance('Custom role',db,'a','coo-test');assert.match(first,/connector_search_actions/);assert.ok(first.endsWith('Custom role'));assert.equal(withFloAssistRuntimeGuidance(first,db,'a','coo-test'),first);assert.equal(withFloAssistRuntimeGuidance(first,db,'b','coo-test').trim(),'Custom role');
+db.close();
+console.log('FLOASSIST_SOURCE_TRUTH_OK: provenance, exact content/date, metadata rejection, owner/run isolation and expiry');
+
+const bounded=normalizeDriveReadInput('googledrive.files.list',{pageSize:100,q:"mimeType='text/plain'"},{...scope,origin:'floassist:deadlines'},now);
+assert.equal(bounded.pageSize,40);assert.equal(bounded.orderBy,'modifiedTime desc');assert.match(bounded.q,/2026-10-20T00:00:00.000Z/);assert.match(bounded.q,/mimeType/);
+assert.deepEqual(normalizeDriveReadInput('googledrive.files.list',{pageSize:100},{owner:'a',origin:'whatsapp'},now),{pageSize:100});

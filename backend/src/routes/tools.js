@@ -1,4 +1,5 @@
 import {recordRunError} from '../services/floassist/source-receipts.js';
+import {floAssistTaskSource} from '../services/floassist/task-source.js';
 import {registerWhatsAppTask} from '../services/floassist/tracking.js';
 import {withFloAssistScope,resolveFloAssistScope,currentFloAssistScope} from '../services/floassist/execution-scope.js';
 /**
@@ -1868,6 +1869,7 @@ router.post('/kanban-get-task', optionalAuth, (req, res) => {
     const out = {
       ok: true,
       task_id: task.id,
+      floassist_source: floAssistTaskSource(getDb(), task.owner_user_id, task.id),
       title: task.title,
       description: loaded.description || null,
       status: task.status,
@@ -3093,6 +3095,7 @@ function resolveConnectorOwner(req, body = {}) {
 function connectorToolError(req, toolName, requestPayload, res, e, source) {
   recordRunError(e,{action:requestPayload?.action_id});
   const err = { error: e.message, code: e.code || undefined,
+    ...(e.action_discovery?{action_discovery:e.action_discovery}:{}),
     ...(e.action_input_guide?{action_input_guide:e.action_input_guide}:{}),
     provider_status: e.provider_status || undefined, retry_after_ms: e.retry_after_ms || undefined };
   if (e.retry_after_ms) res.set('Retry-After', String(Math.ceil(e.retry_after_ms / 1000)));
@@ -3198,11 +3201,18 @@ router.post('/connector-execute-action', optionalAuth, async (req, res) => {
     logTool(req, 'connector_execute_action', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {
-    if(currentFloAssistScope()?.run&&e.code==='invalid_input'&&/does not match the action schema/.test(e.message)){
+    if(e.code==='invalid_input'&&/does not match the action schema/.test(e.message)){
       try{
         const guide=await getConnectorActionGuide(resolveConnectorOwner(req,requestPayload),requestPayload.action_id);
         e.action_input_guide={input_schema:guide.input_schema,example_input:guide.example_input,guidance:'Correct the input using this schema and retry this action. A rejected input did not read the source.'};
       }catch{/* Preserve the original failure if guide discovery is unavailable. */}
+    }
+    if(e.code==='invalid_input'&&/unknown action/i.test(e.message)){
+      try{
+        const action=String(requestPayload.action_id||'');
+        const found=await searchConnectorActions(resolveConnectorOwner(req,requestPayload),action.split('.').slice(1).join(' '),{source,appId:action.split('.')[0]});
+        e.action_discovery={actions:(found.actions||[]).slice(0,8).map(({action_id,description,available,granted})=>({action_id,description,available,granted})),instruction:'The attempted action does not exist. This is not an account-permission denial. Select an available, granted action from discovery, read connector_get_action_guide and retry with that schema. Never guess another action ID.'};
+      }catch{/* Preserve the original failure when discovery itself is unavailable. */}
     }
     connectorToolError(req, 'connector_execute_action', requestPayload, res, e, source);
   }

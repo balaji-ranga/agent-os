@@ -647,7 +647,8 @@ export async function syncOrgContextToWorkspace(agent, ceoUserId, workspacePath)
           coo_name: agent.name,
           delegatees: getAgentsUnderOrchestratorForCeo(ceoUserId, agent.id),
         };
-    const agentsMd = mergeCooAgentsMd(existing, scopedCtx);
+    const {withFloAssistRuntimeGuidance}=await import('./floassist/runtime-guidance.js');
+    const agentsMd = withFloAssistRuntimeGuidance(mergeCooAgentsMd(existing, scopedCtx),getDb(),ceoUserId,agent.id);
     await workspace.writeWorkspaceFile('agents', agentsMd, {
       workspaceRoot: workspacePath,
       backup: false,

@@ -6,7 +6,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "test:floassist": "node scripts/test-floassist.mjs && node scripts/test-floassist-platform.mjs && node scripts/test-floassist-tracking.mjs && node scripts/test-floassist-backlog.mjs && node scripts/test-floassist-recovery.mjs && node scripts/test-floassist-connector-health.mjs && node scripts/test-floassist-action-history.mjs && node scripts/test-openclaw-extension-integrity.mjs && node scripts/test-native-channel-tool-budget.mjs",
+    "test:floassist": "node scripts/test-floassist.mjs && node scripts/test-floassist-platform.mjs && node scripts/test-floassist-tracking.mjs && node scripts/test-floassist-backlog.mjs && node scripts/test-floassist-recovery.mjs && node scripts/test-floassist-source-truth.mjs && node scripts/test-floassist-connector-health.mjs && node scripts/test-floassist-action-history.mjs && node scripts/test-openclaw-extension-integrity.mjs && node scripts/test-native-channel-tool-budget.mjs",
     "test:floassist:browser": "node scripts/test-floassist-browser.mjs",
     "test:ui-copilot": "node scripts/test-ui-copilot.mjs && node scripts/test-copilot-coaching.mjs && node scripts/test-copilot-screen-coverage.mjs && node scripts/test-copilot-platform-map.mjs && node scripts/test-copilot-response-contract.mjs && node scripts/test-copilot-save-intent.mjs && node scripts/test-copilot-screen-journeys.mjs && node scripts/test-ui-copilot-http.mjs",
     "test:multi-format-content": "node scripts/test-multi-format-content.mjs",

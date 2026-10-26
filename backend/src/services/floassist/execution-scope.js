@@ -45,6 +45,8 @@ export function assertFloAssistConnector(owner,action,db=getDb(),context=current
     throw Object.assign(new Error('This source belongs to another FloAssist responsibility. Use only the sources assigned to the current check.'),{status:403,code:'FLOASSIST_RESPONSIBILITY_MISMATCH'});
 }
 export function assertFloAssistCalendarRoute(owner,operation,db=getDb(),context=currentFloAssistScope()){
+  if(context&&operation.startsWith('email_'))
+    throw Object.assign(new Error('For this FloAssist request use connector_search_actions for the selected Gmail or Outlook app, read connector_get_action_guide, then execute that exact action. This productivity email tool is a separate binding, not the connected mailbox. Do not infer a mailbox permission failure from this routing correction.'),{status:409,code:'FLOASSIST_CONNECTOR_ROUTE_REQUIRED'});
   if(context&&operation.startsWith('calendar_'))
     throw Object.assign(new Error('Use the selected Calendar connector action and its guide. Productivity/ICS fallback requires an explicitly configured source route; a missing binding does not mean OAuth is disconnected.'),{status:409,code:'FLOASSIST_CONNECTOR_ROUTE_REQUIRED'});
 }

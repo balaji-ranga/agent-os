@@ -1,4 +1,5 @@
 import {resolveSourceReference,sourceReference} from './source-references.js';
+import {recordDeadlineText,assertDeadlineEvidence} from './deadline-evidence.js';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope} from './execution-scope.js';
 // Known read-action naming variants resolve only to their exact catalog operation.
@@ -24,6 +25,7 @@ export function recordSourceReceipt(owner,action,result,{db=getDb(),context=curr
  if(action==='one_drive.get_drive')account=data?.id;
  if(account)db.prepare('INSERT OR REPLACE INTO floassist_account_receipts VALUES (?,?,?,?)').run(owner,app,String(account),now);
  if(!context?.run||context.owner!==owner)return;
+ recordDeadlineText(owner,context,action,result,now);
  if(app==='gmail'&&Array.isArray(data?.messages)){
    for(const m of data.messages)if(m.messageId&&m.threadId)db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run(owner,app,m.messageId,m.threadId);
    if(action==='gmail.fetch_message_by_thread_id'&&data.threadId&&data.messages.length){
@@ -84,6 +86,10 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
      throw Object.assign(new Error('Follow-up requires a freshly read complete mail thread, its exact latest outgoing request still awaiting a reply, and an elapsed follow-up interval or explicit reply deadline. A sent message, later incoming reply, calendar event or submission deadline is not sufficient.'),{status:409,code:'FLOASSIST_NOT_A_FOLLOWUP'});
  }
  if(module==='deadlines'&&!input.due_at)throw Object.assign(new Error('Deadline tracking requires the due_at JSON field with the verified obligation deadline as an ISO datetime with timezone offset. A date in title/evidence does not populate due_at. Correct the input before retrying; skip this candidate if the freshly read source has no deadline.'),{status:400,code:'FLOASSIST_DEADLINE_REQUIRED'});
+ if(input.due_at&&['priority','deadlines','followups'].includes(module)){
+   const prefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner)?.preferences_json||'{}');
+   assertDeadlineEvidence(owner,context,input,prefs.timezone||'UTC');
+ }
  if(module==='priority'&&input.urgency!=='high'&&!(input.due_at&&Date.parse(input.due_at)<=Date.now()+86400000))throw Object.assign(new Error('Priority Alerts requires a high-impact action now or an obligation due within 24 hours. Ordinary open tasks belong in their own module or briefing.'),{status:409,code:'FLOASSIST_NOT_PRIORITY'});
  const account=db.prepare('SELECT account_id FROM floassist_account_receipts WHERE owner_id=? AND app_id=?').get(owner,input.app_id);
  if(account)return {...input,account_id:account.account_id};
@@ -121,7 +127,7 @@ function trackingKey(db,owner,input,context=currentFloAssistScope()){
 export function resolveTrackingErrors(db,owner,input,context=currentFloAssistScope()){
  if(!context?.run||context.owner!==owner)return;
  ensureSourceReceipts(db);
- db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_CONTEXT_REQUIRED','FLOASSIST_DEADLINE_REQUIRED')").run(Date.now(),owner,context.run,trackingKey(db,owner,input,context));
+ db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_CONTEXT_REQUIRED','FLOASSIST_DEADLINE_REQUIRED','FLOASSIST_DEADLINE_EVIDENCE_REQUIRED')").run(Date.now(),owner,context.run,trackingKey(db,owner,input,context));
  const original=input.corrects_source_id;
  if(typeof original!=='string'||!original||original===input.source_id)return;
  const [,app,target]=JSON.parse(trackingKey(db,owner,input,context));

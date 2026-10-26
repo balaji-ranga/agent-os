@@ -1,6 +1,7 @@
 const string={type:'string'};
 const identity={app_id:{type:'string',description:'Selected FloAssist app ID, for example gmail or google_calendar.'},account_id:{type:'string',description:'Exact account_id from tracking_list or the connected provider account.'},source_id:{type:'string',description:'Exact provider message/thread/event ID; never invent IDs.'},obligation_key:{type:'string',description:'Reuse the existing obligation_key, otherwise action.'}};
 identity.corrects_source_id={type:'string',description:'Only when correcting a previously rejected unverified source ID: the exact rejected ID. source_id must identify the verified actual source, with its full current thread read first. Never infer identity solely from similar wording or a candidate hint.'};
+identity.deadline_excerpt={type:'string',minLength:12,maxLength:1200,description:'Required with due_at: exact source passage stating the outstanding action and its deadline, including year (or today/tomorrow anchored to the original message). Never quote file metadata, a task summary, or sent/created/modified timestamps as a deadline.'};
 const object=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 export const floassistSchemas={
  floassist_status:object({}),
@@ -23,7 +24,7 @@ export function scopedFloAssistSchema(name,schema,scope){
   const required=[...schema.required];
   const properties={...schema.properties,category:{type:'string',enum:[module]}};
   if(module==='deadlines'){
-   required.push('due_at');
+   required.push('due_at','deadline_excerpt');
    properties.due_at={type:'string',description:'Verified obligation deadline as ISO datetime WITH timezone offset. Skip candidates without an explicit deadline; never use message timestamps or task SLA.'};
   }
   if(module==='followups')required.push('latest_message_id','awaiting_reply');

@@ -11,7 +11,7 @@ export function responsibilityPrompt(product,preferences,responsibility){
 
 export function sourceReadInstructions(preferences,id){
  const selected=responsibilitySources(preferences,id);
- return 'Required source coverage (account/profile, settings and calendar-list health calls do NOT satisfy it): '+selected.map(key=>{
+ return (id==='deadlines'?'New Drive candidate discovery is limited to files modified in the last seven days, newest first, at most 40 per page. Recheck existing tracked sources directly by ID. A file list is metadata only: read document content before extracting an obligation. Every due_at needs deadline_excerpt quoting the actual action and date from current content. If document text cannot be retrieved, report that coverage gap; do not create a deadline from a filename or timestamp. ':'')+'Required source coverage (account/profile, settings and calendar-list health calls do NOT satisfy it): '+selected.map(key=>{
   const app=sourceProduct.connectors.find(a=>a.id===key);
   return `${key}: read actual content using ${app?.content_read_actions?.join(' or ')||'the provider content-list action from discovery'}; read the exact action guide first`;
  }).join('; ')+'. For briefing, fetch today’s calendar events in the owner timezone and recent mail, not just account metadata. Do not finish until every selected source has been checked, or report the precise blocker. For deadline candidates inspect the complete current thread before observing; this supersedes any older single-message-only guidance.';

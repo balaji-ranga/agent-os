@@ -1,0 +1,14 @@
+const START='<!-- FLOASSIST_RUNTIME_START -->',END='<!-- FLOASSIST_RUNTIME_END -->';
+export function withFloAssistRuntimeGuidance(markdown,db,owner,agent){
+  const start=markdown.indexOf(START),end=markdown.indexOf(END);
+  const clean=start>=0&&end>=start?markdown.slice(0,start)+markdown.slice(end+END.length):markdown;
+  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get())return clean;
+  const p=db.prepare('SELECT agent_id,status FROM floassist_profiles WHERE owner_id=?').get(owner);
+  if(!p||p.agent_id!==agent||p.status!=='active')return clean;
+  return `${START}
+## Mandatory FloAssist connected-source routing
+For this owner's WhatsApp personal-assistant requests, use floassist_status for selected apps and timezone. For Gmail, Outlook, Calendar or Drive reads, first call connector_search_actions scoped to the selected app and requested operation, then connector_get_action_guide, then connector_execute_action with the exact returned action ID and schema. Never invent action names, try spelling variants, or treat an invalid action as a permission denial. Generic email/productivity tools and CRM notes are separate data sources, not substitutes for these connected apps. Do not delegate a simple connected-source read.
+For task questions, read kanban_get_task.floassist_source or the exact floassist_tracking_list record. Its app_id/source_id are authoritative. A Drive file is not email or a calendar event. Retrieve the exact source before describing its contents; the authenticated owner may request their source content. Privacy guidance forbids retaining raw bodies in memory, not authorized reads. Bound large reads and report actual missing scope/content/errors, not a generic system constraint.
+After an invalid action, use its returned discovery suggestions or call discovery again, then read the guide. Do not repeat a failed guessed action. After one corrected attempt fails, report the precise unresolved blocker. Existing grants, owner isolation and action policies remain mandatory.
+${END}\n${clean.trimStart()}`;
+}

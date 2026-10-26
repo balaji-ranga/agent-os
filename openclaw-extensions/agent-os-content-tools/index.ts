@@ -654,7 +654,7 @@ async function callInvoke(
   }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
-  const messageChannel = toolCtx?.messageChannel || toolCtx?.deliveryContext?.channel;
+  const messageChannel = toolCtx?.messageChannel || toolCtx?.deliveryContext?.channel || toolCtx?.channel || api.context?.messageChannel || api.context?.channel;
   if (messageChannel) headers["x-openclaw-message-channel"] = String(messageChannel);
   if (toolCtx?.agentAccountId) headers["x-openclaw-account-id"] = String(toolCtx.agentAccountId);
   if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
