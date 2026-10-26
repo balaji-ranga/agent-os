@@ -212,3 +212,21 @@ Deadline Tracking remains under acceptance testing. Model-generated source-ID er
 ### Final recovery retest, 26 October 23:05 SGT
 
 The blocking repeat-Deadline regression passed twice on revision d40388f6 after requiring source-check evidence in the scheduled reconciliation schema. All five responsibilities passed live with zero unresolved verification errors, and native COO chat passed a synthetic probe. See the implementation/testing record for run IDs. User confirmed earlier notification content and requested formatting improvements, now deployed. This supersedes the earlier failed-run checkpoint for the repaired execution paths; broader provider, semantic and rollout acceptance gaps remain open. Recurring schedules remain paused.
+
+## FA-GAP-011 — Verified source content and native read reliability
+
+Priority: Critical. Status: partly repaired, live production acceptance open (27 October).
+
+Ensure task provenance survives every Kanban/COO read; do not describe Drive media as email/calendar. Metadata, filenames, snippets and created/modified timestamps must not independently become deadlines. Unknown actions and invalid IDs must be reported as tool failures, not invented privacy restrictions or successful reads. A successful chat reply is not proof that the requested source content was retrieved.
+
+Delivered in e9dc3b9d / 672a420e: structured owner-scoped task provenance, mandatory native routing guidance, native error signaling, bounded Drive deadline discovery and exact transient Gmail passage/date checks. The erroneous video-derived January task was paused and its unsupported due date removed with an audit note.
+
+Open acceptance:
+- Native WhatsApp consistently discovers valid actions and reads complete requested content using real provider IDs, including follow-up turns and new sessions.
+- Provider-specific full-content verification for Outlook, Drive and OneDrive; the current new deadline verifier supports Gmail only and fails closed for other sources.
+- Broader date-language/timezone parsing, explicitly confirmed old obligations, and meaningful clarification for unsupported or ambiguous sources.
+- No notification can imply successful content verification from a listing or failed tool result.
+
+Test prerequisites: synthetic metadata/body/invalid-ID fixtures for harness tests; authorized owner connections and token-bounded reads for live tests; original source retained; configured COO model and native WhatsApp tool path; notification testing only in an approved window with quiet hours restored. Preserve stopped/completed tasks, owner isolation and existing action policies. Current recurring schedules remain paused.
+
+27 October live retest: native full Gmail retrieval now has tool-record proof (one nonempty body), and task provenance was correctly reported as Drive in a fresh session. One invalid action was attempted before recovery; native consistency and broad provider-content acceptance remain open. Runtime extension integrity and health checks pass. Quiet hours and five paused schedules were preserved.
