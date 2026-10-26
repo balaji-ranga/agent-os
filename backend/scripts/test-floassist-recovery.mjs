@@ -2,6 +2,7 @@ import {normalizeDriveReadInput,normalizeDriveReadError} from '../src/services/f
 import {connectorFailureState} from '../src/services/floassist/connector-health.js';
 import {sourceReadInstructions,reconciliationCandidates} from '../src/services/floassist/responsibilities.js';
 import assert from 'node:assert/strict';
+import {verifiedTrackingInput} from '../src/services/floassist/source-receipts.js';
 import Database from 'better-sqlite3';
 import {expandCalendarSelection,assertCalendarCoverage} from '../src/services/floassist/calendar-coverage.js';
 import {floassistSchemas,scopedFloAssistSchema} from '../../openclaw-extensions/agent-os-content-tools/floassist-schemas.js';
@@ -88,5 +89,21 @@ assert.deepEqual(normalizeDriveReadInput('googledrive.files.list',{includeItemsF
 assert.deepEqual(normalizeDriveReadInput('googledrive.files.list',{includeItemsFromAllDrives:true},{}),{includeItemsFromAllDrives:true});
 assert.equal(connectorFailureState(normalizeDriveReadError('googledrive.files.list',{message:'The supportsAllDrives parameter was not set to true.',code:'authorization_failed',provider_status:403})),null);
 assert.equal(connectorFailureState(normalizeDriveReadError('googledrive.files.list',{message:'invalid_grant',provider_status:401})),'authorization');
+const deadlineSchema=scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'deadlines'});
+assert.ok(deadlineSchema.required.includes('due_at'));
+assert.equal(deadlineSchema.properties.due_at.type,'string');
+assert.ok(!floassistSchemas.floassist_tracking_observe.required.includes('due_at'));
+const followSchema=scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'followups'});
+assert.ok(followSchema.required.includes('latest_message_id'));
+assert.ok(followSchema.required.includes('awaiting_reply'));
+recordSourceReceipt('owner','gmail.fetch_emails',{data:{messages:[{messageId:'new-message',threadId:'new-thread'}]}},{db,context});
+assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'new-message'},context),e=>{
+ assert.equal(e.code,'FLOASSIST_THREAD_READ_REQUIRED');
+ assert.deepEqual(e.next_action.input,{action_id:'gmail.fetch_message_by_thread_id',input:{threadId:'new-thread'}});
+ assert.equal(e.next_action.tool,'connector_execute_action');
+ return true;
+});
+assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'invented-id'},context),e=>e.code==='FLOASSIST_SOURCE_NOT_VERIFIED'&&!e.next_action);
+assert.throws(()=>verifiedTrackingInput(db,'different-owner',{...input,source_id:'new-message'},context),e=>e.code==='FLOASSIST_SOURCE_NOT_VERIFIED');
 db.close();
-console.log('FloAssist recovery: 54 assertions passed');
+console.log('FloAssist recovery: source isolation, exact recovery action and required deadline/followup schemas passed');

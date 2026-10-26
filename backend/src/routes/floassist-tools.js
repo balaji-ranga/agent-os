@@ -11,7 +11,7 @@ const run=fn=>async(req,res)=>{try{
   const owner=resolveToolOwnerUserId(req,req.body||{},resolveAuthenticatedCeoUserId);
   const service=getFloAssist();service.profile(owner);
   res.json({ok:true,...await fn(owner,req.body||{},service)});
-}catch(e){recordRunError(e,{trackingInput:req.path==='/floassist-tracking-observe'?req.body:undefined});res.status(e.status||500).json({ok:false,error:e.status?e.message:'FloAssist operation failed.',code:e.code});}};
+}catch(e){recordRunError(e,{trackingInput:req.path==='/floassist-tracking-observe'?req.body:undefined});res.status(e.status||500).json({ok:false,error:e.status?e.message:'FloAssist operation failed.',code:e.code,...(e.next_action?{next_action:e.next_action}:{})});}};
 router.post('/floassist-status',run((owner,_b,s)=>s.view(owner)));
 router.post('/floassist-reminder-create',run((owner,b)=>({reminder:createReminder(getDb(),owner,b)})));
 router.post('/floassist-reminder-list',run(owner=>({reminders:listReminders(getDb(),owner)})));
