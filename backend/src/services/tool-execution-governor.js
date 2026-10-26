@@ -1,6 +1,7 @@
 import {linkActionContext,notifyActionOutcome} from './floassist/action-history.js';
 import {lookupSessionExecutionContext} from './tool-owner-scope.js';
 import {canRetryTrackingObservation} from './floassist/source-receipts.js';
+import {currentFloAssistScope} from './floassist/execution-scope.js';
 /**
  * Platform execution governor for OpenClaw content-tool calls.
  *
@@ -199,7 +200,8 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
   const canonicalParams = canonicalToolParams(params);
   const key = executionKey({ sessionKey, traceId, ownerUserId, agentId });
   const fp = fingerprint(toolName, canonicalParams);
-  if (!behaviour.repeat_allowed && behaviour.duplicate_window_sec > 0) {
+  const floAssistGuide=toolName==='connector_get_action_guide'&&currentFloAssistScope()?.run;
+  if (!floAssistGuide && !behaviour.repeat_allowed && behaviour.duplicate_window_sec > 0) {
     const prior = getDb().prepare(
       `SELECT id, observation_status, reason_code, created_at FROM tool_execution_actions
         WHERE owner_user_id = ? AND execution_key = ? AND action_fingerprint = ?
@@ -264,6 +266,8 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
     status = 'transient_error'; reason_code = httpStatus === 429 ? 'rate_limited' : 'provider_unavailable'; retryable = true; progress = false;
   } else if (httpStatus >= 400) {
     status = 'permanent_error'; reason_code = data?.code || 'request_rejected'; progress = false;
+    if(toolName==='floassist_tracking_observe'&&['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED'].includes(reason_code))retryable=true;
+    if(toolName==='connector_execute_action'&&data?.action_input_guide)retryable=true;
   } else if (hasEmptyPayload(data)) {
     status = 'empty'; reason_code = 'no_evidence'; progress = false;
   }

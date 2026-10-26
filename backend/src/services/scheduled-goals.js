@@ -1,5 +1,6 @@
 import {claimScheduledRun} from './scheduled-run-claim.js';
 import {runEvidenceSummary} from './floassist/source-receipts.js';
+import {responsibilitySources} from './floassist/responsibilities.js';
 /**
  * CEO scheduled goals — durable schedules for agent prompts.
  * Pause/delete are status/row only; platform tick ignores non-active; survives restarts.
@@ -609,7 +610,8 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const agent = resolveAgentForOwner(ownerUserId, row.agent_id);
   // A schedule steer is one-fire guidance, not a permanent prompt/cadence change.
   const scheduleGuidanceNotes = consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`);
-  const guidance = steeringPrompt(scheduleGuidanceNotes)+(String(row.source||'').startsWith('floassist:')
+  const floAssistPrefs=String(row.source||'').startsWith('floassist:')?JSON.parse(db().prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(ownerUserId)?.preferences_json||'{}'):null;
+  const guidance = steeringPrompt(scheduleGuidanceNotes)+(floAssistPrefs?`\nCurrent responsibility source boundary (supersedes an older saved source list): ${responsibilitySources(floAssistPrefs,row.source.split(':')[1]).join(', ')}. Other apps are checked by their own responsibility. Scheduled scans must never call tracking_update with track, stop, snooze or acknowledge. Those require a user instruction. `:'')+(String(row.source||'').startsWith('floassist:')
     ? '\nConnector verification protocol: Before each distinct connector action, call connector_get_action_guide and use its exact input_schema (including required fields); do not guess camelCase or snake_case names. If an input is rejected, correct it using the returned schema and retry. For Gmail, use the provider threadId from a fresh discovery result, not a message ID or a remembered task identifier. Read the full current thread before floassist_tracking_observe. A suppressed candidate is a completed relevance check, not a reason to force an alert. An unavailable source must be reported as incomplete, never silently replaced with memory.' : '');
   handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
   const steeredPrompt = `[scheduled_goal_id: ${row.id}]\n[run_key: ${runKey}]\n` + row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${TRACKING_RUN_INSTRUCTIONS}`:'');

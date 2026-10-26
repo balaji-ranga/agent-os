@@ -46,6 +46,8 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  if(!context?.run)return input;
  ensureSourceReceipts(db);
  input={...input};
+ const run=db.prepare('SELECT goal_id,run_key FROM scheduled_goal_runs WHERE id=? AND owner_user_id=?').get(context.run,owner);
+ if(run){input.scheduled_goal_id=run.goal_id;input.run_key=run.run_key;}
  const module=context.origin?.split(':')[1];
  if(['priority','deadlines','followups'].includes(module))input.category=module;
  const allowed={priority:['gmail','outlook'],followups:['gmail','outlook'],deadlines:['gmail','outlook','google_drive','onedrive']}[module];
@@ -72,6 +74,15 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  return input;
 }
 export const isTrackingExclusion=error=>['FLOASSIST_NOT_PRIORITY','FLOASSIST_NOT_A_FOLLOWUP'].includes(error?.code);
+export function canonicalThreadInput(db,owner,action,input,context=currentFloAssistScope()){
+ if(!context?.run||context.owner!==owner||action!=='gmail.fetch_message_by_thread_id'||!input.threadId)return input;
+ ensureSourceReceipts(db);
+ const mapped=db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,'gmail',input.threadId);
+ return mapped?{...input,threadId:mapped.thread_id}:input;
+}
+export function assertScheduledTrackingUpdate(input,context=currentFloAssistScope()){
+ if(context?.run&&!['clarify','close_orphan'].includes(input.action))throw Object.assign(new Error('A scheduled scan cannot change user tracking preferences. Use floassist_tracking_observe after reading the current full thread; do not resume, stop, snooze or acknowledge tasks without a user request.'),{status:403,code:'FLOASSIST_USER_INSTRUCTION_REQUIRED'});
+}
 function trackingKey(db,owner,input){
  const thread=db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,input.app_id||'',input.source_id||'');
  return JSON.stringify(['tracking',input.app_id||'',thread?.thread_id||input.source_id||'']);

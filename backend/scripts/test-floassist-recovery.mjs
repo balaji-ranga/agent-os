@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import {ensureSourceReceipts,recordSourceReceipt,recordRunError,runEvidenceSummary,resolveTrackingErrors,canRetryTrackingObservation,resolveConnectorSchemaError,isTrackingExclusion} from '../src/services/floassist/source-receipts.js';
+import {ensureSourceReceipts,recordSourceReceipt,recordRunError,runEvidenceSummary,resolveTrackingErrors,canRetryTrackingObservation,resolveConnectorSchemaError,isTrackingExclusion,canonicalThreadInput,assertScheduledTrackingUpdate} from '../src/services/floassist/source-receipts.js';
 const db=new Database(':memory:');
 db.exec('CREATE TABLE floassist_profiles(owner_id TEXT,preferences_json TEXT)');
+db.exec('CREATE TABLE scheduled_goal_runs(id TEXT,owner_user_id TEXT,goal_id TEXT,run_key TEXT)');
 db.prepare('INSERT INTO floassist_profiles VALUES (?,?)').run('owner','{}');
 ensureSourceReceipts(db);
 const context={owner:'owner',run:'run',origin:'floassist:priority'};
@@ -29,5 +30,11 @@ assert.equal(runEvidenceSummary(db,'owner','run').errors,2); // real provider fa
 assert.equal(isTrackingExclusion({code:'FLOASSIST_NOT_PRIORITY'}),true);
 assert.equal(isTrackingExclusion({code:'FLOASSIST_THREAD_READ_REQUIRED'}),false);
 assert.equal(canRetryTrackingObservation(db,'owner',{...input,urgency:'normal'},previous,context),true);
+assert.deepEqual(canonicalThreadInput(db,'owner','gmail.fetch_message_by_thread_id',{threadId:'message'},context),{threadId:'thread'});
+assert.deepEqual(canonicalThreadInput(db,'other-owner','gmail.fetch_message_by_thread_id',{threadId:'message'},context),{threadId:'message'});
+assert.deepEqual(canonicalThreadInput(db,'owner','gmail.fetch_message_by_thread_id',{threadId:'unknown'},context),{threadId:'unknown'});
+for(const action of ['track','stop','snooze','acknowledge'])assert.throws(()=>assertScheduledTrackingUpdate({action},context),/user request/);
+assert.doesNotThrow(()=>assertScheduledTrackingUpdate({action:'clarify'},context));
+assert.doesNotThrow(()=>assertScheduledTrackingUpdate({action:'track'},{owner:'owner',origin:'whatsapp'}));
 db.close();
-console.log('FloAssist recovery: 12 assertions passed');
+console.log('FloAssist recovery: 21 assertions passed');
