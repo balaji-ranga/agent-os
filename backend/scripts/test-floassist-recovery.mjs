@@ -1,3 +1,4 @@
+import {sourceReference,resolveSourceReference,connectorReferenceInput,connectorReferenceResult,trackingReferenceResult} from '../src/services/floassist/source-references.js';
 import {normalizeDriveReadInput,normalizeDriveReadError} from '../src/services/floassist/drive-read-input.js';
 import {connectorFailureState} from '../src/services/floassist/connector-health.js';
 import {sourceReadInstructions,reconciliationCandidates} from '../src/services/floassist/responsibilities.js';
@@ -103,7 +104,7 @@ assert.ok(followSchema.required.includes('awaiting_reply'));
 recordSourceReceipt('owner','gmail.fetch_emails',{data:{messages:[{messageId:'new-message',threadId:'new-thread'}]}},{db,context});
 assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'new-message'},context),e=>{
  assert.equal(e.code,'FLOASSIST_THREAD_READ_REQUIRED');
- assert.deepEqual(e.next_action.input,{action_id:'gmail.fetch_message_by_thread_id',input:{threadId:'new-thread'}});
+ assert.deepEqual(e.next_action.input,{action_id:'gmail.fetch_message_by_thread_id',input:{threadId:sourceReference(db,'owner','gmail','new-thread',context)}});
  assert.equal(e.next_action.tool,'connector_execute_action');
  return true;
 });
@@ -122,5 +123,31 @@ assert.deepEqual(db.prepare('SELECT rejected_id,verified_id FROM floassist_sourc
 recordRunError({code:'FLOASSIST_SOURCE_NOT_VERIFIED'},{db,context,trackingInput:{...input,source_id:'new-thread'}});
 resolveTrackingErrors(db,'owner',{...input,corrects_source_id:'new-thread'},context);
 assert.equal(unresolved('new-thread'),1); // a real source must be resolved on its own evidence
+
+const ref=sourceReference(db,'owner','gmail','thread',context);
+assert.equal(sourceReference(db,'owner','gmail','thread',context),ref);
+assert.equal(resolveSourceReference(db,'owner','gmail',ref,context),'thread');
+assert.throws(()=>resolveSourceReference(db,'owner','google_drive',ref,context),/Unknown source reference/);
+assert.throws(()=>resolveSourceReference(db,'owner','gmail',ref,{...context,run:'fresh-run'}),/Unknown source reference/);
+assert.throws(()=>resolveSourceReference(db,'other','gmail',ref,{owner:'other',run:'run'}),/Unknown source reference/);
+const projected=connectorReferenceResult(db,'owner','gmail.fetch_message_by_thread_id',{text:'duplicate',data:{threadId:'thread',messages:[{messageId:'message',messageText:'body thread',labelIds:['SENT']}] }},context);
+assert.equal(projected.text,undefined);
+assert.equal(projected.data.threadId,ref);
+assert.equal(projected.data.messages[0].messageText,'body thread');
+assert.deepEqual(projected.data.messages[0].labelIds,['SENT']);
+assert.deepEqual(connectorReferenceInput(db,'owner','gmail.fetch_message_by_thread_id',{threadId:ref},context),{threadId:'thread'});
+assert.equal(verifiedTrackingInput(db,'owner',{...input,source_id:ref},context).source_id,'thread');
+const unread=sourceReference(db,'owner','gmail','new-thread',context);
+assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:unread},context),e=>e.code==='FLOASSIST_THREAD_READ_REQUIRED');
+recordRunError({code:'FLOASSIST_THREAD_READ_REQUIRED'},{db,context,trackingInput:{...input,source_id:ref}});
+resolveTrackingErrors(db,'owner',{...input,source_id:ref},context);
+assert.equal(unresolved('thread'),0);
+const listed=trackingReferenceResult(db,'owner',{tasks:[{app_id:'gmail',source_id:'thread',account_id:'own',source_url:'https://example.test/thread'}]},context);
+assert.equal(listed.tasks[0].source_id,ref);
+assert.equal(listed.tasks[0].account_id,'own');
+assert.equal(listed.tasks[0].source_url,'https://example.test/thread');
+const calendar={data:{id:'calendar',items:[]}};
+assert.equal(connectorReferenceResult(db,'owner','googlecalendar.list_events',calendar,context),calendar);
+assert.equal(connectorReferenceResult(db,'owner','gmail.fetch_emails',calendar,null),calendar);
 db.close();
 console.log('FloAssist recovery: source isolation, exact recovery action and required deadline/followup schemas passed');

@@ -1,3 +1,4 @@
+import {resolveSourceReference,sourceReference} from './source-references.js';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope} from './execution-scope.js';
 // Known read-action naming variants resolve only to their exact catalog operation.
@@ -54,6 +55,8 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  ensureSourceReceipts(db);
  input={...input};
  input.app_id=providers[input.app_id]||input.app_id;
+ input.source_id=resolveSourceReference(db,owner,input.app_id,input.source_id,context);
+ input.latest_message_id=resolveSourceReference(db,owner,input.app_id,input.latest_message_id,context);
  const run=db.prepare('SELECT goal_id,run_key FROM scheduled_goal_runs WHERE id=? AND owner_user_id=?').get(context.run,owner);
  if(run){input.scheduled_goal_id=run.goal_id;input.run_key=run.run_key;}
  const module=context.origin?.split(':')[1];
@@ -67,11 +70,11 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
    const rejected=String(input.source_id||'');
    const distance=id=>Math.abs(id.length-rejected.length)+[...id].reduce((n,c,i)=>n+(c!==rejected[i]?1:0),0);
    const candidates=db.prepare("SELECT source_id FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id NOT LIKE '@%' LIMIT 200").all(owner,context.run,input.app_id||'').map(r=>r.source_id).sort((a,b)=>distance(a)-distance(b)||a.localeCompare(b)).slice(0,5);
-   throw Object.assign(new Error('Source ID is not verified in this run. Candidate IDs are hints, not automatic matches. Identify the actual source from connector evidence, read its complete thread, and resubmit with its exact ID and corrects_source_id set to the rejected ID. Skip the candidate if identity remains uncertain.'),{status:409,code:'FLOASSIST_SOURCE_NOT_VERIFIED',next_action:{rejected_source_id:rejected,verified_source_candidates:candidates,correction_field:'corrects_source_id'}});
+   throw Object.assign(new Error('Source ID is not verified in this run. Candidate IDs are hints, not automatic matches. Identify the actual source from connector evidence, read its complete thread, and resubmit with its exact ID and corrects_source_id set to the rejected ID. Skip the candidate if identity remains uncertain.'),{status:409,code:'FLOASSIST_SOURCE_NOT_VERIFIED',next_action:{rejected_source_id:rejected,verified_source_candidates:candidates.map(id=>sourceReference(db,owner,input.app_id,id,context)),correction_field:'corrects_source_id'}});
  }
  if(!input.requested_action?.trim()||!input.why_now?.trim()||!input.thread_summary?.trim())throw Object.assign(new Error('Provide requested_action, why_now and a concise thread_summary from current evidence. A task title and date alone are not an actionable alert.'),{status:400,code:'FLOASSIST_CONTEXT_REQUIRED'});
  const threadState=db.prepare('SELECT * FROM floassist_thread_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND thread_id=?').get(owner,context.run,input.app_id,input.source_id);
- if(input.app_id==='gmail'&&!threadState)throw Object.assign(new Error('Read the full current Gmail thread before creating or repeating an alert. A list result or old sent message may have been superseded by a later reply.'),{status:409,code:'FLOASSIST_THREAD_READ_REQUIRED',next_action:{tool:'connector_execute_action',input:{action_id:'gmail.fetch_message_by_thread_id',input:{threadId:input.source_id}},instruction:'Read this exact thread, reassess its latest state, then submit corrected tracking input only if an obligation remains. No task was created.'}});
+ if(input.app_id==='gmail'&&!threadState)throw Object.assign(new Error('Read the full current Gmail thread before creating or repeating an alert. A list result or old sent message may have been superseded by a later reply.'),{status:409,code:'FLOASSIST_THREAD_READ_REQUIRED',next_action:{tool:'connector_execute_action',input:{action_id:'gmail.fetch_message_by_thread_id',input:{threadId:sourceReference(db,owner,input.app_id,input.source_id,context)}},instruction:'Read this exact thread, reassess its latest state, then submit corrected tracking input only if an obligation remains. No task was created.'}});
  if(module==='followups'){
    const latest=threadState;
    const prefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner).preferences_json);
@@ -108,7 +111,9 @@ export function scheduledTrackingExclusion(db,owner,input,context=currentFloAssi
 export function assertScheduledTrackingUpdate(input,context=currentFloAssistScope()){
  if(context?.run&&!['clarify','close_orphan'].includes(input.action))throw Object.assign(new Error('A scheduled scan cannot change user tracking preferences. Use floassist_tracking_observe after reading the current full thread; do not resume, stop, snooze or acknowledge tasks without a user request.'),{status:403,code:'FLOASSIST_USER_INSTRUCTION_REQUIRED'});
 }
-function trackingKey(db,owner,input){
+function trackingKey(db,owner,input,context=currentFloAssistScope()){
+ input={...input};
+ try{input.source_id=resolveSourceReference(db,owner,providers[input.app_id]||input.app_id,input.source_id,context);}catch{}
  const app=providers[input.app_id]||input.app_id||'';
  const thread=db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,app,input.source_id||'');
  return JSON.stringify(['tracking',app,thread?.thread_id||input.source_id||'']);
@@ -116,10 +121,10 @@ function trackingKey(db,owner,input){
 export function resolveTrackingErrors(db,owner,input,context=currentFloAssistScope()){
  if(!context?.run||context.owner!==owner)return;
  ensureSourceReceipts(db);
- db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_CONTEXT_REQUIRED','FLOASSIST_DEADLINE_REQUIRED')").run(Date.now(),owner,context.run,trackingKey(db,owner,input));
+ db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_CONTEXT_REQUIRED','FLOASSIST_DEADLINE_REQUIRED')").run(Date.now(),owner,context.run,trackingKey(db,owner,input,context));
  const original=input.corrects_source_id;
  if(typeof original!=='string'||!original||original===input.source_id)return;
- const [,app,target]=JSON.parse(trackingKey(db,owner,input));
+ const [,app,target]=JSON.parse(trackingKey(db,owner,input,context));
  // An explicit correction can only resolve an invented/mistyped identifier,
  // never a real unread source or another failed connector operation.
  if(db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,context.run,app,original))return;
@@ -143,7 +148,7 @@ export function resolveConnectorSchemaError(owner,action,{db=getDb(),context=cur
 export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,action}={}){
  if(!context?.run)return;ensureSourceReceipts(db);
  const schemaAction=action&&error?.code==='invalid_input'&&(/does not match the action schema/.test(error.message)?action:/^unknown action:/.test(error.message)?readActionAliases[action]:null);
- const key=trackingInput?trackingKey(db,context.owner,trackingInput):schemaAction?JSON.stringify(['schema',schemaAction]):null;
+ const key=trackingInput?trackingKey(db,context.owner,trackingInput,context):schemaAction?JSON.stringify(['schema',schemaAction]):null;
  db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at,operation_key) VALUES (?,?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now(),key);
 }
 export function runEvidenceSummary(db,owner,runId){

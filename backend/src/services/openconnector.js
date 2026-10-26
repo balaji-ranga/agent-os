@@ -1,6 +1,7 @@
 import {normalizeDriveReadInput,normalizeDriveReadError} from './floassist/drive-read-input.js';
 import {currentFloAssistScope} from './floassist/execution-scope.js';
 import {recordSourceReceipt,resolveConnectorSchemaError,canonicalThreadInput} from './floassist/source-receipts.js';
+import {connectorReferenceInput,connectorReferenceResult} from './floassist/source-references.js';
 import {projectFloAssistMailResult} from './floassist/mail-result.js';
 import {expandCalendarSelection,assertCalendarCoverage} from './floassist/calendar-coverage.js';
 import {assertFloAssistConnector,validateFloAssistMailWindow} from './floassist/execution-scope.js';
@@ -762,6 +763,7 @@ export async function executeConnectorAction(
 ) {
   const id = String(actionId || '').trim();
   assertFloAssistConnector(userId,id);
+  input=connectorReferenceInput(db(),userId,id,input);
   input=normalizeDriveReadInput(id,input);
   input=canonicalThreadInput(db(),userId,id,input);
   input=await expandCalendarSelection(id,input,pageInput=>executeConnectorAction(userId,'googlecalendar.list_calendars',pageInput,{connectionName,authorizationRetryDelaysMs,...executionContext}));
@@ -847,7 +849,7 @@ export async function executeConnectorAction(
       recordSourceReceipt(userId,id,result);
       resolveConnectorSchemaError(userId,id);
       try{recordFloAssistConnectorHealth(userId,appGuess,'available');}catch(e){console.warn('[floassist-health] observation unavailable');}
-      return result;
+      return connectorReferenceResult(db(),userId,id,result);
     } catch (error) {
       normalizeDriveReadError(id,error);
       const message = String(error?.message || error || '');
