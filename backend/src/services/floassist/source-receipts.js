@@ -88,6 +88,18 @@ export function canonicalThreadInput(db,owner,action,input,context=currentFloAss
  const mapped=db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,'gmail',input.threadId);
  return mapped?{...input,threadId:mapped.thread_id}:input;
 }
+// A scheduled responsibility cannot reconcile stopped or unrelated tracking.
+// Return a relevance exclusion without changing task state; eligible tasks still
+// pass through the exact provenance and provider-evidence checks in updateTracking.
+export function scheduledTrackingExclusion(db,owner,input,context=currentFloAssistScope()){
+ if(!context?.run||context.owner!==owner)return null;
+ const module=context.origin?.split(':')[1];
+ const task=db.prepare('SELECT state,categories_json FROM floassist_task_tracking WHERE owner_id=? AND task_id=?').get(owner,input.task_id);
+ if(!task)return null;
+ if(task.state==='stopped')return {suppressed:true,reason:'tracking_stopped',message:'The user stopped tracking this task. Leave it unchanged.'};
+ if(!JSON.parse(task.categories_json||'[]').includes(module))return {suppressed:true,reason:'different_responsibility',message:'This task belongs to a different responsibility. Leave it unchanged; do not retry this reconciliation.'};
+ return null;
+}
 export function assertScheduledTrackingUpdate(input,context=currentFloAssistScope()){
  if(context?.run&&!['clarify','close_orphan'].includes(input.action))throw Object.assign(new Error('A scheduled scan cannot change user tracking preferences. Use floassist_tracking_observe after reading the current full thread; do not resume, stop, snooze or acknowledge tasks without a user request.'),{status:403,code:'FLOASSIST_USER_INSTRUCTION_REQUIRED'});
 }

@@ -1,4 +1,4 @@
-import {verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate} from '../services/floassist/source-receipts.js';
+import {verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion} from '../services/floassist/source-receipts.js';
 import { Router } from 'express';
 import { getDb } from '../db/schema.js';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
@@ -31,5 +31,5 @@ router.post('/floassist-tracking-observe',run((owner,b)=>{
   return {suppressed:true,reason:e.code,message:e.message};
  }
 }));
-router.post('/floassist-tracking-update',run((owner,b)=>{assertScheduledTrackingUpdate(b);return updateTracking(getDb(),owner,b);}));
+router.post('/floassist-tracking-update',run((owner,b)=>{assertScheduledTrackingUpdate(b);return scheduledTrackingExclusion(getDb(),owner,b)||updateTracking(getDb(),owner,b);}));
 export default router;
