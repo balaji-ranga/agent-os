@@ -57,6 +57,7 @@ export function ensureConnectorActionGrantTables() {
 
 export function classifyConnectorAction(action = {}) {
   const id = String(action.id || action.action_id || '').trim();
+  if(id==='googlecalendar.free_busy_query')return {risk_tier:'R0',action_family:'read'};
   const copilot=COPILOT_ACTIONS.find(a=>a.id===id);if(copilot)return {risk_tier:copilot.risk_tier,action_family:copilot.action_family};
   const operation = id.split('.').pop().toLowerCase().replace(/[^a-z0-9]+/g, '_');
   // Classify the stable operation id, not prose descriptions. Descriptions often

@@ -15,3 +15,7 @@ FloAssist API, UI, assistant instructions and gateway tool schemas are source-co
 The gateway plugin manifest and access grants are intentionally generated from the database; code integrity excludes these mutable configuration records. JS implementation and schema files must match the shipped image exactly. Existing unrelated connector grants and owner policy remain authoritative.
 
 Rollback restores captured image IDs and the corresponding source/config release together. Do not leave the host source pointing at a different implementation from the active application images. Never roll back production data by replacing the database merely to undo a code release.
+
+## Explicitly scoped production updates
+
+When the operator requests no full deployment, build and recreate only affected services with `--no-deps --no-build`; preserve the other running images. Use the canonical backend Dockerfile. A plugin-only gateway update may use `openclaw.scoped-update.Dockerfile` with a locally tagged, captured running image ID as `BASE_IMAGE`, the committed `SOURCE_REVISION`, and the source/runtime integrity gates. Record the base image ID and rollback Compose files; never use a floating base or leave a volume-only plugin patch. Synchronize and verify the complete host source manifest even when only selected services change. Run goals one at a time and inspect queued/sent deliveries before the next run.

@@ -13,8 +13,8 @@ process.env.AGENT_OS_INTERNAL_TOKEN='fixture-floassist-token';process.env.OPENSE
 mkdirSync(process.env.OPENCLAW_DIR,{recursive:true});
 writeFileSync(process.env.OPENCLAW_CONFIG_PATH,JSON.stringify({gateway:{mode:'local'},agents:{defaults:{workspace:join(root,'workspace')},list:[]},tools:{},channels:{}}));
 const originalFetch=globalThis.fetch;
-let chatRequests=[];
-const gateway=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;chatRequests.push(JSON.parse(body));res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:'FLOASSIST_NO_UPDATE'}}]}));});
+let chatRequests=[];let fixtureReply='FLOASSIST_NO_UPDATE';
+const gateway=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;chatRequests.push(JSON.parse(body));res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:fixtureReply}}]}));});
 await new Promise(resolve=>gateway.listen(0,'127.0.0.1',resolve));
 process.env.OPENCLAW_GATEWAY_URL=`http://127.0.0.1:${gateway.address().port}`;
 let connectedProviders=['gmail'];
@@ -84,6 +84,12 @@ try{
   check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('floassist_tracking_observe')),true,'direct checks receive durable tracking contract');
   check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not create a goal plan, Kanban task')),false,'no conflicting prohibition against tracking tasks');
   check(db.prepare("SELECT count(*) AS n FROM floassist_notifications WHERE source_key LIKE '%:sg:%'").get().n,0,'no-update check queues no notification');
+  fixtureReply='Your calendar is clear. Everything was checked.';
+  const briefing=db.prepare("SELECT id FROM scheduled_goals WHERE source='floassist:briefing'").get();
+  const unverified=await runScheduledGoal('owner-a',briefing.id,{force:true});
+  check(unverified.ok,false,'unsupported briefing is incomplete');
+  check(db.prepare("SELECT count(*) AS n FROM floassist_notifications WHERE source_key LIKE '%:sg:%'").get().n,0,'incomplete briefing cannot send an unsupported success message');
+  fixtureReply='FLOASSIST_NO_UPDATE';
   const {createScheduledGoal,updateScheduledGoal,getScheduledGoal}=await import('../src/services/scheduled-goals.js');
   const dynamic=await createScheduledGoal('owner-a',{agent_id:'fixture-coo',prompt:'Fixture dynamic plan',approve_plan:true});
   check(dynamic.execution_mode,'goal_plan','default mode is goal plan');check(dynamic.plan,null,'no plan generated during save without explicit plan');

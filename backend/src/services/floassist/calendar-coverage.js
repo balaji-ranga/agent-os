@@ -4,6 +4,9 @@ const fail=message=>Object.assign(new Error(message),{status:409,code:'FLOASSIST
 
 /** An empty calendar array is a provider no-op, not an all-calendar scan. */
 export async function expandCalendarSelection(action,input,readCalendars,context=currentFloAssistScope()){
+ if(context?.run&&action==='googlecalendar.list_events'){
+  return {...input,calendarId:typeof input.calendarId==='string'&&input.calendarId.trim()?input.calendarId:'primary',...(input.orderBy==='startTime'&&input.singleEvents===undefined?{singleEvents:true}:{})};
+ }
  if(!context?.run||action!=='googlecalendar.list_events_all_calendars'||input.calendarIds?.length)return input;
  const ids=new Set();let pageToken;
  for(let page=0;page<20;page++){

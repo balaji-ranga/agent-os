@@ -44,6 +44,8 @@ const expanded=await expandCalendarSelection('googlecalendar.list_events_all_cal
  calls++;return {data:{data:{items:[{id:p.pageToken?'second':'first'}],...(!p.pageToken?{nextPageToken:'next'}:{})}}};
 },context);
 assert.deepEqual(expanded,{calendarIds:['first','second'],timeMin:'start'});
+assert.deepEqual(await expandCalendarSelection('googlecalendar.list_events',{calendarId:'',orderBy:'startTime'},()=>{throw new Error('not needed');},context),{calendarId:'primary',orderBy:'startTime',singleEvents:true});
+assert.deepEqual(await expandCalendarSelection('googlecalendar.list_events',{calendarId:'chosen'},()=>{},context),{calendarId:'chosen'});
 assert.equal(calls,2);
 await assert.rejects(()=>expandCalendarSelection('googlecalendar.list_events_all_calendars',{},async()=>({data:{items:[]}}),context));
 assert.deepEqual(await expandCalendarSelection('googlecalendar.list_events_all_calendars',{calendarIds:['chosen']},()=>{throw new Error('must not discover');},context),{calendarIds:['chosen']});
@@ -57,4 +59,4 @@ const blocked=classifyToolObservation({toolName:'floassist_tracking_observe',htt
 assert.equal(blocked.status,'blocked_prerequisite');assert.equal(blocked.retryable,true);
 assert.equal(canRetryTrackingObservation(db,'owner',input,{...previous,observation_status:'blocked_prerequisite'},context),true);
 db.close();
-console.log('FloAssist recovery: 34 assertions passed');
+console.log('FloAssist recovery: 36 assertions passed');

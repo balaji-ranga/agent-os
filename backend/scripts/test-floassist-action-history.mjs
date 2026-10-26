@@ -12,6 +12,7 @@ try{
  linkActionContext('one','a',{goal_run_id:'goal-1',scheduled_goal_run_id:'schedule-1',original_request:'do not persist'},db);
  const rows=listActionHistory({ownerUserId:'a',agentId:'coo',database:db});eq(rows.length,2);const changed=rows.find(r=>r.evidence_id==='one');eq(changed.context,{goal_run_id:'goal-1',scheduled_goal_run_id:'schedule-1'});eq(changed.resources,{eventId:'event-1'});eq(JSON.stringify(rows).includes('secret'),false);eq(JSON.stringify(rows).includes('private'),false);eq(changed.submitted_fields.includes('token'),false);
  notifyActionOutcome('one',db);notifyActionOutcome('one',db);notifyActionOutcome('four',db);eq(db.prepare('SELECT count(*) n FROM floassist_notifications').get().n,1);
+ add('read-availability','a','coo','googlecalendar.free_busy_query','success');notifyActionOutcome('read-availability',db);eq(db.prepare('SELECT count(*) n FROM floassist_notifications').get().n,1);
  notifyActionOutcome('three',db);eq(db.prepare('SELECT count(*) n FROM floassist_notifications').get().n,2);
  eq(listActionHistory({ownerUserId:'b',agentId:'coo',database:db})[0].evidence_id,'two');
  eq(changed.verification.includes('read-back'),true);
