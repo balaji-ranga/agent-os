@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -44,6 +44,9 @@ try {
   assert.equal(existsSync(SESSION_TOOL_SCOPES_PATH), true);
   assert.equal(removeSessionToolScope(key), true);
   assert.equal(removeSessionToolScope(key), false);
+  installSessionToolScope(key,{...selection,floassist_module:'followups'});
+  assert.equal(JSON.parse(readFileSync(SESSION_TOOL_SCOPES_PATH,'utf8'))[key].floassist_module,'followups');
+  removeSessionToolScope(key);
   console.log('OpenClaw session tool scope: OK');
 } finally {
   try { handle?.close(); } catch {}

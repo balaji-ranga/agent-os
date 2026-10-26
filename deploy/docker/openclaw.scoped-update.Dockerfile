@@ -2,6 +2,13 @@
 # to the shared OpenClaw extension directory before registering tools.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
+ARG SOURCE_REVISION=unversioned
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 COPY scripts/lib/content-tools-allow.js /opt/agent-os/scripts/lib/content-tools-allow.js
+COPY scripts/lib/openclaw-extension-integrity.js /opt/agent-os/scripts/lib/openclaw-extension-integrity.js
+COPY scripts/verify-openclaw-extension-integrity.mjs /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs
+COPY scripts/sync-openclaw-extensions.js /opt/agent-os/scripts/sync-openclaw-extensions.js
 COPY openclaw-extensions/agent-os-content-tools /opt/agent-os/openclaw-extensions/agent-os-content-tools
+COPY deploy/docker/openclaw-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh && node /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type f -exec chmod 644 {} +

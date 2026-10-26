@@ -266,8 +266,8 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
     status = 'transient_error'; reason_code = httpStatus === 429 ? 'rate_limited' : 'provider_unavailable'; retryable = true; progress = false;
   } else if (httpStatus >= 400) {
     status = 'permanent_error'; reason_code = data?.code || 'request_rejected'; progress = false;
-    if(toolName==='floassist_tracking_observe'&&['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED'].includes(reason_code))retryable=true;
-    if(toolName==='connector_execute_action'&&data?.action_input_guide)retryable=true;
+    if(toolName==='floassist_tracking_observe'&&['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED'].includes(reason_code)){status='blocked_prerequisite';retryable=true;}
+    if(toolName==='connector_execute_action'&&data?.action_input_guide){status='blocked_prerequisite';retryable=true;}
   } else if (hasEmptyPayload(data)) {
     status = 'empty'; reason_code = 'no_evidence'; progress = false;
   }

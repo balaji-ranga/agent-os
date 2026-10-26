@@ -46,6 +46,7 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  if(!context?.run)return input;
  ensureSourceReceipts(db);
  input={...input};
+ input.app_id=providers[input.app_id]||input.app_id;
  const run=db.prepare('SELECT goal_id,run_key FROM scheduled_goal_runs WHERE id=? AND owner_user_id=?').get(context.run,owner);
  if(run){input.scheduled_goal_id=run.goal_id;input.run_key=run.run_key;}
  const module=context.origin?.split(':')[1];
@@ -84,8 +85,9 @@ export function assertScheduledTrackingUpdate(input,context=currentFloAssistScop
  if(context?.run&&!['clarify','close_orphan'].includes(input.action))throw Object.assign(new Error('A scheduled scan cannot change user tracking preferences. Use floassist_tracking_observe after reading the current full thread; do not resume, stop, snooze or acknowledge tasks without a user request.'),{status:403,code:'FLOASSIST_USER_INSTRUCTION_REQUIRED'});
 }
 function trackingKey(db,owner,input){
- const thread=db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,input.app_id||'',input.source_id||'');
- return JSON.stringify(['tracking',input.app_id||'',thread?.thread_id||input.source_id||'']);
+ const app=providers[input.app_id]||input.app_id||'';
+ const thread=db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,app,input.source_id||'');
+ return JSON.stringify(['tracking',app,thread?.thread_id||input.source_id||'']);
 }
 export function resolveTrackingErrors(db,owner,input,context=currentFloAssistScope()){
  if(!context?.run||context.owner!==owner)return;
@@ -93,7 +95,7 @@ export function resolveTrackingErrors(db,owner,input,context=currentFloAssistSco
  db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_CONTEXT_REQUIRED','FLOASSIST_DEADLINE_REQUIRED')").run(Date.now(),owner,context.run,trackingKey(db,owner,input));
 }
 export function canRetryTrackingObservation(db,owner,input,previous,context=currentFloAssistScope()){
- if(!context?.run||context.owner!==owner||previous?.observation_status!=='permanent_error'||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED'].includes(previous.reason_code))return false;
+ if(!context?.run||context.owner!==owner||!['permanent_error','blocked_prerequisite'].includes(previous?.observation_status)||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED'].includes(previous.reason_code))return false;
  try{verifiedTrackingInput(db,owner,input,context);return true;}catch(e){return isTrackingExclusion(e);}
 }
 export function resolveConnectorSchemaError(owner,action,{db=getDb(),context=currentFloAssistScope()}={}){

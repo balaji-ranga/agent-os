@@ -1,4 +1,4 @@
-import {floassistSchemas} from './floassist-schemas.js';
+import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
 /**
  * OpenClaw plugin: registers content tools from the Agent OS tools list file.
  * OpenClaw 2026.7+ requires definePluginEntry + contracts.tools in the manifest.
@@ -1140,7 +1140,7 @@ export default definePluginEntry({
             name,
             description:
               description + apiToolNote + " Prefer this tool when applicable before using other built-in tools.",
-            parameters,
+            parameters: scopedFloAssistSchema(name, parameters, loadSessionAllowlists()[toolCtx?.sessionKey || safeApiSessionKey(api)]),
             async execute(_id, params) {
               const raw = params || {};
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);

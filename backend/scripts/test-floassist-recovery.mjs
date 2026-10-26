@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
+import {expandCalendarSelection,assertCalendarCoverage} from '../src/services/floassist/calendar-coverage.js';
+import {floassistSchemas,scopedFloAssistSchema} from '../../openclaw-extensions/agent-os-content-tools/floassist-schemas.js';
+import {classifyToolObservation} from '../src/services/tool-execution-governor.js';
 import {ensureSourceReceipts,recordSourceReceipt,recordRunError,runEvidenceSummary,resolveTrackingErrors,canRetryTrackingObservation,resolveConnectorSchemaError,isTrackingExclusion,canonicalThreadInput,assertScheduledTrackingUpdate} from '../src/services/floassist/source-receipts.js';
 const db=new Database(':memory:');
 db.exec('CREATE TABLE floassist_profiles(owner_id TEXT,preferences_json TEXT)');
@@ -36,5 +39,22 @@ assert.deepEqual(canonicalThreadInput(db,'owner','gmail.fetch_message_by_thread_
 for(const action of ['track','stop','snooze','acknowledge'])assert.throws(()=>assertScheduledTrackingUpdate({action},context),/user request/);
 assert.doesNotThrow(()=>assertScheduledTrackingUpdate({action:'clarify'},context));
 assert.doesNotThrow(()=>assertScheduledTrackingUpdate({action:'track'},{owner:'owner',origin:'whatsapp'}));
+let calls=0;
+const expanded=await expandCalendarSelection('googlecalendar.list_events_all_calendars',{calendarIds:[],timeMin:'start'},async p=>{
+ calls++;return {data:{data:{items:[{id:p.pageToken?'second':'first'}],...(!p.pageToken?{nextPageToken:'next'}:{})}}};
+},context);
+assert.deepEqual(expanded,{calendarIds:['first','second'],timeMin:'start'});
+assert.equal(calls,2);
+await assert.rejects(()=>expandCalendarSelection('googlecalendar.list_events_all_calendars',{},async()=>({data:{items:[]}}),context));
+assert.deepEqual(await expandCalendarSelection('googlecalendar.list_events_all_calendars',{calendarIds:['chosen']},()=>{throw new Error('must not discover');},context),{calendarIds:['chosen']});
+assert.throws(()=>assertCalendarCoverage('googlecalendar.list_events_all_calendars',{data:{calendarsQueried:[],errorsByCalendar:{}}},context));
+assert.throws(()=>assertCalendarCoverage('googlecalendar.list_events_all_calendars',{data:{calendarsQueried:[{}],errorsByCalendar:{bad:{}}}},context));
+assert.doesNotThrow(()=>assertCalendarCoverage('googlecalendar.list_events_all_calendars',{data:{calendarsQueried:[{}],errorsByCalendar:{},events:[]}},context));
+assert.deepEqual(scopedFloAssistSchema('floassist_tracking_update',floassistSchemas.floassist_tracking_update,{floassist_module:'deadlines'}).properties.action.enum,['clarify','close_orphan']);
+assert.equal(scopedFloAssistSchema('floassist_tracking_update',floassistSchemas.floassist_tracking_update,{}),floassistSchemas.floassist_tracking_update);
+assert.deepEqual(scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'followups'}).properties.category.enum,['followups']);
+const blocked=classifyToolObservation({toolName:'floassist_tracking_observe',httpStatus:409,data:{code:'FLOASSIST_THREAD_READ_REQUIRED'},behaviour:{fallback_capabilities:[]}});
+assert.equal(blocked.status,'blocked_prerequisite');assert.equal(blocked.retryable,true);
+assert.equal(canRetryTrackingObservation(db,'owner',input,{...previous,observation_status:'blocked_prerequisite'},context),true);
 db.close();
-console.log('FloAssist recovery: 21 assertions passed');
+console.log('FloAssist recovery: 34 assertions passed');

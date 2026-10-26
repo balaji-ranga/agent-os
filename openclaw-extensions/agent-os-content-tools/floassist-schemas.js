@@ -11,3 +11,13 @@ export const floassistSchemas={
  floassist_tracking_observe:object({...identity,requested_action:{type:'string',description:'Specific outstanding action, not merely sent an email.'},why_now:{type:'string',description:'Why this module should interrupt the user now.'},thread_summary:{type:'string',description:'Brief history and latest state of the whole thread, including whether later replies resolved earlier requests.'},latest_message_id:{type:'string',description:'Exact newest message ID from the complete thread read; required for followups.'},awaiting_reply:{type:'boolean'},urgency:{type:'string',enum:['normal','high']},category:{type:'string',enum:['priority','deadlines','followups']},title:string,evidence:{type:'string',description:'Facts from a successful current source read supporting the obligation; not conversation memory.'},due_at:{type:['string','null'],description:'Actual obligation deadline with timezone offset. Omit if unverified. Never use email sent time or task SLA.'},source_url:string,scheduled_goal_id:string,run_key:string,existing_task_id:{type:'integer'}},['app_id','account_id','source_id','category','title','evidence','requested_action','why_now','thread_summary']),
  floassist_tracking_update:object({task_id:{type:'integer'},action:{type:'string',enum:['acknowledge','snooze','track','stop','clarify','close_orphan']},evidence:string,until:string,source_checked:{type:'boolean'},...identity,source_outcome:{type:'string',enum:['deleted','fulfilled']},source_evidence:string},['task_id','action','evidence']),
 };
+
+// A server-written session scope narrows the model's choices. Backend checks
+// remain authoritative; ordinary WhatsApp sessions retain their full schema.
+export function scopedFloAssistSchema(name,schema,scope){
+ const module=scope?.floassist_module;
+ if(!['priority','deadlines','followups','briefing','conflicts'].includes(module))return schema;
+ if(name==='floassist_tracking_update')return {...schema,properties:{...schema.properties,action:{type:'string',enum:['clarify','close_orphan'],description:'Scheduled source reconciliation only. User tracking preferences cannot be changed by a scan.'}}};
+ if(name==='floassist_tracking_observe'&&['priority','deadlines','followups'].includes(module))return {...schema,properties:{...schema.properties,category:{type:'string',enum:[module]}}};
+ return schema;
+}

@@ -740,9 +740,11 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const selection=selectSessionContentTools({agentId:agent.id,ownerUserId,message:prompt,
       route:{executor_evidence:{capability_names:required}}});
     if(floAssistRun){
+      selection.floassist_module=row.source.split(':')[1];
       // These checks do not need CRM, productivity/ICS, delegation or user-action
       // tools. Retain permanent COO grants for its other work.
-      const allowed=required.filter(name=>name!=='kanban_user_action'&&name!=='agent_work_history');
+      const trackingRun=['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source);
+      const allowed=required.filter(name=>name!=='kanban_user_action'&&name!=='agent_work_history'&&(trackingRun||!['floassist_tracking_observe','floassist_tracking_update'].includes(name)));
       selection.tools=selection.tools.filter(name=>allowed.includes(name));
       selection.scoped=true;selection.selected_count=selection.tools.length;
     }

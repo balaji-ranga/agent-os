@@ -1,5 +1,6 @@
 import {recordSourceReceipt,resolveConnectorSchemaError,canonicalThreadInput} from './floassist/source-receipts.js';
 import {projectFloAssistMailResult} from './floassist/mail-result.js';
+import {expandCalendarSelection,assertCalendarCoverage} from './floassist/calendar-coverage.js';
 import {assertFloAssistConnector,validateFloAssistMailWindow} from './floassist/execution-scope.js';
 import {recordFloAssistConnectorHealth,connectorFailureState} from './floassist/connector-health.js';
 /**
@@ -752,6 +753,7 @@ export async function executeConnectorAction(
   const id = String(actionId || '').trim();
   assertFloAssistConnector(userId,id);
   input=canonicalThreadInput(db(),userId,id,input);
+  input=await expandCalendarSelection(id,input,pageInput=>executeConnectorAction(userId,'googlecalendar.list_calendars',pageInput,{connectionName,authorizationRetryDelaysMs,...executionContext}));
   validateFloAssistMailWindow(id,input);
   if(id.startsWith('digital_adoption.'))return copilotConnector().execute(executionContext.actorUserId||userId,id,input,{...executionContext,ownerUserId:userId});
   // One linked runtime connection per company. Model/workflow arguments may
@@ -830,6 +832,7 @@ export async function executeConnectorAction(
   while (true) {
     try {
       const result=projectFloAssistMailResult(id,await invoke());
+      assertCalendarCoverage(id,result);
       recordSourceReceipt(userId,id,result);
       resolveConnectorSchemaError(userId,id);
       try{recordFloAssistConnectorHealth(userId,appGuess,'available');}catch(e){console.warn('[floassist-health] observation unavailable');}

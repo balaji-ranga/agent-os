@@ -127,6 +127,7 @@ export function installSessionToolScope(sessionKey, selection, ttlMs = 15 * 60 *
   if (!key || !selection?.scoped) return selection || { scoped: false, tools: [] };
   const scopes = pruneExpired(readScopes());
   scopes[key] = {
+    ...(['priority','deadlines','followups','briefing','conflicts'].includes(selection.floassist_module)?{floassist_module:selection.floassist_module}:{}),
     tools: [...new Set((selection.tools || []).map(String).filter(Boolean))],
     selected_mcp_capabilities: [...new Set(
       (selection.selected_mcp_capabilities || []).map(String).filter((name) => name.startsWith('mcp:'))
