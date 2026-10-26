@@ -1,5 +1,6 @@
 const string={type:'string'};
 const identity={app_id:{type:'string',description:'Selected FloAssist app ID, for example gmail or google_calendar.'},account_id:{type:'string',description:'Exact account_id from tracking_list or the connected provider account.'},source_id:{type:'string',description:'Exact provider message/thread/event ID; never invent IDs.'},obligation_key:{type:'string',description:'Reuse the existing obligation_key, otherwise action.'}};
+identity.corrects_source_id={type:'string',description:'Only when correcting a previously rejected unverified source ID: the exact rejected ID. source_id must identify the verified actual source, with its full current thread read first. Never infer identity solely from similar wording or a candidate hint.'};
 const object=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 export const floassistSchemas={
  floassist_status:object({}),

@@ -107,7 +107,20 @@ assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'new-mess
  assert.equal(e.next_action.tool,'connector_execute_action');
  return true;
 });
-assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'invented-id'},context),e=>e.code==='FLOASSIST_SOURCE_NOT_VERIFIED'&&!e.next_action);
+assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'invented-id'},context),e=>e.code==='FLOASSIST_SOURCE_NOT_VERIFIED'&&e.next_action.rejected_source_id==='invented-id');
 assert.throws(()=>verifiedTrackingInput(db,'different-owner',{...input,source_id:'new-message'},context),e=>e.code==='FLOASSIST_SOURCE_NOT_VERIFIED');
+for(const source_id of ['typo-a','typo-b','new-thread'])recordRunError({code:'FLOASSIST_SOURCE_NOT_VERIFIED'},{db,context,trackingInput:{...input,source_id}});
+const unresolved=id=>db.prepare('SELECT count(*) n FROM floassist_run_errors WHERE operation_key=? AND resolved_at IS NULL').get(JSON.stringify(['tracking','gmail',id])).n;
+resolveTrackingErrors(db,'different-owner',{...input,corrects_source_id:'typo-a'},context);
+assert.equal(unresolved('typo-a'),1);
+resolveTrackingErrors(db,'owner',{...input,source_id:'new-thread',corrects_source_id:'typo-a'},context);
+assert.equal(unresolved('typo-a'),1); // discovery alone cannot authorize correction
+resolveTrackingErrors(db,'owner',{...input,corrects_source_id:'typo-a'},context);
+assert.equal(unresolved('typo-a'),0);
+assert.equal(unresolved('typo-b'),1);
+assert.deepEqual(db.prepare('SELECT rejected_id,verified_id FROM floassist_source_corrections').get(),{rejected_id:'typo-a',verified_id:'thread'});
+recordRunError({code:'FLOASSIST_SOURCE_NOT_VERIFIED'},{db,context,trackingInput:{...input,source_id:'new-thread'}});
+resolveTrackingErrors(db,'owner',{...input,corrects_source_id:'new-thread'},context);
+assert.equal(unresolved('new-thread'),1); // a real source must be resolved on its own evidence
 db.close();
 console.log('FloAssist recovery: source isolation, exact recovery action and required deadline/followup schemas passed');
