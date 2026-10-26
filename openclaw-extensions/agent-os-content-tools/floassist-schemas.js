@@ -17,7 +17,7 @@ export const floassistSchemas={
 export function scopedFloAssistSchema(name,schema,scope){
  const module=scope?.floassist_module;
  if(!['priority','deadlines','followups','briefing','conflicts'].includes(module))return schema;
- if(name==='floassist_tracking_update')return {...schema,properties:{...schema.properties,action:{type:'string',enum:['clarify','close_orphan'],description:'Scheduled source reconciliation only. User tracking preferences cannot be changed by a scan.'}}};
+ if(name==='floassist_tracking_update')return {...schema,properties:{...schema.properties,task_id:{type:'integer',minimum:1,...(scope.floassist_reconciliation_task_ids?.length?{enum:scope.floassist_reconciliation_task_ids}:{})},action:{type:'string',enum:['clarify','close_orphan'],description:'Scheduled source reconciliation only. User tracking preferences cannot be changed by a scan.'}}};
  if(name==='floassist_tracking_observe'&&['priority','deadlines','followups'].includes(module)){
   const required=[...schema.required];
   const properties={...schema.properties,category:{type:'string',enum:[module]}};

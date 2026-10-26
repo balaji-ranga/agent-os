@@ -90,6 +90,10 @@ assert.deepEqual(normalizeDriveReadInput('googledrive.files.list',{includeItemsF
 assert.equal(connectorFailureState(normalizeDriveReadError('googledrive.files.list',{message:'The supportsAllDrives parameter was not set to true.',code:'authorization_failed',provider_status:403})),null);
 assert.equal(connectorFailureState(normalizeDriveReadError('googledrive.files.list',{message:'invalid_grant',provider_status:401})),'authorization');
 const deadlineSchema=scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'deadlines'});
+const reconcileSchema=scopedFloAssistSchema('floassist_tracking_update',floassistSchemas.floassist_tracking_update,{floassist_module:'followups',floassist_reconciliation_task_ids:[42,55]});
+assert.equal(reconcileSchema.properties.task_id.minimum,1);
+assert.deepEqual(reconcileSchema.properties.task_id.enum,[42,55]);
+assert.equal(scopedFloAssistSchema('floassist_tracking_update',floassistSchemas.floassist_tracking_update,{floassist_module:'followups'}).properties.task_id.enum,undefined);
 assert.ok(deadlineSchema.required.includes('due_at'));
 assert.equal(deadlineSchema.properties.due_at.type,'string');
 assert.ok(!floassistSchemas.floassist_tracking_observe.required.includes('due_at'));

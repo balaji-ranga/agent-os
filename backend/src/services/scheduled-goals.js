@@ -745,11 +745,15 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       route:{executor_evidence:{capability_names:required}}});
     if(floAssistRun){
       selection.floassist_module=row.source.split(':')[1];
+      // The initial snapshot is owner scoped. Restrict reconciliation to its
+      // eligible IDs only when the snapshot is complete; do not truncate paging.
+      if(currentTracking&&!currentTracking.next_after_id)selection.floassist_reconciliation_task_ids=reconciliationCandidates(currentTracking.tasks,selection.floassist_module).map(t=>t.task_id);
       // These checks do not need CRM, productivity/ICS, delegation or user-action
       // tools. Retain permanent COO grants for its other work.
       const trackingRun=['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source);
       const allowed=required.filter(name=>name!=='kanban_user_action'&&name!=='agent_work_history'&&(trackingRun||!['floassist_tracking_observe','floassist_tracking_update'].includes(name)));
       selection.tools=selection.tools.filter(name=>allowed.includes(name));
+      if(selection.floassist_reconciliation_task_ids?.length===0)selection.tools=selection.tools.filter(name=>name!=='floassist_tracking_update');
       selection.scoped=true;selection.selected_count=selection.tools.length;
     }
     installSessionToolScope(scheduledSessionKey,selection);
