@@ -1,5 +1,5 @@
 import {recordSourceCoverage} from './source-coverage.js';
-import {canonicalThreadInput} from './source-receipts.js';
+import {canonicalThreadInput,resolveSourcePagingErrors} from './source-receipts.js';
 import {randomBytes} from 'node:crypto';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from './execution-scope.js';
@@ -22,6 +22,7 @@ function sourcePage(snapshot,offset){
  const complete=next>=snapshot.text.length;
  const nextRequest=!complete?{...snapshot.request,snapshot_id:snapshot.id,offset:next}:null;
  recordSourceCoverage(snapshot.db,snapshot.scope,snapshot.metadata,snapshot.id,complete&&snapshot.metadata.provider_complete!==false,nextRequest);
+ if(complete&&snapshot.metadata.provider_complete!==false)resolveSourcePagingErrors(snapshot.db,snapshot.scope.owner,snapshot.metadata,snapshot.scope);
  return {...snapshot.metadata,...(deadlineEvidence.length?{deadline_evidence:deadlineEvidence}:{}),content:snapshot.text.slice(offset,end),offset,next_offset:complete?null:next,total_characters:snapshot.text.length,coverage_complete:complete&&snapshot.metadata.provider_complete!==false,
   snapshot_id:snapshot.id,snapshot_at:snapshot.at,...(!complete?{next_request:nextRequest}:{}),
   evidence_instruction:'For a dated obligation, copy a matching returned deadline_evidence.deadline_excerpt reference and due_at rather than rewriting its passage. References are not permission to create tasks; reassess relevance after complete source review.',

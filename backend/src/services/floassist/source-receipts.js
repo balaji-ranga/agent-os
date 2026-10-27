@@ -166,10 +166,16 @@ export function resolveConnectorSchemaError(owner,action,{db=getDb(),context=cur
  ensureSourceReceipts(db);
  db.prepare('UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=?').run(Date.now(),owner,context.run,JSON.stringify(['schema',action]));
 }
-export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,action}={}){
+export function resolveSourcePagingErrors(db,owner,input,context=currentFloAssistScope()){
+ if(!context?.run||context.owner!==owner)return;
+ ensureSourceReceipts(db);
+ const key=JSON.stringify(['source_page',...JSON.parse(trackingKey(db,owner,input,context)).slice(1)]);
+ db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_SOURCE_OFFSET_INVALID','FLOASSIST_SOURCE_SNAPSHOT_EXPIRED') AND resolved_at IS NULL").run(Date.now(),owner,context.run,key);
+}
+export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,sourceInput,action}={}){
  if(!context?.run)return;ensureSourceReceipts(db);
  const schemaAction=action&&error?.code==='invalid_input'&&(/does not match the action schema/.test(error.message)?action:/^unknown action:/.test(error.message)?readActionAliases[action]:null);
- const key=trackingInput?trackingKey(db,context.owner,trackingInput,context):schemaAction?JSON.stringify(['schema',schemaAction]):null;
+ const key=sourceInput?.app_id&&sourceInput?.source_id?JSON.stringify(['source_page',...JSON.parse(trackingKey(db,context.owner,sourceInput,context)).slice(1)]):trackingInput?trackingKey(db,context.owner,trackingInput,context):schemaAction?JSON.stringify(['schema',schemaAction]):null;
  db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at,operation_key) VALUES (?,?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now(),key);
 }
 export function runEvidenceSummary(db,owner,runId){

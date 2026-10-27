@@ -1,4 +1,5 @@
 import {sourceReference,connectorReferenceResult} from '../src/services/floassist/source-references.js';
+import {recordRunError} from '../src/services/floassist/source-receipts.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {readFloAssistSource,decodeDocument} from '../src/services/floassist/source-reader.js';
@@ -111,7 +112,13 @@ const largeNext=await readFloAssistSource('a',largePage.next_request,options);as
 await assert.rejects(readFloAssistSource('a',largePage.next_request,{...options,authorize:async()=>{throw Object.assign(Error('policy denied'),{status:403});}}),e=>e.status===403,'cached pages recheck policy');
 db.prepare('UPDATE floassist_profiles SET preferences_json=? WHERE owner_id=?').run(JSON.stringify({...prefs,connectors:['gmail']}),'a');await assert.rejects(readFloAssistSource('a',largePage.next_request,options),e=>e.code==='FLOASSIST_CONNECTOR_NOT_SELECTED');db.prepare('UPDATE floassist_profiles SET preferences_json=? WHERE owner_id=?').run(JSON.stringify(prefs),'a');
 await assert.rejects(readFloAssistSource('b',largePage.next_request,{...options,context:{...context,owner:'b'}}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','snapshots never cross owners');
+const pagingError=Object.assign(Error('invalid page'),{code:'FLOASSIST_SOURCE_OFFSET_INVALID'});
+for(const [sourceInput,ctx]of [[{app_id:'google_drive',source_id:'large-doc'},context],[{app_id:'google_drive',source_id:'other-doc'},context],[{app_id:'google_drive',source_id:'large-doc'},{...context,owner:'b'}],[{app_id:'google_drive',source_id:'large-doc'},{...context,run:'other-run'}]])recordRunError(pagingError,{db,context:ctx,sourceInput});
+recordRunError(Object.assign(Error('provider denied'),{code:'authorization_failed'}),{db,context,sourceInput:{app_id:'google_drive',source_id:'large-doc'}});
+assert.equal(db.prepare('SELECT COUNT(*) n FROM floassist_run_errors WHERE resolved_at IS NOT NULL').get().n,0,'partial reads cannot resolve paging failures');
 let reviewed=largeNext;while(reviewed.next_request)reviewed=await readFloAssistSource('a',reviewed.next_request,options);assert.equal(reviewed.coverage_complete,true);assert.equal(calls.length,snapshotProviderCalls,'all pages share one authenticated download');
+assert.equal(db.prepare('SELECT COUNT(*) n FROM floassist_run_errors WHERE resolved_at IS NOT NULL').get().n,1,'only the completed exact owner/run/source paging error is resolved');
+assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE code='authorization_failed' AND resolved_at IS NULL").get().n,1,'complete content never erases authorization failures');
 await assert.rejects(readFloAssistSource('a',largePage.next_request,{...options,now:now+300001}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','snapshots expire after five minutes');
 const chunks=[];for(let i=0;i<3;i++)chunks.push(await readFloAssistSource('a',{app_id:'google_drive',source_id:'bounded-'+i},{...options,extract:async()=>'x'.repeat(800000)}));
 await assert.rejects(readFloAssistSource('a',chunks[0].next_request,options),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','global snapshot capacity evicts old content');
