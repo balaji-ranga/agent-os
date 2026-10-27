@@ -16,7 +16,7 @@ export function briefingCalendarWindow(now,zone){
 
 const providers={gmail:'gmail',outlook:'outlook',google_drive:'googledrive',onedrive:'one_drive',google_calendar:'googlecalendar'};
 const fail=(code,message,status=422)=>{throw Object.assign(new Error(message),{code,status});};
-const cursors=new Map();
+const cursors=new Map();let cursorSequence=0;
 const snapshots=new Map(),MAX_SOURCE_CHARACTERS=1000000,SNAPSHOT_CHARACTERS=2000000;
 const snapshotKey=(owner,scope,app,id,input)=>JSON.stringify([owner,scope.run||scope.session||'',app,id,input.time_min||'',input.time_max||'']);
 function trimSnapshots(now){for(const [token,item]of cursors)if(item.until<=now)cursors.delete(token);for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length,0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length;}}
@@ -30,7 +30,9 @@ function sourcePage(snapshot,offset){
  const complete=next>=snapshot.text.length;
  let nextRequest=null;
  if(!complete){
-  const cursor='fc-'+randomBytes(16).toString('base64url');
+  // A page reference is not a credential. Short numeric handles survive the
+  // gateway secret scrubber; owner/run checks below remain authoritative.
+  const cursor='fa-page-'+(++cursorSequence);
   while(cursors.size>=2048)cursors.delete(cursors.keys().next().value);
   cursors.set(cursor,{owner:snapshot.scope.owner,scope:snapshot.scope.run||snapshot.scope.session||'',until:snapshot.until,request:{...snapshot.request,snapshot_id:snapshot.id,offset:next}});
   nextRequest={cursor};
