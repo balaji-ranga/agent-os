@@ -204,6 +204,15 @@ export function getMemberOutcomes(ownerUserId, memberKey, period = monthPeriod()
   completed += Number(invRow?.completed) || 0;
   failed += Number(invRow?.failed) || 0;
 
+  // Native WhatsApp/scheduled model attempts do not necessarily create Kanban
+  // terminal tasks. Include actual model outcomes; rejected admissions do not
+  // recursively consume the error budget.
+  if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='native_model_calls'").get()){
+    const native=db.prepare(`SELECT SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed,
+      SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) failed FROM native_model_calls
+      WHERE owner_id=? AND agent_id=? AND strftime('%Y-%m',created_at/1000,'unixepoch','localtime')=?`).get(owner,key,String(period));
+    completed+=Number(native?.completed)||0;failed+=Number(native?.failed)||0;
+  }
   const terminal = completed + failed;
   return {
     completed,

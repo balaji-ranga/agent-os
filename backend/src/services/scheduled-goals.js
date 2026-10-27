@@ -1,4 +1,6 @@
 import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from './floassist/source-coverage.js';
+import {commitRunSourceAssessments,setRunAssessmentContext} from './floassist/assessment-cache.js';
+import {bindNativeTestBudget} from './native-model-budget.js';
 import {briefingCalendarWindow} from './floassist/source-reader.js';
 import {trackingReferenceResult} from './floassist/source-references.js';
 import {claimScheduledRun} from './scheduled-run-claim.js';
@@ -621,6 +623,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const guidance = (floAssistPrefs?sourceReadInstructions(floAssistPrefs,row.source.split(':')[1])+'\nAuthoritative active reconciliation candidates for this responsibility (an empty list means no existing tasks to reconcile; do not inspect or modify stopped, closed, or other-module tasks. Backend observation globally matches existing/closed identities to prevent duplicates. Do not guess task IDs; paginate tracking_list if next_after_id is present): '+trackingIdentity+'\n':'')+steeringPrompt(scheduleGuidanceNotes)+(floAssistPrefs?`\nCurrent responsibility source boundary (supersedes an older saved source list): ${responsibilitySources(floAssistPrefs,row.source.split(':')[1]).join(', ')}. Other apps are checked by their own responsibility. Scheduled scans must never call tracking_update with track, stop, snooze or acknowledge. Those require a user instruction. `:'')+(row.source==='floassist:conflicts'?'\nCalendar Conflicts requires individual events with start/end times and IDs. Use the selected calendar provider event-list action (for Google Calendar: googlecalendar.list_events_all_calendars or googlecalendar.list_events). Free/busy returns merged availability and cannot prove whether events overlap. Read the event-list guide, then fetch individual events. Do not create tracking tasks for a conflict scan. Use local-day boundaries in the owner timezone, with explicit UTC offsets rather than midnight UTC. If no overlaps exist, return exactly FLOASSIST_NO_UPDATE.':'')+(String(row.source||'').startsWith('floassist:')
     ? '\nConnector verification protocol: For supported mail/document discovery and content, prefer floassist_source_read; it performs account lookup, exact schema execution and authorization in the backend. Do not repeat those calls manually. Only for unsupported operations or direct calendar actions, before each distinct connector action, call connector_get_action_guide and use its exact input_schema (including required fields); do not guess camelCase or snake_case names. If an input is rejected, correct it using the returned schema and retry. For Gmail, use the provider threadId from a fresh discovery result, not a message ID or a remembered task identifier. Read the full current thread before floassist_tracking_observe. A suppressed candidate is a completed relevance check, not a reason to force an alert. An unavailable source must be reported as incomplete, never silently replaced with memory.' : '');
   handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
+  if(floAssistPrefs)setRunAssessmentContext(db(),ownerUserId,runId,row.prompt+'\n'+steeringPrompt(scheduleGuidanceNotes));
   const steeredPrompt = `[scheduled_goal_id: ${row.id}]\n[run_key: ${runKey}]\n` + row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${row.source==='floassist:deadlines'?DEADLINE_TRACKING_RUN_INSTRUCTIONS:TRACKING_RUN_INSTRUCTIONS}`:'');
   let openclawId = agent.openclaw_agent_id || agent.id;
   try { openclawId = ensureTenantOpenClawAgent(agent, ownerUserId).openclawAgentId; }
@@ -764,6 +767,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       selection.scoped=true;selection.selected_count=selection.tools.length;
     }
     installSessionToolScope(scheduledSessionKey,selection);
+    if(opts.nativeTestBudgetId)bindNativeTestBudget(ownerUserId,agent.id,scheduledSessionKey,opts.nativeTestBudgetId);
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
     registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), ownerUserId, null, 'schedule', { scheduled_goal_run_id: runId, original_request: row.prompt, resolved_request: row.prompt });
     const checkContract=floAssistRun?{
@@ -800,6 +804,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const evidence=floAssistRun?runEvidenceSummary(db(),ownerUserId,runId):null;
     const incomplete=evidence&&(evidence.errors>0||evidence.incomplete_sources>0||evidence.budget_exhausted||reply==='(no response)');
     const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) or app(s) with incomplete verification.${evidence.budget_exhausted?' Tool-call budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
+    if(floAssistRun&&!incomplete)commitRunSourceAssessments(db(),ownerUserId,runId);
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
       ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);

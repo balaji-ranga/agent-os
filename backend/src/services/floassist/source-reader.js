@@ -1,4 +1,5 @@
 import {discoverOutlookSources,readOutlookSource} from './outlook-source.js';
+import {sourceAssessmentVersion,markSourceAssessmentReviewed} from './assessment-cache.js';
 import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage} from './source-coverage.js';
 import {canonicalThreadInput,resolveSourcePagingErrors,resolveTaskSourceError,ensureSourceReceipts,recordSourceReceipt} from './source-receipts.js';
 import {randomBytes} from 'node:crypto';
@@ -45,6 +46,7 @@ function sourcePage(snapshot,offset){
  }
  recordSourceCoverage(snapshot.db,snapshot.scope,snapshot.metadata,snapshot.id,complete&&snapshot.metadata.provider_complete!==false,nextRequest);
  if(complete&&snapshot.metadata.provider_complete!==false)resolveSourcePagingErrors(snapshot.db,snapshot.scope.owner,snapshot.metadata,snapshot.scope);
+ if(complete&&snapshot.metadata.provider_complete!==false)markSourceAssessmentReviewed(snapshot.db,snapshot.scope,snapshot.metadata);
  if(complete&&snapshot.metadata.provider_complete!==false&&snapshot.metadata.source_task_id)resolveTaskSourceError(snapshot.db,snapshot.scope.owner,snapshot.metadata.source_task_id,snapshot.scope);
  return {...snapshot.metadata,...(deadlineEvidence.length?{deadline_evidence:deadlineEvidence}:{}),content:snapshot.text.slice(offset,end),offset,next_offset:complete?null:next,total_characters:snapshot.text.length,coverage_complete:complete&&snapshot.metadata.provider_complete!==false,
   snapshot_id:snapshot.id,snapshot_at:snapshot.at,...(!complete?{next_request:nextRequest}:{}),
@@ -244,6 +246,14 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   if(text.length>MAX_SOURCE_CHARACTERS)fail('FLOASSIST_SOURCE_SIZE_LIMIT','Source exceeds the 1,000,000 character review bound; no partial source is accepted as complete.');
   if(messages.length)recordVerifiedSourceText(owner,scope,app,id,messages,now);
   const metadata={app_id:app,source_id:id,...(outlookAccountId?{account_id:outlookAccountId,source_kind:'conversation',...outlookMetadata}:{}),...(input.task_id?{source_task_id:Number(input.task_id)}:{}),...(input.kind==='draft'?{source_kind:'draft',selection_basis:'latest provider messageTimestamp across the complete bounded draft list'}:{}),content_verified:true,provider_complete:complete,message_count:messages.length};
+  // Fetch and authorize the full current source first. Reuse only this module's
+  // successful assessment of identical bytes, direction, preferences and rules.
+  // Ad hoc/task content requests always receive their full bodies.
+  const assessment=!input.task_id&&!input.kind&&complete?sourceAssessmentVersion(db,scope,metadata,text,JSON.parse(profile.preferences_json||'{}'),now):null;
+  if(assessment?.reusable&&!input.refresh_assessment){
+   markSourceAssessmentReviewed(db,scope,metadata);recordSourceCoverage(db,scope,metadata,'assessment-'+assessment.signature,true,null);
+   return {...metadata,content:'',coverage_complete:true,assessment_reused:true,source_freshly_verified:true,prior_assessment_at:new Date(assessment.completed_at).toISOString(),next_offset:null,guidance:'The backend freshly fetched and authorized the complete source. Its bytes, latest reply direction, local day, preferences and classifier rules match this responsibility\u2019s prior successful assessment. Existing task lifecycle and alert filters remain authoritative. Do not invent new findings or re-observe unchanged obligations. Changed sources are returned in full. An explicit user request to reassess may set refresh_assessment:true.'};
+  }
   const snapshot={db,scope,zone:JSON.parse(profile.preferences_json||'{}').timezone||'UTC',id:'fs-'+randomBytes(8).toString('base64url'),text,permissions,metadata,at:new Date(now).toISOString(),until:now+5*60000,request:{app_id:app,source_id:id,...(input.kind?{kind:input.kind}:{}),...(input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})}};
   snapshots.set(snapshotKey(owner,scope,app,id,input),snapshot);trimSnapshots(now);
   return sourcePage(snapshot,input.offset??0);

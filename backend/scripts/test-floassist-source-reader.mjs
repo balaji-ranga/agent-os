@@ -1,6 +1,7 @@
 import {sourceReference,connectorReferenceResult} from '../src/services/floassist/source-references.js';
 import {recordRunError} from '../src/services/floassist/source-receipts.js';
 import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from '../src/services/floassist/source-coverage.js';
+import {commitRunSourceAssessments,setRunAssessmentContext} from '../src/services/floassist/assessment-cache.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {readFloAssistSource,decodeDocument,briefingCalendarWindow} from '../src/services/floassist/source-reader.js';
@@ -187,6 +188,28 @@ const unfinished=pendingSourceCoverage(db,'a',replayScope.run);
 assert.equal(continuableSourceCoverage(unfinished).length,1,'actual unread pages still receive continuation');
 assert.equal(unfinished[0].next_request.cursor,secondReplay.next_request.cursor);
 console.log('FLOASSIST_COST_PROGRESS_OK: stable continuation handles and no model retries for non-continuable failures');
+// Fresh provider reads remain mandatory, but an unchanged successfully reviewed
+// source need not be injected into another model context for the same module.
+const cacheScope={owner:'a',run:'assessment-one',origin:'floassist:deadlines'};
+const cacheOptions={...options,context:cacheScope};mode='normal';
+setRunAssessmentContext(db,'a',cacheScope.run,'Review commitments',now);
+const freshAssessment=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-thread'},cacheOptions);
+assert.equal(freshAssessment.assessment_reused,undefined);
+commitRunSourceAssessments(db,'a',cacheScope.run,now);
+const againScope={...cacheScope,run:'assessment-two'};setRunAssessmentContext(db,'a',againScope.run,'Review commitments',now);
+const beforeCacheCalls=calls.length,beforeCacheAuth=authorizations.length;
+const reused=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:againScope});
+assert.equal(reused.assessment_reused,true);assert.equal(reused.content,'');assert.equal(reused.coverage_complete,true);
+assert.ok(calls.length>beforeCacheCalls);assert.ok(authorizations.length>beforeCacheAuth,'cache cannot replace a fresh authorized source fetch');
+const forced=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-thread',refresh_assessment:true},{...cacheOptions,context:againScope});assert.match(forced.content,/Please submit/);
+const changed=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:againScope,execute:async(...args)=>{const result=await execute(...args);result.data.data.messages[0].messageText+=' Resolved by the latest reply.';return result;}});assert.equal(changed.assessment_reused,undefined);assert.match(changed.content,/Resolved/);
+const unrelated=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:{...againScope,origin:'floassist:priority'}});assert.equal(unrelated.assessment_reused,undefined,'module decisions remain distinct');
+setRunAssessmentContext(db,'a',againScope.run,'Changed user instructions',now);
+const newInstructions=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:againScope});assert.equal(newInstructions.assessment_reused,undefined);
+const adHoc=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:{owner:'a',origin:'whatsapp'}});assert.match(adHoc.content,/Please submit/);
+await assert.rejects(readFloAssistSource('b',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:againScope}),e=>e.status===403);
+const versionRows=db.prepare('SELECT signature FROM floassist_source_assessments').all();assert.ok(versionRows.every(r=>/^[0-9a-f]{64}$/.test(r.signature)));assert.ok(!JSON.stringify(versionRows).includes(passage));
+console.log('FLOASSIST_ASSESSMENT_CACHE_OK: fresh authorized fetch, complete-review prerequisite, changed content/instructions/module isolation, explicit refresh and full ad hoc bodies');
 db.close();
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});

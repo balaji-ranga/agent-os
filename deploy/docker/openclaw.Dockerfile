@@ -33,6 +33,7 @@ RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
 
 WORKDIR /opt/agent-os
 COPY . .
+RUN node deploy/scripts/install-native-model-budget.mjs
 RUN node deploy/scripts/validate-openclaw-seeds.mjs
 RUN node scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +

@@ -8,6 +8,7 @@ import {withFloAssistScope,resolveFloAssistScope,currentFloAssistScope,bindFloAs
  * Metadata (content_tools_meta), test, invoke, and OpenClaw tools list.
  */
 import { Router } from 'express';
+import {admitNativeModel,settleNativeModel} from '../services/native-model-budget.js';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
 import { mkdirSync, writeFileSync } from 'fs';
@@ -814,6 +815,19 @@ router.delete('/logs', attachAuthUser, requireAuth, (req, res) => {
  * Exchange the protected OpenClaw-plugin broker secret for a short-lived,
  * one-tool, owner+agent+session-bound lease. Nothing in this contract is model-visible.
  */
+router.post('/native-model-budget/:operation', (req,res)=>{
+  try{
+    if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});
+    if(!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker']))return res.status(401).json({error:'Native budget authentication failed'});
+    if(!['admit','settle'].includes(req.params.operation))return res.status(404).json({error:'Not found'});
+    // Accept telemetry only, never provider prompts, headers or source content.
+    const allowed=new Set(['id','session_key','caller_agent_id','run_id','provider','model','input_tokens','output_tokens','output_limit','status','estimated']);
+    if(Object.keys(req.body||{}).some(key=>!allowed.has(key)))return res.status(400).json({error:'Only numeric usage and call identity metadata are accepted'});
+    res.setHeader('Cache-Control','no-store');
+    return res.json(req.params.operation==='admit'?admitNativeModel(req.body):settleNativeModel(req.body));
+  }catch(error){return res.status(error.status||500).json({error:error.message,code:error.code||'native_budget_unavailable'});}
+});
+
 router.post('/lease', (req, res) => {
   try {
     if (!isDirectPrivateServiceRequest(req)) {

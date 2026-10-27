@@ -5,7 +5,7 @@ import FloAssistDeliveries from '../components/FloAssistDeliveries';
 import './FloAssist.css';
 
 const sections=[['connections','Connections'],['whatsapp','WhatsApp'],['reminders-deliveries','Reminders & deliveries'],['preferences','Preferences']];
-const numbers=[['tool_call_budget','Flolah tool calls per request or run',10,256,80],['task_alert_max_days','Alert delivery days (0 = unlimited)',0,365,5],['due_soon_hours','Approaching deadline (hours)',1,744,72],['discovery_lookback_days','Discovery lookback (days)',1,90,7],['task_realert_hours','Repeat interval (hours)',0,720,24],['overdue_realert_hours','Overdue repeat interval (hours)',1,720,24],['task_alert_daily_limit','Maximum alerts per task per day',1,20,3],['notification_batch_minutes','Group notifications (minutes)',0,60,5]];
+const numbers=[['source_assessment_cache_minutes','Reuse unchanged verified assessments (minutes; 0 disables)',0,1440,120],['model_call_budget','Model requests per turn or scheduled run (including compaction)',1,256,80],['model_token_budget','Cumulative model tokens per turn or scheduled run',1000,10000000,2000000],['tool_call_budget','Flolah tool calls per request or run',10,256,80],['task_alert_max_days','Alert delivery days (0 = unlimited)',0,365,5],['due_soon_hours','Approaching deadline (hours)',1,744,72],['discovery_lookback_days','Discovery lookback (days)',1,90,7],['task_realert_hours','Repeat interval (hours)',0,720,24],['overdue_realert_hours','Overdue repeat interval (hours)',1,720,24],['task_alert_daily_limit','Maximum alerts per task per day',1,20,3],['notification_batch_minutes','Group notifications (minutes)',0,60,5]];
 
 export default function FloAssist(){
  const {section='connections'}=useParams();
