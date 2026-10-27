@@ -35,7 +35,7 @@ Local validation: full FloAssist regression suite and real-browser onboarding/pr
 
 ## FA-GAP-001 — Durable alert determination and re-alert filters
 
-Priority: High. Status: Kanban-backed lifecycle delivered 25 October 2026; broader automatic escalation/filter configuration remains open.
+Priority: High. Status: requested lifecycle/filter scope delivered and validated 27 October 2026; see final acceptance below.
 
 Implemented scope: verified priority/deadline/follow-up findings link to owner-assigned Kanban tasks using stable account/source/obligation identity across responsibilities. Existing tasks can be linked, including completed tasks. Native user-confirmed Kanban completion is authoritative for subsequent scans and pending delivery. The tracking list includes closed records and pagination independently of source filters. Acknowledgement, timed snooze, verified deadline changes and one-time clarification after an uncertain direct source check have durable metadata and audit reasons. Scheduled replies for these three responsibilities cannot bypass the task notification queue. Uncertain sends are not automatically replayed. Quiet hours, pause, selected-source preferences and owner isolation remain enforced.
 
@@ -96,7 +96,7 @@ Validation for FA-GAP-004: 46 platform integration checks and 86 FloAssist core 
 
 ## FA-GAP-005 — Enforce selected connector access during execution
 
-Priority: High. Status: Open.
+Priority: High. Status: delivered and validated 27 October 2026; see final acceptance below.
 
 Observed: the inspected COO has no connector-action allowlist and therefore retains legacy broad connector execution access. FloAssist's selected-app preferences guide prompts and schedule eligibility, but do not enforce an app restriction at connector execution. If Gmail and Outlook are connected under the same owner, selecting only Gmail in FloAssist does not itself block Outlook actions. Owner-specific credentials and connection-alias checks are separate existing controls; this finding is not evidence of cross-owner mailbox access.
 
@@ -223,7 +223,7 @@ The blocking repeat-Deadline regression passed twice on revision d40388f6 after 
 
 ## FA-GAP-011 — Verified source content and native read reliability
 
-Priority: Critical. Status: partly repaired, live production acceptance open (27 October).
+Priority: Critical. Status: requested recovery scope delivered and validated 27 October 2026; bounded/provider-specific limits remain documented.
 
 Ensure task provenance survives every Kanban/COO read; do not describe Drive media as email/calendar. Metadata, filenames, snippets and created/modified timestamps must not independently become deadlines. Unknown actions and invalid IDs must be reported as tool failures, not invented privacy restrictions or successful reads. A successful chat reply is not proof that the requested source content was retrieved.
 
@@ -270,3 +270,8 @@ The first coverage-guarded live run started during a platform permission-metadat
 Company Tools management is deployed and production-navigation verified. Every new registration receives the tested server-side preference defaults; activation automatically grants reminder create/list/cancel and provisions WhatsApp delivery with Flolah history. Fresh-owner fixtures cover Singapore, India and Indonesia defaults, reminder grants and delivery destinations. Existing preferences and explicit connector consent remain preserved.
 
 Backend v36 fixes stopped/closed records being exposed again by the scheduled tracking-list tool. Live metadata proves the retired synthetic/legacy records stay out of scheduled candidates while remaining in ad hoc history. All four non-Deadline responsibilities pass on v36. FA-GAP-011 acceptance remains open because the secondary model's context compaction fails with `429 insufficient_quota` / no credits; the user elected to retain that model and replenish credits. No model override was applied. Deadline must be retested after credits are available; incomplete/error runs must not be relabelled as successful. See implementation/testing notes for exact revisions and run IDs.
+
+
+### Final requested-scope acceptance — 27 October 2026
+
+FA-GAP-001, FA-GAP-005 and FA-GAP-011 are closed for the requested selected-Google scope. All five final live runs passed with complete required-app receipts, zero unresolved errors, zero unread sources and no exhausted tool budget on the unchanged secondary model. Earlier failed runs remain failed. Full evidence, run IDs, native retry qualifications, source/budget limits, Microsoft prerequisites and rollout details are in [Final selected-Google acceptance](FLOASSIST-IMPLEMENTATION-AND-TESTING.md#final-selected-google-acceptance--27-october-2026). This supersedes historical open-acceptance checkpoints for these three gaps. Other gaps remain unchanged.
