@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-27",
+  "timezone": "Asia/Singapore",
+  "environment": "VPS actual Outlook connector",
+  "scope": "Single explicitly supplied fixture; no full-mailbox scheduled acceptance claimed",
+  "task_id": 17314,
+  "priority": {
+    "goal_id": "sg-30f735a328ac43ae",
+    "run_id": "sgr-77e1bab3e5304029",
+    "live_source_read": true,
+    "task_created": true,
+    "successful_tracking_observations": 1,
+    "native_validation_corrections": 1,
+    "correction_reason": "Missing category; corrected before successful observation",
+    "model_calls": 3,
+    "estimated_tokens": 59437,
+    "final_reply_completed": false,
+    "stop_reason": "native_test_budget_exhausted",
+    "overall_run_status": "error"
+  },
+  "deadlines": {
+    "live_source_verified": true,
+    "backend_only": true,
+    "same_task_reused": true,
+    "due_at": "2026-10-28T07:00:00.000Z",
+    "due_local": "28 October 2026, 15:00 Asia/Singapore",
+    "model_calls": 0
+  },
+  "followup_negative": {
+    "incoming_request_rejected": true,
+    "reason": "FLOASSIST_NOT_A_FOLLOWUP",
+    "extra_tasks": 0,
+    "model_calls": 0
+  },
+  "delivery": {
+    "sent_items": 2,
+    "human_confirmed_received": true,
+    "note": "Initial priority alert and subsequent verified deadline update on the same task; staged beyond the collection window"
+  },
+  "preserved": {
+    "regular_schedules_paused": 5,
+    "quiet_hours": "22:00\u201308:00 Asia/Singapore",
+    "monthly_token_budget": 5000000
+  },
+  "remaining": [
+    "User-completed task remains closed on fresh source recheck",
+    "Positive unanswered outgoing follow-up fixture",
+    "Microsoft Calendar connector/actions unavailable",
+    "Broad recurring mixed-source acceptance not attempted"
+  ],
+  "privacy": {
+    "source_bodies_in_development_output": false,
+    "credentials_in_development_output": false
+  }
+}
