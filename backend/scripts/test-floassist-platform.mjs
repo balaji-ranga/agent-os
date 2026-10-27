@@ -13,8 +13,8 @@ process.env.AGENT_OS_INTERNAL_TOKEN='fixture-floassist-token';process.env.OPENSE
 mkdirSync(process.env.OPENCLAW_DIR,{recursive:true});
 writeFileSync(process.env.OPENCLAW_CONFIG_PATH,JSON.stringify({gateway:{mode:'local'},agents:{defaults:{workspace:join(root,'workspace')},list:[]},tools:{},channels:{}}));
 const originalFetch=globalThis.fetch;
-let chatRequests=[];let fixtureReply='FLOASSIST_NO_UPDATE';
-const gateway=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;chatRequests.push(JSON.parse(body));res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:fixtureReply}}]}));});
+let fixtureHook=null;let chatRequests=[];let fixtureReply='FLOASSIST_NO_UPDATE';
+const gateway=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;const request=JSON.parse(body);chatRequests.push(request);if(fixtureHook)await fixtureHook(request);res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:fixtureReply}}]}));});
 await new Promise(resolve=>gateway.listen(0,'127.0.0.1',resolve));
 process.env.OPENCLAW_GATEWAY_URL=`http://127.0.0.1:${gateway.address().port}`;
 let connectedProviders=['gmail'];
@@ -99,6 +99,15 @@ try{
   check(unverified.ok,false,'unsupported briefing is incomplete');
   check(db.prepare("SELECT count(*) AS n FROM floassist_notifications WHERE source_key LIKE '%:sg:%'").get().n,0,'incomplete briefing cannot send an unsupported success message');
   fixtureReply='FLOASSIST_NO_UPDATE';
+  const {recordSourceCoverage}=await import('../src/services/floassist/source-coverage.js');
+  const {recordSourceReceipt,runEvidenceSummary}=await import('../src/services/floassist/source-receipts.js');
+  const coverageFixture=completeOnSecond=>{let calls=0;return request=>{calls++;const current=db.prepare("SELECT id FROM scheduled_goal_runs WHERE goal_id=? AND owner_user_id=? AND status='running' ORDER BY created_at DESC LIMIT 1").get(priority.id,'owner-a');const ctx={owner:'owner-a',run:current.id,origin:'floassist:priority'};recordSourceReceipt('owner-a','gmail.fetch_message_by_thread_id',{data:{threadId:'coverage-thread',messages:[{messageId:'coverage-message',messageText:'Synthetic source body',messageTimestamp:new Date().toISOString()}]}},{db,context:ctx});recordSourceCoverage(db,ctx,{app_id:'gmail',source_id:'coverage-thread'},'fixture-snapshot',completeOnSecond&&calls>=2,{app_id:'gmail',source_id:'coverage-thread',snapshot_id:'fixture-snapshot',offset:12000});};};
+  fixtureHook=coverageFixture(true);const beforeContinuation=chatRequests.length;
+  const continued=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'coverage-complete'});
+  check(continued.ok,true,'partial source is completed through bounded continuation');check(chatRequests.length-beforeContinuation,2,'exactly one continuation needed');check(runEvidenceSummary(db,'owner-a',continued.run_id).incomplete_sources,0,'successful run proves complete source coverage');
+  fixtureHook=coverageFixture(false);const beforeIncomplete=chatRequests.length;
+  const stillPartial=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'coverage-incomplete'});
+  check(stillPartial.ok,false,'a partial source cannot become a green run');check(chatRequests.length-beforeIncomplete,3,'at most two continuation passes');check(runEvidenceSummary(db,'owner-a',stillPartial.run_id).incomplete_sources,1,'unread source stays visible in run evidence');fixtureHook=coverageFixture(true);fixtureReply='';const missingFinal=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'coverage-no-final'});check(missingFinal.ok,false,'complete reads without a final response are not a successful check');fixtureReply='FLOASSIST_NO_UPDATE';fixtureHook=null;
   const {createScheduledGoal,updateScheduledGoal,getScheduledGoal}=await import('../src/services/scheduled-goals.js');
   const dynamic=await createScheduledGoal('owner-a',{agent_id:'fixture-coo',prompt:'Fixture dynamic plan',approve_plan:true});
   check(dynamic.execution_mode,'goal_plan','default mode is goal plan');check(dynamic.plan,null,'no plan generated during save without explicit plan');

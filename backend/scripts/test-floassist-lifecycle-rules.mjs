@@ -1,5 +1,6 @@
+import {recordSourceCoverage,pendingSourceCoverage} from '../src/services/floassist/source-coverage.js';
 import {recoverSourceReassessment} from '../src/services/floassist/read-reassessment.js';
-import {ensureSourceReceipts,recordSourceReceipt,verifiedTrackingInput} from '../src/services/floassist/source-receipts.js';
+import {ensureSourceReceipts,recordSourceReceipt,verifiedTrackingInput,canRetryTrackingObservation} from '../src/services/floassist/source-receipts.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {initializeFloAssist} from '../src/services/floassist/core.js';
@@ -75,4 +76,10 @@ const dateContext={...followContext,run:'date-reassessment'};
 recordSourceReceipt('owner','gmail.fetch_message_by_thread_id',{data:{threadId:'older',messages:[{messageId:'latest-outgoing',threadId:'older',messageText:'Synthetic body',messageTimestamp:new Date().toISOString(),labelIds:['SENT']}]}},{db,context:dateContext});
 const dateRecovery=await recoverSourceReassessment(db,'owner',{app_id:'gmail',account_id:'account',source_id:'older'},{code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'},{context:dateContext,read});assert.equal(dateRecovery.task_update_applied,false);assert.equal(dateRecovery.recovery_code,'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED');
 assert.equal(await recoverSourceReassessment(db,'owner',{app_id:'gmail',source_id:'invented'},{code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'},{context:dateContext,read}),null,'guessed source does not qualify for evidence recovery');
+const coverageInput={...followInput,source_id:'untracked-recent'};
+recordSourceCoverage(db,followContext,{app_id:'gmail',source_id:'untracked-recent'},'coverage-v1',false,{app_id:'gmail',source_id:'untracked-recent',offset:12000,snapshot_id:'coverage-v1'});
+assert.throws(()=>verifiedTrackingInput(db,'owner',coverageInput,followContext),e=>e.code==='FLOASSIST_SOURCE_REVIEW_INCOMPLETE','partial pages cannot create or repeat a task');
+const blockedCoverage={observation_status:'blocked_prerequisite',reason_code:'FLOASSIST_SOURCE_REVIEW_INCOMPLETE'};assert.equal(canRetryTrackingObservation(db,'owner',coverageInput,blockedCoverage,followContext),false);
+assert.equal(pendingSourceCoverage(db,'other',followContext.run).length,0,'coverage metadata stays owner scoped');
+recordSourceCoverage(db,followContext,{app_id:'gmail',source_id:'untracked-recent'},'coverage-v1',true,null);assert.equal(canRetryTrackingObservation(db,'owner',coverageInput,blockedCoverage,followContext),true,'observation resumes only after source coverage completes');
 db.close();console.log('FLOASSIST_LIFECYCLE_RULES_OK: local days, durable five-day cap, owner-month, colours, priority override, briefing and completion');

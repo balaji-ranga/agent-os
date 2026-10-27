@@ -1,3 +1,4 @@
+import {assertSourceCoverage,pendingSourceCoverage} from './source-coverage.js';
 import {dueThisMonth} from './alert-policy.js';
 import {resolveSourceReference,sourceReference} from './source-references.js';
 import {recordDeadlineText,assertDeadlineEvidence,historicalDeadlineConfirmed} from './deadline-evidence.js';
@@ -82,6 +83,7 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
    const candidates=db.prepare("SELECT source_id FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id NOT LIKE '@%' LIMIT 200").all(owner,context.run,input.app_id||'').map(r=>r.source_id).sort((a,b)=>distance(a)-distance(b)||a.localeCompare(b)).slice(0,5);
    throw Object.assign(new Error('Source ID is not verified in this run. Candidate IDs are hints, not automatic matches. Identify the actual source from connector evidence, read its complete thread, and resubmit with its exact ID and corrects_source_id set to the rejected ID. Skip the candidate if identity remains uncertain.'),{status:409,code:'FLOASSIST_SOURCE_NOT_VERIFIED',next_action:{rejected_source_id:rejected,verified_source_candidates:candidates.map(id=>sourceReference(db,owner,input.app_id,id,context)),correction_field:'corrects_source_id'}});
  }
+ assertSourceCoverage(db,owner,context.run,input.app_id,input.source_id);
  if(!input.requested_action?.trim()||!input.why_now?.trim()||!input.thread_summary?.trim())throw Object.assign(new Error('Provide requested_action, why_now and a concise thread_summary from current evidence. A task title and date alone are not an actionable alert.'),{status:400,code:'FLOASSIST_CONTEXT_REQUIRED'});
  const threadState=db.prepare('SELECT * FROM floassist_thread_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND thread_id=?').get(owner,context.run,input.app_id,input.source_id);
  if(input.app_id==='gmail'&&!threadState)throw Object.assign(new Error('Read the full current Gmail thread before creating or repeating an alert. A list result or old sent message may have been superseded by a later reply.'),{status:409,code:'FLOASSIST_THREAD_READ_REQUIRED',next_action:{tool:'floassist_source_read',input:{app_id:'gmail',source_id:sourceReference(db,owner,input.app_id,input.source_id,context)},instruction:'Read this exact thread, reassess its latest state, then submit corrected tracking input only if an obligation remains. No task was created.'}});
@@ -156,7 +158,7 @@ export function resolveTrackingErrors(db,owner,input,context=currentFloAssistSco
  }
 }
 export function canRetryTrackingObservation(db,owner,input,previous,context=currentFloAssistScope()){
- if(!context?.run||context.owner!==owner||!['permanent_error','blocked_prerequisite'].includes(previous?.observation_status)||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'].includes(previous.reason_code))return false;
+ if(!context?.run||context.owner!==owner||!['permanent_error','blocked_prerequisite'].includes(previous?.observation_status)||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_DEADLINE_EVIDENCE_REQUIRED','FLOASSIST_SOURCE_REVIEW_INCOMPLETE'].includes(previous.reason_code))return false;
  try{verifiedTrackingInput(db,owner,input,context);return true;}catch(e){return isTrackingExclusion(e);}
 }
 export function resolveConnectorSchemaError(owner,action,{db=getDb(),context=currentFloAssistScope()}={}){
@@ -172,5 +174,7 @@ export function recordRunError(error,{db=getDb(),context=currentFloAssistScope()
 }
 export function runEvidenceSummary(db,owner,runId){
  ensureSourceReceipts(db);
- return {errors:db.prepare('SELECT count(*) n FROM floassist_run_errors WHERE owner_id=? AND run_id=? AND resolved_at IS NULL').get(owner,runId).n,sources:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id NOT LIKE '@read:%'").get(owner,runId).n,reads:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id LIKE '@read:%'").get(owner,runId).n};
+ const hasContext=!!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_action_context'").get();
+ const budgetExhausted=hasContext&&!!db.prepare("SELECT 1 FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=? AND a.reason_code='floassist_tool_budget_exhausted' LIMIT 1").get(owner,runId);
+ return {budget_exhausted:!!budgetExhausted,incomplete_sources:pendingSourceCoverage(db,owner,runId).length,errors:db.prepare('SELECT count(*) n FROM floassist_run_errors WHERE owner_id=? AND run_id=? AND resolved_at IS NULL').get(owner,runId).n,sources:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id NOT LIKE '@read:%'").get(owner,runId).n,reads:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id LIKE '@read:%'").get(owner,runId).n};
 }

@@ -1,3 +1,4 @@
+import {pendingSourceCoverage} from './floassist/source-coverage.js';
 import {trackingReferenceResult} from './floassist/source-references.js';
 import {claimScheduledRun} from './scheduled-run-claim.js';
 import {runEvidenceSummary} from './floassist/source-receipts.js';
@@ -765,19 +766,32 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const checkContract=floAssistRun?{
       role:'system',content:`FloAssist scheduled source check (${row.source.split(':')[1]}). This is a bounded check, not a task-completion workflow. Use tools only when needed, not merely because they are available. Finishing this check does not complete, stop, resume or acknowledge any user task. Skip closed/stopped records. Never call close_orphan just to mark the scan complete: it requires exact stored app_id, account_id, source_id, obligation_key and fresh provider evidence of deletion or actual fulfillment, with source_checked, source_outcome and source_evidence. An upcoming submission remains open until fulfilled; reading its email is not fulfillment. If no reconciliation is needed, do not call tracking_update. Briefing and conflict checks report verified facts only and do not create tracking tasks. ${guidance}${['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n${TRACKING_RUN_INSTRUCTIONS}`:''}`
     }:null;
-    const { content } = await openclaw.chatCompletions(
+    const completionStarted=Date.now(),completionTimeout=Number(process.env.SCHEDULED_GOAL_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000);
+    let { content } = await openclaw.chatCompletions(
       openclawId, [...(checkContract?[checkContract]:[]),{ role: 'user', content: prompt }], sessionUser, false,
       {
         injectLearningsInstruction: false,
         injectKanbanInstruction: !directRun,
         injectSessionHistoryInstruction: false,
-        timeoutMs: Number(process.env.SCHEDULED_GOAL_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
+        timeoutMs: completionTimeout,
+        ...(floAssistRun?{retries:1}:{}),
       }
     );
+    if(floAssistRun)for(let pass=0;pass<2;pass++){
+      const pending=pendingSourceCoverage(db(),ownerUserId,runId),remaining=completionTimeout-(Date.now()-completionStarted);
+      if(!pending.length||remaining<1000||runEvidenceSummary(db(),ownerUserId,runId).errors>0)break;
+      const hasActionContext=db().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_action_context'").get();
+      const budgetStopped=hasActionContext&&db().prepare("SELECT 1 FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=? AND a.reason_code='floassist_tool_budget_exhausted'").get(ownerUserId,runId);
+      if(budgetStopped)break;
+      const requests=trackingReferenceResult(db(),ownerUserId,pending,{owner:ownerUserId,run:runId,origin:row.source});
+      const continuation=`Coverage is incomplete: source pages below remain unread. Continue this same bounded check. Call floassist_source_read with each exact next_request and follow its returned next_request until coverage_complete is true. Do not relist sources, re-read completed sources, repeat queued alerts or change task tracking preferences. Newly supported findings may be observed only after their source is complete. If a provider is incomplete without a next_request, report that blocker. Return the final outcome only after this review or an explicit tool/time budget stop. Remaining sources: ${JSON.stringify(requests)}`;
+      const next=await openclaw.chatCompletions(openclawId,[...(checkContract?[checkContract]:[]),{role:'user',content:continuation}],sessionUser,false,{injectLearningsInstruction:false,injectKanbanInstruction:false,injectSessionHistoryInstruction:false,timeoutMs:remaining,retries:1});
+      content=next.content;
+    }
     const reply = String(content || '').trim() || '(no response)';
     const evidence=floAssistRun?runEvidenceSummary(db(),ownerUserId,runId):null;
-    const incomplete=evidence&&(evidence.errors>0||evidence.reads===0);
-    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures. Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
+    const incomplete=evidence&&(evidence.errors>0||evidence.reads===0||evidence.incomplete_sources>0||evidence.budget_exhausted||reply==='(no response)');
+    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) with unread pages.${evidence.budget_exhausted?' Tool-call budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
       ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);

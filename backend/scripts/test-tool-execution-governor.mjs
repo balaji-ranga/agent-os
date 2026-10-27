@@ -62,6 +62,7 @@ await withFloAssistScope({owner:'budget-owner',run:'budget-schedule',origin:'flo
  const args={ownerUserId:'budget-owner',agentId:'fixture-agent',sessionKey:'budget-chat',toolName:'master_data_list_rows',params:{table_name:'different-action'}};
  const blocked=governor.beginToolExecution({...args,runId:'retry-a'});assert.equal(blocked.ok,false);assert.equal(blocked.observation.reason_code,'floassist_tool_budget_exhausted');
  assert.equal(governor.beginToolExecution({...args,runId:'retry-b'}).id,blocked.id,'one budget refusal record per scheduled run, even across native retries');
+ const {runEvidenceSummary}=await import('../src/services/floassist/source-receipts.js');assert.equal(runEvidenceSummary(db,'budget-owner','budget-schedule').budget_exhausted,true,'budget exhaustion remains visible to run completion validation');
  assert.equal(JSON.parse(db.prepare('SELECT context_json FROM floassist_action_context WHERE action_id=?').get(blocked.id).context_json).scheduled_goal_run_id,'budget-schedule','trusted scope maintains run traceability');
 });
 await withFloAssistScope({owner:'budget-owner',run:'new-schedule',origin:'floassist:deadlines'},async()=>assert.equal(governor.beginToolExecution({ownerUserId:'budget-owner',agentId:'fixture-agent',sessionKey:'budget-chat',runId:'new',toolName:'master_data_list_rows',params:{table_name:'new'}}).ok,true));

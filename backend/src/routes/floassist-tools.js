@@ -36,6 +36,7 @@ router.post('/floassist-tracking-observe',run(async(owner,b,_s,req)=>{
   resolveTrackingErrors(db,owner,b);
   return result;
  }catch(e){
+  if(e.code==='FLOASSIST_SOURCE_REVIEW_INCOMPLETE')return {needs_reassessment:true,recovery_code:e.code,task_update_applied:false,next_action:e.next_action};
   const recovery=await recoverSourceReassessment(db,owner,b,e,{caller:req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']});
   if(recovery)return recovery;
   if(!isTrackingExclusion(e))throw e;
