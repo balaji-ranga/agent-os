@@ -1,6 +1,6 @@
 import {currentFloAssistScope} from '../services/floassist/execution-scope.js';
 import {reconciliationCandidates} from '../services/floassist/responsibilities.js';
-import {recoverSourceReassessment} from '../services/floassist/read-reassessment.js';
+import {recoverSourceReassessment,recoverOrphanReassessment} from '../services/floassist/read-reassessment.js';
 import {verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion} from '../services/floassist/source-receipts.js';
 import { Router } from 'express';
 import {readFloAssistSource} from '../services/floassist/source-reader.js';
@@ -45,5 +45,5 @@ router.post('/floassist-tracking-observe',run(async(owner,b,_s,req)=>{
   return {suppressed:true,reason:e.code,message:e.message};
  }
 }));
-router.post('/floassist-tracking-update',run(async(owner,b,_s,req)=>{assertScheduledTrackingUpdate(b);b={...b,source_id:resolveSourceReference(getDb(),owner,b.app_id,b.source_id)};const excluded=scheduledTrackingExclusion(getDb(),owner,b);if(excluded)return excluded;if(b.action==='close_orphan')b=await verifyOrphanClosure(owner,b,{caller:req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']});return updateTracking(getDb(),owner,b);}));
+router.post('/floassist-tracking-update',run(async(owner,b,_s,req)=>{assertScheduledTrackingUpdate(b);b={...b,source_id:resolveSourceReference(getDb(),owner,b.app_id,b.source_id)};const excluded=scheduledTrackingExclusion(getDb(),owner,b);if(excluded)return excluded;if(b.action==='close_orphan'){const caller=req.headers['x-openclaw-agent-id']||req.headers['x-agent-id'];try{b=await verifyOrphanClosure(owner,b,{caller});}catch(e){const recovery=await recoverOrphanReassessment(getDb(),owner,b,e,{caller});if(recovery)return recovery;throw e;}}return updateTracking(getDb(),owner,b);}));
 export default router;

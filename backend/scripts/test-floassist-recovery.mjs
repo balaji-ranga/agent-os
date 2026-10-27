@@ -162,3 +162,18 @@ assert.deepEqual(calendarSchema.required,["app_id","time_min","time_max"]);asser
 
 const reassessment=classifyToolObservation({toolName:"floassist_tracking_observe",httpStatus:200,data:{needs_reassessment:true,task_update_applied:false,recovery_code:"FLOASSIST_THREAD_READ_REQUIRED"},behaviour:{fallback_capabilities:[]}});
 assert.equal(reassessment.status,"blocked_prerequisite");assert.equal(reassessment.progress,false);assert.equal(reassessment.retryable,true);
+
+const {recoverOrphanReassessment}=await import('../src/services/floassist/read-reassessment.js');
+const orphanDb=new Database(':memory:');
+orphanDb.exec('CREATE TABLE floassist_task_tracking(owner_id TEXT,task_id INTEGER,origin TEXT,app_id TEXT,account_id TEXT,source_id TEXT,obligation_key TEXT,state TEXT)');
+orphanDb.prepare('INSERT INTO floassist_task_tracking VALUES (?,?,?,?,?,?,?,?)').run('owner',92,'floassist_created','gmail','canonical-account','canonical-thread','submission','open');
+const rejected={task_id:92,action:'close_orphan',app_id:'google_drive',account_id:'wrong-account',source_id:'wrong-file'},orphanError={code:'FLOASSIST_ORPHAN_UNVERIFIED'};let canonicalReads=0;
+const orphanOptions={context,read:async(owner,args)=>{canonicalReads++;assert.equal(owner,'owner');assert.deepEqual(args,{task_id:92});return {app_id:'gmail',source_id:'canonical-thread',content_verified:true,coverage_complete:true,next_offset:null,content:'Synthetic current obligation, not completion evidence.'};}};
+const recovered=await recoverOrphanReassessment(orphanDb,'owner',rejected,orphanError,orphanOptions);
+assert.equal(recovered.task_update_applied,false);assert.equal(recovered.next_action.tool,'floassist_tracking_observe');assert.equal(recovered.next_action.input.app_id,'gmail');assert.equal(recovered.next_action.input.account_id,'canonical-account');assert.equal(recovered.next_action.input.existing_task_id,92);
+assert.equal(resolveSourceReference(orphanDb,'owner','gmail',recovered.next_action.input.source_id,context),'canonical-thread');
+assert.equal(orphanDb.prepare('SELECT state FROM floassist_task_tracking').get().state,'open');assert.equal(rejected.app_id,'google_drive','rejected arguments are not reinterpreted as a successful closure');
+assert.equal(await recoverOrphanReassessment(orphanDb,'owner',rejected,orphanError,orphanOptions),null,'one reassessment per task/run');
+assert.equal(await recoverOrphanReassessment(orphanDb,'other',rejected,orphanError,{...orphanOptions,context:{...context,owner:'other'}}),null);assert.equal(canonicalReads,1,'foreign owner never triggers a source read');
+await assert.rejects(recoverOrphanReassessment(orphanDb,'owner',rejected,orphanError,{context:{...context,run:'provider-error'},read:async()=>{throw Object.assign(Error('fixture denied'),{code:'authorization_failed'});}}),e=>e.code==='authorization_failed','provider failures are never converted to recovered success');
+orphanDb.close();
