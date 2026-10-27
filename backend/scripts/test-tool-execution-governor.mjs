@@ -48,6 +48,12 @@ assert.equal(email.timeout_ms, 12000);
 assert.equal(email.overridden, true);
 
 assert.throws(() => governor.putExecutionBehaviours('ceo-test', [{ tool_name: 'unknown' }]), /Unknown tool/);
+const turnArgs={ownerUserId:'ceo-test',agentId:'agent-a',sessionKey:'persistent-chat',toolName:'master_data_list_rows',params:{table_name:'turn-test'}};
+const turnOne=governor.beginToolExecution({...turnArgs,runId:'one'});assert.equal(turnOne.ok,true);
+governor.completeToolExecution(turnOne,{httpStatus:200,data:{rows:[]}});
+assert.equal(governor.beginToolExecution({...turnArgs,runId:'one'}).duplicate,true,'same turn still deduplicates');
+assert.equal(governor.beginToolExecution({...turnArgs,runId:'two'}).ok,true,'next request in the same chat may read again');
+assert.equal(governor.beginToolExecution({...turnArgs,ownerUserId:'other-owner',runId:'one'}).ok,true,'run IDs cannot collide across owners');
 console.log('PASS tool execution governor: scope, classification, duplicate guard, isolation, overrides, negative validation');
 db.close();
 rmSync(dir, { recursive: true, force: true });

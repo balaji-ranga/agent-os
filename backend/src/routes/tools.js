@@ -4219,6 +4219,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
             req.headers['x-session-key'] ||
             null,
           traceId: inferTraceId(getLlmopsContext() || {}),
+          runId: (req.isInternalService || (req.toolsApiAuth && !req.legacyToolsApiAuth)) ? req.headers['x-openclaw-run-id'] : null,
           toolName,
           params,
         })

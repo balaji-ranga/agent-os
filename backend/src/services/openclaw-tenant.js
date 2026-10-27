@@ -377,6 +377,9 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
     entry.name = entry.name || `${agent.name || baseOcId} (${ceoUserId})`;
   }
   entry.tools = entry.tools || {};
+  if (getDb().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get() && getDb().prepare('SELECT 1 FROM floassist_profiles WHERE owner_id=? AND agent_id=?').get(ceoUserId,agent.id)) {
+    entry.tools.loopDetection = { enabled: true };
+  }
   const existingAllow = (Array.isArray(entry.tools.allow) ? entry.tools.allow : [])
     .filter((tool) => !MCP_AGENT_BRIDGE_TOOLS.includes(String(tool)));
   const desiredAllow = mergeNativeTools(existingAllow, grants);

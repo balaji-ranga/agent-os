@@ -1,4 +1,4 @@
-import {rememberRuntimeChannel,runtimeChannel} from './runtime-channel.js';
+import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {visibleContentTools} from './runtime-access.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
 /**
@@ -657,6 +657,8 @@ async function callInvoke(
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
   const messageChannel = runtimeChannel(toolCtx,api.context);
   if (messageChannel) headers["x-openclaw-message-channel"] = String(messageChannel);
+  const nativeRunId = runtimeRunId(toolCtx, api.context);
+  if (nativeRunId) headers["x-openclaw-run-id"] = String(nativeRunId);
   if (toolCtx?.agentAccountId) headers["x-openclaw-account-id"] = String(toolCtx.agentAccountId);
   if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
   const sessionKey =
@@ -774,8 +776,11 @@ export default definePluginEntry({
     if (typeof api.on === "function") {
       api.on("before_prompt_build", async (event: PromptBuildEvent, ctx: PromptBuildContext) => {
         rememberRuntimeChannel(ctx);
+        const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
+        const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
+          ? "Current FloAssist read capability: use floassist_source_read for connected email, files and calendar content. Latest Gmail draft: {app_id: gmail, kind: draft}. Existing task source: {task_id: exact task number}. Do not replay invented action names or failed calls from older conversation history. If a current tool result is non-retryable, stop that attempt and provide one concise final explanation, not another equivalent call." : "";
         const result = await correlateInboundCampaign(api, event, ctx);
-        if (!result?.matched) return;
+        if (!result?.matched) return recoveryHint ? { prependContext: recoveryHint } : undefined;
         const campaign = result.campaign || {};
         const lead = result.lead || {};
         const classification = result.classification || {};
@@ -783,6 +788,7 @@ export default definePluginEntry({
         const companyUser = result.identity?.kind === "company_user";
         return {
           prependContext: [
+            recoveryHint,
             "Trusted Agent OS campaign attribution:",
             `This inbound message was matched to campaign ${campaign.name || campaign.campaign_id || "(unknown)"}.`,
             companyUser

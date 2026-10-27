@@ -186,8 +186,8 @@ export function putExecutionBehaviours(ownerUserId, mappings = []) {
   return listExecutionBehaviours(ownerUserId);
 }
 
-function executionKey({ sessionKey, traceId, ownerUserId, agentId }) {
-  const raw = String(sessionKey || traceId || `${ownerUserId || 'unknown'}:${agentId || 'unknown'}:unscoped`);
+function executionKey({ runId, sessionKey, traceId, ownerUserId, agentId }) {
+  const raw = runId ? JSON.stringify([ownerUserId,agentId,sessionKey,runId]) : String(sessionKey || traceId || `${ownerUserId || 'unknown'}:${agentId || 'unknown'}:unscoped`);
   return createHash('sha256').update(raw).digest('hex').slice(0, 32);
 }
 
@@ -195,10 +195,10 @@ function fingerprint(toolName, params) {
   return createHash('sha256').update(`${toolName}:${json(canonicalToolParams(params), '{}')}`).digest('hex');
 }
 
-export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, toolName, params }) {
+export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, runId, toolName, params }) {
   const behaviour = getExecutionBehaviour(ownerUserId, toolName);
   const canonicalParams = canonicalToolParams(params);
-  const key = executionKey({ sessionKey, traceId, ownerUserId, agentId });
+  const key = executionKey({ runId, sessionKey, traceId, ownerUserId, agentId });
   const fp = fingerprint(toolName, canonicalParams);
   const floAssistGuide=toolName==='connector_get_action_guide'&&currentFloAssistScope()?.run;
   if (!floAssistGuide && !behaviour.repeat_allowed && behaviour.duplicate_window_sec > 0) {

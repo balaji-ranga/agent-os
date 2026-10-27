@@ -1,9 +1,10 @@
+import {sourceReference,connectorReferenceResult} from '../src/services/floassist/source-references.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {readFloAssistSource,decodeDocument} from '../src/services/floassist/source-reader.js';
 import {assertDeadlineEvidence,recordVerifiedSourceText,historicalDeadlineConfirmed} from '../src/services/floassist/deadline-evidence.js';
 import {assertFloAssistConnector,resolveFloAssistScope,bindFloAssistWork,withFloAssistScope,assertFloAssistMcpRoute} from '../src/services/floassist/execution-scope.js';
-import {rememberRuntimeChannel,runtimeChannel} from '../../openclaw-extensions/agent-os-content-tools/runtime-channel.js';
+import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from '../../openclaw-extensions/agent-os-content-tools/runtime-channel.js';
 const db=new Database(':memory:');
 db.exec(`CREATE TABLE floassist_profiles(owner_id TEXT,agent_id TEXT,status TEXT,preferences_json TEXT);
  CREATE TABLE floassist_task_tracking(owner_id TEXT,task_id INTEGER,app_id TEXT,source_id TEXT,obligation_key TEXT);
@@ -84,4 +85,16 @@ console.log('FLOASSIST_SOURCE_READER_OK: provider bodies, pagination, provenance
 
 mode='normal';calls=[];const draft=await readFloAssistSource('a',{app_id:'gmail',kind:'draft'},options);assert.equal(calls.length,1);assert.equal(draft.source_id,'latest');assert.match(draft.content,/latest saved body/);mode='more';await assert.rejects(readFloAssistSource('a',{app_id:'gmail',kind:'draft'},options),e=>e.code==='FLOASSIST_DRAFT_COVERAGE_LIMIT');console.log('FLOASSIST_DRAFT_READ_OK: bounded single call, latest timestamp selection, incomplete coverage rejected');
 
+mode='normal';
+const projectedOptions={...options,execute:async(owner,action,input)=>connectorReferenceResult(db,owner,action,await execute(owner,action,input),context)};
+for(const [app,id]of [['gmail','real-thread'],['google_drive','doc']]){
+ const ref=sourceReference(db,'a',app,id,context);
+ const result=await readFloAssistSource('a',{app_id:app,source_id:ref},projectedOptions);
+ assert.equal(result.content_verified,true);assert.equal(result.source_id,id);
+}
+db.prepare('INSERT INTO floassist_task_tracking VALUES (?,?,?,?,?)').run('a',2,'gmail','real-thread','action');
+const reference=sourceReference(db,'a','gmail','real-thread',context);
+assert.equal((await readFloAssistSource('a',{app_id:'gmail',source_id:reference,task_id:2},projectedOptions)).content_verified,true);
+console.log('FLOASSIST_RUN_REFERENCES_OK: projected provider IDs and task-linked references resolve before identity comparison');
+rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'first'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'first');rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'second'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'second');assert.equal(runtimeRunId({sessionKey:'other-chat'},null,now),null);
 db.close();

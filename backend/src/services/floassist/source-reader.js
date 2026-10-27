@@ -1,6 +1,6 @@
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from './execution-scope.js';
-import {resolveSourceReference} from './source-references.js';
+import {resolveSourceReference,connectorReferenceInput} from './source-references.js';
 import {recordVerifiedSourceText} from './deadline-evidence.js';
 import {extractTextFromBuffer} from '../master-data-extract.js';
 
@@ -57,6 +57,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   if(input.task_id){
    const task=db.prepare('SELECT app_id,source_id FROM floassist_task_tracking WHERE owner_id=? AND task_id=?').get(owner,input.task_id);
    if(!task)fail('FLOASSIST_SOURCE_NOT_FOUND','No source-backed task exists for this owner.',404);
+   if(id)id=resolveSourceReference(db,owner,task.app_id,id,scope);
    if((app&&app!==task.app_id)||(id&&id!==task.source_id))fail('FLOASSIST_SOURCE_MISMATCH','Use the task source exactly; do not substitute another app or item.');
    app=task.app_id;id=task.source_id;
   }
@@ -64,7 +65,8 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   const run=async(action,args)=>{
    assertFloAssistConnector(owner,action,db,scope);
    await authorize(owner,action,caller||profile.agent_id,args);
-   return sourceData(await execute(owner,action,args,{source:caller||profile.agent_id,authorizationRetryDelaysMs:[]}));
+   const result=await execute(owner,action,args,{source:caller||profile.agent_id,authorizationRetryDelaysMs:[]});
+   return sourceData(connectorReferenceInput(db,owner,action,result,scope));
   };
   id=resolveSourceReference(db,owner,app,id,scope);
   let text='',messages=[],complete=true;

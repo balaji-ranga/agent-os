@@ -58,6 +58,7 @@ try{
   connectedProviders=['gmail'];await s.save('owner-a',prefs);
   const active=await s.activate('owner-a');check(active.status,'active','real platform activation');check(JSON.stringify(active).includes('NEVER_RETURN_THIS'),false,'no credential leak');
   const refreshed=JSON.parse(readFileSync(join(sessions,'sessions.json')));check(refreshed['agent:t-owner-a--fixture-coo:main'],undefined,'native main session reloads added capabilities');check(refreshed['agent:t-owner-a--fixture-coo:goal:ongoing'].sessionId,'ongoing','ongoing task session retained');
+  check(JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH)).agents.list.find(a=>a.id==='t-owner-a--fixture-coo').tools.loopDetection,{enabled:true},'native no-progress loop protection persists for the FloAssist COO');
   check(getActionFamilyPolicies('owner-a'),policyBefore,'existing company policy preserved');
   check(db.prepare('SELECT * FROM agent_skill_assignments WHERE skill_id=?').all(old.id),before,'existing skill pin/disable/priority unchanged');
   const assigned=listAgentSkillAssignments('owner-a','fixture-coo');check(assigned.length,2,'one product skill appended');check(assigned.find(x=>x.skill_id!==old.id).ready,true,'product tools ready');

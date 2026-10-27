@@ -145,6 +145,12 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
     if(handled.has(row.source_key))continue;
     const p=enrolled(db,row.owner_id);
     if(!p||p.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id))continue;
+    if(row.source_key.startsWith(`${row.owner_id}:action-outcome:`)&&db.prepare("SELECT 1 FROM sqlite_master WHERE name='tool_execution_actions'").get()){
+      const action=db.prepare('SELECT request_payload FROM tool_execution_actions WHERE owner_user_id=? AND id=?').get(row.owner_id,row.source_key.slice(`${row.owner_id}:action-outcome:`.length));
+      let request;try{request=JSON.parse(action?.request_payload||'{}');}catch{request={};}
+      const {isReadActionName}=await import('./action-history.js');
+      if(isReadActionName(request.action_id)){db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;}
+    }
     if(!trackingNotificationAllowed(db,row,now)){
       db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
     }
@@ -165,6 +171,7 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
       }
     }
     if(inQuietHours(JSON.parse(p.preferences_json),new Date(now)))continue;
+    if(row.source_key.startsWith(`${row.owner_id}:action-error:`)&&now-row.created_at<Math.max(1,Number(JSON.parse(p.preferences_json).notification_batch_minutes??5))*60000)continue;
     const preferences=JSON.parse(p.preferences_json);
     const batchMinutes=Number(preferences.notification_batch_minutes??5);
     if(batchMinutes>0&&row.source_key.startsWith(`${row.owner_id}:tracking:`)){

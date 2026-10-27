@@ -17,5 +17,11 @@ try{
  eq(listActionHistory({ownerUserId:'b',agentId:'coo',database:db})[0].evidence_id,'two');
  eq(changed.verification.includes('read-back'),true);
  db.prepare("UPDATE floassist_profiles SET status='paused' WHERE owner_id='b'").run();notifyActionOutcome('two',db);eq(db.prepare('SELECT count(*) n FROM floassist_notifications').get().n,2);
+ add('bad-read','a','coo','gmail.getDraftContent','permanent_error');notifyActionOutcome('bad-read',db);eq(db.prepare('SELECT count(*) n FROM floassist_notifications').get().n,2);
+ add('failed-two','a','coo','googlecalendar.update_event','permanent_error');notifyActionOutcome('failed-two',db);eq(db.prepare('SELECT count(*) n FROM floassist_notifications').get().n,2);
+ eq(db.prepare("SELECT text FROM floassist_notifications WHERE source_key='a:action-error:execution'").get().text.includes('2 action attempts'),true);
+ db.prepare("UPDATE floassist_notifications SET status='sent',text=NULL WHERE source_key='a:action-error:execution'").run();
+ add('failed-three','a','coo','googlecalendar.update_event','permanent_error');notifyActionOutcome('failed-three',db);
+ eq(db.prepare("SELECT status,text FROM floassist_notifications WHERE source_key='a:action-error:execution'").get(),{status:'sent',text:null});
  console.log(`FLOASSIST_ACTION_HISTORY_OK: ${checks} checks`);
 }finally{db.close();}

@@ -1,3 +1,4 @@
+import {connectorReferenceInput} from './source-references.js';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from './execution-scope.js';
 import {sourceData,authorizeSourceAction} from './source-reader.js';
@@ -18,7 +19,8 @@ export async function verifyOrphanClosure(owner,input,{db=getDb(),execute,author
   assertFloAssistConnector(owner,action,db,scope);await authorize(owner,action,caller||p.agent_id,args);
   let deleted=false;
   try{
-   const data=sourceData(await execute(owner,action,args,{source:caller||p.agent_id,authorizationRetryDelaysMs:[]}));
+   const result=await execute(owner,action,args,{source:caller||p.agent_id,authorizationRetryDelaysMs:[]});
+   const data=sourceData(connectorReferenceInput(db,owner,action,result,scope));
    if(row.app_id==='gmail'){
     if(data.threadId!==row.source_id||!Array.isArray(data.messages)||!data.messages.length)fail('Current thread identity or coverage is incomplete.');
     deleted=data.messages.every(m=>Array.isArray(m.labelIds)&&m.labelIds.includes('TRASH'));
