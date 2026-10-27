@@ -1,5 +1,5 @@
 import {recordSourceCoverage} from './source-coverage.js';
-import {canonicalThreadInput,resolveSourcePagingErrors} from './source-receipts.js';
+import {canonicalThreadInput,resolveSourcePagingErrors,resolveTaskSourceError,ensureSourceReceipts,recordSourceReceipt} from './source-receipts.js';
 import {randomBytes} from 'node:crypto';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from './execution-scope.js';
@@ -30,6 +30,7 @@ function sourcePage(snapshot,offset){
  const nextRequest=!complete?{...snapshot.request,snapshot_id:snapshot.id,offset:next}:null;
  recordSourceCoverage(snapshot.db,snapshot.scope,snapshot.metadata,snapshot.id,complete&&snapshot.metadata.provider_complete!==false,nextRequest);
  if(complete&&snapshot.metadata.provider_complete!==false)resolveSourcePagingErrors(snapshot.db,snapshot.scope.owner,snapshot.metadata,snapshot.scope);
+ if(complete&&snapshot.metadata.provider_complete!==false&&snapshot.metadata.source_task_id)resolveTaskSourceError(snapshot.db,snapshot.scope.owner,snapshot.metadata.source_task_id,snapshot.scope);
  return {...snapshot.metadata,...(deadlineEvidence.length?{deadline_evidence:deadlineEvidence}:{}),content:snapshot.text.slice(offset,end),offset,next_offset:complete?null:next,total_characters:snapshot.text.length,coverage_complete:complete&&snapshot.metadata.provider_complete!==false,
   snapshot_id:snapshot.id,snapshot_at:snapshot.at,...(!complete?{next_request:nextRequest}:{}),
   evidence_instruction:'For a dated obligation, copy a matching returned deadline_evidence.deadline_excerpt reference and due_at rather than rewriting its passage. References are not permission to create tasks; reassess relevance after complete source review.',
@@ -74,7 +75,7 @@ export async function decodeDocument(bytes,mime,name,extract=extractTextFromBuff
 
 /** A bounded read orchestration; every inner operation uses the same owner,
  * caller grants, selected-app scope and action policy as connector execution. */
-export async function readFloAssistSource(owner,input,{db=getDb(),context=currentFloAssistScope(),execute,readTransit,extract=extractTextFromBuffer,authorize=authorizeSourceAction,caller,now=Date.now()}={}){
+export async function readFloAssistSource(owner,input,{db=getDb(),context=currentFloAssistScope(),execute,readTransit,extract=extractTextFromBuffer,authorize=authorizeSourceAction,caller,now=Date.now(),discoverUnknownSources=false}={}){
  const profile=db.prepare('SELECT agent_id,status,preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner);
  if(!profile)fail('FLOASSIST_OWNER_DENIED','FloAssist profile is required.',403);
  if(context&&context.owner!==owner)fail('FLOASSIST_OWNER_DENIED','Source owner mismatch.',403);
@@ -90,8 +91,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   if(input.task_id){
    const task=db.prepare('SELECT app_id,source_id FROM floassist_task_tracking WHERE owner_id=? AND task_id=?').get(owner,input.task_id);
    if(!task)fail('FLOASSIST_SOURCE_NOT_FOUND','No source-backed task exists for this owner.',404);
+   const mismatch=()=>{throw Object.assign(new Error('The task source was not read. Retry with only task_id; omit app_id and source_id so the server uses its stored identity.'),{status:422,code:'FLOASSIST_SOURCE_MISMATCH',next_action:{tool:'floassist_source_read',input:{task_id:Number(input.task_id)},instruction:'Read this exact owner task without app/item overrides. The rejected request did not read another source.'}});};
+   if(app&&app!==task.app_id)mismatch();
    if(id)id=resolveSourceReference(db,owner,task.app_id,id,scope);
-   if((app&&app!==task.app_id)||(id&&id!==task.source_id))fail('FLOASSIST_SOURCE_MISMATCH','Use the task source exactly; do not substitute another app or item.');
+   if(id&&id!==task.source_id)mismatch();
    app=task.app_id;id=task.source_id;
   }
   const provider=providers[app];if(!provider)fail('FLOASSIST_SOURCE_UNSUPPORTED','Choose Gmail, Outlook, Google Drive, OneDrive or Google Calendar.');
@@ -104,6 +107,36 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    return sourceData(connectorReferenceInput(db,owner,action,result,scope));
   };
   id=resolveSourceReference(db,owner,app,id,scope);
+  if(discoverUnknownSources&&scope.run&&id&&!input.task_id&&!(app==='google_calendar'&&id==='primary')){
+   ensureSourceReceipts(db);
+   const known=db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
+   const task=db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
+   if(!known&&!task){
+    let candidates=[],more=false,account;
+    const prefs=JSON.parse(profile.preferences_json||'{}'),days=prefs.discovery_lookback_days??7;
+    if(app==='gmail'){
+     const who=await run('gmail.get_profile',{});account=who.emailAddress;
+     const data=await run('gmail.list_threads',{query:`${scope.origin==='floassist:followups'?'in:sent ':''}newer_than:${days}d`,maxResults:40});
+     recordSourceReceipt(owner,'gmail.list_threads',{data},{db,context:scope,now});
+     candidates=(data.threads||[]).map(t=>({app_id:app,source_id:t.threadId||t.id})).filter(t=>t.source_id);more=!!data.nextPageToken;
+    }else if(app==='google_drive'){
+     const who=await run('googledrive.about.get',{fields:'user(emailAddress)'});account=who.user?.emailAddress;
+     const since=new Date(now-days*86400000).toISOString();
+     const data=await run('googledrive.files.list',{q:`trashed = false and modifiedTime > '${since}' and mimeType != 'application/vnd.google-apps.folder'`,orderBy:'modifiedTime desc',pageSize:40});
+     recordSourceReceipt(owner,'googledrive.files.list',{data},{db,context:scope,now});
+     candidates=(data.files||[]).filter(f=>f.id&&documentType(f.mimeType)!=='unsupported').map(f=>({app_id:app,source_id:f.id}));more=!!data.nextPageToken;
+    }else if(app==='google_calendar'){
+     const data=await run('googlecalendar.list_calendars',{maxResults:100});recordSourceReceipt(owner,'googlecalendar.list_calendars',{data},{db,context:scope,now});
+     candidates=(data.items||[]).filter(c=>c.id).map(c=>({app_id:app,source_id:c.id}));more=!!data.nextPageToken;
+    }else{
+     assertFloAssistConnector(owner,`${providers[app]}.source_discovery`,db,scope);
+     return {app_id:app,requested_source_read:false,content_verified:false,needs_source_selection:true,guidance:'This identifier has not been verified in this run. Use provider discovery and copy its exact item ID, or read an existing task with task_id only. No guessed item was sent to the provider.'};
+    }
+    for(const c of candidates)recordSourceCoverage(db,scope,c,'discovery',false,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
+    if(more)recordSourceCoverage(db,scope,{app_id:app,source_id:'@discovery'},'discovery',false,null);
+    return {app_id:app,...(account?{account_id:account}:{}),requested_source_read:false,content_verified:false,discovery_only:true,needs_source_selection:true,source_candidates:candidates,more_candidates:more,guidance:'The supplied ID was not verified and was not sent to the provider. These are current owner-scoped discovery results, not source content. Choose exact returned source IDs and read complete bodies/pages. Do not retry the rejected guessed ID. Extra candidates beyond this bounded list mean partial coverage.'};
+   }
+  }
   trimSnapshots(now);
   if((input.offset??0)>0){
    const snapshot=snapshots.get(snapshotKey(owner,scope,app,id,input));
@@ -168,7 +201,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   }
   if(text.length>MAX_SOURCE_CHARACTERS)fail('FLOASSIST_SOURCE_SIZE_LIMIT','Source exceeds the 1,000,000 character review bound; no partial source is accepted as complete.');
   if(messages.length)recordVerifiedSourceText(owner,scope,app,id,messages,now);
-  const metadata={app_id:app,source_id:id,...(input.kind==='draft'?{source_kind:'draft',selection_basis:'latest provider messageTimestamp across the complete bounded draft list'}:{}),content_verified:true,provider_complete:complete,message_count:messages.length};
+  const metadata={app_id:app,source_id:id,...(input.task_id?{source_task_id:Number(input.task_id)}:{}),...(input.kind==='draft'?{source_kind:'draft',selection_basis:'latest provider messageTimestamp across the complete bounded draft list'}:{}),content_verified:true,provider_complete:complete,message_count:messages.length};
   const snapshot={db,scope,zone:JSON.parse(profile.preferences_json||'{}').timezone||'UTC',id:'fs-'+randomBytes(8).toString('base64url'),text,permissions,metadata,at:new Date(now).toISOString(),until:now+5*60000,request:{app_id:app,source_id:id,...(input.kind?{kind:input.kind}:{}),...(input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})}};
   snapshots.set(snapshotKey(owner,scope,app,id,input),snapshot);trimSnapshots(now);
   return sourcePage(snapshot,input.offset??0);

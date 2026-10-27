@@ -1,5 +1,6 @@
 import {sourceReference,connectorReferenceResult} from '../src/services/floassist/source-references.js';
 import {recordRunError} from '../src/services/floassist/source-receipts.js';
+import {pendingSourceCoverage} from '../src/services/floassist/source-coverage.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {readFloAssistSource,decodeDocument,briefingCalendarWindow} from '../src/services/floassist/source-reader.js';
@@ -101,7 +102,14 @@ for(const [app,id]of [['gmail','real-thread'],['google_drive','doc']]){
 }
 db.prepare('INSERT INTO floassist_task_tracking VALUES (?,?,?,?,?)').run('a',2,'gmail','real-thread','action');
 const reference=sourceReference(db,'a','gmail','real-thread',context);
+const mismatchCalls=calls.length;let taskMismatch;
+try{await readFloAssistSource('a',{app_id:'google_drive',source_id:'wrong-file',task_id:2},projectedOptions);}catch(e){taskMismatch=e;}
+assert.equal(taskMismatch.code,'FLOASSIST_SOURCE_MISMATCH');assert.deepEqual(taskMismatch.next_action.input,{task_id:2});assert.equal(calls.length,mismatchCalls,'wrong source overrides cause no provider request');
+recordRunError(taskMismatch,{db,context,sourceInput:{task_id:2,app_id:'google_drive',source_id:'wrong-file'}});
+recordRunError(taskMismatch,{db,context:{...context,owner:'b'},sourceInput:{task_id:2}});
 assert.equal((await readFloAssistSource('a',{app_id:'gmail',source_id:reference,task_id:2},projectedOptions)).content_verified,true);
+assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE owner_id='a' AND code='FLOASSIST_SOURCE_MISMATCH' AND resolved_at IS NOT NULL").get().n,1,'a full canonical task read resolves only that rejected override');
+assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE owner_id='b' AND code='FLOASSIST_SOURCE_MISMATCH' AND resolved_at IS NULL").get().n,1,'another owner mismatch remains unresolved');
 console.log('FLOASSIST_RUN_REFERENCES_OK: projected provider IDs and task-linked references resolve before identity comparison');
 rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'first'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'first');rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'second'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'second');assert.equal(runtimeRunId({sessionKey:'other-chat'},null,now),null);
 db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run('a','gmail','message-alias','real-thread');
@@ -119,15 +127,35 @@ await assert.rejects(readFloAssistSource('b',largePage.next_request,{...options,
 const pagingError=Object.assign(Error('invalid page'),{code:'FLOASSIST_SOURCE_OFFSET_INVALID'});
 for(const [sourceInput,ctx]of [[{app_id:'google_drive',source_id:'large-doc'},context],[{app_id:'google_drive',source_id:'other-doc'},context],[{app_id:'google_drive',source_id:'large-doc'},{...context,owner:'b'}],[{app_id:'google_drive',source_id:'large-doc'},{...context,run:'other-run'}]])recordRunError(pagingError,{db,context:ctx,sourceInput});
 recordRunError(Object.assign(Error('provider denied'),{code:'authorization_failed'}),{db,context,sourceInput:{app_id:'google_drive',source_id:'large-doc'}});
-assert.equal(db.prepare('SELECT COUNT(*) n FROM floassist_run_errors WHERE resolved_at IS NOT NULL').get().n,0,'partial reads cannot resolve paging failures');
+assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE code='FLOASSIST_SOURCE_OFFSET_INVALID' AND resolved_at IS NOT NULL").get().n,0,'partial reads cannot resolve paging failures');
 let reviewed=largeNext;while(reviewed.next_request)reviewed=await readFloAssistSource('a',reviewed.next_request,options);assert.equal(reviewed.coverage_complete,true);assert.equal(calls.length,snapshotProviderCalls,'all pages share one authenticated download');
-assert.equal(db.prepare('SELECT COUNT(*) n FROM floassist_run_errors WHERE resolved_at IS NOT NULL').get().n,1,'only the completed exact owner/run/source paging error is resolved');
+assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE code='FLOASSIST_SOURCE_OFFSET_INVALID' AND resolved_at IS NOT NULL").get().n,1,'only the completed exact owner/run/source paging error is resolved');
 assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE code='authorization_failed' AND resolved_at IS NULL").get().n,1,'complete content never erases authorization failures');
 await assert.rejects(readFloAssistSource('a',largePage.next_request,{...options,now:now+300001}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','snapshots expire after five minutes');
 const chunks=[];for(let i=0;i<3;i++)chunks.push(await readFloAssistSource('a',{app_id:'google_drive',source_id:'bounded-'+i},{...options,extract:async()=>'x'.repeat(800000)}));
 await assert.rejects(readFloAssistSource('a',chunks[0].next_request,options),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','global snapshot capacity evicts old content');
 await assert.rejects(readFloAssistSource('a',{app_id:'google_drive',source_id:'oversized'},{...options,extract:async()=>'x'.repeat(1000001)}),e=>e.code==='FLOASSIST_SOURCE_SIZE_LIMIT');
 console.log('FLOASSIST_SOURCE_SNAPSHOTS_OK: large text pages, no repeated downloads, fresh policy/selection checks, owner isolation, expiry and global memory bound');
+const discoveryContext={owner:'a',run:'guarded-discovery',origin:'floassist:deadlines'};
+const guarded={...options,discoverUnknownSources:true,context:discoveryContext,execute:async(owner,action,input)=>{
+ if(action==='gmail.get_profile')return {ok:true,data:{emailAddress:'fixture@example.test'}};
+ if(action==='googledrive.about.get')return {ok:true,data:{user:{emailAddress:'fixture@example.test'}}};
+ if(action==='googlecalendar.list_calendars')return {ok:true,data:{items:[{id:'primary'}]}};
+ return execute(owner,action,input);
+}};
+for(const [app,guessed]of [['gmail','invented-gmail-id'],['google_drive','invented-drive-id']]){
+ calls=[];const found=await readFloAssistSource('a',{app_id:app,source_id:guessed},guarded);
+ assert.equal(found.requested_source_read,false);assert.equal(found.content_verified,false);assert.equal(found.discovery_only,true);assert.ok(found.source_candidates.length);
+ assert.equal(calls.some(c=>Object.values(c.input).includes(guessed)),false,'guessed IDs never reach provider requests');
+ assert.ok(pendingSourceCoverage(db,'a',discoveryContext.run).some(c=>c.app_id===app),'metadata discovery is not complete review');
+ const verified=await readFloAssistSource('a',found.source_candidates[0],guarded);assert.equal(verified.content_verified,true);assert.equal(verified.coverage_complete,true);
+ assert.equal(pendingSourceCoverage(db,'a',discoveryContext.run).some(c=>c.app_id===app),false);
+}
+const calendarGuard={...guarded,context:{...discoveryContext,origin:'floassist:briefing'}};
+const discoveredCalendar=await readFloAssistSource('a',{app_id:'google_calendar',source_id:'invented-calendar-id'},calendarGuard);assert.equal(discoveredCalendar.content_verified,false);
+await readFloAssistSource('a',discoveredCalendar.source_candidates[0],calendarGuard);assert.equal(pendingSourceCoverage(db,'a',discoveryContext.run).length,0);
+await assert.rejects(readFloAssistSource('a',{app_id:'gmail',source_id:'another-guessed-id'},{...guarded,authorize:async()=>{throw Object.assign(Error('fixture denied'),{status:403});}}),e=>e.status===403,'discovery cannot bypass action authorization');
+console.log('FLOASSIST_DISCOVERY_GUARD_OK: guessed IDs not executed, bounded real discovery, full candidate review and grants retained');
 db.close();
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});

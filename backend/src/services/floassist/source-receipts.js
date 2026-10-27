@@ -132,6 +132,9 @@ export function scheduledTrackingExclusion(db,owner,input,context=currentFloAssi
 export function assertScheduledTrackingUpdate(input,context=currentFloAssistScope()){
  if(context?.run&&!['clarify','close_orphan'].includes(input.action))throw Object.assign(new Error('A scheduled scan cannot change user tracking preferences. Use floassist_tracking_observe after reading the current full thread; do not resume, stop, snooze or acknowledge tasks without a user request.'),{status:403,code:'FLOASSIST_USER_INSTRUCTION_REQUIRED'});
 }
+export function normalizeScheduledTrackingProof(input,context=currentFloAssistScope()){
+ return context?.run&&!input.evidence&&typeof input.source_evidence==='string'?{...input,evidence:input.source_evidence}:input;
+}
 function trackingKey(db,owner,input,context=currentFloAssistScope()){
  input={...input};
  try{input.source_id=resolveSourceReference(db,owner,providers[input.app_id]||input.app_id,input.source_id,context);}catch{}
@@ -172,10 +175,14 @@ export function resolveSourcePagingErrors(db,owner,input,context=currentFloAssis
  const key=JSON.stringify(['source_page',...JSON.parse(trackingKey(db,owner,input,context)).slice(1)]);
  db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_SOURCE_OFFSET_INVALID','FLOASSIST_SOURCE_SNAPSHOT_EXPIRED') AND resolved_at IS NULL").run(Date.now(),owner,context.run,key);
 }
+export function resolveTaskSourceError(db,owner,taskId,context=currentFloAssistScope()){
+ if(!context?.run||context.owner!==owner||!taskId)return;ensureSourceReceipts(db);
+ db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code='FLOASSIST_SOURCE_MISMATCH' AND resolved_at IS NULL").run(Date.now(),owner,context.run,JSON.stringify(['source_task',taskId]));
+}
 export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,sourceInput,action}={}){
  if(!context?.run)return;ensureSourceReceipts(db);
  const schemaAction=action&&error?.code==='invalid_input'&&(/does not match the action schema/.test(error.message)?action:/^unknown action:/.test(error.message)?readActionAliases[action]:null);
- const key=sourceInput?.app_id&&sourceInput?.source_id?JSON.stringify(['source_page',...JSON.parse(trackingKey(db,context.owner,sourceInput,context)).slice(1)]):trackingInput?trackingKey(db,context.owner,trackingInput,context):schemaAction?JSON.stringify(['schema',schemaAction]):null;
+ const key=sourceInput?.task_id&&error?.code==='FLOASSIST_SOURCE_MISMATCH'?JSON.stringify(['source_task',Number(sourceInput.task_id)]):sourceInput?.app_id&&sourceInput?.source_id?JSON.stringify(['source_page',...JSON.parse(trackingKey(db,context.owner,sourceInput,context)).slice(1)]):trackingInput?trackingKey(db,context.owner,trackingInput,context):schemaAction?JSON.stringify(['schema',schemaAction]):null;
  db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at,operation_key) VALUES (?,?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now(),key);
 }
 export function runEvidenceSummary(db,owner,runId){

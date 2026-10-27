@@ -156,6 +156,11 @@ const requiredReconciliationSchema=scopedFloAssistSchema('floassist_tracking_upd
 assert.ok(requiredReconciliationSchema.required.includes('source_checked'));
 assert.ok(requiredReconciliationSchema.required.includes('source_evidence'));
 assert.deepEqual(requiredReconciliationSchema.properties.source_checked.enum,[true]);
+assert.equal(requiredReconciliationSchema.required.includes('evidence'),false,'scheduled reconciliation has one required proof field');
+assert.equal(floassistSchemas.floassist_tracking_update.required.includes('evidence'),true,'ad hoc user-action evidence requirements stay unchanged');
+const {normalizeScheduledTrackingProof}=await import('../src/services/floassist/source-receipts.js');
+assert.equal(normalizeScheduledTrackingProof({source_evidence:'Verified current source'},context).evidence,'Verified current source');
+assert.equal(normalizeScheduledTrackingProof({source_evidence:'Untrusted replacement'},null).evidence,undefined,'ordinary user instructions cannot be substituted by source proof');
 
 const calendarSchema=scopedFloAssistSchema("floassist_source_read",floassistSchemas.floassist_source_read,{floassist_module:"conflicts",floassist_sources:["google_calendar"]});
 assert.deepEqual(calendarSchema.required,["app_id","time_min","time_max"]);assert.equal(calendarSchema.properties.task_id,undefined);assert.equal(calendarSchema.properties.kind,undefined);assert.deepEqual(calendarSchema.properties.app_id.enum,["google_calendar"]);
