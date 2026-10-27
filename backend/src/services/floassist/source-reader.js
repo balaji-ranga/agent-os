@@ -1,3 +1,4 @@
+import {discoverOutlookSources,readOutlookSource} from './outlook-source.js';
 import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage} from './source-coverage.js';
 import {canonicalThreadInput,resolveSourcePagingErrors,resolveTaskSourceError,ensureSourceReceipts,recordSourceReceipt} from './source-receipts.js';
 import {randomBytes} from 'node:crypto';
@@ -133,7 +134,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    return sourceData(connectorReferenceInput(db,owner,action,result,scope));
   };
   id=resolveSourceReference(db,owner,app,id,scope);
-  if(discoverUnknownSources&&!cursorContinuation&&scope.run&&!input.task_id&&input.kind!=='draft'&&(id||app==='gmail')&&!(app==='google_calendar'&&id==='primary')){
+  if(discoverUnknownSources&&!cursorContinuation&&scope.run&&!input.task_id&&input.kind!=='draft'&&(id||['gmail','outlook'].includes(app))&&!(app==='google_calendar'&&id==='primary')){
    ensureSourceReceipts(db);
    const known=id&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
    const task=id&&db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
@@ -145,6 +146,9 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
      const data=await run('gmail.list_threads',{query:`${scope.origin==='floassist:followups'?'in:sent ':''}newer_than:${days}d`,maxResults:40});
      recordSourceReceipt(owner,'gmail.list_threads',{data},{db,context:scope,now});
      candidates=(data.threads||[]).map(t=>({app_id:app,source_id:t.threadId||t.id})).filter(t=>t.source_id);more=!!data.nextPageToken;
+    }else if(app==='outlook'){
+     const found=await discoverOutlookSources({owner,run,db,context:scope,now,lookbackDays:days});
+     candidates=found.candidates;account=found.identity.account_id;more=found.more;
     }else if(app==='google_drive'){
      const who=await run('googledrive.about.get',{fields:'user(emailAddress)'});account=who.user?.emailAddress;
      const since=new Date(now-days*86400000).toISOString();
@@ -173,7 +177,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    for(const permission of snapshot.permissions){assertFloAssistConnector(owner,permission.action,db,scope);await authorize(owner,permission.action,caller||profile.agent_id,permission.args);}
    return {...sourcePage(snapshot,input.offset),...(continuationContextCorrected?{continuation_context_corrected:true,provenance_instruction:'Retyped source context was ignored. This page belongs only to the returned app_id/source_id; use that provenance for any findings.'}:{})};
   }
-  let text='',messages=[],complete=true;
+  let text='',messages=[],complete=true,outlookAccountId,outlookMetadata;
   if(input.kind==='draft'){
    if(app!=='gmail'||input.task_id||id)fail('FLOASSIST_SOURCE_UNSUPPORTED','Latest draft reads require app_id gmail without a task or source ID.');
    const data=await run('gmail.list_drafts',{verbose:true,maxResults:100});
@@ -192,10 +196,11 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    messages=data.messages.map(m=>({text:`Subject: ${m.subject||''}\n${m.messageText}`,at:m.messageTimestamp}));
    text=messages.map(m=>m.text).join('\n\n');
   }else if(app==='outlook'){
-   if(!id){const list=await run('outlook.list_messages',{top:1,orderby:'receivedDateTime desc',bodyContentType:'text'});id=list.messages?.[0]?.id;if(!id){if(!list.nextPageToken)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,content_verified:!list.nextPageToken,empty:true,content:'',next_offset:null};}}
-   const data=await run('outlook.get_message',{messageId:id,bodyContentType:'text'});
-   if(data.id!==id||typeof data.body?.content!=='string'||data.body.contentType?.toLowerCase()==='html')fail('FLOASSIST_SOURCE_READ_FAILED','Matching Outlook plain-text message content was not returned.');
-   messages=[{text:`Subject: ${data.subject||''}\n${data.body.content}`,at:data.sentDateTime||data.receivedDateTime}];text=messages[0].text;
+   const result=await readOutlookSource(id,{owner,run,db,context:scope,now});outlookAccountId=result.identity.account_id;
+   if(!result.source_id){if(result.complete)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,account_id:outlookAccountId,content_verified:result.complete,empty:true,content:'',next_offset:null};}
+   id=result.source_id;complete=result.complete;outlookMetadata={latest_message_id:result.latest_message_id,latest_message_at:result.latest_message_at,latest_message_sent:result.latest_message_sent,reply_direction_verified:result.reply_direction_verified};
+   messages=result.messages.map(m=>({text:`Subject: ${m.subject}\n${m.messageText}`,at:m.messageTimestamp}));
+   text=messages.map(m=>m.text).join('\n\n');
   }else if(app==='google_calendar'){
    if(!/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(input.time_min||'')||!/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(input.time_max||'')||!Number.isFinite(Date.parse(input.time_min))||!Number.isFinite(Date.parse(input.time_max))||Date.parse(input.time_max)<=Date.parse(input.time_min)||Date.parse(input.time_max)-Date.parse(input.time_min)>31*86400000)fail('FLOASSIST_SOURCE_WINDOW_REQUIRED','Supply an explicit time_min/time_max range of at most 31 days, with timezone offsets.');
    const data=await run('googlecalendar.list_events',{calendarId:id||'primary',timeMin:input.time_min,timeMax:input.time_max,singleEvents:true,maxResults:100});
@@ -233,7 +238,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   }
   if(text.length>MAX_SOURCE_CHARACTERS)fail('FLOASSIST_SOURCE_SIZE_LIMIT','Source exceeds the 1,000,000 character review bound; no partial source is accepted as complete.');
   if(messages.length)recordVerifiedSourceText(owner,scope,app,id,messages,now);
-  const metadata={app_id:app,source_id:id,...(input.task_id?{source_task_id:Number(input.task_id)}:{}),...(input.kind==='draft'?{source_kind:'draft',selection_basis:'latest provider messageTimestamp across the complete bounded draft list'}:{}),content_verified:true,provider_complete:complete,message_count:messages.length};
+  const metadata={app_id:app,source_id:id,...(outlookAccountId?{account_id:outlookAccountId,source_kind:'conversation',...outlookMetadata}:{}),...(input.task_id?{source_task_id:Number(input.task_id)}:{}),...(input.kind==='draft'?{source_kind:'draft',selection_basis:'latest provider messageTimestamp across the complete bounded draft list'}:{}),content_verified:true,provider_complete:complete,message_count:messages.length};
   const snapshot={db,scope,zone:JSON.parse(profile.preferences_json||'{}').timezone||'UTC',id:'fs-'+randomBytes(8).toString('base64url'),text,permissions,metadata,at:new Date(now).toISOString(),until:now+5*60000,request:{app_id:app,source_id:id,...(input.kind?{kind:input.kind}:{}),...(input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})}};
   snapshots.set(snapshotKey(owner,scope,app,id,input),snapshot);trimSnapshots(now);
   return sourcePage(snapshot,input.offset??0);

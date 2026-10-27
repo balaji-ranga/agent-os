@@ -27,8 +27,9 @@ const execute=async(owner,action,input)=>{
   'gmail.list_drafts':{drafts:[{id:'older',message:{messageTimestamp:'2026-10-25T00:00:00Z',messageText:'old'}},{id:'latest',message:{messageTimestamp:'2026-10-26T00:00:00Z',messageText:'latest saved body',subject:'Draft'}}],...(mode==='more'?{nextPageToken:'next'}:{})},
   'gmail.list_threads':{threads:[{threadId:'real-thread'}]},
   'gmail.fetch_message_by_thread_id':{threadId:mode==='wrong'?'other':input.threadId,messages:[{subject:'Report',messageText:mode==='long'?'x'.repeat(13000)+passage:passage,messageTimestamp:'2026-10-26T10:00:00Z'}]},
-  'outlook.list_messages':{messages:[{id:'outlook-real'}]},
-  'outlook.get_message':{id:input.messageId,subject:'Report',body:{contentType:'text',content:passage},receivedDateTime:'2026-10-26T10:00:00Z'},
+  'outlook.get_profile':{id:'outlook-account',mail:'owner@example.test'},
+  'outlook.list_messages':{messages:[{id:'outlook-real',isDraft:false,conversationId:'conversation-a',subject:'Report',body:{contentType:'text',content:passage},from:{emailAddress:{address:'sender@example.test'}},receivedDateTime:'2026-10-26T10:00:00Z'}]},
+  'outlook.get_message':{id:input.messageId,isDraft:false,conversationId:'conversation-a',subject:'Report',body:{contentType:'text',content:passage},receivedDateTime:'2026-10-26T10:00:00Z'},
   'googledrive.files.list':{files:[{id:'file-a',name:'Source',mimeType:'text/plain'}]},
   'googledrive.files.get':{id:input.fileId,mimeType:input.fileId==='video'?'video/quicktime':'application/vnd.google-apps.document',name:'source'},
   'googledrive.files.export':{fileId:input.fileId,file:{fileId:'server-returned-transit-id',mimeType:'text/plain',name:'source.txt'}},
@@ -48,7 +49,7 @@ for(const [app,id]of [['gmail',undefined],['outlook',undefined],['google_drive',
  assert.equal(assertDeadlineEvidence('a',context,{app_id:app,source_id:out.source_id,due_at:'2026-10-27T15:00:00+08:00',deadline_excerpt:passage},'Asia/Singapore',now).verified,true);
  assert.ok(calls.every(x=>x.owner==='a'));
 }
-assert.equal(authorizations.length,8);
+assert.equal(authorizations.length,10);
 const media=await readFloAssistSource('a',{task_id:1},options);assert.equal(media.unsupported,true);assert.equal(media.app_id,'google_drive');assert.equal(media.content_verified,false);
 await assert.rejects(()=>readFloAssistSource('b',{task_id:1},{...options,context:null}),e=>e.status===404);
 await assert.rejects(()=>readFloAssistSource('a',{task_id:1,app_id:'gmail'},options),e=>e.code==='FLOASSIST_SOURCE_MISMATCH');

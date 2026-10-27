@@ -16,30 +16,38 @@ export function ensureSourceReceipts(db){
  const columns=new Set(db.prepare('PRAGMA table_info(floassist_run_errors)').all().map(c=>c.name));
  for(const [name,type] of [['operation_key','TEXT'],['resolved_at','INTEGER']])if(!columns.has(name))db.exec(`ALTER TABLE floassist_run_errors ADD COLUMN ${name} ${type}`);
 }
+export function recordMailThreadReceipt(owner,app,thread,{db=getDb(),context=currentFloAssistScope(),now=Date.now()}={}){
+ if(context?.owner!==owner||!context.run||thread.complete===false)return;
+ ensureSourceReceipts(db);
+ const messages=thread.messages||[],id=thread.threadId;
+ if(!id)return;
+ for(const m of messages)if(m.messageId)db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run(owner,app,m.messageId,id);
+ const dated=messages.filter(m=>!m.isDraft).map(m=>({...m,at:/^\d+$/.test(String(m.messageTimestamp))?Number(m.messageTimestamp):Date.parse(m.messageTimestamp)})).filter(m=>Number.isFinite(m.at)).sort((a,b)=>b.at-a.at||String(b.messageId).localeCompare(String(a.messageId)));
+ const latest=dated[0];
+ if(!latest){db.prepare('DELETE FROM floassist_thread_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND thread_id=?').run(owner,context.run,app,id);return;}
+ db.prepare('INSERT OR REPLACE INTO floassist_thread_receipts VALUES (?,?,?,?,?,?,?,?)').run(owner,context.run,app,id,latest.messageId,latest.at,thread.directionCertain===false||new Set(dated.filter(m=>m.at===latest.at).map(m=>!!m.labelIds?.includes('SENT'))).size>1?0:latest.labelIds?.includes('SENT')?1:0,messages.length);
+ const insert=db.prepare('INSERT OR REPLACE INTO floassist_source_receipts VALUES (?,?,?,?,?)');
+ for(const source of [id,...messages.map(m=>m.messageId).filter(Boolean)])insert.run(owner,context.run,app,source,now);
+ db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code='FLOASSIST_THREAD_READ_REQUIRED'").run(now,owner,context.run,trackingKey(db,owner,{app_id:app,source_id:id},context));
+}
 export function recordSourceReceipt(owner,action,result,{db=getDb(),context=currentFloAssistScope(),now=Date.now()}={}){
  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get()||!db.prepare('SELECT 1 FROM floassist_profiles WHERE owner_id=?').get(owner))return;
+ if(context&&context.owner!==owner)return;
  const app=providers[action.split('.')[0]];if(!app)return;
  ensureSourceReceipts(db);
  const data=result?.data?.data||result?.data||result;
  let account=action==='gmail.get_profile'?data?.emailAddress:null;
+ if(action==='outlook.get_profile')account=[data?.mail,data?.userPrincipalName].filter(v=>typeof v==='string').map(v=>v.trim().toLowerCase()).find(v=>/^[^\s@]+@[^\s@]+$/.test(v))||null;
  if(action==='googlecalendar.list_calendars')account=data?.items?.find(x=>x.primary)?.id;
  if(action==='googledrive.about.get')account=data?.user?.emailAddress;
  if(action==='one_drive.get_drive')account=data?.id;
  if(account)db.prepare('INSERT OR REPLACE INTO floassist_account_receipts VALUES (?,?,?,?)').run(owner,app,String(account),now);
  if(context?.owner===owner)recordDeadlineText(owner,context,action,result,now);
  if(!context?.run||context.owner!==owner)return;
+ if(action==='outlook.get_profile')return; // Account IDs are not message identities.
  if(app==='gmail'&&Array.isArray(data?.messages)){
    for(const m of data.messages)if(m.messageId&&m.threadId)db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run(owner,app,m.messageId,m.threadId);
-   if(action==='gmail.fetch_message_by_thread_id'&&data.threadId&&data.messages.length){
-     const dated=data.messages.map(m=>({...m,at:/^\d+$/.test(m.messageTimestamp)?Number(m.messageTimestamp):Date.parse(m.messageTimestamp)})).filter(m=>Number.isFinite(m.at)).sort((a,b)=>b.at-a.at);
-     const latest=dated[0];
-     if(latest){
-       db.prepare('INSERT OR REPLACE INTO floassist_thread_receipts VALUES (?,?,?,?,?,?,?,?)').run(owner,context.run,app,data.threadId,latest.messageId,latest.at,latest.labelIds?.includes('SENT')?1:0,data.messages.length);
-       // A full current thread read satisfies this prerequisite even when the
-       // candidate is then correctly excluded without another observation.
-       db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code='FLOASSIST_THREAD_READ_REQUIRED'").run(now,owner,context.run,trackingKey(db,owner,{app_id:app,source_id:data.threadId}));
-     }
-   }
+   if(action==='gmail.fetch_message_by_thread_id'&&data.threadId&&data.messages.length)recordMailThreadReceipt(owner,app,{...data,complete:true},{db,context,now});
  }
  const ids=new Set();let visited=0;
  if(/(?:fetch_emails|fetch_message_by_thread_id|list_events|list_files|files\.list|search_files|list_messages)/.test(action))ids.add(`@read:${action}`);
@@ -102,7 +110,7 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  assertSourceCoverage(db,owner,context.run,input.app_id,input.source_id);
  if(!input.requested_action?.trim()||!input.why_now?.trim()||!input.thread_summary?.trim())throw Object.assign(new Error('Provide requested_action, why_now and a concise thread_summary from current evidence. A task title and date alone are not an actionable alert.'),{status:400,code:'FLOASSIST_CONTEXT_REQUIRED'});
  const threadState=db.prepare('SELECT * FROM floassist_thread_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND thread_id=?').get(owner,context.run,input.app_id,input.source_id);
- if(input.app_id==='gmail'&&!threadState)throw Object.assign(new Error('Read the full current Gmail thread before creating or repeating an alert. A list result or old sent message may have been superseded by a later reply.'),{status:409,code:'FLOASSIST_THREAD_READ_REQUIRED',next_action:{tool:'floassist_source_read',input:{app_id:'gmail',source_id:sourceReference(db,owner,input.app_id,input.source_id,context)},instruction:'Read this exact thread, reassess its latest state, then submit corrected tracking input only if an obligation remains. No task was created.'}});
+ if(['gmail','outlook'].includes(input.app_id)&&!threadState)throw Object.assign(new Error('Read the full current mail conversation before creating or repeating an alert. A list result or old sent message may have been superseded by a later reply.'),{status:409,code:'FLOASSIST_THREAD_READ_REQUIRED',next_action:{tool:'floassist_source_read',input:{app_id:input.app_id,source_id:sourceReference(db,owner,input.app_id,input.source_id,context)},instruction:'Read this exact thread, reassess its latest state, then submit corrected tracking input only if an obligation remains. No task was created.'}});
  if(module==='followups'){
    const latest=threadState;
    const prefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner).preferences_json);

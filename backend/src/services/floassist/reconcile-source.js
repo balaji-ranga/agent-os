@@ -1,7 +1,8 @@
+import {isOutlookConversationSource} from './outlook-source.js';
 import {connectorReferenceInput} from './source-references.js';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from './execution-scope.js';
-import {sourceData,authorizeSourceAction} from './source-reader.js';
+import {sourceData,authorizeSourceAction,readFloAssistSource} from './source-reader.js';
 
 /** Re-read the exact stored mail identity before honoring an orphan-close request.
  * A model's prose is never evidence of deletion or completed work. */
@@ -14,6 +15,11 @@ export async function verifyOrphanClosure(owner,input,{db=getDb(),execute,author
  execute=execute||(await import('../openconnector.js')).executeConnectorAction;
  const scope=context||{owner,origin:'source_reconciliation'};
  return withFloAssistScope(scope,async()=>{
+  const threadAlias=row.app_id==='outlook'&&db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_message_threads'").get()?db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(owner,'outlook',row.source_id):null;
+  if(row.app_id==='outlook'&&(isOutlookConversationSource(row.source_id)||isOutlookConversationSource(threadAlias?.thread_id))){
+   await readFloAssistSource(owner,{task_id:row.task_id},{db,context:scope,execute,authorize,caller});
+   return {...input,action:'clarify',source_checked:true,evidence:'Backend checked the exact Outlook conversation. Conversation-list absence does not prove deletion or fulfillment; owner confirmation is required.'};
+  }
   const action=row.app_id==='gmail'?'gmail.fetch_message_by_thread_id':'outlook.get_message';
   const args=row.app_id==='gmail'?{threadId:row.source_id}:{messageId:row.source_id,bodyContentType:'text'};
   assertFloAssistConnector(owner,action,db,scope);await authorize(owner,action,caller||p.agent_id,args);

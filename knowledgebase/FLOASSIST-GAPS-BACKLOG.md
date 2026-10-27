@@ -275,3 +275,8 @@ Backend v36 fixes stopped/closed records being exposed again by the scheduled tr
 ### Final requested-scope acceptance — 27 October 2026
 
 FA-GAP-001, FA-GAP-005 and FA-GAP-011 are closed for the requested selected-Google scope. All five final live runs passed with complete required-app receipts, zero unresolved errors, zero unread sources and no exhausted tool budget on the unchanged secondary model. Earlier failed runs remain failed. Full evidence, run IDs, native retry qualifications, source/budget limits, Microsoft prerequisites and rollout details are in [Final selected-Google acceptance](FLOASSIST-IMPLEMENTATION-AND-TESTING.md#final-selected-google-acceptance--27-october-2026). This supersedes historical open-acceptance checkpoints for these three gaps. Other gaps remain unchanged.
+
+
+### Outlook Mail implementation checkpoint — 27 October 2026
+
+Outlook identity receipts and complete conversation/latest-reply normalization are implemented using the common tracker and dispatcher. The 37-case Outlook harness and full existing regression suite pass. Exact message aliases reuse legacy tasks without title-based merging; incomplete reads and ambiguous conversation deletion fail closed/request clarification. Live Outlook acceptance remains pending enabling the already connected mailbox in FloAssist Connections. See the implementation/testing notes for prerequisites and limits. FA-GAP-006 Microsoft Calendar remains unchanged.

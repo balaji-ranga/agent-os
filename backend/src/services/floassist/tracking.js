@@ -109,14 +109,24 @@ function queue(db,r,kind,now,cycle=null){
   audit(db,r,'queued',kind,now);return 'queued';
 }
 
+// Exact provider-verified message aliases reuse the existing task identity.
+// This is shared mail normalization, never title-based matching or task merging.
+function existingMailSource(db,owner,app,account,source,obligation){
+ if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_message_threads'").get())return source;
+ if(db.prepare('SELECT 1 FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND account_id=? AND source_id=? AND obligation_key=?').get(owner,app,account,source,obligation))return source;
+ const matches=db.prepare('SELECT DISTINCT f.source_id FROM floassist_task_tracking f JOIN floassist_message_threads m ON m.owner_id=f.owner_id AND m.app_id=f.app_id AND m.message_id=f.source_id WHERE f.owner_id=? AND f.app_id=? AND f.account_id=? AND m.thread_id=? AND f.obligation_key=?').all(owner,app,account,source,obligation);
+ if(matches.length>1)fail('Multiple existing source-backed tasks match this conversation. Ask the owner to reconcile them; no task was merged or created.',409);
+ return matches[0]?.source_id||source;
+}
 /** All identities are owner scoped. Obligation identity never includes alert wording or responsibility. */
 export function observeTracking(db,owner,input,now=Date.now()){
   ensureTracking(db);
   const p=profile(db,owner),prefs=parse(p.preferences_json);
-  const app=text(input.app_id,'app_id',80),account=text(input.account_id,'account_id',200),source=text(input.source_id,'source_id',300);
+  const app=text(input.app_id,'app_id',80),account=text(input.account_id,'account_id',200),incomingSource=text(input.source_id,'source_id',300);
   if(!prefs.connectors?.includes(app))fail('Select this app in FloAssist before tracking it.',403);
   const category=text(input.category,'category',30);if(!categories.includes(category))fail('Unsupported tracking category.');
   const obligation=String(input.obligation_key||'action').trim();if(!obligation||obligation.length>150)fail('Invalid obligation key.');
+  const source=existingMailSource(db,owner,app,account,incomingSource,obligation);
   const title=text(input.title,'title',300),evidence=text(input.evidence,'evidence',1000);
   const prior=db.prepare('SELECT context_json FROM floassist_task_tracking WHERE owner_id=? AND source_key=?').get(owner,hash([app,account,source,obligation]));
   const assigned=taskPriority({...input,...(parse(prior?.context_json).priority_locked?parse(prior.context_json):{})},prefs,now);

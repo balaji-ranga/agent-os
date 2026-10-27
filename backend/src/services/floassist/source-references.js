@@ -1,11 +1,11 @@
 import {currentFloAssistScope} from './execution-scope.js';
-const apps={gmail:'gmail',googledrive:'google_drive'};
+const apps={gmail:'gmail',googledrive:'google_drive',outlook:'outlook'};
 const active=(owner,c)=>!!c?.run&&c.owner===owner;
 function ensure(db){db.exec('CREATE TABLE IF NOT EXISTS floassist_source_references(owner_id TEXT,run_id TEXT,app_id TEXT,reference TEXT,source_id TEXT,created_at INTEGER,PRIMARY KEY(owner_id,run_id,app_id,reference),UNIQUE(owner_id,run_id,app_id,source_id))');}
 export function sourceReference(db,owner,app,id,context=currentFloAssistScope()){
  if(!active(owner,context)||typeof id!=='string'||!id||id.length>500)return id;
  ensure(db);app=apps[app]||app;
- if(!['gmail','google_drive'].includes(app))return id;
+ if(!['gmail','google_drive','outlook'].includes(app))return id;
  if(id.startsWith('fa-ref-')){resolveSourceReference(db,owner,app,id,context);return id;}
  return db.transaction(()=>{
   const old=db.prepare('SELECT reference FROM floassist_source_references WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,context.run,app,id);
@@ -37,7 +37,7 @@ export function connectorReferenceInput(db,owner,action,input,context=currentFlo
  return mapIds(input,id=>resolveSourceReference(db,owner,app,id,context));
 }
 export function connectorReferenceResult(db,owner,action,result,context=currentFloAssistScope()){
- if(!active(owner,context))return result;
+ if(!active(owner,context)||action==='outlook.get_profile')return result;
  const app=apps[action.split('.')[0]];if(!app||!result?.data||typeof result.data!=='object')return result;
  // Canonical provider data was already receipted. Do not duplicate serialized
  // text or let the model retype opaque provider IDs from a second representation.
@@ -49,6 +49,7 @@ export function trackingReferenceResult(db,owner,value,context=currentFloAssistS
  if(Array.isArray(value))return value.map(v=>trackingReferenceResult(db,owner,v,context));
  const out={...value};
  if(out.app_id&&typeof out.source_id==='string')out.source_id=sourceReference(db,owner,out.app_id,out.source_id,context);
+ if(out.app_id&&typeof out.latest_message_id==='string')out.latest_message_id=sourceReference(db,owner,out.app_id,out.latest_message_id,context);
  for(const [k,v]of Object.entries(out))if(v&&typeof v==='object')out[k]=trackingReferenceResult(db,owner,v,context);
  return out;
 }
