@@ -128,6 +128,7 @@ export function installSessionToolScope(sessionKey, selection, ttlMs = 15 * 60 *
   const scopes = pruneExpired(readScopes());
   scopes[key] = {
     ...(['priority','deadlines','followups','briefing','conflicts'].includes(selection.floassist_module)?{floassist_module:selection.floassist_module}:{}),
+    ...(Array.isArray(selection.floassist_sources)?{floassist_sources:[...new Set(selection.floassist_sources.filter(app=>['gmail','outlook','google_calendar','outlook_calendar','google_drive','onedrive'].includes(app)))]}:{}),
     ...(Array.isArray(selection.floassist_reconciliation_task_ids)?{floassist_reconciliation_task_ids:[...new Set(selection.floassist_reconciliation_task_ids.filter(id=>Number.isSafeInteger(id)&&id>0))]}:{}),
     tools: [...new Set((selection.tools || []).map(String).filter(Boolean))],
     selected_mcp_capabilities: [...new Set(

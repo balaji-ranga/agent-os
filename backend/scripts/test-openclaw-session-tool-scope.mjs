@@ -44,8 +44,9 @@ try {
   assert.equal(existsSync(SESSION_TOOL_SCOPES_PATH), true);
   assert.equal(removeSessionToolScope(key), true);
   assert.equal(removeSessionToolScope(key), false);
-  installSessionToolScope(key,{...selection,floassist_module:'followups'});
+  installSessionToolScope(key,{...selection,floassist_module:'followups',floassist_sources:['gmail','gmail','unknown']});
   assert.equal(JSON.parse(readFileSync(SESSION_TOOL_SCOPES_PATH,'utf8'))[key].floassist_module,'followups');
+  assert.deepEqual(JSON.parse(readFileSync(SESSION_TOOL_SCOPES_PATH,'utf8'))[key].floassist_sources,['gmail']);
   removeSessionToolScope(key);
   console.log('OpenClaw session tool scope: OK');
 } finally {
