@@ -1,6 +1,6 @@
 import {sourceReference,connectorReferenceResult} from '../src/services/floassist/source-references.js';
 import {recordRunError} from '../src/services/floassist/source-receipts.js';
-import {pendingSourceCoverage,requireAppCoverage} from '../src/services/floassist/source-coverage.js';
+import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from '../src/services/floassist/source-coverage.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {readFloAssistSource,decodeDocument,briefingCalendarWindow} from '../src/services/floassist/source-reader.js';
@@ -169,6 +169,24 @@ console.log('FLOASSIST_DISCOVERY_GUARD_OK: guessed IDs not executed, bounded rea
 const emptyScope={...discoveryContext,run:'verified-empty-mail'};requireAppCoverage(db,emptyScope,'gmail',{app_id:'gmail'});
 const emptyMail=await readFloAssistSource('a',{app_id:'gmail'},{...guarded,context:emptyScope,execute:async(owner,action,input)=>action==='gmail.list_threads'?{ok:true,data:{threads:[]}}:guarded.execute(owner,action,input)});
 assert.equal(emptyMail.empty,true);assert.equal(pendingSourceCoverage(db,'a',emptyScope.run).length,0,'only a real empty provider result satisfies empty-mailbox coverage');
+// A repeated cursor must not look like advancing coverage or issue another
+// provider request; content/evidence and permissions remain intact.
+const replayScope={...discoveryContext,run:'cursor-replay'};
+const replayOptions={...options,context:replayScope,extract:async()=>'x'.repeat(37000)};
+const firstReplay=await readFloAssistSource('a',{app_id:'google_drive',source_id:'replay-doc'},replayOptions);
+const secondReplay=await readFloAssistSource('a',firstReplay.next_request,replayOptions);
+const providerCount=calls.length,authCount=authorizations.length;
+const repeatedReplay=await readFloAssistSource('a',firstReplay.next_request,replayOptions);
+assert.deepEqual(repeatedReplay.next_request,secondReplay.next_request,'no rotating cursor on a repeated page');
+assert.equal(repeatedReplay.content,secondReplay.content,'complete page text is preserved');
+assert.equal(calls.length,providerCount,'replayed page does not download the source again');
+assert.ok(authorizations.length>authCount,'each cached page rechecks authorization');
+const blocked={app_id:'gmail',reason:'provider_coverage_incomplete',next_request:null};
+assert.deepEqual(continuableSourceCoverage([blocked]),[],'permanent provider blockers do not trigger another model pass');
+const unfinished=pendingSourceCoverage(db,'a',replayScope.run);
+assert.equal(continuableSourceCoverage(unfinished).length,1,'actual unread pages still receive continuation');
+assert.equal(unfinished[0].next_request.cursor,secondReplay.next_request.cursor);
+console.log('FLOASSIST_COST_PROGRESS_OK: stable continuation handles and no model retries for non-continuable failures');
 db.close();
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});

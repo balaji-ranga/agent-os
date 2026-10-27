@@ -280,3 +280,30 @@ FA-GAP-001, FA-GAP-005 and FA-GAP-011 are closed for the requested selected-Goog
 ### Outlook Mail implementation checkpoint — 27 October 2026
 
 Outlook identity receipts and complete conversation/latest-reply normalization are implemented using the common tracker and dispatcher. The 37-case Outlook harness and full existing regression suite pass. Exact message aliases reuse legacy tasks without title-based merging; incomplete reads and ambiguous conversation deletion fail closed/request clarification. Live Outlook acceptance remains pending enabling the already connected mailbox in FloAssist Connections. See the implementation/testing notes for prerequisites and limits. FA-GAP-006 Microsoft Calendar remains unchanged.
+
+
+## FA-GAP-012 — Token cost efficiency and complete native metering
+
+Priority: High. Status: bounded retry/guidance improvements and content-free audit implemented and harness tested; exact billing attribution, native usage propagation and incremental semantic review remain open.
+
+27 October investigation: the selected COO native database, filtered by actual event timestamps for the Singapore day and deduplicated by event identity, contained 1,352 `floassist_source_read` calls, 81 repeated first-page results, 7,155,119 returned source-content characters and 107 compaction events. These include scheduled checks and ad hoc COO activity, not only FloAssist tests. The day had 2,571 non-delivery assistant events on the secondary alias with zero reported usage. These are assistant transcript events, not a validated count of billable requests. Earlier aggregates based only on row insertion times mixed in older usage and must not be used for billing. Exact OpenAI spend requires matching gateway/provider usage records; neither zero-valued alias telemetry nor Flolah's sparse backend token table proves zero cost.
+
+Contributors: repeated live retesting; the already-fixed cursor/discovery re-entry bug; full content replay during long model/tool loops; schema/identifier repair attempts; independent module scans rereading some of the same conversations; and no comprehensive token/cost ceiling around native work. Compaction already runs; adding more compaction alone would not remove repeated provider reads and can add summary calls or lose actionable evidence.
+
+Implemented in this revision:
+
+- Repeated reads of an unchanged snapshot page retain the same continuation handle. A rotating cursor cannot disguise a stalled source as progressing coverage. Cached page authorization and complete content stay intact.
+- Coverage recovery dispatches another model pass only when an actual next request exists. Provider truncation/failure without a supported continuation remains an explicit incomplete result, without an otherwise futile extra model pass.
+- Runtime guidance uses the supported source reader for mailbox/document discovery and bodies. Its server-side account/schema/permission work must not be repeated as extra agent profile/search/guide/fetch calls. Unsupported operations and direct calendar operations retain their guides and execution checks.
+- A read-only native efficiency audit emits numeric counts only, deduplicates copied events, filters actual event timestamps and marks missing token usage as unknown. Synthetic audit tests cover privacy, partial usage and deduplication.
+- Outlook end-to-end regression uses a deterministic fake agent/connector/sender with actual production orchestration. A separate VPS container with `--network none` proves no billable model, Microsoft or WhatsApp calls. Live model-backed retests are paused; recurring schedules stay paused.
+
+Remaining improvements, ordered to avoid weakening correctness:
+
+1. Propagate per-turn and compaction usage from the native gateway/LiteLLM, deduplicated by provider request identity and attributed to owner/session/run/model. Expose missing usage explicitly. Never infer an invoice from prompt character estimates.
+2. Enforce configurable native model-turn and cumulative input/output token ceilings plus a separate live-test session budget. Include failed attempts, fallbacks and compaction calls. Hitting a ceiling must preserve pending coverage and return an honest incomplete state. The existing 80-tool-call and absolute timeout limits are separate controls.
+3. Add version-aware incremental review checkpoints: owner/account/thread ID plus provider revision/latest-message fingerprint, module, rule version and decision evidence. Persist minimal assessment/provenance, not mailbox bodies. A fresh provider version check is required before reuse; changed replies, deadlines, policies and explicit user refresh invalidate it. Reevaluate task lifecycle without asking the LLM to reread unchanged bodies.
+4. Consider a shared content assessment across Priority/Deadlines/Follow-up while preserving distinct decisions and the common lifecycle/dispatcher. Batch bounded candidate reads and metadata separately from model assessment. Do not silently skip old pending tasks or reduce the agreed discovery window.
+5. Keep stable tool schema/prompt prefixes and provider-supported prompt caching; compact a minimal progress ledger before context pressure, preserving exact source/cursor/snapshot and unresolved obligations. Verify with recorded token usage before tuning thresholds. Do not remove full-thread verification or silently clip bodies/attachments/quotes to achieve lower costs.
+
+These remaining items are not claimed deployed or complete. Current bounded safety improvements do not establish a hard spend cap.

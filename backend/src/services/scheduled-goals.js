@@ -1,4 +1,4 @@
-import {pendingSourceCoverage,requireAppCoverage} from './floassist/source-coverage.js';
+import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from './floassist/source-coverage.js';
 import {briefingCalendarWindow} from './floassist/source-reader.js';
 import {trackingReferenceResult} from './floassist/source-references.js';
 import {claimScheduledRun} from './scheduled-run-claim.js';
@@ -619,7 +619,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const currentTracking=floAssistPrefs?listTracking(db(),ownerUserId,{limit:100}):null;
   const trackingIdentity=currentTracking?JSON.stringify(trackingReferenceResult(db(),ownerUserId,{tasks:reconciliationCandidates(currentTracking.tasks,row.source.split(':')[1]).map(({task_id,app_id,account_id,source_id,obligation_key,state,task_status})=>({task_id,app_id,account_id,source_id,obligation_key,state,task_status})),next_after_id:currentTracking.next_after_id},{owner:ownerUserId,run:runId,origin:row.source})):'';
   const guidance = (floAssistPrefs?sourceReadInstructions(floAssistPrefs,row.source.split(':')[1])+'\nAuthoritative active reconciliation candidates for this responsibility (an empty list means no existing tasks to reconcile; do not inspect or modify stopped, closed, or other-module tasks. Backend observation globally matches existing/closed identities to prevent duplicates. Do not guess task IDs; paginate tracking_list if next_after_id is present): '+trackingIdentity+'\n':'')+steeringPrompt(scheduleGuidanceNotes)+(floAssistPrefs?`\nCurrent responsibility source boundary (supersedes an older saved source list): ${responsibilitySources(floAssistPrefs,row.source.split(':')[1]).join(', ')}. Other apps are checked by their own responsibility. Scheduled scans must never call tracking_update with track, stop, snooze or acknowledge. Those require a user instruction. `:'')+(row.source==='floassist:conflicts'?'\nCalendar Conflicts requires individual events with start/end times and IDs. Use the selected calendar provider event-list action (for Google Calendar: googlecalendar.list_events_all_calendars or googlecalendar.list_events). Free/busy returns merged availability and cannot prove whether events overlap. Read the event-list guide, then fetch individual events. Do not create tracking tasks for a conflict scan. Use local-day boundaries in the owner timezone, with explicit UTC offsets rather than midnight UTC. If no overlaps exist, return exactly FLOASSIST_NO_UPDATE.':'')+(String(row.source||'').startsWith('floassist:')
-    ? '\nConnector verification protocol: Before each distinct connector action, call connector_get_action_guide and use its exact input_schema (including required fields); do not guess camelCase or snake_case names. If an input is rejected, correct it using the returned schema and retry. For Gmail, use the provider threadId from a fresh discovery result, not a message ID or a remembered task identifier. Read the full current thread before floassist_tracking_observe. A suppressed candidate is a completed relevance check, not a reason to force an alert. An unavailable source must be reported as incomplete, never silently replaced with memory.' : '');
+    ? '\nConnector verification protocol: For supported mail/document discovery and content, prefer floassist_source_read; it performs account lookup, exact schema execution and authorization in the backend. Do not repeat those calls manually. Only for unsupported operations or direct calendar actions, before each distinct connector action, call connector_get_action_guide and use its exact input_schema (including required fields); do not guess camelCase or snake_case names. If an input is rejected, correct it using the returned schema and retry. For Gmail, use the provider threadId from a fresh discovery result, not a message ID or a remembered task identifier. Read the full current thread before floassist_tracking_observe. A suppressed candidate is a completed relevance check, not a reason to force an alert. An unavailable source must be reported as incomplete, never silently replaced with memory.' : '');
   handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
   const steeredPrompt = `[scheduled_goal_id: ${row.id}]\n[run_key: ${runKey}]\n` + row.prompt + guidance + (['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n\n${row.source==='floassist:deadlines'?DEADLINE_TRACKING_RUN_INSTRUCTIONS:TRACKING_RUN_INSTRUCTIONS}`:'');
   let openclawId = agent.openclaw_agent_id || agent.id;
@@ -783,7 +783,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     );
     let priorCoverageSignature;
     if(floAssistRun)for(let pass=0;pass<8;pass++){
-      const pending=pendingSourceCoverage(db(),ownerUserId,runId),remaining=completionTimeout-(Date.now()-completionStarted);
+      const pending=continuableSourceCoverage(pendingSourceCoverage(db(),ownerUserId,runId)),remaining=completionTimeout-(Date.now()-completionStarted);
       if(!pending.length||remaining<1000)break;
       const coverageSignature=JSON.stringify(pending);
       if(coverageSignature===priorCoverageSignature)break; // No progress: do not spin on the same unread pages.
@@ -968,7 +968,7 @@ export function findGoalForOwner(ownerUserId, query) {
 export function listRecentRuns(ownerUserId, goalId, limit = 20) {
   const runs=db().prepare(
     `SELECT * FROM scheduled_goal_runs WHERE owner_user_id=? AND (? IS NULL OR goal_id=?)
-     ORDER BY datetime(created_at) DESC LIMIT ?`
+     ORDER BY datetime(created_at) DESC,rowid DESC LIMIT ?`
   ).all(ownerUserId, goalId || null, goalId || null, Math.min(Math.max(limit, 1), 100));
   const hasNotifications=db().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_notifications'").get();
   return runs.map(run=>({...run,notification_items:hasNotifications?db().prepare("SELECT status,count(*) count FROM floassist_notifications WHERE owner_id=? AND (source_key LIKE ? OR source_key LIKE ?) GROUP BY status").all(ownerUserId,`%:finding:${run.id}`,`%:sg:${run.goal_id}:${run.id}`):[]}));

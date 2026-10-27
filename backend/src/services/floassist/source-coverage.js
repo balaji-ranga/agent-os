@@ -22,6 +22,11 @@ export function pendingSourceCoverage(db,owner,run){
  ensureSourceCoverage(db);const rows=db.prepare('SELECT app_id,source_id,next_request_json FROM floassist_source_coverage WHERE owner_id=? AND run_id=? AND complete=0').all(owner,run);
  return rows.filter(r=>!r.source_id.startsWith('@app:')||!rows.some(p=>p.app_id===r.app_id&&!p.source_id.startsWith('@app:'))).map(r=>({app_id:r.app_id,...(!r.source_id.startsWith('@')?{source_id:r.source_id}:{}),next_request:JSON.parse(r.next_request_json),reason:r.source_id.startsWith('@app:')?'app_not_checked':JSON.parse(r.next_request_json)?'unread_source_pages':'provider_coverage_incomplete'}));
 }
+// A provider failure/truncation without a continuation cannot be repaired by
+// replaying the whole model request. Leave it incomplete and surface the blocker.
+export function continuableSourceCoverage(pending){
+ return pending.filter(source=>source.next_request&&typeof source.next_request==='object'&&Object.keys(source.next_request).length>0);
+}
 export function assertSourceCoverage(db,owner,run,app,source){
  ensureSourceCoverage(db);const r=db.prepare('SELECT complete,next_request_json FROM floassist_source_coverage WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,run,app,source);
  if(r&&!r.complete)throw Object.assign(new Error('Finish the current source pages before observing an obligation. The task update remains unapplied.'),{status:409,code:'FLOASSIST_SOURCE_REVIEW_INCOMPLETE',next_action:{tool:'floassist_source_read',input:JSON.parse(r.next_request_json),instruction:'Follow exact next_request values until coverage_complete is true, then reassess and submit the observation.'}});

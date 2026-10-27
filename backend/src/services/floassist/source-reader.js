@@ -33,9 +33,14 @@ function sourcePage(snapshot,offset){
  if(!complete){
   // A page reference is not a credential. Short numeric handles survive the
   // gateway secret scrubber; owner/run checks below remain authoritative.
-  const cursor='fa-page-'+(++cursorSequence);
+  // Replaying a page must not manufacture apparent progress for the scheduler.
+  // Keep the same owner/run/snapshot/offset handle until it expires or is evicted.
+  snapshot.pageCursors??=new Map();
+  let cursor=snapshot.pageCursors.get(next);
+  if(!cursor||!cursors.has(cursor))cursor='fa-page-'+(++cursorSequence);
   while(cursors.size>=2048)cursors.delete(cursors.keys().next().value);
   cursors.set(cursor,{owner:snapshot.scope.owner,scope:snapshot.scope.run||snapshot.scope.session||'',until:snapshot.until,request:{...snapshot.request,snapshot_id:snapshot.id,offset:next}});
+  snapshot.pageCursors.set(next,cursor);
   nextRequest={cursor};
  }
  recordSourceCoverage(snapshot.db,snapshot.scope,snapshot.metadata,snapshot.id,complete&&snapshot.metadata.provider_complete!==false,nextRequest);
