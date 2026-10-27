@@ -93,7 +93,8 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   if(input.cursor){
    const page=cursors.get(input.cursor);
    if(!page||page.owner!==owner||page.scope!==(scope.run||scope.session||'')||page.until<=now)fail('FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','The continuation cursor is unavailable in this owner/session. Restart the exact source from its current discovery/task identity.');
-   if(Object.keys(input).some(k=>k!=='cursor'))fail('FLOASSIST_SOURCE_OFFSET_INVALID','Pass only the exact cursor; do not override its source or page.');
+   const matchingContext=(!input.app_id||input.app_id===page.request.app_id)&&(!input.source_id||resolveSourceReference(db,owner,page.request.app_id,input.source_id,scope)===page.request.source_id);
+   if(!matchingContext||Object.keys(input).some(k=>!['cursor','app_id','source_id'].includes(k)))throw Object.assign(new Error('The cursor binds the source and page. Remove conflicting context and copy next_action unchanged.'),{status:422,code:'FLOASSIST_SOURCE_OFFSET_INVALID',next_action:{tool:'floassist_source_read',input:{cursor:input.cursor}}});
    input={...page.request};
   }
   let app=input.app_id,id=input.source_id;
