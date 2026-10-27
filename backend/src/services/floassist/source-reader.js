@@ -92,6 +92,12 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
  const api=execute?null:await import('../openconnector.js');
  execute=execute||api.executeConnectorAction;readTransit=readTransit||api?.readConnectorTransitFile;
  return withFloAssistScope(scope,async()=>{
+  const aliases={googledrive:'google_drive',googlecalendar:'google_calendar',one_drive:'onedrive'};
+  input={...input,...(input.app_id?{app_id:aliases[input.app_id]||input.app_id}:{})};
+  if(input.next_request){
+   if(typeof input.next_request!=='object'||Object.keys(input.next_request).some(k=>k!=='cursor')||typeof input.next_request.cursor!=='string'||input.cursor&&input.cursor!==input.next_request.cursor)fail('FLOASSIST_SOURCE_OFFSET_INVALID','Use the exact returned next_request cursor without conflicting fields.');
+   const {next_request,...rest}=input;input={...rest,cursor:next_request.cursor};
+  }
   if(input.cursor){
    const page=cursors.get(input.cursor);
    if(!page||page.owner!==owner||page.scope!==(scope.run||scope.session||'')||page.until<=now)fail('FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','The continuation cursor is unavailable in this owner/session. Restart the exact source from its current discovery/task identity.');

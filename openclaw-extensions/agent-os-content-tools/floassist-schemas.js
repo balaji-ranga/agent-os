@@ -4,7 +4,7 @@ identity.corrects_source_id={type:'string',description:'Only when correcting a p
 identity.deadline_excerpt={type:'string',minLength:12,maxLength:1200,description:'Required with due_at: prefer the exact fa-evidence reference and matching due_at returned by floassist_source_read.deadline_evidence. Otherwise an exact source passage must state the outstanding action and deadline. Never paraphrase, quote metadata/task summaries or use sent/created/modified timestamps.'};
 const object=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 export const floassistSchemas={
- floassist_source_read:object({cursor:{type:'string',description:'For the next page, copy only the exact returned next_request.cursor. It binds the source, snapshot and offset; do not combine it with other fields.'},snapshot_id:{type:'string',description:'Required for a continuation page. Copy the exact returned next_request to preserve the same source snapshot.'},kind:{type:'string',enum:['draft'],description:'Latest Gmail draft: pass only app_id gmail and kind draft. Omit source_id, task_id and query.'},app_id:{type:'string',enum:['gmail','outlook','google_drive','onedrive','google_calendar']},source_id:{type:'string',description:'Exact current discovery ID/reference only; never invent an ID or use a descriptive placeholder. Omit for latest mail, recent Drive discovery or primary Calendar. Read an existing task with task_id only.'},task_id:{type:'integer',minimum:1},query:{type:'string',maxLength:1000},offset:{type:'integer',minimum:0},time_min:string,time_max:string}),
+ floassist_source_read:object({next_request:object({cursor:{type:'string'}},['cursor']),cursor:{type:'string',description:'For the next page, copy only the exact returned next_request.cursor. It binds the source, snapshot and offset; do not combine it with other fields.'},snapshot_id:{type:'string',description:'Required for a continuation page. Copy the exact returned next_request to preserve the same source snapshot.'},kind:{type:'string',enum:['draft'],description:'Latest Gmail draft: pass only app_id gmail and kind draft. Omit source_id, task_id and query.'},app_id:{type:'string',enum:['gmail','outlook','google_drive','googledrive','onedrive','one_drive','google_calendar','googlecalendar']},source_id:{type:'string',description:'Exact current discovery ID/reference only; never invent an ID or use a descriptive placeholder. Omit for latest mail, recent Drive discovery or primary Calendar. Read an existing task with task_id only.'},task_id:{type:'integer',minimum:1},query:{type:'string',maxLength:1000},offset:{type:'integer',minimum:0},time_min:string,time_max:string}),
  floassist_status:object({}),
  floassist_reminder_list:object({}),
  floassist_reminder_cancel:object({id:string},['id']),
@@ -22,10 +22,10 @@ export function scopedFloAssistSchema(name,schema,scope){
  if(!['priority','deadlines','followups','briefing','conflicts'].includes(module))return schema;
  if(name==='floassist_source_read'){
   const properties={...schema.properties};delete properties.kind;delete properties.offset;delete properties.snapshot_id;
-  if(scope.floassist_sources?.length)properties.app_id={type:'string',enum:scope.floassist_sources};
+  if(scope.floassist_sources?.length){const aliases={google_drive:'googledrive',google_calendar:'googlecalendar',onedrive:'one_drive'};properties.app_id={type:'string',enum:scope.floassist_sources.flatMap(app=>aliases[app]?[app,aliases[app]]:[app])};}
   if(module==='conflicts'){
    delete properties.task_id;delete properties.query;
-   return {...schema,properties,required:[],anyOf:[{required:['cursor']},{required:['app_id','time_min','time_max']}]};
+   return {...schema,properties,required:[],anyOf:[{required:['cursor']},{required:['next_request']},{required:['app_id','time_min','time_max']}]};
   }
   if(scope.floassist_reconciliation_task_ids?.length)properties.task_id={type:'integer',enum:scope.floassist_reconciliation_task_ids,description:'For an existing task pass only task_id. Omit app_id and source_id: the backend resolves its stored source. For new discovery omit task_id and use app_id/source_id.'};
   return {...schema,properties};
