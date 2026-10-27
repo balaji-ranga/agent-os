@@ -774,6 +774,7 @@ export default definePluginEntry({
   register(api: PluginApi) {
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
+      api.on("before_tool_call", (_event: unknown, ctx: PromptBuildContext) => { rememberRuntimeChannel(ctx); });
       // llm_input carries the trusted turn runId even when prompt-build context does not.
       api.on("llm_input", (event: { runId?: string }, ctx: PromptBuildContext) => {
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
