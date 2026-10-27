@@ -260,7 +260,10 @@ export async function chatCompletions(options) {
   const candidatePlan = effectiveEfficiencyPlan(options.ownerUserId, options.toolName);
   const plan = candidatePlan && (String(options.endpointPreference || 'default').toLowerCase() === 'default' || !candidatePlan.allowCloud)
     ? candidatePlan : null;
-  if (plan) return executeEfficiency(options, plan, performChatCompletions, () => getLlmConfig(options.ownerUserId));
+  // Optional assistance can fall back to its caller's existing deterministic or
+  // agent path. It must never spend on an extra hosted utility request.
+  if (plan) return executeEfficiency(options, options.efficiencyLocalOnly ? {...plan,allowCloud:false} : plan, performChatCompletions, () => getLlmConfig(options.ownerUserId));
+  if (options.efficiencyLocalOnly) throw new Error('Local efficiency workload is unavailable');
   return performChatCompletions(options);
 }
 

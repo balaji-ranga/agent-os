@@ -31,7 +31,19 @@ try {
   const {executeEfficiency,validateEfficiencyOutput}=await import('../src/services/efficiency-execution.js');
   const {chatCompletions}=await import('../src/config/llm.js');
   const {runWithLlmopsContext}=await import('../src/services/llmops-context.js');
-  check(controls.getEfficiencyPolicy().workloads.length===12,'Utility scope includes Knowledge relationship inference and task observer');
+  check(controls.getEfficiencyPolicy().workloads.length===14,'Utility scope includes bounded FloAssist source assessment and wording');
+  const allUtilities=controls.getEfficiencyPolicy().workloads;
+  db.prepare("DELETE FROM efficiency_control_settings WHERE id='floassist_local_assistance_v1'").run();
+  db.prepare("INSERT INTO efficiency_control_settings(id,value_json) VALUES ('policy',?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json").run(JSON.stringify({workloads:allUtilities.filter(name=>!name.startsWith('floassist_'))}));
+  check(controls.getEfficiencyPolicy().workloads.length===14,'Prior all-utility policy receives the new workloads');
+  db.prepare("DELETE FROM efficiency_control_settings WHERE id='floassist_local_assistance_v1'").run();
+  db.prepare("UPDATE efficiency_control_settings SET value_json=? WHERE id='policy'").run(JSON.stringify({workloads:['summarize_url']}));
+  check(controls.getEfficiencyPolicy().workloads.length===1,'Custom restricted workload policy is preserved');
+  controls.saveEfficiencyPolicy({workloads:allUtilities});
+  for(const tool of ['floassist_source_assessment','floassist_notification_summary']){
+    check(!!controls.effectiveEfficiencyPlan('ceo-a',tool),'Enabled FloAssist utility is routed locally');
+    check(!controls.effectiveEfficiencyPlan('disabled',tool),'Disabled profile preserves current FloAssist path');
+  }
   check(controls.effectiveEfficiencyPlan('ceo-a','knowledge_mapping_advice').modelId==='ollama-efficiency','Relationship inference uses selected efficiency model');
   check(!controls.effectiveEfficiencyPlan('disabled','knowledge_mapping_advice'),'Efficiency-disabled relationship inference retains normal routing');
   check(!controls.effectiveEfficiencyPlan('ceo-a','goal_plan_maker'),'Maker never efficiency routed');
@@ -63,6 +75,14 @@ try {
   };
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
   check(requests.length===1&&String(requests[0].url).includes('ollama'),'No gateway or cloud call in local-only failure');
+  requests=[];
+  await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-b',toolName:'floassist_source_assessment',efficiencyLocalOnly:true,responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
+  check(requests.length===1&&String(requests[0].url).includes('ollama'),'Optional local assistance cannot add paid fallback even when company allows it');
+  requests=[];
+  await assert.rejects(()=>chatCompletions({ownerUserId:'disabled',toolName:'floassist_source_assessment',efficiencyLocalOnly:true,messages:[{role:'user',content:'fixture'}]}),/unavailable/);assertions++;
+  check(requests.length===0,'Disabled local-only helper cannot silently run hosted');
+  requests=[];
+  await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);
   check(String(requests[0].url).endsWith('/api/chat')&&requests[0].body.options.num_thread===2,'Private utility transport uses quota-aligned CPU threads');
   check(requests[0].body.format==='json'&&requests[0].body.truncate===false,'Native JSON validation and no silent context truncation');
   requests=[];
@@ -88,6 +108,7 @@ try {
   assert.throws(()=>validateEfficiencyOutput({content:'{}',finishReason:'length'},{responseFormat:'json_object'}),/incomplete/);assertions++;
   assert.throws(()=>validateEfficiencyOutput({content:'[]'},{responseFormat:'json_object'}),/invalid_json/);assertions++;
   assert.throws(()=>validateEfficiencyOutput({content:'{}'},{validateResponse:()=>false}),/contract/);assertions++;
+  assert.throws(()=>validateEfficiencyOutput({content:'{}'},{validateResponse:()=>{throw Error('domain rejection');}}),/local_output_contract_failed/);assertions++;
 
   const pool=createEfficiencyPool();const policy={max_concurrency:1,max_queue:1,queue_timeout_ms:25};
   const lease=await pool.acquire('ceo-a','first',policy);
@@ -112,12 +133,12 @@ try {
   globalThis.fetch=realFetch;
 
   const {startEfficiencyEvaluation, EFFICIENCY_FIXTURES}=await import('../src/services/efficiency-evaluations.js');
-  const answers=['Verify live market prices','Weekly Sales Reporting','Email authentication failed','Insufficient buying power rejected','{"require_notify":true,"status_rollup":true,"reason":"notify on status"}','{"tool":"web_search"}','{"query":"2026 AI regulation"}','Never publish externally without policy','Flolah is an open-source AI company','COO'];
+  const answers=['Verify live market prices','Weekly Sales Reporting','Email authentication failed','Insufficient buying power rejected','{"require_notify":true,"status_rollup":true,"reason":"notify on status"}','{"tool":"web_search"}','{"query":"2026 AI regulation"}','Never publish externally without policy','Flolah is an open-source AI company','COO','{"uncertain":false,"confidence":0.99,"findings":[{"kind":"action","quote":"Please review the quotation and reply with approval."}]}','{"selections":[{"index":0,"sentence_count":1}]}'];
   const fakeModel=async opt=>({content:answers[EFFICIENCY_FIXTURES.findIndex(c=>c[0]===opt.toolName)],actualModel:controls.localEfficiencyModel(opt.modelId).model,finishReason:'stop',usage:{input_tokens:4,output_tokens:4}});
   let evaluation=startEfficiencyEvaluation('ollama-reasoning','admin',fakeModel,{compareHosted:true,callBaseline:async options=>({...await fakeModel({...options,modelId:'ollama-reasoning'}),actualModel:'fixture-hosted-baseline'})});
   const report=await evaluation.completion;
-  check(report.passed&&report.passed_count===10,'All ten synthetic evaluation contracts exercised');
-  check(report.baseline.length===10&&report.baseline_passed_count===10,'Opt-in hosted comparison exercises identical synthetic workload contracts');
+  check(report.passed&&report.passed_count===EFFICIENCY_FIXTURES.length,'All synthetic evaluation contracts exercised');
+  check(report.baseline.length===EFFICIENCY_FIXTURES.length&&report.baseline_passed_count===EFFICIENCY_FIXTURES.length,'Opt-in hosted comparison exercises identical synthetic workload contracts');
   check(report.cost_note.includes('No savings estimate'),'No invented savings without infrastructure/pricing evidence');
   controls.approveEfficiencyEvaluation(evaluation.job.id);
   controls.saveEfficiencyPolicy({default_model:'ollama-reasoning'});

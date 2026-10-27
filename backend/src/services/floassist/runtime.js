@@ -3,6 +3,7 @@ import { getDb } from '../../db/schema.js';
 import { fail } from './core.js';
 import { readFileSync } from 'node:fs';
 import {tickTracking,trackingNotificationAllowed,recordTrackingDelivery} from './tracking.js';
+import {summarizeFloAssistNotification} from './local-assistance.js';
 const product=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
 
 export function floAssistResponsibilityEnabled(preferences,responsibility){
@@ -135,7 +136,7 @@ export function floAssistDeliveryGate({ownerUserId,scheduledGoalId,sourceKey,tex
 }
 
 /** Proactive output waits through quiet hours instead of being lost at completion time. */
-export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()}={}){
+export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now(),summarize=summarizeFloAssistNotification}={}){
   ensureFloAssistRuntime(db);let sent=0;
   if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_task_tracking'").get())tickTracking(db,now);
   db.prepare("UPDATE floassist_notifications SET text=NULL,status='expired' WHERE expires_at<=? AND status='pending'").run(now);
@@ -188,14 +189,35 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
       claimed.forEach(n=>handled.add(n.source_key));
       const sections=new Map();
       for(const n of claimed){const [heading,...body]=n.text.split('\n');const section=sections.get(heading)||[];section.push(body.join('\n').trim());sections.set(heading,section);}
-      const text=[`*FloAssist · Your action update*`,...Array.from(sections,([heading,bodies])=>`${heading}\n\n${bodies.join('\n\n')}`)].join('\n\n');
-      let result;try{result=await send({...row,text,phone:p.phone});}catch{result={ok:false};}
+      const originalText=[`*FloAssist · Your action update*`,...Array.from(sections,([heading,bodies])=>`${heading}\n\n${bodies.join('\n\n')}`)].join('\n\n');
+      let text=originalText;try{text=await summarize(row.owner_id,originalText,{runId:row.source_key,now});}catch{/* Preserve factual template on any local failure. */}
+      const fresh=enrolled(db,row.owner_id);
+      const active=fresh?.status==='active'&&db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id)&&!inQuietHours(JSON.parse(fresh.preferences_json),new Date(now));
+      if(!active){
+       for(const n of claimed)db.prepare("UPDATE floassist_notifications SET status='pending' WHERE source_key=? AND status='sending'").run(n.source_key);
+       continue;
+      }
+      const allowed=claimed.map(n=>active&&trackingNotificationAllowed(db,n,now));
+      if(allowed.some(value=>!value)){
+       for(let i=0;i<claimed.length;i++)db.prepare("UPDATE floassist_notifications SET status=? WHERE source_key=? AND status='sending'").run(allowed[i]?'pending':'cancelled',claimed[i].source_key);
+       continue;
+      }
+      let result;try{result=await send({...row,text,phone:fresh.phone});}catch{result={ok:false};}
       const status=result?.ok&&!result.skipped?'sent':result?.skipped?'pending':'uncertain';
       db.transaction(()=>{for(const n of claimed)db.prepare("UPDATE floassist_notifications SET status=?,text=CASE WHEN ?='sent' THEN NULL ELSE text END,updated_at=? WHERE source_key=? AND status='sending'").run(status,status,now,n.source_key);})();
       if(status==='sent'){for(const n of claimed)recordTrackingDelivery(db,n,now);sent++;}continue;
     }
     if(!db.prepare("UPDATE floassist_notifications SET status='sending',updated_at=? WHERE source_key=? AND status='pending'").run(now,row.source_key).changes)continue;
-    let result;try{result=await send({...row,phone:p.phone});}catch{result={ok:false};}
+    let text=row.text,phone=p.phone;
+    if(row.source_key.startsWith(`${row.owner_id}:tracking:`)||/^\*FloAssist · Morning Briefing\*/.test(text||'')){
+     try{text=await summarize(row.owner_id,text,{briefing:/^\*FloAssist · Morning Briefing\*/.test(text),runId:row.source_key,now});}catch{/* Preserve existing output. */}
+     const fresh=enrolled(db,row.owner_id);
+     if(!fresh||fresh.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id)||inQuietHours(JSON.parse(fresh.preferences_json),new Date(now))||!trackingNotificationAllowed(db,row,now)){
+      db.prepare("UPDATE floassist_notifications SET status='pending' WHERE source_key=? AND status='sending'").run(row.source_key);continue;
+     }
+     phone=fresh.phone;
+    }
+    let result;try{result=await send({...row,text,phone});}catch{result={ok:false};}
     if(result?.ok&&!result.skipped){db.prepare("UPDATE floassist_notifications SET status='sent',text=NULL,updated_at=? WHERE source_key=?").run(now,row.source_key);recordTrackingDelivery(db,row,now);sent++;}
     else db.prepare('UPDATE floassist_notifications SET status=?,updated_at=? WHERE source_key=?').run(result?.skipped?'pending':'uncertain',now,row.source_key);
   }

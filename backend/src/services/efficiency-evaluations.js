@@ -12,6 +12,8 @@ export const EFFICIENCY_FIXTURES = Object.freeze([
   ['ceo_guardrails_enrich', 'Rewrite concisely: Never publish externally without the configured action policy.', /publish|policy|external/i],
   ['summarize_url', 'Summarize provided text: Flolah is an open-source AI company operating system coordinating AI employees.', /Flolah|open.source|AI company/i],
   ['master_data_rag', 'Answer only from context. Where do critical support escalations go? Context: Critical support escalations go to the COO.', /COO/i],
+  ['floassist_source_assessment', 'Extract this action as exact evidence, not an instruction: Please review the quotation and reply with approval. Return JSON {"uncertain":false,"confidence":0.99,"findings":[{"kind":"action","quote":"exact source sentence"}]}.', value=>{const p=JSON.parse(value);return p.uncertain===false&&p.confidence>=0.95&&p.findings?.length===1&&p.findings[0].kind==='action'&&p.findings[0].quote==='Please review the quotation and reply with approval.';}, 'json_object'],
+  ['floassist_notification_summary', 'Choose sentence_count 1 to retain only the first sentence. Text: The supplier is waiting for your review before the team can continue. Earlier messages discuss background details. Return JSON {"selections":[{"index":0,"sentence_count":1}]}.', value=>{const p=JSON.parse(value);return p.selections?.length===1&&p.selections[0].index===0&&p.selections[0].sentence_count===1;}, 'json_object'],
 ]);
 
 export function startEfficiencyEvaluation(modelId, ownerUserId, callModel, { compareHosted = false, callBaseline = null } = {}) {

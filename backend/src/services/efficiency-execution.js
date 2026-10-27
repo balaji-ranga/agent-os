@@ -13,7 +13,10 @@ export function validateEfficiencyOutput(result, options) {
     result.content = jsonText;
   }
   // Callers may supply domain-specific contract checks; this never substitutes for risk/authorization checks.
-  if (options.validateResponse && options.validateResponse(result.content) !== true) throw new Error('local_output_contract_failed');
+  if (options.validateResponse) {
+    try { if (options.validateResponse(result.content) !== true) throw new Error('contract'); }
+    catch { throw new Error('local_output_contract_failed'); }
+  }
 }
 
 export async function executeEfficiency(options, plan, execute, fallbackConfig, pool = efficiencyPool) {
