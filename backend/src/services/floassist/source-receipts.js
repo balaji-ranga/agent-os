@@ -181,9 +181,14 @@ export function resolveTaskSourceError(db,owner,taskId,context=currentFloAssistS
 }
 export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,sourceInput,action}={}){
  if(!context?.run)return;ensureSourceReceipts(db);
+ if(error?.verifiedSourceIdentity)sourceInput=error.verifiedSourceIdentity;
  const schemaAction=action&&error?.code==='invalid_input'&&(/does not match the action schema/.test(error.message)?action:/^unknown action:/.test(error.message)?readActionAliases[action]:null);
  const key=sourceInput?.task_id&&error?.code==='FLOASSIST_SOURCE_MISMATCH'?JSON.stringify(['source_task',Number(sourceInput.task_id)]):sourceInput?.app_id&&sourceInput?.source_id?JSON.stringify(['source_page',...JSON.parse(trackingKey(db,context.owner,sourceInput,context)).slice(1)]):trackingInput?trackingKey(db,context.owner,trackingInput,context):schemaAction?JSON.stringify(['schema',schemaAction]):null;
  db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at,operation_key) VALUES (?,?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now(),key);
+ if(error?.verifiedSourceIdentity&&['FLOASSIST_SOURCE_OFFSET_INVALID','FLOASSIST_SOURCE_SNAPSHOT_EXPIRED'].includes(error.code)&&db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_source_coverage'").get()){
+  const verified=db.prepare('SELECT 1 FROM floassist_source_coverage WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=? AND snapshot_id=? AND complete=1').get(context.owner,context.run,sourceInput.app_id,sourceInput.source_id,sourceInput.snapshot_id);
+  if(verified)resolveSourcePagingErrors(db,context.owner,sourceInput,context);
+ }
 }
 export function runEvidenceSummary(db,owner,runId){
  ensureSourceReceipts(db);
