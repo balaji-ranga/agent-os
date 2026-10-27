@@ -1,6 +1,6 @@
 # FloAssist gaps backlog
 
-Updated: 25 October 2026 (Asia/Singapore).
+Updated: 27 October 2026 (Asia/Singapore).
 
 This backlog records observed gaps, not implemented capabilities. Related scope: [implementation and testing](FLOASSIST-IMPLEMENTATION-AND-TESTING.md).
 
@@ -243,3 +243,8 @@ Test prerequisites: synthetic metadata/body/invalid-ID fixtures for harness test
 ### 27 October 2026 — lifecycle completion acceptance
 Implemented configurable task_alert_max_days (5 successful distinct owner-local delivery days, 0 unlimited), due_soon_hours (72), include_due_this_month, briefing_overdue_high_priority and discovery_lookback_days (7). Delivery-day records survive notification cleanup, group delivery counts each task once per day, and the delivery gate rechecks the cap. Quieting never completes a task and ad hoc lists retain it. Source-backed priority/rationale is retained with the canonical task, explicit owner priority is locked against scans, and old dates alone do not confer high priority. New follow-up candidates with latest messages outside the configured window are excluded; existing tracked sources are reconciled separately. Current-month priority remains subject to verified deadline evidence and thread state.
 Local acceptance: complete FloAssist harness and 26 browser/HTTP checks passed. New lifecycle fixtures cover timezone month boundaries, red/orange/green thresholds, successful-day idempotence, five-day cap precedence over changed deadlines and Briefing, durable retention, explicit priority override and completed-task delivery cancellation. VPS acceptance remains pending until recorded below; this entry does not close the blocker gaps.
+
+
+### Company Tools management — 27 October
+Added FloAssist with Connections, WhatsApp, Reminders & deliveries and Preferences submenus. Signed-in owners use their existing Flolah identity; registration email/phone is not asked again. Management uses the existing FloAssist connector and QR services and the existing audited reminders/delivery controls. New management endpoints require authenticated owner access; caller-supplied owner fields cannot select another account. Responsive synthetic Chrome tests cover all four panes at 1280/390px, OAuth popup continuity and QR polling. Preference changes now preserve explicitly paused schedules; only explicit activation resumes enabled responsibilities.
+Current live acceptance before the management release: repeated native draft requests passed twice in one session (9.7s and 6.9s; verified bodies, zero errors); Priority sgr-95824e755ee9434a, Follow-up sgr-c3aaef5a7b3547cb, Conflicts sgr-86884060de6c465d and Briefing sgr-cdd25bdce3a1402b passed with zero unresolved tool errors. Deadline sgr-863b540f3c28484a failed because stale task dates and invented excerpts were submitted without fresh reading. The next fix bounds scheduled task listing, supplies identity/lifecycle only, and offers at most one read-only reassessment per source/run for missing deadline evidence. Rejected mutations remain unapplied. Final acceptance is still pending; do not mark blockers closed on the basis of these four green runs alone.

@@ -133,7 +133,7 @@ export function createFloAssist({ db, product, adapters:a, now=Date.now }) {
     if(!ch.number)fail(409,'identity_pending','WhatsApp is still confirming the linked number. Check again shortly.');
     const apps=await connections(id);
     if(apps.some(app=>!app.connected))fail(409,'connectors_pending','Connect your selected apps, or deselect them to continue without them.');
-    await a.provision(p);
+    await a.provision(p,{resumeSchedules:true});
     db.prepare("UPDATE floassist_profiles SET status='active',updated_at=? WHERE owner_id=?").run(now(),id);return view(id);
   });}
   async function setStatus(id,status){

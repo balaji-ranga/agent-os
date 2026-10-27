@@ -1,0 +1,12 @@
+.floassist-page{min-width:0;max-width:1120px;margin:0 auto;padding:clamp(12px,3vw,28px)}
+.floassist-tabs,.floassist-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.floassist-tabs .btn{white-space:normal;text-align:center;text-decoration:none}
+.floassist-panel{padding:clamp(16px,3vw,28px);margin:20px 0;overflow-wrap:anywhere}
+.floassist-app-grid,.floassist-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px;margin:20px 0}
+.floassist-app{border:1px solid var(--border-color,var(--border,#ddd));border-radius:12px;padding:16px;min-width:0}
+.floassist-app label,.floassist-check{display:flex;align-items:center;gap:8px}
+.floassist-fields label{display:flex;flex-direction:column;gap:7px;min-width:0}
+.floassist-fields input{width:100%;box-sizing:border-box;min-width:0}
+.floassist-check{margin:16px 0}.floassist-qr{display:block;width:min(100%,300px);height:auto;margin:20px auto;background:white}
+.floassist-feedback{overflow-wrap:anywhere}.floassist-page .card{min-width:0;overflow-wrap:anywhere}
+@media(max-width:540px){.floassist-tabs .btn,.floassist-actions .btn{flex:1 1 45%;min-height:44px}.floassist-panel{border-radius:12px}.floassist-page h1{font-size:1.8rem}}

@@ -694,6 +694,7 @@ apiRouter.get('/debug/intent-last', requireAuth, requireCeoOrAdmin, (req, res) =
   }
 });
 apiRouter.use('/auth', authRoutes);
+apiRouter.use('/floassist-management', (await import('./routes/floassist-management.js')).default);
 apiRouter.use('/floassist', (await import('./routes/floassist.js')).default);
 apiRouter.use('/admin', adminRoutes);
 apiRouter.use('/platform-notifications', platformNotificationsRoutes);

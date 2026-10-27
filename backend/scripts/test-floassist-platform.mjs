@@ -70,6 +70,11 @@ try{
   check(db.prepare("SELECT status FROM scheduled_goals WHERE source='floassist:conflicts'").get().status,'active','calendar selection enables conflict checks');
   await s.save('owner-a',{connectors:['gmail']});
   check(db.prepare("SELECT status FROM scheduled_goals WHERE source='floassist:conflicts'").get().status,'paused','calendar removal pauses existing conflict checks');
+  db.prepare("UPDATE scheduled_goals SET status='paused' WHERE owner_user_id='owner-a' AND source='floassist:priority'").run();
+  await s.save('owner-a',{briefing_time:'09:15'});
+  check(db.prepare("SELECT status FROM scheduled_goals WHERE owner_user_id='owner-a' AND source='floassist:priority'").get().status,'paused','management preference changes preserve an explicit pause');
+  await s.activate('owner-a');
+  check(db.prepare("SELECT status FROM scheduled_goals WHERE owner_user_id='owner-a' AND source='floassist:priority'").get().status,'active','explicit resume reactivates eligible schedules');
   await s.save('owner-a',{quiet_start:'00:00',quiet_end:'00:00'});
   const {runScheduledGoal}=await import('../src/services/scheduled-goals.js');
   const {ensureFloAssistRuntime}=await import('../src/services/floassist/runtime.js');ensureFloAssistRuntime(db);

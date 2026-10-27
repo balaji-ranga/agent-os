@@ -70,5 +70,9 @@ const recovered=await recoverSourceReassessment(db,'owner',{app_id:'gmail',accou
 assert.equal(recovered.task_update_applied,false);assert.equal(recovered.needs_reassessment,true);assert.equal(recovered.source.content_verified,true);
 assert.equal(await recoverSourceReassessment(db,'owner',{app_id:'gmail',account_id:'account',source_id:'invented'},{code:'FLOASSIST_SOURCE_NOT_VERIFIED'},{context:followContext,read}),null);
 assert.equal(await recoverSourceReassessment(db,'other',{app_id:'gmail',source_id:'older'},{code:'FLOASSIST_THREAD_READ_REQUIRED'},{context:followContext,read}),null);
-assert.equal(recoveryReads,1);assert.equal(db.prepare('SELECT count(*) n FROM kanban_tasks').get().n,beforeTasks,'recovery reads never apply task mutations');
+assert.equal(await recoverSourceReassessment(db,'owner',{app_id:'gmail',account_id:'account',source_id:'older'},{code:'FLOASSIST_SOURCE_NOT_VERIFIED'},{context:followContext,read}),null,'same source recovery is bounded');assert.equal(recoveryReads,1);assert.equal(db.prepare('SELECT count(*) n FROM kanban_tasks').get().n,beforeTasks,'recovery reads never apply task mutations');
+const dateContext={...followContext,run:'date-reassessment'};
+recordSourceReceipt('owner','gmail.fetch_message_by_thread_id',{data:{threadId:'older',messages:[{messageId:'latest-outgoing',threadId:'older',messageText:'Synthetic body',messageTimestamp:new Date().toISOString(),labelIds:['SENT']}]}},{db,context:dateContext});
+const dateRecovery=await recoverSourceReassessment(db,'owner',{app_id:'gmail',account_id:'account',source_id:'older'},{code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'},{context:dateContext,read});assert.equal(dateRecovery.task_update_applied,false);assert.equal(dateRecovery.recovery_code,'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED');
+assert.equal(await recoverSourceReassessment(db,'owner',{app_id:'gmail',source_id:'invented'},{code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'},{context:dateContext,read}),null,'guessed source does not qualify for evidence recovery');
 db.close();console.log('FLOASSIST_LIFECYCLE_RULES_OK: local days, durable five-day cap, owner-month, colours, priority override, briefing and completion');

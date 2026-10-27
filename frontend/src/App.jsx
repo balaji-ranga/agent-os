@@ -1,3 +1,4 @@
+import FloAssist from './pages/FloAssist';
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
@@ -537,6 +538,8 @@ function Shell() {
                 <Route path="/video-tours" element={<VideoTours />} />
                 <Route path="/api-keys" element={<Perm user={user} k="api-keys"><ApiKeys /></Perm>} />
                 <Route path="/policies" element={<Perm user={user} k="policies"><Policies /></Perm>} />
+                <Route path="/floassist" element={<Navigate to="/floassist/connections" replace />} />
+                <Route path="/floassist/:section" element={<Perm user={user} k="scheduled-goals"><FloAssist /></Perm>} />
                 <Route path="/scheduled-goals" element={<Perm user={user} k="scheduled-goals"><ScheduledGoals /></Perm>} />
                 <Route path="/ai-snipper" element={<Perm user={user} k="ai-snipper"><AiSnipper /></Perm>} />
                 <Route path="/efficiency" element={<Perm user={user} k="efficiency"><EfficiencyView /></Perm>} />

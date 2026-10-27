@@ -97,7 +97,7 @@ function connect(ownerId,id){
   return startConnectorOAuth(ownerId,app.provider_id||app.id);
 }
 
-async function provision(p){
+async function provision(p,{resumeSchedules=false}={}){
   const ch=channel(p);if(!ch)fail(409,'channel','Link WhatsApp first.');privateChannel(p,ch);
   uniqueChannelIdentity(p,ch);
   seedFloAssistTools(p.agent_id);
@@ -131,7 +131,7 @@ async function provision(p){
       const g=await createScheduledGoal(p.owner_id,{...input,execution_mode:'direct_agent',skip_plan_review:true,plan:{manual:true,steps:[]}});
       id=g.id;remember(p.owner_id,'schedule',r.id,id);
     }
-    if(id)updateScheduledGoal(p.owner_id,id,input);
+    if(id){if(!resumeSchedules&&getScheduledGoal(p.owner_id,id)?.status==='paused')input.status='paused';updateScheduledGoal(p.owner_id,id,input);}
   }
   const runtime=ensureTenantOpenClawAgent(resolveFloAssistCoo(p.owner_id),p.owner_id);
   if(resource(p.owner_id,'runtime','skill-context')!==skillId){

@@ -66,6 +66,12 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
     },
   ];
   const tools = [
+    {id:'floassist',label:'FloAssist',group:'Company Tools',permission:'scheduled-goals',children:[
+      {id:'floassist-connections',label:'Connections',to:'/floassist/connections'},
+      {id:'floassist-whatsapp',label:'WhatsApp',to:'/floassist/whatsapp'},
+      {id:'floassist-deliveries',label:'Reminders & deliveries',to:'/floassist/reminders-deliveries'},
+      {id:'floassist-preferences',label:'Preferences',to:'/floassist/preferences'},
+    ]},
     { id: 'workflows', label: 'Workflows', to: '/workflows', group: 'Company Tools' },
     { id: 'avatars', label: '3D Avatars', to: '/avatars', group: 'Company Tools' },
     { id: 'published-scenes', label: 'Published Scenes', to: '/published-scenes', group: 'Company Tools' },
