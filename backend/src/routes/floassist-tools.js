@@ -1,4 +1,5 @@
 import {currentFloAssistScope} from '../services/floassist/execution-scope.js';
+import {reconciliationCandidates} from '../services/floassist/responsibilities.js';
 import {recoverSourceReassessment} from '../services/floassist/read-reassessment.js';
 import {verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion} from '../services/floassist/source-receipts.js';
 import { Router } from 'express';
@@ -26,7 +27,7 @@ router.post('/floassist-control',run((owner,b,s)=>s.setStatus(owner,b.status)));
 router.post('/floassist-tracking-list',run((owner,b)=>{
  const scheduled=!!currentFloAssistScope()?.run,result=listTracking(getDb(),owner,scheduled?{...b,limit:100}:b);
  if(!scheduled)return result;
- return {...result,tasks:result.tasks.map(({task_id,app_id,account_id,source_id,obligation_key,categories,state,closed,origin,automatic_alerts_quieted})=>({task_id,app_id,account_id,source_id,obligation_key,categories,state,closed,origin,automatic_alerts_quieted})),scope:'Identity and lifecycle only. Read exact task_id with floassist_source_read before describing or changing an obligation; prior task text and dates are not source evidence.'};
+ return {...result,tasks:reconciliationCandidates(result.tasks,currentFloAssistScope().origin?.split(':')[1]).map(({task_id,app_id,account_id,source_id,obligation_key,categories,state,closed,origin,automatic_alerts_quieted})=>({task_id,app_id,account_id,source_id,obligation_key,categories,state,closed,origin,automatic_alerts_quieted})),scope:'Only active obligations for this responsibility. Closed/stopped history remains available to ad hoc queries and backend deduplication. Read exact task_id with floassist_source_read before describing or changing an obligation; prior task text and dates are not source evidence.'};
 }));
 router.post('/floassist-tracking-observe',run(async(owner,b,_s,req)=>{
  const db=getDb();

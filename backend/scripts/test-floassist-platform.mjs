@@ -154,6 +154,11 @@ try{
   check(closed.status,'completed','existing verified user-action service closes tracked task');
   check(observeTracking(db,'owner-a',{...finding,category:'deadlines',title:'Different wording'}).notification,'task_closed','later responsibility honors native Kanban completion');
   check(listTracking(db,'owner-a').tasks[0].closed,true,'new session list includes completed task');
+  const {reconciliationCandidates}=await import('../src/services/floassist/responsibilities.js');
+  check(reconciliationCandidates(listTracking(db,'owner-a').tasks,'priority').some(t=>t.task_id===tracked.task.task_id),false,'scheduled identity view excludes completed synthetic provider IDs');
+  db.prepare("UPDATE floassist_task_tracking SET state='stopped' WHERE owner_id=? AND task_id=?").run('owner-a',unknownDue.task.task_id);
+  check(reconciliationCandidates(listTracking(db,'owner-a').tasks,'priority').some(t=>t.task_id===unknownDue.task.task_id),false,'stopped source never reaches scheduled reconciliation even while its Kanban task is open');
+  check(listTracking(db,'owner-a').tasks.some(t=>t.task_id===unknownDue.task.task_id),true,'ad hoc history retains stopped tasks');
   check(db.prepare('SELECT evidence FROM kanban_user_action_audit WHERE task_id=?').get(tracked.task.task_id).evidence,'Already taken care of','exact completion evidence retained');
   await assert.rejects(()=>executeKanbanUserAction({ownerUserId:'owner-b',taskId:tracked.task.task_id,actor:{id:'owner-b',role:'ceo'},action:'complete',evidence:'Done'}),/Only the company/);checks++;
   await new Promise(r=>setTimeout(r,300));
