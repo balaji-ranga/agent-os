@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 // Full source text is transient: bounded process memory, never a DB body store.
+let candidateSequence=0;
 const reads=new Map(), TTL=30*60*1000, MAX_CHARS=2000000;
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
 const key=(owner,run,app,id)=>JSON.stringify([owner,run,app,id]);
@@ -23,7 +24,9 @@ export function recordVerifiedSourceText(owner,context,app,id,messages,now=Date.
   messages=messages.map(m=>({text:norm(m.text),at:m.at==null?NaN:/^\d+$/.test(String(m.at))?Number(m.at):Date.parse(m.at)}));
   const size=messages.reduce((n,m)=>n+m.text.length,0);
   if(size>1000000)return;
-  reads.set(key(owner,context.run||context.session,app,id),{messages,size,expires:now+TTL});trim(now);
+  const cacheKey=key(owner,context.run||context.session,app,id),prior=reads.get(cacheKey);
+  const unchanged=prior&&prior.messages.length===messages.length&&prior.messages.every((m,i)=>m.text===messages[i].text&&Object.is(m.at,messages[i].at));
+  reads.set(cacheKey,{messages,size,expires:now+TTL,...(unchanged?{references:prior.references,candidates:prior.candidates}:{})});trim(now);
 }
 const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
 function localDay(at,zone){return new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(at));}
@@ -82,6 +85,11 @@ function endOfDay(day,zone,hour=23,minute=59,second=59){
  }
  return new Date(at).toISOString();
 }
+export function deadlineCandidate(owner,context,id,now=Date.now()){
+ trim(now);if(context?.owner!==owner)return null;
+ for(const [k,v]of reads){const [o,run,app,source]=JSON.parse(k);const item=v.candidates?.get(id);if(o===owner&&run===(context.run||context.session)&&item)return {...item,app_id:app,source_id:source};}
+ return null;
+}
 export function deadlineReferenceSource(owner,context,reference,now=Date.now()){
  trim(now);if(context?.owner!==owner||!reference?.startsWith('fa-evidence-'))return null;
  for(const [k,v]of reads){const [o,run,app,id]=JSON.parse(k);if(o===owner&&run===(context.run||context.session)&&v.references?.has(reference))return {app_id:app,source_id:id};}
@@ -132,7 +140,9 @@ export function deadlineEvidenceSuggestions(owner,context,app,id,zone,segment,no
   if(!clockMatches(quote,Date.parse(due),chosen))continue;
   let reference=[...cached.references].find(([,q])=>q===quote)?.[0];
   if(!reference){if(cached.references.size>=100)continue;reference='fa-evidence-'+createHash('sha256').update(JSON.stringify([owner,context.run||context.session,app,id,quote])).digest('hex').slice(0,16);cached.references.set(reference,quote);}
-  if(!output.some(r=>r.deadline_excerpt===reference))output.push({deadline_excerpt:reference,passage:quote,due_at:due,timezone:chosen});if(output.length>=4)break;
+  cached.candidates??=new Map();let candidate=[...cached.candidates].find(([,v])=>v.deadline_excerpt===reference&&v.due_at===due)?.[0];
+  if(!candidate){candidate='fa-due-'+(++candidateSequence);cached.candidates.set(candidate,{deadline_excerpt:reference,passage:quote,due_at:due,timezone:chosen});}
+  if(!output.some(r=>r.deadline_excerpt===reference))output.push({deadline_candidate:candidate,track_request:{deadline_candidate:candidate},deadline_excerpt:reference,passage:quote,due_at:due,timezone:chosen});if(output.length>=4)break;
  }
  return output;
 }

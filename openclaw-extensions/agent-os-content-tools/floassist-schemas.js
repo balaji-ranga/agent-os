@@ -31,14 +31,10 @@ export function scopedFloAssistSchema(name,schema,scope){
   return {...schema,properties};
  }
  if(name==='floassist_tracking_update')return {...schema,required:[...new Set([...schema.required.filter(k=>k!=='evidence'),'source_checked','source_evidence'])],properties:{...schema.properties,evidence:{type:'string',description:'Optional legacy alias; source_evidence is the required scheduled proof.'},source_checked:{type:'boolean',enum:[true],description:'Required only after a direct current source read. Do not update if the source has not been checked.'},source_evidence:{type:'string',minLength:1,description:'Current provider evidence and conclusion. This is the single required evidence field. For close_orphan also supply exact stored app/account/source/obligation and source_outcome deleted or fulfilled.'},task_id:{type:'integer',minimum:1,...(scope.floassist_reconciliation_task_ids?.length?{enum:scope.floassist_reconciliation_task_ids}:{})},action:{type:'string',enum:['clarify','close_orphan'],description:'Scheduled source reconciliation only. User tracking preferences cannot be changed by a scan.'}}};
- if(name==='floassist_tracking_observe'&&['priority','deadlines','followups'].includes(module)){
+ if(name==='floassist_tracking_observe'&&module==='deadlines')return object({deadline_candidate:{type:'string',pattern:'^fa-due-[0-9]+$',description:'Copy the exact short deadline_candidate returned by floassist_source_read.deadline_evidence. The server binds source/account/date/evidence; do not reconstruct those fields.'},why_now:string,thread_summary:string},['deadline_candidate','why_now','thread_summary']);
+ if(name==='floassist_tracking_observe'&&['priority','followups'].includes(module)){
   const required=[...schema.required];
   const properties={...schema.properties,category:{type:'string',enum:[module]},...(scope.floassist_sources?.length?{app_id:{type:'string',enum:scope.floassist_sources}}:{})};
-  if(module==='deadlines'){
-   required.push('due_at','deadline_excerpt');
-   properties.due_at={type:'string',description:'Verified obligation deadline as ISO datetime WITH timezone offset. Skip candidates without an explicit deadline; never use message timestamps or task SLA.'};
-   properties.deadline_excerpt={type:'string',pattern:'^fa-evidence-[a-f0-9]{16}$',description:'Copy deadline_excerpt and matching due_at from floassist_source_read.deadline_evidence. Do not write a quotation or invent a token. Read this exact source with floassist_source_read to obtain references; if none supports the obligation, report the ambiguity rather than creating a deadline.'};
-  }
   if(module==='followups')required.push('latest_message_id','awaiting_reply');
   return {...schema,required:[...new Set(required)],properties};
  }

@@ -1,7 +1,7 @@
 import {currentFloAssistScope} from '../services/floassist/execution-scope.js';
 import {reconciliationCandidates} from '../services/floassist/responsibilities.js';
 import {recoverSourceReassessment,recoverOrphanReassessment} from '../services/floassist/read-reassessment.js';
-import {verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion,normalizeScheduledTrackingProof} from '../services/floassist/source-receipts.js';
+import {deadlineCandidateTrackingInput,verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion,normalizeScheduledTrackingProof} from '../services/floassist/source-receipts.js';
 import { Router } from 'express';
 import {readFloAssistSource} from '../services/floassist/source-reader.js';
 import {verifyOrphanClosure} from '../services/floassist/reconcile-source.js';
@@ -31,6 +31,7 @@ router.post('/floassist-tracking-list',run((owner,b)=>{
 }));
 router.post('/floassist-tracking-observe',run(async(owner,b,_s,req)=>{
  const db=getDb();
+ b=deadlineCandidateTrackingInput(db,owner,b);
  try{
   const verified=verifiedTrackingInput(db,owner,b);
   const result=observeTracking(db,owner,verified);

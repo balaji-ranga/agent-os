@@ -1,7 +1,7 @@
 import {assertSourceCoverage,pendingSourceCoverage} from './source-coverage.js';
 import {dueThisMonth} from './alert-policy.js';
 import {resolveSourceReference,sourceReference} from './source-references.js';
-import {recordDeadlineText,assertDeadlineEvidence,historicalDeadlineConfirmed} from './deadline-evidence.js';
+import {recordDeadlineText,assertDeadlineEvidence,historicalDeadlineConfirmed,deadlineCandidate} from './deadline-evidence.js';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope} from './execution-scope.js';
 // Known read-action naming variants resolve only to their exact catalog operation.
@@ -53,6 +53,18 @@ export function recordSourceReceipt(owner,action,result,{db=getDb(),context=curr
  const insert=db.prepare('INSERT OR REPLACE INTO floassist_source_receipts VALUES (?,?,?,?,?)');
  db.transaction(()=>{for(const id of ids)insert.run(owner,context.run,app,id,now);})();
  db.prepare('DELETE FROM floassist_source_receipts WHERE checked_at<?').run(now-7*86400000);
+}
+export function deadlineCandidateTrackingInput(db,owner,input,context=currentFloAssistScope(),now=Date.now()){
+ if(!input.deadline_candidate)return input;
+ if(context?.owner!==owner||context.origin!=='floassist:deadlines')throw Object.assign(new Error('Deadline candidate selection requires its authenticated scheduled responsibility.'),{status:403,code:'FLOASSIST_OWNER_DENIED'});
+ const candidate=deadlineCandidate(owner,context,input.deadline_candidate,now);
+ if(!candidate)throw Object.assign(new Error('Read the current source and select its returned deadline_candidate. Candidate references cannot cross owners/runs or survive changed source content.'),{status:409,code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'});
+ const prefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner)?.preferences_json||'{}');
+ if(!prefs.connectors?.includes(candidate.app_id))throw Object.assign(new Error('This deadline candidate app is no longer selected.'),{status:403,code:'FLOASSIST_CONNECTOR_NOT_SELECTED'});
+ ensureSourceReceipts(db);
+ const account=db.prepare('SELECT account_id FROM floassist_account_receipts WHERE owner_id=? AND app_id=? ORDER BY checked_at DESC LIMIT 1').get(owner,candidate.app_id);
+ if(!account)throw Object.assign(new Error('Verify the connected account profile before tracking a deadline.'),{status:409,code:'FLOASSIST_ACCOUNT_REQUIRED'});
+ return {app_id:candidate.app_id,source_id:candidate.source_id,account_id:account.account_id,category:'deadlines',obligation_key:'action',title:candidate.passage.slice(0,240),requested_action:candidate.passage,evidence:candidate.passage,why_now:input.why_now||'Verified outstanding source deadline',thread_summary:input.thread_summary||candidate.passage,due_at:candidate.due_at,deadline_excerpt:candidate.deadline_excerpt};
 }
 export function verifiedTrackingInput(db,owner,input,context=currentFloAssistScope()){
  if(!context?.run){

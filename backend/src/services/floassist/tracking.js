@@ -275,3 +275,6 @@ export function queueBriefingTasks(db,owner,runId,now=Date.now()){
   if(month||overdue)queue(db,r,'finding',now,runId);
  }
 }
+
+export const DEADLINE_TRACKING_RUN_INSTRUCTIONS=`Deadline Tracking selects still-outstanding dated commitments from complete current source content. Call floassist_source_read, finish every page, inspect latest thread state, and choose only a returned deadline_evidence.deadline_candidate. Call floassist_tracking_observe with deadline_candidate, why_now and thread_summary. The backend binds the source/account/deadline/evidence and builds the source-backed task; do not construct or copy app/source/date/task-link fields. If no candidate supports the action, skip it or report ambiguity rather than inventing a reference. Existing task text is not fresh evidence. Reuse exact source-backed obligations; closed/stopped tasks remain quiet. A scan never completes or changes tracking preferences. Missing filtered results are not fulfillment; read the exact original task source and use only backend-verified deletion reconciliation or clarification. Never close linked/manual/similarly titled tasks. Tracking tools queue eligible grouped notifications with task IDs; return FLOASSIST_NO_UPDATE after processing instead of duplicating alerts in prose. Report unread/unsupported sources honestly.
+`;

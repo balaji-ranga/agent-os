@@ -95,8 +95,8 @@ const reconcileSchema=scopedFloAssistSchema('floassist_tracking_update',floassis
 assert.equal(reconcileSchema.properties.task_id.minimum,1);
 assert.deepEqual(reconcileSchema.properties.task_id.enum,[42,55]);
 assert.equal(scopedFloAssistSchema('floassist_tracking_update',floassistSchemas.floassist_tracking_update,{floassist_module:'followups'}).properties.task_id.enum,undefined);
-assert.ok(deadlineSchema.required.includes('due_at'));
-assert.equal(deadlineSchema.properties.due_at.type,'string');
+assert.ok(deadlineSchema.required.includes('deadline_candidate'));
+assert.equal(deadlineSchema.properties.due_at,undefined,'deadline dates come from server evidence, not model reconstruction');
 assert.ok(!floassistSchemas.floassist_tracking_observe.required.includes('due_at'));
 const followSchema=scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'followups'});
 assert.ok(followSchema.required.includes('latest_message_id'));
@@ -165,8 +165,8 @@ assert.equal(normalizeScheduledTrackingProof({source_evidence:'Untrusted replace
 const calendarSchema=scopedFloAssistSchema("floassist_source_read",floassistSchemas.floassist_source_read,{floassist_module:"conflicts",floassist_sources:["google_calendar"]});
 assert.deepEqual(calendarSchema.anyOf,[{required:["cursor"]},{required:["next_request"]},{required:["app_id","time_min","time_max"]}]);assert.equal(calendarSchema.properties.offset,undefined);assert.equal(calendarSchema.properties.snapshot_id,undefined);assert.equal(calendarSchema.properties.task_id,undefined);assert.equal(calendarSchema.properties.kind,undefined);assert.deepEqual(calendarSchema.properties.app_id.enum,["google_calendar","googlecalendar"]);
 const referenceDeadlineSchema=scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'deadlines'});
-assert.ok(new RegExp(referenceDeadlineSchema.properties.deadline_excerpt.pattern).test('fa-evidence-0123456789abcdef'));
-assert.equal(new RegExp(referenceDeadlineSchema.properties.deadline_excerpt.pattern).test('Please submit the report by tomorrow.'),false,'scheduled tool schema rejects paraphrased quotations before execution');
+assert.ok(new RegExp(referenceDeadlineSchema.properties.deadline_candidate.pattern).test('fa-due-1'));assert.equal(referenceDeadlineSchema.properties.source_id,undefined,'the scheduled deadline contract cannot mix source identity fields');
+assert.equal(new RegExp(referenceDeadlineSchema.properties.deadline_candidate.pattern).test('Please submit the report by tomorrow.'),false,'scheduled tool schema requires a server-issued candidate');
 assert.equal(floassistSchemas.floassist_tracking_observe.properties.deadline_excerpt.pattern,undefined,'ordinary ad hoc literal source passages remain supported');
 
 const reassessment=classifyToolObservation({toolName:"floassist_tracking_observe",httpStatus:200,data:{needs_reassessment:true,task_update_applied:false,recovery_code:"FLOASSIST_THREAD_READ_REQUIRED"},behaviour:{fallback_capabilities:[]}});
