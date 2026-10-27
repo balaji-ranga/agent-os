@@ -1,7 +1,7 @@
 import {currentFloAssistScope} from '../services/floassist/execution-scope.js';
 import {reconciliationCandidates} from '../services/floassist/responsibilities.js';
 import {recoverSourceReassessment,recoverOrphanReassessment} from '../services/floassist/read-reassessment.js';
-import {deadlineCandidateTrackingInput,verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion,normalizeScheduledTrackingProof} from '../services/floassist/source-receipts.js';
+import {resolveDeadlineCandidateErrors,deadlineCandidateTrackingInput,verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion,normalizeScheduledTrackingProof} from '../services/floassist/source-receipts.js';
 import { Router } from 'express';
 import {readFloAssistSource} from '../services/floassist/source-reader.js';
 import {verifyOrphanClosure} from '../services/floassist/reconcile-source.js';
@@ -31,11 +31,13 @@ router.post('/floassist-tracking-list',run((owner,b)=>{
 }));
 router.post('/floassist-tracking-observe',run(async(owner,b,_s,req)=>{
  const db=getDb();
+ const selectedDeadlineCandidate=!!b.deadline_candidate;
  b=deadlineCandidateTrackingInput(db,owner,b);
  try{
   const verified=verifiedTrackingInput(db,owner,b);
   const result=observeTracking(db,owner,verified);
   resolveTrackingErrors(db,owner,b);
+  if(selectedDeadlineCandidate)resolveDeadlineCandidateErrors(db,owner);
   return result;
  }catch(e){
   if(e.code==='FLOASSIST_SOURCE_REVIEW_INCOMPLETE')return {needs_reassessment:true,recovery_code:e.code,task_update_applied:false,next_action:e.next_action};
@@ -43,6 +45,7 @@ router.post('/floassist-tracking-observe',run(async(owner,b,_s,req)=>{
   if(recovery)return recovery;
   if(!isTrackingExclusion(e))throw e;
   resolveTrackingErrors(db,owner,b);
+  if(selectedDeadlineCandidate)resolveDeadlineCandidateErrors(db,owner);
   return {suppressed:true,reason:e.code,message:e.message};
  }
 }));

@@ -1,4 +1,4 @@
-import {deadlineCandidateTrackingInput,ensureSourceReceipts} from '../src/services/floassist/source-receipts.js';
+import {deadlineCandidateTrackingInput,ensureSourceReceipts,recordRunError,resolveDeadlineCandidateErrors} from '../src/services/floassist/source-receipts.js';
 import {withFloAssistRuntimeGuidance} from '../src/services/floassist/runtime-guidance.js';
 import {normalizeDriveReadInput} from '../src/services/floassist/drive-read-input.js';
 import assert from 'node:assert/strict';
@@ -25,6 +25,8 @@ const seed=()=>recordDeadlineText('a',candidateScope,'gmail.fetch_message_by_thr
 seed();const candidate=deadlineEvidenceSuggestions('a',candidateScope,'gmail','candidate-source','Asia/Singapore',quote,now)[0];
 assert.match(candidate.deadline_candidate,/^fa-due-[0-9]+$/);ensureSourceReceipts(db);db.prepare('INSERT INTO floassist_account_receipts VALUES (?,?,?,?)').run('a','gmail','verified-account',now);
 const canonical=deadlineCandidateTrackingInput(db,'a',{deadline_candidate:candidate.deadline_candidate,app_id:'google_drive',source_id:'wrong',due_at:'1900-01-01',existing_task_id:999},candidateScope,now);
+for(const ctx of [candidateScope,{...candidateScope,run:'unrelated'},{...candidateScope,owner:'b'}])recordRunError({code:'FLOASSIST_DEADLINE_CANDIDATE_REQUIRED'},{db,context:ctx,trackingInput:{deadline_candidate:'fa-due-unknown'}});
+resolveDeadlineCandidateErrors(db,'a',candidateScope);assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE code='FLOASSIST_DEADLINE_CANDIDATE_REQUIRED' AND resolved_at IS NOT NULL").get().n,1,'valid selection resolves only this owner/run candidate preflight');assert.equal(db.prepare("SELECT COUNT(*) n FROM floassist_run_errors WHERE code='FLOASSIST_DEADLINE_CANDIDATE_REQUIRED' AND resolved_at IS NULL").get().n,2,'foreign/unrelated validation remains unresolved');
 assert.equal(canonical.app_id,'gmail');assert.equal(canonical.source_id,'candidate-source');assert.equal(canonical.account_id,'verified-account');assert.equal(canonical.due_at,candidate.due_at);assert.equal(canonical.existing_task_id,undefined,'model-supplied task links cannot redirect a selected deadline candidate');assert.equal(assertDeadlineEvidence('a',candidateScope,canonical,'Asia/Singapore',now).verified,true);
 assert.throws(()=>deadlineCandidateTrackingInput(db,'b',{deadline_candidate:candidate.deadline_candidate},{...candidateScope,owner:'b'},now));assert.equal(deadlineCandidate('a',{...candidateScope,run:'foreign'},candidate.deadline_candidate,now),null);
 seed();assert.ok(deadlineCandidate('a',candidateScope,candidate.deadline_candidate,now),'unchanged fresh reads preserve issued candidate identity');

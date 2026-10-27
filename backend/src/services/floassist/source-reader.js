@@ -92,7 +92,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
  const api=execute?null:await import('../openconnector.js');
  execute=execute||api.executeConnectorAction;readTransit=readTransit||api?.readConnectorTransitFile;
  return withFloAssistScope(scope,async()=>{
-  let continuationContextCorrected=false;
+  let continuationContextCorrected=false,cursorContinuation=false;
   const aliases={googledrive:'google_drive',googlecalendar:'google_calendar',one_drive:'onedrive'};
   input={...input,...(input.app_id?{app_id:aliases[input.app_id]||input.app_id}:{})};
   if(input.next_request){
@@ -107,7 +107,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    let contextSource=input.source_id;try{contextSource=resolveSourceReference(db,owner,page.request.app_id,input.source_id,scope);}catch{}
    continuationContextCorrected=!!(input.app_id&&input.app_id!==page.request.app_id||input.source_id&&contextSource!==page.request.source_id);
    if(Object.keys(input).some(k=>!['cursor','app_id','source_id'].includes(k)))throw Object.assign(new Error('The cursor binds the source and page. Remove conflicting context and copy next_action unchanged.'),{status:422,code:'FLOASSIST_SOURCE_OFFSET_INVALID',verifiedSourceIdentity:{app_id:page.request.app_id,source_id:page.request.source_id,snapshot_id:page.request.snapshot_id},next_action:{tool:'floassist_source_read',input:{cursor:input.cursor}}});
-   input={...page.request};
+   input={...page.request};cursorContinuation=true;
   }
   let app=input.app_id,id=input.source_id;
   if(app==='google_calendar'&&scope.run&&scope.origin==='floassist:briefing'&&!input.time_min&&!input.time_max)input={...input,...briefingCalendarWindow(now,JSON.parse(profile.preferences_json||'{}').timezone||'UTC')};
@@ -133,7 +133,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    return sourceData(connectorReferenceInput(db,owner,action,result,scope));
   };
   id=resolveSourceReference(db,owner,app,id,scope);
-  if(discoverUnknownSources&&scope.run&&!input.task_id&&input.kind!=='draft'&&(id||app==='gmail')&&!(app==='google_calendar'&&id==='primary')){
+  if(discoverUnknownSources&&!cursorContinuation&&scope.run&&!input.task_id&&input.kind!=='draft'&&(id||app==='gmail')&&!(app==='google_calendar'&&id==='primary')){
    ensureSourceReceipts(db);
    const known=id&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
    const task=id&&db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
