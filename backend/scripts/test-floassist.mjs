@@ -33,6 +33,9 @@ try{
   const {session_token:t}=await s.start(input);throws(()=>s.session(t),'session_expired');
   await rejects(()=>s.verify(t,'000000'),'invalid_code');
   const v=await s.verify(t,'123456');check(v.status,'onboarding','new enrollment');check(policies.length,1,'new account gets advisory only once');
+  check(Object.fromEntries(['task_alert_max_days','due_soon_hours','discovery_lookback_days','tool_call_budget','task_realert_hours','overdue_realert_hours','task_alert_daily_limit','notification_batch_minutes','followup_wait_hours','include_due_this_month','briefing_overdue_high_priority','briefing_time','quiet_start','quiet_end'].map(k=>[k,v.preferences[k]])),{task_alert_max_days:5,due_soon_hours:72,discovery_lookback_days:7,tool_call_budget:80,task_realert_hours:24,overdue_realert_hours:24,task_alert_daily_limit:3,notification_batch_minutes:5,followup_wait_hours:48,include_due_this_month:true,briefing_overdue_high_priority:true,briefing_time:'09:00',quiet_start:'22:00',quiet_end:'08:00'},'every fresh registration receives tested alert/reminder/delivery defaults');
+  check(v.preferences.responsibilities,product.responsibilities.map(r=>r.id),'all five responsibilities offered by default');
+  check(v.preferences.connectors,[],'defaults never grant unapproved connector access');
   check(policies[0][2],{preset:'advisory',financial:'prohibited'},'safe defaults');
   check(s.session(t).owner_id,input.email,'restricted identity');check(await s.verify(t,'123456'),v,'lost response replay is idempotent');
   const raw=db.prepare('SELECT token_hash FROM floassist_access').get().token_hash;check(raw===t,false,'tokens hashed');
@@ -94,5 +97,11 @@ try{
   await s.save(input.email,{quiet_start:'00:00',quiet_end:'00:00'});await tickFloAssistNotifications({db,send:notify,now:realNow});check(notifications,1,'deferred notification delivered');
   await tickFloAssistNotifications({db,send:notify,now:realNow});check(notifications,1,'queued output delivered once');check(db.prepare('SELECT text FROM floassist_notifications WHERE source_key=?').get(input.email+':run-1').text,null,'notification content removed after delivery');
   s.logout(t);throws(()=>s.session(t),'session_expired');clock+=3*3600000;s.purge();check(db.prepare('SELECT count(*) AS n FROM floassist_access').get().n,0,'expired sessions purged');
+  for(const [country,timezone,phone]of [['SG','Asia/Singapore','+6581000011'],['IN','Asia/Kolkata','+919000000011'],['ID','Asia/Jakarta','+628100000011']]){
+    const signup=await s.start({...input,email:`defaults-${country.toLowerCase()}@example.test`,country,phone});
+    const fresh=await s.verify(signup.session_token,'123456');
+    check(fresh.preferences.timezone,timezone,'new registration uses country-local timezone');
+    check([fresh.preferences.tool_call_budget,fresh.preferences.task_alert_max_days,fresh.preferences.notification_batch_minutes,fresh.preferences.followup_wait_hours],[80,5,5,48],'tested defaults apply independently to every new owner');
+  }
   console.log(`FLOASSIST_OK: ${checks} checks (onboarding, existing COO, MFA, policies, QR gates, isolation, reminders, quiet hours, deduplication, privacy)`);
 }finally{db.close();}

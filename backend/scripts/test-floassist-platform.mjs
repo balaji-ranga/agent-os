@@ -57,6 +57,8 @@ try{
   check((await s.connections('owner-a')).every(x=>!x.connected),true,'logical IDs cannot falsely prove provider authorization');
   connectedProviders=['gmail'];await s.save('owner-a',prefs);
   const active=await s.activate('owner-a');check(active.status,'active','real platform activation');check(JSON.stringify(active).includes('NEVER_RETURN_THIS'),false,'no credential leak');
+  check(db.prepare("SELECT tool_name FROM agent_tool_grants WHERE agent_id=? AND tool_name IN ('floassist_reminder_create','floassist_reminder_list','floassist_reminder_cancel') ORDER BY tool_name").all('fixture-coo').map(r=>r.tool_name),['floassist_reminder_cancel','floassist_reminder_create','floassist_reminder_list'],'activation makes reminders available automatically without separate setup');
+  check(db.prepare("SELECT deliver_to FROM scheduled_goals WHERE owner_user_id=? AND source LIKE 'floassist:%'").all('owner-a').every(r=>JSON.parse(r.deliver_to).includes('whatsapp')),true,'all provisioned checks include WhatsApp delivery and retain Flolah history');
   const refreshed=JSON.parse(readFileSync(join(sessions,'sessions.json')));check(refreshed['agent:t-owner-a--fixture-coo:main'],undefined,'native main session reloads added capabilities');check(refreshed['agent:t-owner-a--fixture-coo:goal:ongoing'].sessionId,'ongoing','ongoing task session retained');
   check(JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH)).agents.list.find(a=>a.id==='t-owner-a--fixture-coo').tools.loopDetection,{enabled:true},'native no-progress loop protection persists for the FloAssist COO');
   check(getActionFamilyPolicies('owner-a'),policyBefore,'existing company policy preserved');
