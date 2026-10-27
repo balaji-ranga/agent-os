@@ -747,6 +747,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       route:{executor_evidence:{capability_names:required}}});
     if(floAssistRun){
       selection.floassist_module=row.source.split(':')[1];
+      selection.floassist_sources=responsibilitySources(floAssistPrefs,selection.floassist_module);
       // The initial snapshot is owner scoped. Restrict reconciliation to its
       // eligible IDs only when the snapshot is complete; do not truncate paging.
       if(currentTracking&&!currentTracking.next_after_id)selection.floassist_reconciliation_task_ids=reconciliationCandidates(currentTracking.tasks,selection.floassist_module).map(t=>t.task_id);

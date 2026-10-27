@@ -27,6 +27,7 @@ const execute=async(owner,action,input)=>{
   'gmail.fetch_message_by_thread_id':{threadId:mode==='wrong'?'other':input.threadId,messages:[{subject:'Report',messageText:mode==='long'?'x'.repeat(13000)+passage:passage,messageTimestamp:'2026-10-26T10:00:00Z'}]},
   'outlook.list_messages':{messages:[{id:'outlook-real'}]},
   'outlook.get_message':{id:input.messageId,subject:'Report',body:{contentType:'text',content:passage},receivedDateTime:'2026-10-26T10:00:00Z'},
+  'googledrive.files.list':{files:[{id:'file-a',name:'Source',mimeType:'text/plain'}]},
   'googledrive.files.get':{id:input.fileId,mimeType:input.fileId==='video'?'video/quicktime':'application/vnd.google-apps.document',name:'source'},
   'googledrive.files.export':{fileId:input.fileId,file:{fileId:'server-returned-transit-id',mimeType:'text/plain',name:'source.txt'}},
   'one_drive.get_item':{id:input.itemId,file:{mimeType:'text/plain'},name:'source.txt'},
@@ -99,6 +100,8 @@ console.log('FLOASSIST_RUN_REFERENCES_OK: projected provider IDs and task-linked
 rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'first'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'first');rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'second'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'second');assert.equal(runtimeRunId({sessionKey:'other-chat'},null,now),null);
 db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run('a','gmail','message-alias','real-thread');
 const messageRef=sourceReference(db,'a','gmail','message-alias',context);assert.equal((await readFloAssistSource('a',{app_id:'gmail',source_id:messageRef},projectedOptions)).source_id,'real-thread');
+const discovery=await readFloAssistSource('a',{app_id:'google_drive'},options);assert.equal(discovery.discovery_only,true);assert.equal(discovery.content_verified,false);assert.equal(discovery.source_candidates[0].source_id,'file-a');assert.match(calls.at(-1).input.q,/modifiedTime > /);
+const refOnce=sourceReference(db,'a','gmail','real-thread',context);assert.equal(sourceReference(db,'a','gmail',refOnce,context),refOnce,'projection is idempotent');
 db.close();
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});

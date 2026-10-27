@@ -104,8 +104,8 @@ assert.ok(followSchema.required.includes('awaiting_reply'));
 recordSourceReceipt('owner','gmail.fetch_emails',{data:{messages:[{messageId:'new-message',threadId:'new-thread'}]}},{db,context});
 assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'new-message'},context),e=>{
  assert.equal(e.code,'FLOASSIST_THREAD_READ_REQUIRED');
- assert.deepEqual(e.next_action.input,{action_id:'gmail.fetch_message_by_thread_id',input:{threadId:sourceReference(db,'owner','gmail','new-thread',context)}});
- assert.equal(e.next_action.tool,'connector_execute_action');
+ assert.deepEqual(e.next_action.input,{app_id:'gmail',source_id:sourceReference(db,'owner','gmail','new-thread',context)});
+ assert.equal(e.next_action.tool,'floassist_source_read');
  return true;
 });
 assert.throws(()=>verifiedTrackingInput(db,'owner',{...input,source_id:'invented-id'},context),e=>e.code==='FLOASSIST_SOURCE_NOT_VERIFIED'&&e.next_action.rejected_source_id==='invented-id');
@@ -156,3 +156,9 @@ const requiredReconciliationSchema=scopedFloAssistSchema('floassist_tracking_upd
 assert.ok(requiredReconciliationSchema.required.includes('source_checked'));
 assert.ok(requiredReconciliationSchema.required.includes('source_evidence'));
 assert.deepEqual(requiredReconciliationSchema.properties.source_checked.enum,[true]);
+
+const calendarSchema=scopedFloAssistSchema("floassist_source_read",floassistSchemas.floassist_source_read,{floassist_module:"conflicts",floassist_sources:["google_calendar"]});
+assert.deepEqual(calendarSchema.required,["app_id","time_min","time_max"]);assert.equal(calendarSchema.properties.task_id,undefined);assert.equal(calendarSchema.properties.kind,undefined);assert.deepEqual(calendarSchema.properties.app_id.enum,["google_calendar"]);
+
+const reassessment=classifyToolObservation({toolName:"floassist_tracking_observe",httpStatus:200,data:{needs_reassessment:true,task_update_applied:false,recovery_code:"FLOASSIST_THREAD_READ_REQUIRED"},behaviour:{fallback_capabilities:[]}});
+assert.equal(reassessment.status,"blocked_prerequisite");assert.equal(reassessment.progress,false);assert.equal(reassessment.retryable,true);

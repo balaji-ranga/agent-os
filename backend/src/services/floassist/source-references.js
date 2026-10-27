@@ -6,6 +6,7 @@ export function sourceReference(db,owner,app,id,context=currentFloAssistScope())
  if(!active(owner,context)||typeof id!=='string'||!id||id.length>500)return id;
  ensure(db);app=apps[app]||app;
  if(!['gmail','google_drive'].includes(app))return id;
+ if(id.startsWith('fa-ref-')){resolveSourceReference(db,owner,app,id,context);return id;}
  return db.transaction(()=>{
   const old=db.prepare('SELECT reference FROM floassist_source_references WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,context.run,app,id);
   if(old)return old.reference;

@@ -68,7 +68,7 @@ export function queueWhatsAppTasks(db,owner,runId,now=Date.now()){
   const tasks=db.prepare("SELECT f.task_id,k.title,k.due_at FROM floassist_task_tracking f JOIN kanban_tasks k ON k.id=f.task_id AND k.owner_user_id=f.owner_id WHERE f.owner_id=? AND f.origin='whatsapp_request'").all(owner);
   for(const task of tasks){
     const r=row(db,owner,task.task_id);
-    if(terminal.has(r.task_status)||/\b(urgent|critical|high priority)\b/i.test(task.title))queue(db,r,'finding',now,runId);
+    if(terminal.has(r.task_status)||['urgent','high'].includes(parse(r.context_json).priority)||/\b(urgent|critical|high priority)\b/i.test(task.title))queue(db,r,'finding',now,runId);
     else audit(db,r,'suppressed','No explicit urgent/critical/high-priority marker; work ETA alone is not a user deadline',now);
   }
 }

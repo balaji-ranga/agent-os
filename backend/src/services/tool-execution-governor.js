@@ -256,7 +256,9 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
   let reason_code = 'completed';
   let retryable = false;
   let progress = true;
-  if (httpStatus === 202 || /approval required|awaiting approval/.test(text)) {
+  if(toolName==='floassist_tracking_observe'&&data?.needs_reassessment===true&&data?.task_update_applied===false){
+    status='blocked_prerequisite';reason_code=data.recovery_code||'FLOASSIST_THREAD_READ_REQUIRED';retryable=true;progress=false;
+  } else if (httpStatus === 202 || /approval required|awaiting approval/.test(text)) {
     status = 'awaiting_approval'; reason_code = 'approval_required'; progress = false;
   } else if (httpStatus === 402 || /quota|billing|payment required/.test(text)) {
     status = 'blocked_external'; reason_code = 'quota_exhausted'; progress = false;
@@ -280,7 +282,9 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
 
 export function completeToolExecution(action, { httpStatus, data }) {
   const observation = classifyToolObservation({ toolName: action.behaviour.tool_name, httpStatus, data, behaviour: action.behaviour });
-  const redacted = redactForStorage(data);
+  const ledgerData=action.behaviour.tool_name==='floassist_source_read'?{...data,content:undefined,content_characters:data?.content?.length}:
+    data?.needs_reassessment?{...data,source:{...data.source,content:undefined,content_characters:data.source?.content?.length}}:data;
+  const redacted = redactForStorage(ledgerData);
   let stored = json(redacted, '{}');
   if (stored.length > 8000) {
     // Never truncate JSON mid-string: evidence consumers need a parseable,

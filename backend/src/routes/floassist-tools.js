@@ -1,3 +1,4 @@
+import {recoverSourceReassessment} from '../services/floassist/read-reassessment.js';
 import {verifiedTrackingInput,recordRunError,isTrackingExclusion,resolveTrackingErrors,assertScheduledTrackingUpdate,scheduledTrackingExclusion} from '../services/floassist/source-receipts.js';
 import { Router } from 'express';
 import {readFloAssistSource} from '../services/floassist/source-reader.js';
@@ -22,7 +23,7 @@ router.post('/floassist-reminder-list',run(owner=>({reminders:listReminders(getD
 router.post('/floassist-reminder-cancel',run((owner,b)=>cancelReminder(getDb(),owner,b.id)));
 router.post('/floassist-control',run((owner,b,s)=>s.setStatus(owner,b.status)));
 router.post('/floassist-tracking-list',run((owner,b)=>listTracking(getDb(),owner,b)));
-router.post('/floassist-tracking-observe',run((owner,b)=>{
+router.post('/floassist-tracking-observe',run(async(owner,b,_s,req)=>{
  const db=getDb();
  try{
   const verified=verifiedTrackingInput(db,owner,b);
@@ -30,6 +31,8 @@ router.post('/floassist-tracking-observe',run((owner,b)=>{
   resolveTrackingErrors(db,owner,b);
   return result;
  }catch(e){
+  const recovery=await recoverSourceReassessment(db,owner,b,e,{caller:req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']});
+  if(recovery)return recovery;
   if(!isTrackingExclusion(e))throw e;
   resolveTrackingErrors(db,owner,b);
   return {suppressed:true,reason:e.code,message:e.message};

@@ -47,7 +47,7 @@ export async function decodeDocument(bytes,mime,name,extract=extractTextFromBuff
 /** A bounded read orchestration; every inner operation uses the same owner,
  * caller grants, selected-app scope and action policy as connector execution. */
 export async function readFloAssistSource(owner,input,{db=getDb(),context=currentFloAssistScope(),execute,readTransit,extract=extractTextFromBuffer,authorize=authorizeSourceAction,caller,now=Date.now()}={}){
- const profile=db.prepare('SELECT agent_id,status FROM floassist_profiles WHERE owner_id=?').get(owner);
+ const profile=db.prepare('SELECT agent_id,status,preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner);
  if(!profile)fail('FLOASSIST_OWNER_DENIED','FloAssist profile is required.',403);
  if(context&&context.owner!==owner)fail('FLOASSIST_OWNER_DENIED','Source owner mismatch.',403);
  const scope=context||{owner,origin:'source_read'};
@@ -101,6 +101,12 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    const data=await run('googlecalendar.list_events',{calendarId:id||'primary',timeMin:input.time_min,timeMax:input.time_max,singleEvents:true,maxResults:100});
    complete=!data.nextPageToken;text=JSON.stringify(data);id=id||'primary';
   }else{
+   if(!id&&app==='google_drive'){
+    const prefs=JSON.parse(profile.preferences_json||'{}');
+    const since=new Date(now-(prefs.discovery_lookback_days??7)*86400000).toISOString();
+    const data=await run('googledrive.files.list',{q:`trashed = false and modifiedTime > '${since}' and mimeType != 'application/vnd.google-apps.folder'`,orderBy:'modifiedTime desc',pageSize:40});
+    return {app_id:app,content_verified:false,discovery_only:true,source_candidates:(data.files||[]).map(f=>({app_id:app,source_id:f.id,name:f.name,mime_type:f.mimeType})),more_candidates:!!data.nextPageToken,guidance:'This is bounded discovery metadata, not file content. Read each relevant supported text file with app_id and its exact source_id before extracting a deadline. Skip unsupported media. Report partial coverage when more_candidates is true.'};
+   }
    if(!id)fail('FLOASSIST_SOURCE_ID_REQUIRED','Use the exact file ID from discovery or provide task_id.');
    const data=await run(app==='google_drive'?'googledrive.files.get':'one_drive.get_item',app==='google_drive'?{fileId:id}:{itemId:id});
    if(data.id!==id)fail('FLOASSIST_SOURCE_MISMATCH','Provider returned a different source.');
