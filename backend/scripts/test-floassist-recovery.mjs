@@ -163,7 +163,7 @@ assert.equal(normalizeScheduledTrackingProof({source_evidence:'Verified current 
 assert.equal(normalizeScheduledTrackingProof({source_evidence:'Untrusted replacement'},null).evidence,undefined,'ordinary user instructions cannot be substituted by source proof');
 
 const calendarSchema=scopedFloAssistSchema("floassist_source_read",floassistSchemas.floassist_source_read,{floassist_module:"conflicts",floassist_sources:["google_calendar"]});
-assert.deepEqual(calendarSchema.required,["app_id","time_min","time_max"]);assert.equal(calendarSchema.properties.task_id,undefined);assert.equal(calendarSchema.properties.kind,undefined);assert.deepEqual(calendarSchema.properties.app_id.enum,["google_calendar"]);
+assert.deepEqual(calendarSchema.anyOf,[{required:["cursor"]},{required:["app_id","time_min","time_max"]}]);assert.equal(calendarSchema.properties.offset,undefined);assert.equal(calendarSchema.properties.snapshot_id,undefined);assert.equal(calendarSchema.properties.task_id,undefined);assert.equal(calendarSchema.properties.kind,undefined);assert.deepEqual(calendarSchema.properties.app_id.enum,["google_calendar"]);
 const referenceDeadlineSchema=scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'deadlines'});
 assert.ok(new RegExp(referenceDeadlineSchema.properties.deadline_excerpt.pattern).test('fa-evidence-0123456789abcdef'));
 assert.equal(new RegExp(referenceDeadlineSchema.properties.deadline_excerpt.pattern).test('Please submit the report by tomorrow.'),false,'scheduled tool schema rejects paraphrased quotations before execution');

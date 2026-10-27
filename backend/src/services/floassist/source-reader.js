@@ -16,9 +16,10 @@ export function briefingCalendarWindow(now,zone){
 
 const providers={gmail:'gmail',outlook:'outlook',google_drive:'googledrive',onedrive:'one_drive',google_calendar:'googlecalendar'};
 const fail=(code,message,status=422)=>{throw Object.assign(new Error(message),{code,status});};
+const cursors=new Map();
 const snapshots=new Map(),MAX_SOURCE_CHARACTERS=1000000,SNAPSHOT_CHARACTERS=2000000;
 const snapshotKey=(owner,scope,app,id,input)=>JSON.stringify([owner,scope.run||scope.session||'',app,id,input.time_min||'',input.time_max||'']);
-function trimSnapshots(now){for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length,0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length;}}
+function trimSnapshots(now){for(const [token,item]of cursors)if(item.until<=now)cursors.delete(token);for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length,0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length;}}
 function sourcePage(snapshot,offset){
  if(!Number.isInteger(offset)||offset<0||offset>snapshot.text.length)fail('FLOASSIST_SOURCE_OFFSET_INVALID','offset must be within the source text.');
  const end=Math.min(snapshot.text.length,offset+12000);
@@ -27,7 +28,13 @@ function sourcePage(snapshot,offset){
  snapshot.ranges=merged;let next=0;for(const [start,stop]of merged){if(start>next)break;next=Math.max(next,stop);}
  const deadlineEvidence=snapshot.scope.run?deadlineEvidenceSuggestions(snapshot.scope.owner,snapshot.scope,snapshot.metadata.app_id,snapshot.metadata.source_id,snapshot.zone,snapshot.text.slice(offset,end),Date.parse(snapshot.at)):[];
  const complete=next>=snapshot.text.length;
- const nextRequest=!complete?{...snapshot.request,snapshot_id:snapshot.id,offset:next}:null;
+ let nextRequest=null;
+ if(!complete){
+  const cursor='fc-'+randomBytes(16).toString('base64url');
+  while(cursors.size>=2048)cursors.delete(cursors.keys().next().value);
+  cursors.set(cursor,{owner:snapshot.scope.owner,scope:snapshot.scope.run||snapshot.scope.session||'',until:snapshot.until,request:{...snapshot.request,snapshot_id:snapshot.id,offset:next}});
+  nextRequest={cursor};
+ }
  recordSourceCoverage(snapshot.db,snapshot.scope,snapshot.metadata,snapshot.id,complete&&snapshot.metadata.provider_complete!==false,nextRequest);
  if(complete&&snapshot.metadata.provider_complete!==false)resolveSourcePagingErrors(snapshot.db,snapshot.scope.owner,snapshot.metadata,snapshot.scope);
  if(complete&&snapshot.metadata.provider_complete!==false&&snapshot.metadata.source_task_id)resolveTaskSourceError(snapshot.db,snapshot.scope.owner,snapshot.metadata.source_task_id,snapshot.scope);
@@ -83,6 +90,12 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
  const api=execute?null:await import('../openconnector.js');
  execute=execute||api.executeConnectorAction;readTransit=readTransit||api?.readConnectorTransitFile;
  return withFloAssistScope(scope,async()=>{
+  if(input.cursor){
+   const page=cursors.get(input.cursor);
+   if(!page||page.owner!==owner||page.scope!==(scope.run||scope.session||'')||page.until<=now)fail('FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','The continuation cursor is unavailable in this owner/session. Restart the exact source from its current discovery/task identity.');
+   if(Object.keys(input).some(k=>k!=='cursor'))fail('FLOASSIST_SOURCE_OFFSET_INVALID','Pass only the exact cursor; do not override its source or page.');
+   input={...page.request};
+  }
   let app=input.app_id,id=input.source_id;
   if(app==='google_calendar'&&scope.run&&scope.origin==='floassist:briefing'&&!input.time_min&&!input.time_max)input={...input,...briefingCalendarWindow(now,JSON.parse(profile.preferences_json||'{}').timezone||'UTC')};
   // These reserved selectors cannot be Gmail provider IDs. Treat them as the
