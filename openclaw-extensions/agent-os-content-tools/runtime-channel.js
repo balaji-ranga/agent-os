@@ -5,7 +5,7 @@ export function rememberRuntimeChannel(ctx,now=Date.now()){
  if(!key||(!channel&&!ctx?.runId))return;
  for(const [k,v]of channels)if(v.until<=now)channels.delete(k);
  if(channels.size>=5000)channels.delete(channels.keys().next().value);
- channels.set(key,{channel:channel||channels.get(key)?.channel,runId:ctx?.runId||null,until:now+60*60*1000});
+ channels.set(key,{channel:channel||channels.get(key)?.channel,runId:ctx?.runId||channels.get(key)?.runId||null,until:now+60*60*1000});
 }
 export function runtimeChannel(ctx,apiContext,now=Date.now()){
  const direct=ctx?.messageChannel||ctx?.deliveryContext?.channel||ctx?.channel||apiContext?.messageChannel||apiContext?.channel;

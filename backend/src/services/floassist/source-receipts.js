@@ -1,3 +1,4 @@
+import {dueThisMonth} from './alert-policy.js';
 import {resolveSourceReference,sourceReference} from './source-references.js';
 import {recordDeadlineText,assertDeadlineEvidence,historicalDeadlineConfirmed} from './deadline-evidence.js';
 import {getDb} from '../../db/schema.js';
@@ -87,6 +88,8 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
  if(module==='followups'){
    const latest=threadState;
    const prefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner).preferences_json);
+   const tracked=db.prepare('SELECT 1 FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,input.app_id,input.source_id);
+   if(!tracked&&latest&&latest.latest_at<Date.now()-(prefs.discovery_lookback_days??7)*86400000)throw Object.assign(new Error('The latest thread message is outside the configured discovery window. Skip this new candidate; previously tracked obligations are reconciled separately.'),{status:409,code:'FLOASSIST_DISCOVERY_WINDOW'});
    const aged=latest&&Date.now()-latest.latest_at>=(prefs.followup_wait_hours||48)*3600000;
    const overdue=input.due_at&&Date.parse(input.due_at)<=Date.now();
    if(!latest||!latest.latest_sent||input.latest_message_id!==latest.latest_message_id||input.awaiting_reply!==true||(!aged&&!overdue))
@@ -99,12 +102,13 @@ export function verifiedTrackingInput(db,owner,input,context=currentFloAssistSco
    input.due_precision=verified.precision;
    if(verified.due_at)input.due_at=verified.due_at;
  }
- if(module==='priority'&&input.urgency!=='high'&&!(input.due_at&&Date.parse(input.due_at)<=Date.now()+86400000))throw Object.assign(new Error('Priority Alerts requires a high-impact action now or an obligation due within 24 hours. Ordinary open tasks belong in their own module or briefing.'),{status:409,code:'FLOASSIST_NOT_PRIORITY'});
+ const alertPrefs=JSON.parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner)?.preferences_json||'{}');
+ if(module==='priority'&&!((alertPrefs.include_due_this_month??true)&&dueThisMonth(input.due_at,alertPrefs))&&input.urgency!=='high'&&!(input.due_at&&Date.parse(input.due_at)<=Date.now()+86400000))throw Object.assign(new Error('Priority Alerts requires a high-impact action now or an obligation due within 24 hours. Ordinary open tasks belong in their own module or briefing.'),{status:409,code:'FLOASSIST_NOT_PRIORITY'});
  const account=db.prepare('SELECT account_id FROM floassist_account_receipts WHERE owner_id=? AND app_id=?').get(owner,input.app_id);
  if(account)return {...input,account_id:account.account_id};
  return input;
 }
-export const isTrackingExclusion=error=>['FLOASSIST_NOT_PRIORITY','FLOASSIST_NOT_A_FOLLOWUP'].includes(error?.code);
+export const isTrackingExclusion=error=>['FLOASSIST_NOT_PRIORITY','FLOASSIST_NOT_A_FOLLOWUP','FLOASSIST_DISCOVERY_WINDOW'].includes(error?.code);
 export function canonicalThreadInput(db,owner,action,input,context=currentFloAssistScope()){
  if(!context?.run||context.owner!==owner||action!=='gmail.fetch_message_by_thread_id'||!input.threadId)return input;
  ensureSourceReceipts(db);

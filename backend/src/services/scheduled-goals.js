@@ -635,6 +635,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     insertChatTurn({ agentId: agent.id, ownerUserId, role: 'user', content: `[Scheduled goal] ${row.title}\n\n${row.prompt}` });
   } catch (e) { console.warn('[scheduled-goals] chat user turn:', e.message); }
 
+  if(row.source==='floassist:briefing')(await import('./floassist/tracking.js')).queueBriefingTasks(db(),ownerUserId,runId);
   if (row.source === 'floassist:priority') {
     (await import('./floassist/tracking.js')).queueWhatsAppTasks(db(),ownerUserId,runId);
     try { await (await import('./floassist/connector-health.js')).checkFloAssistConnectorHealth(ownerUserId); }

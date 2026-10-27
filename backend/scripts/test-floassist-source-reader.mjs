@@ -100,3 +100,9 @@ rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'first'}
 db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run('a','gmail','message-alias','real-thread');
 const messageRef=sourceReference(db,'a','gmail','message-alias',context);assert.equal((await readFloAssistSource('a',{app_id:'gmail',source_id:messageRef},projectedOptions)).source_id,'real-thread');
 db.close();
+
+rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});
+rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp"});
+assert.equal(runtimeRunId({sessionKey:"turn-preserve"}),"turn-a");
+rememberRuntimeChannel({sessionKey:"turn-preserve",runId:"turn-b"});
+assert.equal(runtimeRunId({sessionKey:"turn-preserve"}),"turn-b");

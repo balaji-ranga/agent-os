@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { getDb } from '../../db/schema.js';
 import { fail } from './core.js';
 import { readFileSync } from 'node:fs';
-import {tickTracking,trackingNotificationAllowed} from './tracking.js';
+import {tickTracking,trackingNotificationAllowed,recordTrackingDelivery} from './tracking.js';
 const product=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
 
 export function floAssistResponsibilityEnabled(preferences,responsibility){
@@ -192,11 +192,11 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
       let result;try{result=await send({...row,text,phone:p.phone});}catch{result={ok:false};}
       const status=result?.ok&&!result.skipped?'sent':result?.skipped?'pending':'uncertain';
       db.transaction(()=>{for(const n of claimed)db.prepare("UPDATE floassist_notifications SET status=?,text=CASE WHEN ?='sent' THEN NULL ELSE text END,updated_at=? WHERE source_key=? AND status='sending'").run(status,status,now,n.source_key);})();
-      if(status==='sent')sent++;continue;
+      if(status==='sent'){for(const n of claimed)recordTrackingDelivery(db,n,now);sent++;}continue;
     }
     if(!db.prepare("UPDATE floassist_notifications SET status='sending',updated_at=? WHERE source_key=? AND status='pending'").run(now,row.source_key).changes)continue;
     let result;try{result=await send({...row,phone:p.phone});}catch{result={ok:false};}
-    if(result?.ok&&!result.skipped){db.prepare("UPDATE floassist_notifications SET status='sent',text=NULL,updated_at=? WHERE source_key=?").run(now,row.source_key);sent++;}
+    if(result?.ok&&!result.skipped){db.prepare("UPDATE floassist_notifications SET status='sent',text=NULL,updated_at=? WHERE source_key=?").run(now,row.source_key);recordTrackingDelivery(db,row,now);sent++;}
     else db.prepare('UPDATE floassist_notifications SET status=?,updated_at=? WHERE source_key=?').run(result?.skipped?'pending':'uncertain',now,row.source_key);
   }
   db.prepare("UPDATE floassist_notifications SET status='uncertain' WHERE status='sending' AND updated_at<?").run(now-300000);

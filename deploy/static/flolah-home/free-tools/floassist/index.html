@@ -45,6 +45,10 @@
             <div class="columns"><label>Warn before deadline (hours; 0 = off)<input type="number" name="deadline_warning_hours" min="0" max="168" required></label><label>Maximum alerts per task in 24 hours<input type="number" name="task_alert_daily_limit" min="1" max="20" required></label></div>
             <label>Group updates for (minutes)<input type="number" name="notification_batch_minutes" min="0" max="60" required></label>
             <p class="muted">A verified deadline change or escalation can alert sooner, within your daily limit. Per-app settings below affect task alerts, not connection-health warnings.</p>
+            <div class="columns"><label>Stop automatic task alerts after delivery days (0 = unlimited)<input type="number" name="task_alert_max_days" min="0" max="365" required></label><label>Approaching deadline colour (hours)<input type="number" name="due_soon_hours" min="1" max="744" required></label><label>New-source discovery lookback (days)<input type="number" name="discovery_lookback_days" min="1" max="90" required></label></div>
+            <label class="check"><input type="checkbox" name="include_due_this_month">Include open tasks due this month</label>
+            <label class="check"><input type="checkbox" name="briefing_overdue_high_priority">Include overdue high-priority tasks in morning briefing</label>
+            <p class="muted">Delivery days count only successful sends in your timezone. Quieted tasks stay open and available when you ask. Red = overdue; orange = approaching; green = later.</p>
             <div id="alert-app-rules"></div>
           </details>
           <label>Autonomy<select name="preset"><option value="">Keep my current COO policy</option><option value="advisory">Advisory — read and propose</option><option value="managerial">Managerial — manage work, ask before publishing</option><option value="administrative">Administrative — manage work, finances and deletion</option></select></label>

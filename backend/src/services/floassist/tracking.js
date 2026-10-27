@@ -1,4 +1,4 @@
-import {alertDecision} from './alert-policy.js';
+import {alertDecision,localAlertDay,dueIndicator,dueThisMonth,taskPriority} from './alert-policy.js';
 import {createHash} from 'node:crypto';
 import {ensureFloAssistRuntime} from './runtime.js';
 
@@ -11,6 +11,10 @@ function text(value,name,max=500){const s=String(value||'').trim();if(!s||s.leng
 
 export function ensureTracking(db){
   ensureFloAssistRuntime(db);
+  const newDays=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_task_alert_days'").get();
+  db.exec(`CREATE TABLE IF NOT EXISTS floassist_task_alert_days(owner_id TEXT NOT NULL,task_id INTEGER NOT NULL,local_day TEXT NOT NULL,first_sent_at INTEGER NOT NULL,PRIMARY KEY(owner_id,task_id,local_day));`);
+  if(newDays)for(const n of db.prepare("SELECT n.* FROM floassist_notifications n WHERE n.status='sent' AND n.source_key LIKE n.owner_id||':tracking:%'").all())recordTrackingDelivery(db,n,n.updated_at);
+
   db.exec(`CREATE TABLE IF NOT EXISTS floassist_task_tracking (
     owner_id TEXT NOT NULL,task_id INTEGER NOT NULL,source_key TEXT NOT NULL,
     app_id TEXT NOT NULL,account_id TEXT NOT NULL,source_id TEXT NOT NULL,obligation_key TEXT NOT NULL,
@@ -27,6 +31,13 @@ export function ensureTracking(db){
   }
   if(!db.prepare('PRAGMA table_info(floassist_task_tracking)').all().some(c=>c.name==='context_json'))db.exec("ALTER TABLE floassist_task_tracking ADD COLUMN context_json TEXT NOT NULL DEFAULT '{}'");
 }
+export function recordTrackingDelivery(db,n,now=Date.now()){
+ const prefix=`${n.owner_id}:tracking:`;if(!n.source_key.startsWith(prefix))return;
+ const id=Number(n.source_key.slice(prefix.length).split(':')[0]);if(!Number.isInteger(id))return;
+ const prefs=parse(db.prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(n.owner_id)?.preferences_json);
+ db.prepare('INSERT OR IGNORE INTO floassist_task_alert_days VALUES (?,?,?,?)').run(n.owner_id,id,localAlertDay(now,prefs.timezone),now);
+}
+function deliveredDays(db,r){return db.prepare('SELECT count(*) n FROM floassist_task_alert_days WHERE owner_id=? AND task_id=?').get(r.owner_id,r.task_id).n;}
 function profile(db,owner){
   const p=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=?').get(owner);
   if(!p)fail('FloAssist profile not found.',404);return p;
@@ -38,7 +49,7 @@ function row(db,owner,id){
 }
 function audit(db,r,decision,reason,now){db.prepare('INSERT INTO floassist_tracking_audit(owner_id,task_id,decision,reason,created_at) VALUES (?,?,?,?,?)').run(r.owner_id,r.task_id,decision,reason,now);}
 function cancelled(db,r){db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE owner_id=? AND source_key LIKE ? AND status='pending'").run(r.owner_id,`${r.owner_id}:tracking:${r.task_id}:%`);}
-function view(r){return {...r,categories:JSON.parse(r.categories_json),closed:terminal.has(r.task_status),completion_basis:terminal.has(r.task_status)?'Kanban task status; consult task messages for user or provider evidence':null};}
+function view(r){return {...r,...taskPriority(parse(r.context_json)),categories:JSON.parse(r.categories_json),closed:terminal.has(r.task_status),completion_basis:terminal.has(r.task_status)?'Kanban task status; consult task messages for user or provider evidence':null};}
 const sourceEnabled=(prefs,r)=>r.origin==='whatsapp_request'||prefs.connectors?.includes(r.app_id);
 
 /** Called only from a verified WhatsApp tool request after canonical task creation. */
@@ -65,7 +76,7 @@ export function trackingAlertHeading(db,owner,runId){
   if(!runId)return 'FloAssist';
   const run=db.prepare(`SELECT g.source FROM scheduled_goal_runs r JOIN scheduled_goals g
     ON g.id=r.goal_id AND g.owner_user_id=r.owner_user_id WHERE r.id=? AND r.owner_user_id=?`).get(runId,owner);
-  const label={'floassist:priority':'Priority Alerts','floassist:followups':'Follow-up','floassist:deadlines':'Deadline Tracking'}[run?.source];
+  const label={'floassist:priority':'Priority Alerts','floassist:followups':'Follow-up','floassist:deadlines':'Deadline Tracking','floassist:briefing':'Morning Briefing'}[run?.source];
   return label?`FloAssist · ${label}`:'FloAssist';
 }
 function queue(db,r,kind,now,cycle=null){
@@ -75,13 +86,14 @@ function queue(db,r,kind,now,cycle=null){
   if(r.state==='stopped'){audit(db,r,'suppressed','tracking_stopped',now);return 'tracking_stopped';}
   if(r.snooze_until>now){audit(db,r,'suppressed','snoozed',now);return 'snoozed';}
   if((prefs.muted_alert_apps||[]).includes(r.app_id)){audit(db,r,'suppressed','source_alerts_muted',now);return 'source_alerts_muted';}
+  if((prefs.task_alert_max_days??5)>0&&deliveredDays(db,r)>=(prefs.task_alert_max_days??5)){audit(db,r,'suppressed','task_alert_day_limit',now);return 'task_alert_day_limit';}
   const prefix=`${r.owner_id}:tracking:${r.task_id}:${r.revision}:`;
   if(cycle){
     const outstanding=db.prepare("SELECT status FROM floassist_notifications WHERE owner_id=? AND source_key LIKE ? AND status IN ('pending','sending','uncertain') LIMIT 1").get(r.owner_id,`${prefix}%`);
     if(outstanding){audit(db,r,'suppressed',`already_${outstanding.status}`,now);return `already_${outstanding.status}`;}
     const last=db.prepare("SELECT source_key,updated_at FROM floassist_notifications WHERE owner_id=? AND source_key LIKE ? AND status='sent' ORDER BY updated_at DESC LIMIT 1").get(r.owner_id,`${r.owner_id}:tracking:${r.task_id}:%`);
     const count=db.prepare("SELECT count(*) n FROM floassist_notifications WHERE owner_id=? AND source_key LIKE ? AND status='sent' AND updated_at>?").get(r.owner_id,`${r.owner_id}:tracking:${r.task_id}:%`,now-86400000).n;
-    const decision=alertDecision({preferences:prefs,app:r.app_id,dueAt:r.due_at,lastSent:last?.updated_at,changed:!!last&&!last.source_key.startsWith(prefix),sentInDay:count,now});
+    const decision=alertDecision({preferences:prefs,app:r.app_id,dueAt:r.due_at,lastSent:last?.updated_at,changed:!!last&&!last.source_key.startsWith(prefix),sentInDay:count,alertDays:deliveredDays(db,r),now});
     if(!decision.send){audit(db,r,'suppressed',decision.reason,now);return decision.reason;}
     audit(db,r,'eligible',decision.reason,now);
   }
@@ -91,7 +103,7 @@ function queue(db,r,kind,now,cycle=null){
   const due=r.due_at&&r.origin!=='whatsapp_request'?new Intl.DateTimeFormat('en-GB',{timeZone:prefs.timezone||'UTC',dateStyle:'medium',...(parse(r.context_json).due_precision==='day'?{}:{timeStyle:'short'})}).format(new Date(r.due_at)):null;
   const details=parse(r.context_json);
   const body=kind==='clarification'?`*#${r.task_id} · ${r.title}*\nThis open task could not be confirmed from its source. Is it completed, or should I keep tracking it?`:
-    `*#${r.task_id} · ${r.title}*${due?`\n\u{1F5D3} *Due:* ${due} (${prefs.timezone||'UTC'})`:''}${details.thread_summary?`\n\n*Context:* ${details.thread_summary}`:''}${details.requested_action?`\n\u{27A1} *Next action:* ${details.requested_action}`:''}${details.why_now?`\n*Why now:* ${details.why_now}`:''}\n*Source:* ${r.app_id}${r.source_url?` · ${r.source_url}`:''}\n\n*Reply:* #${r.task_id} done, stop tracking, or snooze.`;
+    `*#${r.task_id} · ${r.title}*${due?`\n${dueIndicator(r.due_at,prefs,now)} *Due:* ${due} (${prefs.timezone||'UTC'})`:''}${details.thread_summary?`\n\n*Context:* ${details.thread_summary}`:''}${details.requested_action?`\n\u{27A1} *Next action:* ${details.requested_action}`:''}${details.priority?`\n*Priority:* ${details.priority} — ${details.priority_reason}`:''}${details.why_now?`\n*Why now:* ${details.why_now}`:''}\n*Source:* ${r.app_id}${r.source_url?` · ${r.source_url}`:''}\n\n*Reply:* #${r.task_id} done, stop tracking, or snooze.`;
   const message=`*${trackingAlertHeading(db,r.owner_id,cycle)}*\n\n${body}`;
   db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(sourceKey,r.owner_id,p.agent_id,message,now,now,now+7*86400000);
   audit(db,r,'queued',kind,now);return 'queued';
@@ -106,7 +118,9 @@ export function observeTracking(db,owner,input,now=Date.now()){
   const category=text(input.category,'category',30);if(!categories.includes(category))fail('Unsupported tracking category.');
   const obligation=String(input.obligation_key||'action').trim();if(!obligation||obligation.length>150)fail('Invalid obligation key.');
   const title=text(input.title,'title',300),evidence=text(input.evidence,'evidence',1000);
-  const contextJson=JSON.stringify({due_precision:input.due_precision||'minute',thread_summary:String(input.thread_summary||evidence).slice(0,500),requested_action:String(input.requested_action||title).slice(0,300),why_now:String(input.why_now||'Verified open obligation in this check').slice(0,300)});
+  const prior=db.prepare('SELECT context_json FROM floassist_task_tracking WHERE owner_id=? AND source_key=?').get(owner,hash([app,account,source,obligation]));
+  const assigned=taskPriority({...input,...(parse(prior?.context_json).priority_locked?parse(prior.context_json):{})},prefs,now);
+  const contextJson=JSON.stringify({...assigned,due_precision:input.due_precision||'minute',thread_summary:String(input.thread_summary||evidence).slice(0,500),requested_action:String(input.requested_action||title).slice(0,300),why_now:String(input.why_now||'Verified open obligation in this check').slice(0,300)});
   const rawDue=input.due_at==null?null:String(input.due_at);
   if(rawDue&&(!/T.*(?:Z|[+-]\d\d:\d\d)$/.test(rawDue)||!Number.isFinite(Date.parse(rawDue))))fail('due_at must include a timezone offset.');
   const due=rawDue?new Date(rawDue).toISOString():null;
@@ -166,7 +180,7 @@ export function listTracking(db,owner,{after_id=0,limit=50}={}){
   const n=Math.max(1,Math.min(100,Number(limit)||50));
   const rows=db.prepare(`SELECT f.*,k.title,k.status AS task_status,k.due_at FROM floassist_task_tracking f
     JOIN kanban_tasks k ON k.id=f.task_id AND k.owner_user_id=f.owner_id WHERE f.owner_id=? AND f.task_id>? ORDER BY f.task_id LIMIT ?`).all(owner,Number(after_id)||0,n+1);
-  return {tasks:rows.slice(0,n).map(view),next_after_id:rows.length>n?rows[n-1].task_id:null,scope:'All tracked tasks including closed tasks; independent of source scan filters.'};
+  return {tasks:rows.slice(0,n).map(r=>({...view(r),alert_delivery_days:deliveredDays(db,r),automatic_alerts_quieted:(parse(profile(db,owner).preferences_json).task_alert_max_days??5)>0&&deliveredDays(db,r)>=(parse(profile(db,owner).preferences_json).task_alert_max_days??5)})),next_after_id:rows.length>n?rows[n-1].task_id:null,scope:'All tracked tasks including closed tasks; independent of source scan filters.'};
 }
 
 // A completion snapshot, not a claim about which provider reads or deliveries ran.
@@ -206,6 +220,12 @@ export function updateTracking(db,owner,input,now=Date.now()){
       if(outcome==='queued')db.prepare('UPDATE floassist_task_tracking SET clarification_revision=? WHERE owner_id=? AND task_id=?').run(r.revision,owner,r.task_id);
       audit(db,r,'clarification',evidence,now);return {task:view(r),notification:outcome};
     }
+    if(input.action==='set_priority'){
+      if(!['urgent','high','normal','low'].includes(input.priority))fail('Choose urgent, high, normal or low.');
+      const details={...parse(r.context_json),priority:input.priority,priority_reason:evidence,priority_locked:true};
+      db.prepare('UPDATE floassist_task_tracking SET context_json=? WHERE owner_id=? AND task_id=?').run(JSON.stringify(details),owner,r.task_id);
+      db.prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'user',?)").run(r.task_id,`FloAssist priority ${input.priority}: ${evidence}`);audit(db,r,'priority_assigned',evidence,now);return {task:view(row(db,owner,r.task_id))};
+    }
     if(!['acknowledge','snooze','track','stop'].includes(input.action))fail('Use acknowledge, snooze, track, stop, clarify or close_orphan.');
     const until=input.action==='snooze'?Date.parse(input.until):null;
     if(input.action==='snooze'&&(!Number.isFinite(until)||until<=now||!/T.*(?:Z|[+-]\d\d:\d\d)$/.test(String(input.until))))fail('Provide a future snooze time with timezone offset.');
@@ -232,6 +252,7 @@ export function trackingNotificationAllowed(db,notification,now=Date.now()){
   let r;try{r=row(db,notification.owner_id,Number(id));}catch{return false;}
   const prefs=parse(profile(db,r.owner_id).preferences_json);
   const sentInDay=db.prepare("SELECT count(*) n FROM floassist_notifications WHERE owner_id=? AND source_key LIKE ? AND status='sent' AND updated_at>?").get(r.owner_id,`${r.owner_id}:tracking:${r.task_id}:%`,now-86400000).n;
+  if((prefs.task_alert_max_days??5)>0&&deliveredDays(db,r)>=(prefs.task_alert_max_days??5)){audit(db,r,'suppressed','task_alert_day_limit',now);return false;}
   if(sentInDay>=(prefs.task_alert_daily_limit??3)){audit(db,r,'suppressed','task_daily_alert_limit',now);return false;}
   return !terminal.has(r.task_status)&&r.revision===Number(revision)&&!(r.snooze_until>now)&&
     r.state!=='stopped'&&!(prefs.muted_alert_apps||[]).includes(r.app_id)&&sourceEnabled(prefs,r)&&JSON.parse(r.categories_json).some(c=>prefs.responsibilities?.includes(c));
@@ -243,4 +264,14 @@ export function tickTracking(db,now=Date.now()){
   for(const x of rows)db.transaction(()=>{const r=row(db,x.owner_id,x.task_id);const result=queue(db,r,'finding',now);if(result==='queued'||result==='task_closed'||result.startsWith('already_'))db.prepare('UPDATE floassist_task_tracking SET snooze_until=NULL WHERE owner_id=? AND task_id=?').run(x.owner_id,x.task_id);})();
 }
 
-export const TRACKING_RUN_INSTRUCTIONS=`Use returned fa-ref identifiers verbatim for source_id, latest_message_id and connector ID fields. They resolve to exact provider IDs within this run; never reconstruct long IDs from memory or URLs. Prior task references are not evidence of a fresh source read. Responsibilities are distinct: Priority Alerts is urgent/high-impact action now or due within 24 hours; Deadline Tracking is an actual dated commitment: every deadline observation MUST include due_at as an ISO datetime with timezone offset, extracted from the freshly read subject and body (for example 2026-10-27T15:00:00+08:00). A date mentioned only in title/evidence is NOT the due_at field. Skip undated candidates; do not call observe for them or invent a date. If the tool reports FLOASSIST_DEADLINE_REQUIRED, supply the verified due_at field before retrying; Follow-up is an unanswered outgoing request after the configured wait (default 48 hours) or an explicit reply deadline. A calendar appointment is not a mail follow-up/deadline task. For follow-ups read the entire current thread, identify its latest message, and do not alert on earlier sent messages superseded by an incoming reply. A thank-you, acknowledgement or informational sent email does not create an obligation. List recent sent mail with newer_than:7d; never end the discovery window before today. Provide requested_action, why_now, thread_summary and (for followups) latest_message_id and awaiting_reply. Briefly summarize thread progression and what is actually still outstanding; do not copy raw emails. Use the mailbox account, never the sender, as account_id. Do not re-report completed or stopped tasks. For priority alerts, deadlines and follow-ups, use floassist_tracking_list (paginate all pages) before scanning. Correlate both open and closed Kanban tasks, including tasks outside this run's source filters. Read the selected provider sources freshly in this run before deciding which obligations still match. The tracking list is prior state, not proof of current mailbox contents. For follow-ups, inspect sent requests and subsequent thread replies; a calendar event or submission deadline alone is not an unanswered request. Do not call acknowledge, stop, snooze or track as routine scan bookkeeping: those actions require an explicit user instruction. For each verified obligation call floassist_tracking_observe with stable app_id, account_id, source_id (thread ID when available), obligation_key (reuse the existing key; default action), category, title and concise evidence; include due_at only when verified. Always pass scheduled_goal_id and run_key from this run header on every observation: submit verified open findings for coordination; the delivery layer suppresses unchanged repeats across modules and runs until the reminder interval, deadline escalation or a meaningful change. Use the same task across responsibilities. Link an existing owner task with existing_task_id rather than duplicating it. A new obligation in a thread needs a distinct stable key supported by new evidence; changed wording is not a new obligation. Closed tasks must not be reopened by scans. Reconcile task closure only for open, non-stopped tasks whose categories include the current responsibility; do not close another module�s task. For open tasks missing from the scan, check their original source directly; absence from a filtered result is not completion. For a task with origin floassist_created, directly confirmed deleted email (trash/permanent deletion, not missing search results or authorization failure) can be submitted for backend deletion verification using floassist_tracking_update action close_orphan with exact app_id/account_id/source_id/obligation_key, source_checked:true, source_outcome:deleted and source_evidence containing the direct provider result. The backend independently re-reads the stored source before applying closure. A present source with uncertain external fulfillment becomes a clarification, never automatic completion. Never close linked tasks or title matches this way. Read/archive status or a sent reply alone is not fulfillment. If still uncertain call floassist_tracking_update action clarify with source_checked:true and evidence; it queues at most one clarification per revision. Do not create tasks for empty scans or connector health. These tools queue the user alerts with stable task references; return FLOASSIST_NO_UPDATE after processing, never duplicate their notifications in the scheduled reply. Report coverage failures in the run history, without claiming success.`;
+export const TRACKING_RUN_INSTRUCTIONS=`Use returned fa-ref identifiers verbatim for source_id, latest_message_id and connector ID fields. They resolve to exact provider IDs within this run; never reconstruct long IDs from memory or URLs. Prior task references are not evidence of a fresh source read. Responsibilities are distinct: Priority Alerts is urgent/high-impact action now, due within 24 hours, or due in the current owner-local month when include_due_this_month is enabled; Deadline Tracking is an actual dated commitment: every deadline observation MUST include due_at as an ISO datetime with timezone offset, extracted from the freshly read subject and body (for example 2026-10-27T15:00:00+08:00). A date mentioned only in title/evidence is NOT the due_at field. Skip undated candidates; do not call observe for them or invent a date. If the tool reports FLOASSIST_DEADLINE_REQUIRED, supply the verified due_at field before retrying; Follow-up is an unanswered outgoing request after the configured wait (default 48 hours) or an explicit reply deadline. A calendar appointment is not a mail follow-up/deadline task. For follow-ups read the entire current thread, identify its latest message, and do not alert on earlier sent messages superseded by an incoming reply. A thank-you, acknowledgement or informational sent email does not create an obligation. List recent sent mail within discovery_lookback_days from current preferences (default newer_than:7d); never end the discovery window before today. Provide requested_action, why_now, thread_summary and (for followups) latest_message_id and awaiting_reply. Briefly summarize thread progression and what is actually still outstanding; do not copy raw emails. Use the mailbox account, never the sender, as account_id. Do not re-report completed or stopped tasks. For priority alerts, deadlines and follow-ups, use floassist_tracking_list (paginate all pages) before scanning. Correlate both open and closed Kanban tasks, including tasks outside this run's source filters. Read the selected provider sources freshly in this run before deciding which obligations still match. The tracking list is prior state, not proof of current mailbox contents. For follow-ups, inspect sent requests and subsequent thread replies; a calendar event or submission deadline alone is not an unanswered request. Do not call acknowledge, stop, snooze or track as routine scan bookkeeping: those actions require an explicit user instruction. For each verified obligation call floassist_tracking_observe with stable app_id, account_id, source_id (thread ID when available), obligation_key (reuse the existing key; default action), category, title and concise evidence; include due_at only when verified. Always pass scheduled_goal_id and run_key from this run header on every observation: submit verified open findings for coordination; the delivery layer suppresses unchanged repeats across modules and runs until the reminder interval, deadline escalation or a meaningful change. Use the same task across responsibilities. Link an existing owner task with existing_task_id rather than duplicating it. A new obligation in a thread needs a distinct stable key supported by new evidence; changed wording is not a new obligation. Closed tasks must not be reopened by scans. Reconcile task closure only for open, non-stopped tasks whose categories include the current responsibility; do not close another module�s task. For open tasks missing from the scan, check their original source directly; absence from a filtered result is not completion. For a task with origin floassist_created, directly confirmed deleted email (trash/permanent deletion, not missing search results or authorization failure) can be submitted for backend deletion verification using floassist_tracking_update action close_orphan with exact app_id/account_id/source_id/obligation_key, source_checked:true, source_outcome:deleted and source_evidence containing the direct provider result. The backend independently re-reads the stored source before applying closure. A present source with uncertain external fulfillment becomes a clarification, never automatic completion. Never close linked tasks or title matches this way. Read/archive status or a sent reply alone is not fulfillment. If still uncertain call floassist_tracking_update action clarify with source_checked:true and evidence; it queues at most one clarification per revision. Do not create tasks for empty scans or connector health. These tools queue the user alerts with stable task references; return FLOASSIST_NO_UPDATE after processing, never duplicate their notifications in the scheduled reply. Report coverage failures in the run history, without claiming success.`;
+
+export function queueBriefingTasks(db,owner,runId,now=Date.now()){
+ ensureTracking(db);const prefs=parse(profile(db,owner).preferences_json);
+ for(const x of db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=?').all(owner)){
+  const r=row(db,owner,x.task_id),details=parse(r.context_json),due=Date.parse(r.due_at);
+  const month=(prefs.include_due_this_month??true)&&dueThisMonth(r.due_at,prefs,now);
+  const overdue=(prefs.briefing_overdue_high_priority??true)&&due<now&&['urgent','high'].includes(details.priority);
+  if(month||overdue)queue(db,r,'finding',now,runId);
+ }
+}

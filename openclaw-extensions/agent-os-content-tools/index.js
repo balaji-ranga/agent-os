@@ -1084,7 +1084,7 @@ export default definePluginEntry({
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
       });
       api.on("before_tool_call", (event, ctx) => {
-        rememberRuntimeChannel(ctx);
+        rememberRuntimeChannel({ ...ctx, runId: event?.runId || ctx?.runId });
         const scope = loadSessionAllowlists()[ctx?.sessionKey || safeApiSessionKey(api)];
         const reason = steeringToolBlock(scope, event?.toolName || ctx?.toolName, event?.params);
         if (reason) return { block: true, blockReason: reason };

@@ -79,7 +79,7 @@ try{
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:join(evidence,'registration-mobile.png'),fullPage:true});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'mobile has no horizontal overflow');
   await page.getByRole('button',{name:'Switch color theme'}).click();await page.screenshot({path:join(evidence,'registration-dark.png'),fullPage:true});
   check(requests.some(r=>r.path==='/api/floassist/policy'&&r.body.financial==='autonomous'),true,'explicit finance policy submitted');
-  check(requests.some(r=>r.path==='/api/floassist/preferences'&&r.body.overdue_realert_hours===12&&r.body.task_alert_daily_limit===2),true,'alert lifecycle settings saved through real UI and HTTP');
+  check(requests.some(r=>r.path==='/api/floassist/preferences'&&r.body.overdue_realert_hours===12&&r.body.task_alert_daily_limit===2&&r.body.task_alert_max_days===5&&r.body.due_soon_hours===72&&r.body.include_due_this_month===true&&r.body.briefing_overdue_high_priority===true),true,'alert lifecycle settings saved through real UI and HTTP');
   check(qrWaits>0,true,'native QR status polling');check(errors,[],'no browser errors');
   writeFileSync(join(evidence,'browser-results.json'),JSON.stringify({passed:true,checks,synthetic:true,viewports:['1280x1000','390x844']},null,2));
   console.log(`FLOASSIST_BROWSER_OK: ${checks} checks; real browser and HTTP, synthetic providers; screenshots in test-results/floassist`);
