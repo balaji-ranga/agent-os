@@ -1077,6 +1077,9 @@ export default definePluginEntry({
   description:
     "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api) {
+    // Changing this entry contract invalidates loader caches as schemas evolve.
+    if (!floassistSchemas.floassist_source_read?.properties?.cursor) throw new Error('FloAssist schema v2 requires continuation cursor support');
+    api.logger?.info?.('FloAssist schema v2 loaded: continuation cursor supported');
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
       // llm_input carries the trusted turn runId even when prompt-build context does not.
