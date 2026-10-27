@@ -379,3 +379,16 @@ A separate, paused/nonrecurring `Controlled Outlook test · Priority Alerts` rec
 Subsequent backend-only checks freshly read the same source, validated the exact deadline candidate and reused #17314 across Priority/Deadlines with due time 28 October 2026, 15:00 Asia/Singapore. An incoming-message negative follow-up check correctly rejected FLOASSIST_NOT_A_FOLLOWUP and created no second task. These scoped backend tests are explicitly distinguished from model-driven whole-mailbox scheduled runs. Because the initial Priority alert had already been delivered before the staged Deadline check, the verified date change produced one later update to the same card. Both delivery records are sent, and the user confirmed receipt.
 
 Evidence: `test-results/floassist/outlook-live-20261027.json`. Regular five schedules remain paused; quiet hours remain 22:00–08:00. Remaining interactive steps: owner-completed card suppression, an unanswered outgoing follow-up fixture, and Calendar provider dependency resolution. Further paid diagnostic runs are paused near the existing monthly token limit. The owner was given the direct Kanban link to complete #17314 without another model-backed chat.
+
+
+### Follow-on UI, budget-message and timezone corrections — 27 October 2026
+
+The owner completed Outlook task #17314. A fresh actual-provider source read plus common deadline/observation validation left it completed, returned task_closed and queued zero new notifications, without a model call. Closure suppression acceptance is complete for this fixture.
+
+UI navigation is simplified to one Company Tools → FloAssist link; all four tabs remain inside the page and the existing permission/route guard is retained.
+
+Live WhatsApp failures at the end of the prior allowance were native_model_token_budget refusals: the remaining 26,267 monthly tokens could not accommodate the ~38,000-token existing chat context. Generic native no-visible-reply fallback text incorrectly called this a temporary model failure. The fix uses the official reply_payload_sending hook and a protected same-owner/session/run refusal lookup to replace only that fallback with the budget reason. Native execution remains failed; limits/usage are not changed by the hook. Provider failures and normal replies remain untouched. A sidecar correlation table preserves rollback compatibility with the prior refusal ledger.
+
+Timezone regression: the per-turn WhatsApp hint did not pin the actual owner profile timezone; persistent instructions relied on a model status lookup or previous session context. A fresh protected metadata lookup now supplies the exact owner/agent profile timezone and local clock on every WhatsApp turn, with explicit UTC-source conversion/relative-date guidance. It recognizes the native SDK channelId metadata as well as earlier channel fields. Metadata and campaign lookup run concurrently under the existing hook deadline. Persistent workspace guidance also includes the profile zone when generated. Invalid/missing timezone never silently defaults to UTC. No model call is required to obtain this context.
+
+Local full FloAssist regression, native budget/reply tests, SG/India/Indonesia timezone tests and frontend build pass. Installed plugin-hook and VPS rollout acceptance are required before claiming these follow-on corrections deployed.

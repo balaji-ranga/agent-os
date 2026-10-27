@@ -15,6 +15,7 @@ export function ensureNativeModelBudget(db=getDb()){
  output_tokens INTEGER NOT NULL DEFAULT 0,estimated INTEGER NOT NULL DEFAULT 1,reserved_tokens INTEGER NOT NULL DEFAULT 0,
  created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,test_budget_id TEXT);
  CREATE TABLE IF NOT EXISTS native_model_budget_blocks(owner_id TEXT,agent_id TEXT,run_key TEXT,reason TEXT,created_at INTEGER,PRIMARY KEY(owner_id,agent_id,run_key,reason));
+ CREATE TABLE IF NOT EXISTS native_model_budget_block_sessions(owner_id TEXT,agent_id TEXT,run_key TEXT,reason TEXT,session_key TEXT,PRIMARY KEY(owner_id,agent_id,run_key,reason,session_key));
  CREATE TABLE IF NOT EXISTS native_model_test_budgets(id TEXT PRIMARY KEY,owner_id TEXT,agent_id TEXT,max_calls INTEGER,max_tokens INTEGER,expires_at INTEGER);
  CREATE TABLE IF NOT EXISTS native_model_test_sessions(session_key TEXT PRIMARY KEY,budget_id TEXT);
  CREATE INDEX IF NOT EXISTS native_model_calls_run ON native_model_calls(owner_id,agent_id,run_key);
@@ -74,20 +75,33 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
    if(testBudget.expires_at<=now||testUsed.calls>=testBudget.max_calls)fail(429,'native_test_budget_exhausted','Live test model-call allowance exhausted or expired; no further model call was started.');
    remaining=Math.min(remaining,testBudget.max_tokens-testUsed.tokens);
   }
-  const monthly=getAgentBudget(identity.owner,identity.agent),period=monthPeriod();
+  const monthly=getAgentBudget(identity.owner,identity.agent),period=monthPeriod();let monthlyRemaining=Infinity;
   if(monthly?.monthly_token_budget){
    const used=getMonthlyTokens(identity.owner,identity.agent,period).total_tokens;
    const reserved=db.prepare("SELECT COALESCE(sum(reserved_tokens),0) n FROM native_model_calls WHERE owner_id=? AND agent_id=? AND status='started'").get(identity.owner,identity.agent).n;
-   remaining=Math.min(remaining,monthly.monthly_token_budget-used-reserved);
+   monthlyRemaining=monthly.monthly_token_budget-used-reserved;
+   remaining=Math.min(remaining,monthlyRemaining);
   }
   const outputLimit=Math.min(input.output_limit,remaining-input.input_tokens);
-  if(outputLimit<1)fail(429,'native_model_token_budget','Token budget reached for this request or owner; no further model request was started.');
+  if(outputLimit<1){
+   if(monthlyRemaining===remaining)fail(429,'native_monthly_token_budget','The remaining monthly token allowance is too small for this model request.');
+   fail(429,'native_model_token_budget','The token allowance for this request has been reached.');
+  }
   db.prepare('INSERT INTO native_model_calls VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(input.id,identity.owner,identity.agent,identity.session,runKey,scheduledRun||null,String(input.provider||'').slice(0,160),String(input.model||'').slice(0,160),'started',input.input_tokens,0,1,input.input_tokens+outputLimit,now,now,testBudget?.id||null);
   return {allowed:true,id:input.id,output_limit:outputLimit};
  })();}catch(error){
-  if(error.code==='budget_exceeded'||String(error.code||'').startsWith('native_model_')||error.code==='native_test_budget_exhausted'||error.code==='native_budget_unavailable')db.prepare('INSERT OR REPLACE INTO native_model_budget_blocks VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,now);
+  if(error.code==='budget_exceeded'||/^native_(?:model|monthly)_/.test(String(error.code||''))||error.code==='native_test_budget_exhausted'||error.code==='native_budget_unavailable'){db.prepare('INSERT OR REPLACE INTO native_model_budget_blocks VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,now);db.prepare('INSERT OR REPLACE INTO native_model_budget_block_sessions VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,identity.session);}
   throw error;
  }
+}
+export function nativeBudgetFailureReason(input,{db=getDb(),now=Date.now()}={}){
+ ensureNativeModelBudget(db);const identity=nativeModelIdentity(input,db);
+ if(typeof input.run_id!=='string'||!input.run_id||input.run_id.length>200)return {blocked:false};
+ const context=lookupSessionExecutionContext(identity.session,identity.owner)||{};
+ const persisted=resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web');
+ const key=String(context.scheduled_goal_run_id||persisted?.run||input.run_id.split(':compaction:')[0]);
+ const block=db.prepare('SELECT b.reason FROM native_model_budget_blocks b JOIN native_model_budget_block_sessions s ON s.owner_id=b.owner_id AND s.agent_id=b.agent_id AND s.run_key=b.run_key AND s.reason=b.reason WHERE b.owner_id=? AND b.agent_id=? AND b.run_key=? AND s.session_key=? AND b.created_at>=? ORDER BY b.created_at DESC LIMIT 1').get(identity.owner,identity.agent,key,identity.session,now-10*60000);
+ return block?{blocked:true,reason:block.reason}:{blocked:false};
 }
 export function settleNativeModel(input,{db=getDb(),now=Date.now()}={}){
  ensureNativeModelBudget(db);const identity=nativeModelIdentity(input,db);

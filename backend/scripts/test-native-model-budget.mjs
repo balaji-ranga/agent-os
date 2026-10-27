@@ -9,7 +9,7 @@ let db;
 try{
  const {initDb}=await import('../src/db/schema.js');db=initDb();
  const {initializeFloAssist}=await import('../src/services/floassist/core.js');initializeFloAssist(db);
- const {admitNativeModel,settleNativeModel,createNativeTestBudget,bindNativeTestBudget}=await import('../src/services/native-model-budget.js');
+ const {admitNativeModel,settleNativeModel,createNativeTestBudget,bindNativeTestBudget,nativeBudgetFailureReason}=await import('../src/services/native-model-budget.js');
  const {setAgentBudget,getMemberBudgetStatus}=await import('../src/services/agent-budgets.js');
  const {getMonthlyTokens}=await import('../src/services/token-usage.js');
  const {registerOpenClawSessionOwner}=await import('../src/services/tool-owner-scope.js');
@@ -26,7 +26,10 @@ try{
  const finish=(c,extra={})=>settleNativeModel({...c,status:'completed',input_tokens:200,output_tokens:10,estimated:false,...extra});
  setAgentBudget('budget-owner',agent,{monthly_token_budget:5000});
  const first=call(),second=call();assert.equal(admitNativeModel(first).output_limit,3000);assert.equal(admitNativeModel(second).output_limit,1600);
- assert.throws(()=>admitNativeModel(call()),e=>e.code==='native_model_token_budget','parallel reservations cannot overspend the monthly allowance');
+ assert.throws(()=>admitNativeModel(call()),e=>e.code==='native_monthly_token_budget','parallel reservations cannot overspend the monthly allowance');
+ assert.equal(nativeBudgetFailureReason({...first,run_id:'turn'}).reason,'native_monthly_token_budget');
+ assert.equal(nativeBudgetFailureReason({...first,run_id:'unrelated'}).blocked,false);
+ assert.equal(nativeBudgetFailureReason({...first,session_key:first.session_key+'-different',run_id:'turn'}).blocked,false);
  finish(first);finish(first);assert.equal(getMonthlyTokens('budget-owner',agent).total_tokens,210,'settlement retries are idempotent');
  finish(second,{output_tokens:20,estimated:true});assert.equal(getMonthlyTokens('budget-owner',agent).total_tokens,430);
  finish(second,{input_tokens:100,output_tokens:5,estimated:false});assert.equal(getMonthlyTokens('budget-owner',agent).total_tokens,315,'late reported usage replaces its estimate rather than adding spend');

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {rewriteBudgetFailureReply} from '../../openclaw-extensions/agent-os-content-tools/budget-reply.js';
+const fallback='No reply was generated for this message. This is usually a temporary model failure - please try again.';
+const event={sessionKey:'agent:t-fixture-owner--fixture-agent:main',runId:'fixture-run',kind:'final',payload:{text:fallback,isError:true,replyToId:'fixture-message'}};
+let requested;
+const fixed=await rewriteBudgetFailureReply(event,{lookup:async input=>{requested=input;return {blocked:true,reason:'native_monthly_token_budget'};}});
+assert.match(fixed.payload.text,/monthly token allowance/);assert.equal(fixed.payload.isError,true);assert.equal(fixed.payload.replyToId,'fixture-message');assert.equal(fixed.cancel,undefined);
+assert.deepEqual(Object.keys(requested).sort(),['caller_agent_id','run_id','session_key']);assert.equal(requested.run_id,event.runId);
+const prefixed=await rewriteBudgetFailureReply({...event,payload:{text:'From: Assistant\n\n'+fallback,isError:true}},{lookup:async()=>({blocked:true,reason:'native_monthly_token_budget'})});assert.ok(prefixed.payload.text.startsWith('From: Assistant\n\n'));
+assert.equal(event.payload.text,fallback,'original payload untouched');
+assert.equal(await rewriteBudgetFailureReply(event,{lookup:async()=>({blocked:false})}),undefined,'provider failures without a same-run budget receipt stay unchanged');
+assert.equal(await rewriteBudgetFailureReply({...event,runId:null},{lookup:()=>assert.fail('no run identity')}),undefined);
+assert.equal(await rewriteBudgetFailureReply({...event,payload:{text:'Normal Outlook alert'}},{lookup:()=>assert.fail('normal messages must not query budgets')}),undefined);
+assert.equal(await rewriteBudgetFailureReply(event,{lookup:async()=>{throw Error('unavailable');}}),undefined,'lookup failure preserves original failure');
+for(const reason of ['native_model_call_budget','native_model_token_budget','native_test_budget_exhausted','budget_exceeded'])assert.ok((await rewriteBudgetFailureReply(event,{lookup:async()=>({blocked:true,reason})})).payload.text);
+console.log('NATIVE_BUDGET_REPLY_OK: same-run budget explanation, preserved failure status, no prompts sent, unaffected normal/provider messages');

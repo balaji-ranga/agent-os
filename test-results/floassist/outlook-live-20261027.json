@@ -43,7 +43,6 @@
     "monthly_token_budget": 5000000
   },
   "remaining": [
-    "User-completed task remains closed on fresh source recheck",
     "Positive unanswered outgoing follow-up fixture",
     "Microsoft Calendar connector/actions unavailable",
     "Broad recurring mixed-source acceptance not attempted"
@@ -51,5 +50,13 @@
   "privacy": {
     "source_bodies_in_development_output": false,
     "credentials_in_development_output": false
+  },
+  "closure": {
+    "owner_completed": true,
+    "fresh_source_recheck": true,
+    "task_stayed_completed": true,
+    "notification": "task_closed",
+    "new_notifications": 0,
+    "model_calls": 0
   }
 }

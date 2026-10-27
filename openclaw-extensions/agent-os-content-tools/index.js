@@ -1,4 +1,6 @@
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
+import {rewriteBudgetFailureReply} from './budget-reply.js';
+import {profileTimezoneHint} from './profile-timezone.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
 /**
  * OpenClaw plugin: registers content tools from the Agent OS tools list file.
@@ -1082,6 +1084,13 @@ export default definePluginEntry({
     api.logger?.info?.('FloAssist schema v2 loaded: continuation cursor supported');
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
+      api.on('reply_payload_sending',event=>rewriteBudgetFailureReply(event,{lookup:async body=>{
+        const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
+        if(!base)throw new Error('Budget lookup unavailable');
+        const response=await fetch(base+'/api/tools/native-model-budget/failure-reason',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify(body),signal:AbortSignal.timeout(3000)});
+        if(!response.ok)throw new Error('Budget lookup unavailable');
+        return response.json();
+      }}),{priority:100});
       // llm_input carries the trusted turn runId even when prompt-build context does not.
       api.on("llm_input", (event, ctx) => {
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
@@ -1097,8 +1106,19 @@ export default definePluginEntry({
         const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
         const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
           ? "Current FloAssist read capability: use floassist_source_read for connected email, files and calendar content. Latest Gmail draft: {app_id: gmail, kind: draft}. Existing task source: {task_id: exact task number}. Do not replay invented action names or failed calls from older conversation history. If a current tool result is non-retryable, stop that attempt and provide one concise final explanation, not another equivalent call." : "";
-        const result = await correlateInboundCampaign(api, event, ctx);
-        if (!result?.matched) return recoveryHint ? { prependContext: recoveryHint } : undefined;
+        const timezoneContext=async()=>{
+          if(runtimeChannel(ctx,api.context)!=='whatsapp'||!isToolAllowedForAgent(recoveryAgent,'floassist_source_read',ctx?.sessionKey))return '';
+          const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
+          try{
+            const sessionKey=ctx?.sessionKey||safeApiSessionKey(api);
+            const response=await fetch(base+'/api/tools/native-model-budget/profile-context',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify({session_key:sessionKey}),signal:AbortSignal.timeout(3000)});
+            if(response.ok)return profileTimezoneHint(await response.json());
+          }catch{}
+          return profileTimezoneHint({enabled:true,timezone_available:false});
+        };
+        const [timezoneHint,result] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx)]);
+        const personalContext=[timezoneHint,recoveryHint].filter(Boolean).join('\n');
+        if (!result?.matched) return personalContext ? { prependContext: personalContext } : undefined;
         const campaign = result.campaign || {};
         const lead = result.lead || {};
         const classification = result.classification || {};
@@ -1106,7 +1126,7 @@ export default definePluginEntry({
         const companyUser = result.identity?.kind === "company_user";
         return {
           prependContext: [
-            recoveryHint,
+            personalContext,
             "Trusted Agent OS campaign attribution:",
             `This inbound message was matched to campaign ${campaign.name || campaign.campaign_id || "(unknown)"}.`,
             companyUser
