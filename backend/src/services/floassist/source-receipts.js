@@ -173,7 +173,7 @@ export function resolveSourcePagingErrors(db,owner,input,context=currentFloAssis
  if(!context?.run||context.owner!==owner)return;
  ensureSourceReceipts(db);
  const key=JSON.stringify(['source_page',...JSON.parse(trackingKey(db,owner,input,context)).slice(1)]);
- db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_SOURCE_OFFSET_INVALID','FLOASSIST_SOURCE_SNAPSHOT_EXPIRED') AND resolved_at IS NULL").run(Date.now(),owner,context.run,key);
+ db.prepare("UPDATE floassist_run_errors SET resolved_at=? WHERE owner_id=? AND run_id=? AND operation_key=? AND code IN ('FLOASSIST_SOURCE_OFFSET_INVALID','FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','FLOASSIST_SOURCE_WINDOW_REQUIRED') AND resolved_at IS NULL").run(Date.now(),owner,context.run,key);
 }
 export function resolveTaskSourceError(db,owner,taskId,context=currentFloAssistScope()){
  if(!context?.run||context.owner!==owner||!taskId)return;ensureSourceReceipts(db);
@@ -182,6 +182,7 @@ export function resolveTaskSourceError(db,owner,taskId,context=currentFloAssistS
 export function recordRunError(error,{db=getDb(),context=currentFloAssistScope(),trackingInput,sourceInput,action}={}){
  if(!context?.run)return;ensureSourceReceipts(db);
  if(error?.verifiedSourceIdentity)sourceInput=error.verifiedSourceIdentity;
+ if(error?.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED'&&['google_calendar','googlecalendar'].includes(sourceInput?.app_id))sourceInput={...sourceInput,app_id:'google_calendar',source_id:sourceInput.source_id||'primary'};
  const schemaAction=action&&error?.code==='invalid_input'&&(/does not match the action schema/.test(error.message)?action:/^unknown action:/.test(error.message)?readActionAliases[action]:null);
  const key=sourceInput?.task_id&&error?.code==='FLOASSIST_SOURCE_MISMATCH'?JSON.stringify(['source_task',Number(sourceInput.task_id)]):sourceInput?.app_id&&sourceInput?.source_id?JSON.stringify(['source_page',...JSON.parse(trackingKey(db,context.owner,sourceInput,context)).slice(1)]):trackingInput?trackingKey(db,context.owner,trackingInput,context):schemaAction?JSON.stringify(['schema',schemaAction]):null;
  db.prepare('INSERT INTO floassist_run_errors(owner_id,run_id,code,created_at,operation_key) VALUES (?,?,?,?,?)').run(context.owner,context.run,String(error?.code||'tool_failed').slice(0,100),Date.now(),key);
