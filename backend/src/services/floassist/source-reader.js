@@ -92,6 +92,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
  const api=execute?null:await import('../openconnector.js');
  execute=execute||api.executeConnectorAction;readTransit=readTransit||api?.readConnectorTransitFile;
  return withFloAssistScope(scope,async()=>{
+  let continuationContextCorrected=false;
   const aliases={googledrive:'google_drive',googlecalendar:'google_calendar',one_drive:'onedrive'};
   input={...input,...(input.app_id?{app_id:aliases[input.app_id]||input.app_id}:{})};
   if(input.next_request){
@@ -101,8 +102,11 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   if(input.cursor){
    const page=cursors.get(input.cursor);
    if(!page||page.owner!==owner||page.scope!==(scope.run||scope.session||'')||page.until<=now)fail('FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','The continuation cursor is unavailable in this owner/session. Restart the exact source from its current discovery/task identity.');
-   const matchingContext=(!input.app_id||input.app_id===page.request.app_id)&&(!input.source_id||resolveSourceReference(db,owner,page.request.app_id,input.source_id,scope)===page.request.source_id);
-   if(!matchingContext||Object.keys(input).some(k=>!['cursor','app_id','source_id'].includes(k)))throw Object.assign(new Error('The cursor binds the source and page. Remove conflicting context and copy next_action unchanged.'),{status:422,code:'FLOASSIST_SOURCE_OFFSET_INVALID',verifiedSourceIdentity:{app_id:page.request.app_id,source_id:page.request.source_id,snapshot_id:page.request.snapshot_id},next_action:{tool:'floassist_source_read',input:{cursor:input.cursor}}});
+   // The authenticated page reference is the sole target. Retyped labels cannot
+   // redirect it; report correction and reauthorize the bound source below.
+   let contextSource=input.source_id;try{contextSource=resolveSourceReference(db,owner,page.request.app_id,input.source_id,scope);}catch{}
+   continuationContextCorrected=!!(input.app_id&&input.app_id!==page.request.app_id||input.source_id&&contextSource!==page.request.source_id);
+   if(Object.keys(input).some(k=>!['cursor','app_id','source_id'].includes(k)))throw Object.assign(new Error('The cursor binds the source and page. Remove conflicting context and copy next_action unchanged.'),{status:422,code:'FLOASSIST_SOURCE_OFFSET_INVALID',verifiedSourceIdentity:{app_id:page.request.app_id,source_id:page.request.source_id,snapshot_id:page.request.snapshot_id},next_action:{tool:'floassist_source_read',input:{cursor:input.cursor}}});
    input={...page.request};
   }
   let app=input.app_id,id=input.source_id;
@@ -167,7 +171,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    if(!snapshot)pagingFailure('The source snapshot expired or was evicted. Restart from offset 0; do not combine pages from different reads.');
    if(input.snapshot_id!==snapshot.id)pagingFailure('The snapshot ID is missing or belongs to another read. Restart this exact source and follow its returned next_request.');
    for(const permission of snapshot.permissions){assertFloAssistConnector(owner,permission.action,db,scope);await authorize(owner,permission.action,caller||profile.agent_id,permission.args);}
-   return sourcePage(snapshot,input.offset);
+   return {...sourcePage(snapshot,input.offset),...(continuationContextCorrected?{continuation_context_corrected:true,provenance_instruction:'Retyped source context was ignored. This page belongs only to the returned app_id/source_id; use that provenance for any findings.'}:{})};
   }
   let text='',messages=[],complete=true;
   if(input.kind==='draft'){
