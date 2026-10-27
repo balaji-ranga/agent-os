@@ -4224,7 +4224,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
           params,
         })
       : null;
-    if (governed?.duplicate) {
+    if (governed?.duplicate || governed?.blocked) {
       const out = { ok: false, error: governed.observation.message, _execution: governed.observation };
       logTool(req, toolName, params, out, 'error', source);
       return res.status(409).json(out);

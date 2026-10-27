@@ -5,13 +5,14 @@ import {mkdirSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 const {chromium}=await import(pathToFileURL(process.env.FLOASSIST_PLAYWRIGHT_MODULE).href);
 const prefs={connectors:['gmail'],responsibilities:['priority'],timezone:'Asia/Singapore',quiet_start:'22:00',quiet_end:'08:00',briefing_time:'09:00',task_alert_max_days:5,due_soon_hours:72,discovery_lookback_days:7};
-const calls=[],errors=[];let paired=false;
+const calls=[],errors=[];let paired=false,assistantStatus='active';
 const app=express();app.use(express.json());
 app.use('/api',(req,res)=>{
  calls.push({path:req.path,method:req.method,body:req.body});
  if(req.path==='/auth/me')return res.json({user:{id:'fixture-owner',role:'ceo',name:'Fixture owner'},agents:[],platform_timezone:'Asia/Singapore'});
- if(req.path==='/floassist-management')return res.json({enrolled:true,status:'active',preferences:prefs,config:{connectors:[{id:'gmail',label:'Gmail'},{id:'google_calendar',label:'Google Calendar'}]}});
- if(req.path==='/floassist-management/connections')return res.json([{id:'gmail',connected:true}]);
+ if(req.path==='/floassist-management')return res.json({enrolled:true,status:assistantStatus,preferences:prefs,config:{connectors:[{id:'gmail',label:'Gmail'},{id:'google_calendar',label:'Google Calendar'}]}});
+ if(req.path==='/floassist-management/status'){assistantStatus=req.body.status;return res.json({status:assistantStatus});}
+ if(req.path==='/floassist-management/connections')return setTimeout(()=>res.json([{id:'gmail',connected:true}]),700);
  if(req.path==='/floassist-management/preferences'){Object.assign(prefs,req.body);return res.json({status:'active',preferences:prefs});}
  if(req.path.startsWith('/floassist-management/connections/'))return res.json({authorization_url:'https://example.test/oauth'});
  if(req.path==='/floassist-management/whatsapp/start')return res.json({connected:false,qr_data_url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aKaAAAAAASUVORK5CYII='});
@@ -29,6 +30,8 @@ const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message)
 try{
  await page.goto(`http://127.0.0.1:${server.address().port}/floassist/connections`);
  await page.getByRole('heading',{name:'Manage connections',exact:true}).waitFor();
+ await page.getByText('Checking connection…',{exact:true}).waitFor();await page.getByText('Connected',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Pause FloAssist',exact:true}).click();await page.getByRole('button',{name:'Resume FloAssist',exact:true}).waitFor();await page.getByRole('button',{name:'Resume FloAssist',exact:true}).click();await page.getByRole('button',{name:'Pause FloAssist',exact:true}).waitFor();
  await page.getByRole('checkbox',{name:'Google Calendar',exact:true}).check();
  await page.getByRole('button',{name:'Save apps',exact:true}).click();await page.getByRole('status').filter({hasText:'Preferences saved'}).waitFor();
  assert.ok(calls.some(c=>c.path==='/floassist-management/preferences'&&c.body.connectors.includes('google_calendar')));

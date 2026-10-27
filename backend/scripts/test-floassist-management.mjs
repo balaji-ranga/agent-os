@@ -4,6 +4,7 @@ import {createFloAssistManagementRouter} from '../src/routes/floassist-managemen
 const calls=[];const service=()=>({
  publicConfig:()=>({connectors:[{id:'gmail',label:'Gmail'}]}),
  view:owner=>{if(owner==='new')throw Object.assign(Error('No profile'),{status:404});return {status:'active',preferences:{connectors:['gmail']},phone:'fixture',owner};},
+ setStatus:(owner,status)=>{calls.push({owner,status,kind:'status'});return {status};},
  connections:owner=>[{id:'gmail',connected:true,owner}],
  save:(owner,p)=>{calls.push({owner,kind:'save'});return {preferences:p};},
  connect:(owner,provider)=>{calls.push({owner,provider,kind:'connect'});return {authorization_url:'https://example.test/oauth'};},
@@ -19,6 +20,7 @@ try{
  const me=await request('/manage?owner_id=owner-b');assert.equal(me.headers.get('cache-control'),'no-store');assert.equal((await me.json()).owner,'owner-a');
  assert.equal((await (await request('/manage/connections?owner_id=owner-b')).json())[0].owner,'owner-a');
  assert.equal((await (await request('/manage','GET',null,'new')).json()).enrolled,false);
+ await request('/manage/status','POST',{owner_id:'owner-b',status:'paused'});
  await request('/manage/preferences','PUT',{owner_id:'owner-b',connectors:['gmail']});
  await request('/manage/connections/gmail','POST',{owner_id:'owner-b'});
  await request('/manage/whatsapp/start','POST',{owner_id:'owner-b'});

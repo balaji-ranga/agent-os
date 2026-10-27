@@ -1542,6 +1542,7 @@ export const api = {
   scheduledGoalsPause: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/pause`, {}),
   scheduledGoalsResume: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/resume`, {}),
   floAssistManage: () => get('/floassist-management'),
+  floAssistManageStatus: status => post('/floassist-management/status',{status}),
   floAssistManageConnections: () => get('/floassist-management/connections'),
   floAssistManageSave: body => put('/floassist-management/preferences',body),
   floAssistManageConnect: app => post('/floassist-management/connections/'+encodeURIComponent(app),{}),

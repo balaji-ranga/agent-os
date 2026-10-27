@@ -839,6 +839,7 @@ export default definePluginEntry({
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
               // The native harness classifies thrown failures reliably; some
               // adapters discard an isError field on a normally returned result.
+              if (result.data?._execution?.status === "budget_exhausted") throw new Error("FLOASSIST_TOOL_BUDGET_EXHAUSTED: The request limit was reached. Stop tool calls and report verified progress plus remaining work. Start a new request to continue; no provider call was made by this blocked attempt.");
               if (result.data?._execution?.status === "duplicate_blocked") {
                 throw new Error("DUPLICATE_NO_PROGRESS: This exact action already ran. Do not repeat it or vary arguments to evade the guard. Use the earlier successful observation to answer. If it is unavailable, report that precise blocker and end this turn. No provider request was made by this blocked call.");
               }

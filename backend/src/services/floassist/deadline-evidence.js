@@ -21,7 +21,7 @@ export function recordVerifiedSourceText(owner,context,app,id,messages,now=Date.
   if(!(context?.run||context?.session)||context.owner!==owner||!id)return;
   messages=messages.map(m=>({text:norm(m.text),at:m.at==null?NaN:/^\d+$/.test(String(m.at))?Number(m.at):Date.parse(m.at)}));
   const size=messages.reduce((n,m)=>n+m.text.length,0);
-  if(size>120000)return;
+  if(size>1000000)return;
   reads.set(key(owner,context.run||context.session,app,id),{messages,size,expires:now+TTL});trim(now);
 }
 const months=['january','february','march','april','may','june','july','august','september','october','november','december'];

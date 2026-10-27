@@ -2,6 +2,7 @@ import {linkActionContext,notifyActionOutcome} from './floassist/action-history.
 import {lookupSessionExecutionContext} from './tool-owner-scope.js';
 import {canRetryTrackingObservation} from './floassist/source-receipts.js';
 import {currentFloAssistScope} from './floassist/execution-scope.js';
+import {ALERT_DEFAULTS} from './floassist/alert-policy.js';
 /**
  * Platform execution governor for OpenClaw content-tool calls.
  *
@@ -200,6 +201,24 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
   const canonicalParams = canonicalToolParams(params);
   const key = executionKey({ runId, sessionKey, traceId, ownerUserId, agentId });
   const fp = fingerprint(toolName, canonicalParams);
+  const floScope=currentFloAssistScope();
+  const trustedContext={...(lookupSessionExecutionContext(sessionKey,ownerUserId)||{}),
+    ...(floScope?.owner===ownerUserId&&floScope.run?{scheduled_goal_run_id:floScope.run}:{})};
+  if(floScope?.owner===ownerUserId&&!floScope.blocked){
+    const profile=getDb().prepare('SELECT preferences_json FROM floassist_profiles WHERE owner_id=?').get(ownerUserId);
+    const configured=parseJson(profile?.preferences_json,{}).tool_call_budget;
+    const limit=Number.isInteger(configured)&&configured>=10&&configured<=256?configured:ALERT_DEFAULTS.tool_call_budget;
+    const hasContext=!!getDb().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_action_context'").get();
+    const ledger=floScope.run
+      ?(hasContext?getDb().prepare("SELECT a.id,a.reason_code FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=?").all(ownerUserId,floScope.run):[])
+      :getDb().prepare('SELECT id,reason_code FROM tool_execution_actions WHERE owner_user_id=? AND execution_key=?').all(ownerUserId,key);
+    if(profile&&ledger.length>=limit){
+      const observation={status:'budget_exhausted',reason_code:'floassist_tool_budget_exhausted',progress:false,retryable:false,evidence:[],suggested_capabilities:[],message:`FloAssist reached its ${limit}-call limit for this request. Stop tool calls, summarize verified progress and any remaining work, and ask for a new request to continue. Do not claim unfinished work is complete.`};
+      let id=ledger.find(a=>a.reason_code===observation.reason_code)?.id;
+      if(!id){id=`tea-${randomUUID()}`;getDb().prepare(`INSERT INTO tool_execution_actions(id,owner_user_id,execution_key,agent_id,tool_name,capability,action_fingerprint,request_payload,observation_status,reason_code,progress,response_summary,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,0,?,datetime('now'))`).run(id,ownerUserId,key,agentId,toolName,behaviour.capability,fp,'{}',observation.status,observation.reason_code,json(observation));linkActionContext(id,ownerUserId,trustedContext);}
+      return {ok:false,blocked:true,id,execution_key:key,behaviour,canonicalParams,observation};
+    }
+  }
   const floAssistGuide=toolName==='connector_get_action_guide'&&currentFloAssistScope()?.run;
   if (!floAssistGuide && !behaviour.repeat_allowed && behaviour.duplicate_window_sec > 0) {
     const prior = getDb().prepare(
@@ -237,7 +256,7 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
       (id, owner_user_id, execution_key, agent_id, tool_name, capability, action_fingerprint, request_payload)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(id, ownerUserId, key, agentId, toolName, behaviour.capability, fp, json(redactForStorage(toolName==='multi-format-content-tool'?multiFormatInputAudit(canonicalParams):canonicalParams), '{}'));
-  linkActionContext(id,ownerUserId,lookupSessionExecutionContext(sessionKey,ownerUserId)||{});
+  linkActionContext(id,ownerUserId,trustedContext);
   return { ok: true, id, execution_key: key, behaviour, canonicalParams };
 }
 

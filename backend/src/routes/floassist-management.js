@@ -14,6 +14,7 @@ export function createFloAssistManagementRouter({service=getFloAssist,auth=[atta
   try{return {enrolled:true,...s.view(owner),config:s.publicConfig()};}
   catch(e){if(e.status===404)return {enrolled:false,config:s.publicConfig()};throw e;}
  }));
+ router.post('/status',run((s,owner,req)=>s.setStatus(owner,req.body?.status)));
  router.get('/connections',run((s,owner)=>s.connections(owner)));
  router.put('/preferences',run((s,owner,req)=>s.save(owner,req.body||{})));
  router.post('/connections/:provider',authRateLimit('floassist_manage_connect',{ipLimit:40,windowMs:900000}),run((s,owner,req)=>s.connect(owner,req.params.provider)));

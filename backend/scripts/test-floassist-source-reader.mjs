@@ -51,7 +51,7 @@ await assert.rejects(()=>readFloAssistSource('b',{task_id:1},{...options,context
 await assert.rejects(()=>readFloAssistSource('a',{task_id:1,app_id:'gmail'},options),e=>e.code==='FLOASSIST_SOURCE_MISMATCH');
 mode='wrong';await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},options),e=>e.code==='FLOASSIST_SOURCE_READ_FAILED');
 mode='denied';await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},options),e=>e.status===403);
-mode='long';let out=await readFloAssistSource('a',{app_id:'gmail'},options);assert.equal(out.content.length,12000);assert.equal(out.next_offset,12000);out=await readFloAssistSource('a',{app_id:'gmail',source_id:out.source_id,offset:12000},options);assert.equal(out.next_offset,null);assert.match(out.content,/Please submit/);
+mode='long';let out=await readFloAssistSource('a',{app_id:'gmail'},options);assert.equal(out.content.length,12000);assert.equal(out.next_offset,12000);out=await readFloAssistSource('a',{app_id:'gmail',source_id:out.source_id,snapshot_id:out.snapshot_id,offset:12000},options);assert.equal(out.next_offset,null);assert.match(out.content,/Please submit/);
 mode='normal';await assert.rejects(()=>readFloAssistSource('a',{app_id:'google_calendar',time_min:'2026-10-27T00:00Z',time_max:'2027-10-27T00:00Z'}, {...options,context:{owner:'a',origin:'whatsapp'}}),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED');
 mode='more';out=await readFloAssistSource('a',{app_id:'google_calendar',time_min:'2026-10-27T00:00Z',time_max:'2026-10-28T00:00Z'},{...options,context:{owner:'a',origin:'whatsapp'}});assert.equal(out.provider_complete,false);
 mode='normal';await assert.rejects(()=>decodeDocument(Buffer.from('video'),'video/quicktime','source.mov'),e=>e.code==='FLOASSIST_SOURCE_UNSUPPORTED');
@@ -102,6 +102,20 @@ db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').
 const messageRef=sourceReference(db,'a','gmail','message-alias',context);assert.equal((await readFloAssistSource('a',{app_id:'gmail',source_id:messageRef},projectedOptions)).source_id,'real-thread');
 const discovery=await readFloAssistSource('a',{app_id:'google_drive'},options);assert.equal(discovery.discovery_only,true);assert.equal(discovery.content_verified,false);assert.equal(discovery.source_candidates[0].source_id,'file-a');assert.match(calls.at(-1).input.q,/modifiedTime > /);
 const refOnce=sourceReference(db,'a','gmail','real-thread',context);assert.equal(sourceReference(db,'a','gmail',refOnce,context),refOnce,'projection is idempotent');
+const largeText='x'.repeat(150000)+'\n'+passage;calls=[];
+const largePage=await readFloAssistSource('a',{app_id:'google_drive',source_id:'large-doc'},{...options,extract:async()=>largeText});assert.equal(largePage.total_characters,largeText.length);assert.equal(largePage.content.length,12000);assert.ok(largePage.next_request);assert.equal(largePage.coverage_complete,false);await assert.rejects(readFloAssistSource('a',{...largePage.next_request,snapshot_id:'other-snapshot'},options),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','pages cannot mix source versions');
+const lastOnly=await readFloAssistSource('a',{app_id:'google_drive',source_id:'large-doc',snapshot_id:largePage.snapshot_id,offset:144000},options);assert.equal(lastOnly.coverage_complete,false);assert.equal(lastOnly.next_offset,12000,'jumping to the last page cannot claim full coverage');
+const snapshotProviderCalls=calls.length;
+const largeNext=await readFloAssistSource('a',largePage.next_request,options);assert.equal(calls.length,snapshotProviderCalls,'snapshot pages do not repeat provider downloads');assert.equal(largeNext.offset,12000);
+await assert.rejects(readFloAssistSource('a',largePage.next_request,{...options,authorize:async()=>{throw Object.assign(Error('policy denied'),{status:403});}}),e=>e.status===403,'cached pages recheck policy');
+db.prepare('UPDATE floassist_profiles SET preferences_json=? WHERE owner_id=?').run(JSON.stringify({...prefs,connectors:['gmail']}),'a');await assert.rejects(readFloAssistSource('a',largePage.next_request,options),e=>e.code==='FLOASSIST_CONNECTOR_NOT_SELECTED');db.prepare('UPDATE floassist_profiles SET preferences_json=? WHERE owner_id=?').run(JSON.stringify(prefs),'a');
+await assert.rejects(readFloAssistSource('b',largePage.next_request,{...options,context:{...context,owner:'b'}}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','snapshots never cross owners');
+let reviewed=largeNext;while(reviewed.next_request)reviewed=await readFloAssistSource('a',reviewed.next_request,options);assert.equal(reviewed.coverage_complete,true);assert.equal(calls.length,snapshotProviderCalls,'all pages share one authenticated download');
+await assert.rejects(readFloAssistSource('a',largePage.next_request,{...options,now:now+300001}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','snapshots expire after five minutes');
+const chunks=[];for(let i=0;i<3;i++)chunks.push(await readFloAssistSource('a',{app_id:'google_drive',source_id:'bounded-'+i},{...options,extract:async()=>'x'.repeat(800000)}));
+await assert.rejects(readFloAssistSource('a',chunks[0].next_request,options),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','global snapshot capacity evicts old content');
+await assert.rejects(readFloAssistSource('a',{app_id:'google_drive',source_id:'oversized'},{...options,extract:async()=>'x'.repeat(1000001)}),e=>e.code==='FLOASSIST_SOURCE_SIZE_LIMIT');
+console.log('FLOASSIST_SOURCE_SNAPSHOTS_OK: large text pages, no repeated downloads, fresh policy/selection checks, owner isolation, expiry and global memory bound');
 db.close();
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});

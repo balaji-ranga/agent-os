@@ -152,7 +152,7 @@ let service;
 export function getFloAssist(){
   if(service)return service;
   service=createFloAssist({db:db(),product,adapters:{settings:setting,legal:getLegalVersionsPublic,
-    managementUrl:()=>String(getPlatformSetting('floassist_management_url',null)||`${getPublicBaseUrl().replace(/\/api$/,'')}/login`),
+    managementUrl:()=>String(getPlatformSetting('floassist_management_url',null)||`${getPublicBaseUrl().replace(/\/api$/,'')}/floassist/connections`),
     findOwner,newOtp:newEmailOtp,matchesOtp:emailOtpMatches,
     sendEmail:(email,code,expiresMinutes)=>sendUserOtpEmail({email},code,{subject:'Your FloAssist verification code',intro:'Use this code to set up your WhatsApp assistant.',expiresMinutes}),
     verifyMfa(user,code){const m=resolveUserMfa(user);if(m.enabled&&m.mode==='TOTP'&&(!user.mfa_secret||!verifyTotp(user.mfa_secret,String(code||''))))fail(401,'mfa_required','Enter your Flolah authenticator code to continue.');},

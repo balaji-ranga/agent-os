@@ -55,5 +55,16 @@ assert.equal(governor.beginToolExecution({...turnArgs,runId:'one'}).duplicate,tr
 assert.equal(governor.beginToolExecution({...turnArgs,runId:'two'}).ok,true,'next request in the same chat may read again');
 assert.equal(governor.beginToolExecution({...turnArgs,ownerUserId:'other-owner',runId:'one'}).ok,true,'run IDs cannot collide across owners');
 console.log('PASS tool execution governor: scope, classification, duplicate guard, isolation, overrides, negative validation');
+const {initializeFloAssist}=await import('../src/services/floassist/core.js');const {withFloAssistScope}=await import('../src/services/floassist/execution-scope.js');initializeFloAssist(db);
+db.prepare('INSERT INTO floassist_profiles VALUES (?,?,?,?,?,?,?,?)').run('budget-owner','fixture-agent','fixture-phone','active',JSON.stringify({tool_call_budget:10}),'{}',Date.now(),Date.now());
+await withFloAssistScope({owner:'budget-owner',run:'budget-schedule',origin:'floassist:deadlines'},async()=>{
+ for(let n=0;n<10;n++){const action=governor.beginToolExecution({ownerUserId:'budget-owner',agentId:'fixture-agent',sessionKey:'budget-chat',runId:'native-'+n,toolName:'master_data_list_rows',params:{table_name:'budget-'+n}});assert.equal(action.ok,true);governor.completeToolExecution(action,{httpStatus:200,data:{rows:[]}});}
+ const args={ownerUserId:'budget-owner',agentId:'fixture-agent',sessionKey:'budget-chat',toolName:'master_data_list_rows',params:{table_name:'different-action'}};
+ const blocked=governor.beginToolExecution({...args,runId:'retry-a'});assert.equal(blocked.ok,false);assert.equal(blocked.observation.reason_code,'floassist_tool_budget_exhausted');
+ assert.equal(governor.beginToolExecution({...args,runId:'retry-b'}).id,blocked.id,'one budget refusal record per scheduled run, even across native retries');
+ assert.equal(JSON.parse(db.prepare('SELECT context_json FROM floassist_action_context WHERE action_id=?').get(blocked.id).context_json).scheduled_goal_run_id,'budget-schedule','trusted scope maintains run traceability');
+});
+await withFloAssistScope({owner:'budget-owner',run:'new-schedule',origin:'floassist:deadlines'},async()=>assert.equal(governor.beginToolExecution({ownerUserId:'budget-owner',agentId:'fixture-agent',sessionKey:'budget-chat',runId:'new',toolName:'master_data_list_rows',params:{table_name:'new'}}).ok,true));
+console.log('FLOASSIST_TOOL_CALL_BUDGET_OK: hard bound, native-retry aggregation, single refusal, trusted run trace and new-run reset');
 db.close();
 rmSync(dir, { recursive: true, force: true });

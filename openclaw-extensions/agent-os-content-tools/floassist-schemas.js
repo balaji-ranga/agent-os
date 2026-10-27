@@ -4,7 +4,7 @@ identity.corrects_source_id={type:'string',description:'Only when correcting a p
 identity.deadline_excerpt={type:'string',minLength:12,maxLength:1200,description:'Required with due_at: exact source passage stating the outstanding action and its deadline, including year (or today/tomorrow anchored to the original message). Never quote file metadata, a task summary, or sent/created/modified timestamps as a deadline.'};
 const object=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 export const floassistSchemas={
- floassist_source_read:object({kind:{type:'string',enum:['draft'],description:'Latest Gmail draft: pass only app_id gmail and kind draft. Omit source_id, task_id and query.'},app_id:{type:'string',enum:['gmail','outlook','google_drive','onedrive','google_calendar']},source_id:string,task_id:{type:'integer',minimum:1},query:{type:'string',maxLength:1000},offset:{type:'integer',minimum:0},time_min:string,time_max:string}),
+ floassist_source_read:object({snapshot_id:{type:'string',description:'Required for a continuation page. Copy the exact returned next_request to preserve the same source snapshot.'},kind:{type:'string',enum:['draft'],description:'Latest Gmail draft: pass only app_id gmail and kind draft. Omit source_id, task_id and query.'},app_id:{type:'string',enum:['gmail','outlook','google_drive','onedrive','google_calendar']},source_id:string,task_id:{type:'integer',minimum:1},query:{type:'string',maxLength:1000},offset:{type:'integer',minimum:0},time_min:string,time_max:string}),
  floassist_status:object({}),
  floassist_reminder_list:object({}),
  floassist_reminder_cancel:object({id:string},['id']),
@@ -24,7 +24,7 @@ export function scopedFloAssistSchema(name,schema,scope){
   const properties={...schema.properties};delete properties.kind;
   if(scope.floassist_sources?.length)properties.app_id={type:'string',enum:scope.floassist_sources};
   if(module==='conflicts'){
-   delete properties.task_id;delete properties.query;delete properties.offset;
+   delete properties.task_id;delete properties.query;
    return {...schema,properties,required:['app_id','time_min','time_max']};
   }
   if(scope.floassist_reconciliation_task_ids?.length)properties.task_id={type:'integer',enum:scope.floassist_reconciliation_task_ids,description:'Existing exact task source only. For new discovery use app_id and source_id.'};

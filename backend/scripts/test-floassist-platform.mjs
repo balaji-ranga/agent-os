@@ -65,7 +65,9 @@ try{
   check(listAgentSkillAssignments('owner-b','fixture-coo').length,0,'other owner not uplifted');
   check(db.prepare("SELECT count(*) AS n FROM scheduled_goals WHERE owner_user_id='owner-a'").get().n,4,'only email-supported proactive responsibilities');
   check(db.prepare('SELECT * FROM ceo_agent_channels WHERE id=?').get(ch.id),channelBefore,'existing linked channel preserved');
+  db.prepare("UPDATE content_tools_meta SET purpose='Old source-reader contract' WHERE name='floassist_source_read' AND is_builtin=1").run();
   await s.activate('owner-a');check(db.prepare("SELECT count(*) AS n FROM scheduled_goals WHERE owner_user_id='owner-a'").get().n,4,'activation retry does not duplicate schedules');check(listAgentSkillAssignments('owner-a','fixture-coo').length,2,'activation retry does not duplicate skills');
+  check(db.prepare("SELECT purpose FROM content_tools_meta WHERE name='floassist_source_read'").get().purpose.includes('snapshot_id'),true,'provision refreshes canonical built-in tool contracts without stale descriptions');
   connectedProviders=['gmail','googlecalendar'];await s.save('owner-a',{connectors:['gmail','google_calendar']});
   check(db.prepare("SELECT status FROM scheduled_goals WHERE source='floassist:conflicts'").get().status,'active','calendar selection enables conflict checks');
   await s.save('owner-a',{connectors:['gmail']});

@@ -1,7 +1,8 @@
 import {useState} from 'react';
 import {api} from '../api';
 
-export default function FloAssistDeliveries(){
+function deliveryLabel(key){const task=key.match(/:tracking:(\d+):/);if(task)return `Task #${task[1]} update`;if(/connection|health/.test(key))return 'Connection update';if(/storage/.test(key))return 'Storage alert';if(/:sg:/.test(key))return 'Scheduled goal update';if(/action/.test(key))return 'Action update';return 'FloAssist update';}
+export default function FloAssistDeliveries({timezone}={}){
   const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const load=async()=>{setBusy(true);try{setData(await api.floAssistDeliveries());setError('');}catch(e){setError(e.message);}finally{setBusy(false);}};
   const act=async(kind,id,action)=>{
@@ -22,7 +23,7 @@ export default function FloAssistDeliveries(){
       <h3>Reminders</h3>{!data.reminders.length&&<p>No reminders.</p>}
       {data.reminders.map(r=><div key={r.id} style={{margin:'12px 0'}}><strong>{r.text||'Message content removed'}</strong><p>{r.due_local} · {r.timezone} · {r.status}</p>{actions('reminder',r.id,r.status)}</div>)}
       <h3>Recent notification deliveries</h3>
-      {data.notifications.map(n=><div key={n.source_key} style={{margin:'12px 0'}}><p>{n.source_key} · {n.status} · {new Date(n.updated_at).toLocaleString()}</p>{actions('notification',n.source_key,n.status)}</div>)}
+      {data.notifications.map(n=><div key={n.source_key} style={{margin:'12px 0'}}><p><strong>{deliveryLabel(n.source_key)}</strong> · {n.status} · {new Date(n.updated_at).toLocaleString(undefined,timezone?{timeZone:timezone}:{})}{timezone?` (${timezone})`:''}</p><details><summary>Delivery reference</summary><code style={{overflowWrap:'anywhere'}}>{n.source_key}</code></details>{actions('notification',n.source_key,n.status)}</div>)}
       <h3>Storage monitoring</h3>{!data.storage.length&&<p>No storage measurements yet. Only providers with supported quota reads can be measured.</p>}
       {data.storage.map((s,i)=><p key={i}>{s.app_id}: {s.coverage}{s.percent!=null?` · ${s.percent.toFixed(1)}% used`:''} · {new Date(s.checked_at).toLocaleString()}</p>)}
     </>}
