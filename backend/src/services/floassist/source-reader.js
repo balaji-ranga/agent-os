@@ -1,4 +1,4 @@
-import {recordSourceCoverage} from './source-coverage.js';
+import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage} from './source-coverage.js';
 import {canonicalThreadInput,resolveSourcePagingErrors,resolveTaskSourceError,ensureSourceReceipts,recordSourceReceipt} from './source-receipts.js';
 import {randomBytes} from 'node:crypto';
 import {getDb} from '../../db/schema.js';
@@ -107,10 +107,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    return sourceData(connectorReferenceInput(db,owner,action,result,scope));
   };
   id=resolveSourceReference(db,owner,app,id,scope);
-  if(discoverUnknownSources&&scope.run&&id&&!input.task_id&&!(app==='google_calendar'&&id==='primary')){
+  if(discoverUnknownSources&&scope.run&&!input.task_id&&input.kind!=='draft'&&(id||app==='gmail')&&!(app==='google_calendar'&&id==='primary')){
    ensureSourceReceipts(db);
-   const known=db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
-   const task=db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
+   const known=id&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
+   const task=id&&db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
    if(!known&&!task){
     let candidates=[],more=false,account;
     const prefs=JSON.parse(profile.preferences_json||'{}'),days=prefs.discovery_lookback_days??7;
@@ -132,9 +132,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
      assertFloAssistConnector(owner,`${providers[app]}.source_discovery`,db,scope);
      return {app_id:app,requested_source_read:false,content_verified:false,needs_source_selection:true,guidance:'This identifier has not been verified in this run. Use provider discovery and copy its exact item ID, or read an existing task with task_id only. No guessed item was sent to the provider.'};
     }
-    for(const c of candidates)recordSourceCoverage(db,scope,c,'discovery',false,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
-    if(more)recordSourceCoverage(db,scope,{app_id:app,source_id:'@discovery'},'discovery',false,null);
-    return {app_id:app,...(account?{account_id:account}:{}),requested_source_read:false,content_verified:false,discovery_only:true,needs_source_selection:true,source_candidates:candidates,more_candidates:more,guidance:'The supplied ID was not verified and was not sent to the provider. These are current owner-scoped discovery results, not source content. Choose exact returned source IDs and read complete bodies/pages. Do not retry the rejected guessed ID. Extra candidates beyond this bounded list mean partial coverage.'};
+    for(const c of candidates)requireSourceReview(db,scope,c,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
+    if(more)requireSourceReview(db,scope,{app_id:app,source_id:'@discovery'},null);
+    if(!candidates.length&&!more)verifyEmptyAppCoverage(db,scope,app);
+    return {app_id:app,...(account?{account_id:account}:{}),requested_source_read:false,content_verified:false,discovery_only:true,empty:!candidates.length&&!more,needs_source_selection:true,source_candidates:candidates,more_candidates:more,guidance:'These are current owner-scoped discovery results, not source content. Any unverified supplied ID was not sent to the provider. Choose exact returned source IDs and read complete bodies/pages. Do not retry guessed IDs. Extra candidates beyond this bounded list mean partial coverage.'};
    }
   }
   trimSnapshots(now);
@@ -157,14 +158,14 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    drafts.sort((a,b)=>b.at-a.at);const latest=drafts[0];id=latest.id;
    text=`Subject: ${latest.message.subject||''}\n${latest.message.messageText}`;
   }else if(app==='gmail'){
-   if(!id){const list=await run('gmail.list_threads',{query:input.query||'newer_than:7d',maxResults:1});id=list.threads?.[0]?.threadId;if(!id)return {app_id:app,content_verified:true,empty:true,content:'',next_offset:null};}
+   if(!id){const list=await run('gmail.list_threads',{query:input.query||'newer_than:7d',maxResults:1});id=list.threads?.[0]?.threadId;if(!id){if(!list.nextPageToken)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,content_verified:!list.nextPageToken,empty:true,content:'',next_offset:null};}}
    id=canonicalThreadInput(db,owner,'gmail.fetch_message_by_thread_id',{threadId:id},scope).threadId;
    const data=await run('gmail.fetch_message_by_thread_id',{threadId:id});
    if(data.threadId!==id||!Array.isArray(data.messages)||data.messages.some(m=>typeof m.messageText!=='string'))fail('FLOASSIST_SOURCE_READ_FAILED','Complete matching Gmail thread content was not returned.');
    messages=data.messages.map(m=>({text:`Subject: ${m.subject||''}\n${m.messageText}`,at:m.messageTimestamp}));
    text=messages.map(m=>m.text).join('\n\n');
   }else if(app==='outlook'){
-   if(!id){const list=await run('outlook.list_messages',{top:1,orderby:'receivedDateTime desc',bodyContentType:'text'});id=list.messages?.[0]?.id;if(!id)return {app_id:app,content_verified:true,empty:true,content:'',next_offset:null};}
+   if(!id){const list=await run('outlook.list_messages',{top:1,orderby:'receivedDateTime desc',bodyContentType:'text'});id=list.messages?.[0]?.id;if(!id){if(!list.nextPageToken)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,content_verified:!list.nextPageToken,empty:true,content:'',next_offset:null};}}
    const data=await run('outlook.get_message',{messageId:id,bodyContentType:'text'});
    if(data.id!==id||typeof data.body?.content!=='string'||data.body.contentType?.toLowerCase()==='html')fail('FLOASSIST_SOURCE_READ_FAILED','Matching Outlook plain-text message content was not returned.');
    messages=[{text:`Subject: ${data.subject||''}\n${data.body.content}`,at:data.sentDateTime||data.receivedDateTime}];text=messages[0].text;
@@ -177,6 +178,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
     const prefs=JSON.parse(profile.preferences_json||'{}');
     const since=new Date(now-(prefs.discovery_lookback_days??7)*86400000).toISOString();
     const data=await run('googledrive.files.list',{q:`trashed = false and modifiedTime > '${since}' and mimeType != 'application/vnd.google-apps.folder'`,orderBy:'modifiedTime desc',pageSize:40});
+    const supported=(data.files||[]).filter(f=>f.id&&documentType(f.mimeType)!=='unsupported');
+    for(const f of supported)requireSourceReview(db,scope,{app_id:app,source_id:f.id},{app_id:app,source_id:f.id,offset:0});
+    if(data.nextPageToken)requireSourceReview(db,scope,{app_id:app,source_id:'@discovery'},null);
+    if(!supported.length&&!data.nextPageToken)verifyEmptyAppCoverage(db,scope,app);
     return {app_id:app,content_verified:false,discovery_only:true,source_candidates:(data.files||[]).map(f=>({app_id:app,source_id:f.id,name:f.name,mime_type:f.mimeType})),more_candidates:!!data.nextPageToken,guidance:'This is bounded discovery metadata, not file content. Read each relevant supported text file with app_id and its exact source_id before extracting a deadline. Skip unsupported media. Report partial coverage when more_candidates is true.'};
    }
    if(!id)fail('FLOASSIST_SOURCE_ID_REQUIRED','Use the exact file ID from discovery or provide task_id.');

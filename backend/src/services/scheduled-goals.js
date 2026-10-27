@@ -1,4 +1,5 @@
-import {pendingSourceCoverage} from './floassist/source-coverage.js';
+import {pendingSourceCoverage,requireAppCoverage} from './floassist/source-coverage.js';
+import {briefingCalendarWindow} from './floassist/source-reader.js';
 import {trackingReferenceResult} from './floassist/source-references.js';
 import {claimScheduledRun} from './scheduled-run-claim.js';
 import {runEvidenceSummary} from './floassist/source-receipts.js';
@@ -768,6 +769,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const checkContract=floAssistRun?{
       role:'system',content:`FloAssist scheduled source check (${row.source.split(':')[1]}). This is a bounded check, not a task-completion workflow. Use tools only when needed, not merely because they are available. Finishing this check does not complete, stop, resume or acknowledge any user task. Skip closed/stopped records. Never call close_orphan just to mark the scan complete: it requires exact stored app_id, account_id, source_id, obligation_key and fresh provider evidence of deletion or actual fulfillment, with source_checked, source_outcome and source_evidence. An upcoming submission remains open until fulfilled; reading its email is not fulfillment. If no reconciliation is needed, do not call tracking_update. Briefing and conflict checks report verified facts only and do not create tracking tasks. ${guidance}${['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)?`\n${TRACKING_RUN_INSTRUCTIONS}`:''}`
     }:null;
+    if(floAssistRun)for(const app of responsibilitySources(floAssistPrefs,row.source.split(':')[1]))requireAppCoverage(db(),{owner:ownerUserId,run:runId},app,{app_id:app,...(app==='google_calendar'?briefingCalendarWindow(Date.now(),floAssistPrefs.timezone):{})});
     const completionStarted=Date.now(),completionTimeout=Number(process.env.SCHEDULED_GOAL_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000);
     let { content } = await openclaw.chatCompletions(
       openclawId, [...(checkContract?[checkContract]:[]),{ role: 'user', content: prompt }], sessionUser, false,
@@ -792,8 +794,8 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     }
     const reply = String(content || '').trim() || '(no response)';
     const evidence=floAssistRun?runEvidenceSummary(db(),ownerUserId,runId):null;
-    const incomplete=evidence&&(evidence.errors>0||evidence.reads===0||evidence.incomplete_sources>0||evidence.budget_exhausted||reply==='(no response)');
-    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) with unread pages.${evidence.budget_exhausted?' Tool-call budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
+    const incomplete=evidence&&(evidence.errors>0||evidence.incomplete_sources>0||evidence.budget_exhausted||reply==='(no response)');
+    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) or app(s) with incomplete verification.${evidence.budget_exhausted?' Tool-call budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
       ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);

@@ -1,6 +1,6 @@
 import {sourceReference,connectorReferenceResult} from '../src/services/floassist/source-references.js';
 import {recordRunError} from '../src/services/floassist/source-receipts.js';
-import {pendingSourceCoverage} from '../src/services/floassist/source-coverage.js';
+import {pendingSourceCoverage,requireAppCoverage} from '../src/services/floassist/source-coverage.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import {readFloAssistSource,decodeDocument,briefingCalendarWindow} from '../src/services/floassist/source-reader.js';
@@ -156,6 +156,9 @@ const discoveredCalendar=await readFloAssistSource('a',{app_id:'google_calendar'
 await readFloAssistSource('a',discoveredCalendar.source_candidates[0],calendarGuard);assert.equal(pendingSourceCoverage(db,'a',discoveryContext.run).length,0);
 await assert.rejects(readFloAssistSource('a',{app_id:'gmail',source_id:'another-guessed-id'},{...guarded,authorize:async()=>{throw Object.assign(Error('fixture denied'),{status:403});}}),e=>e.status===403,'discovery cannot bypass action authorization');
 console.log('FLOASSIST_DISCOVERY_GUARD_OK: guessed IDs not executed, bounded real discovery, full candidate review and grants retained');
+const emptyScope={...discoveryContext,run:'verified-empty-mail'};requireAppCoverage(db,emptyScope,'gmail',{app_id:'gmail'});
+const emptyMail=await readFloAssistSource('a',{app_id:'gmail'},{...guarded,context:emptyScope,execute:async(owner,action,input)=>action==='gmail.list_threads'?{ok:true,data:{threads:[]}}:guarded.execute(owner,action,input)});
+assert.equal(emptyMail.empty,true);assert.equal(pendingSourceCoverage(db,'a',emptyScope.run).length,0,'only a real empty provider result satisfies empty-mailbox coverage');
 db.close();
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});
