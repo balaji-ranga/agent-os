@@ -19,3 +19,16 @@ Rollback restores captured image IDs and the corresponding source/config release
 ## Explicitly scoped production updates
 
 When the operator requests no full deployment, build and recreate only affected services with `--no-deps --no-build`; preserve the other running images. Use the canonical backend Dockerfile. A plugin-only gateway update may use `openclaw.scoped-update.Dockerfile` with a locally tagged, captured running image ID as `BASE_IMAGE`, the committed `SOURCE_REVISION`, and the source/runtime integrity gates. Record the base image ID and rollback Compose files; never use a floating base or leave a volume-only plugin patch. Synchronize and verify the complete host source manifest even when only selected services change. Run goals one at a time and inspect queued/sent deliveries before the next run.
+
+## Native budget and timezone release gates
+
+Both gateway Dockerfiles run `install-native-model-budget.mjs` against the pinned runtime. Keep this adaptation in the image build; never edit the installed SDK in a running gateway. Unsupported stream ABIs fail the build. The plugin's budget-reply and profile-timezone modules ship alongside its registered schemas and are covered by startup integrity verification.
+
+Run these additional tests in the built gateway image with `--network none`, no production volumes, and the committed backend test scripts available under `/opt/agent-os/backend/scripts/`:
+
+- `node /opt/agent-os/backend/scripts/test-native-model-budget-runtime.mjs`
+- `node /opt/agent-os/backend/scripts/test-floassist-reply-hooks-runtime.mjs`
+
+These fixtures exercise the installed SDK and actual hook registration with synthetic metadata/providers, without reading user sessions or calling a model. The ordinary `npm --prefix backend run test:floassist` suite separately covers owner isolation, timezone changes, refusal correlation and failure-preserving messages. Use the management browser harness against a fresh frontend build to verify one Company Tools link, all four internal tabs and desktop/mobile layouts.
+
+On Windows, package committed source with `git -c core.autocrlf=false archive` so exported files match the manifest's Git blobs. Verify the complete source manifest before building. The focused cutover script defaults to a 600-second per-service startup allowance and captures private startup diagnostics before automatic rollback; do not replace that with an unverified container patch or shorten it below the gateway's observed cold-start time.

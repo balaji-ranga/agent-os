@@ -36,8 +36,12 @@ try{
  await page.getByRole('button',{name:'Save apps',exact:true}).click();await page.getByRole('status').filter({hasText:'Preferences saved'}).waitFor();
  assert.ok(calls.some(c=>c.path==='/floassist-management/preferences'&&c.body.connectors.includes('google_calendar')));
  const [oauth]=await Promise.all([context.waitForEvent('page'),page.locator('.floassist-app').filter({hasText:'Google Calendar'}).getByRole('button',{name:'Connect',exact:true}).click()]);await oauth.waitForURL('https://example.test/oauth');await oauth.close();assert.ok(calls.some(c=>c.path==='/floassist-management/connections/google_calendar'&&c.method==='POST'));
- await page.getByRole('button',{name:'Company Tools',exact:true}).click();await page.getByRole('button',{name:'FloAssist',exact:true}).click();
- assert.equal(await page.getByRole('link',{name:'WhatsApp',exact:true}).count()>=2,true,'Company Tools includes submenu and page tabs');
+ await page.getByRole('button',{name:'Company Tools',exact:true}).click();
+ const floAssistMenu=page.getByRole('link',{name:'FloAssist',exact:true});
+ assert.equal(await floAssistMenu.count(),1,'Company Tools has one FloAssist link');
+ assert.equal(await floAssistMenu.getAttribute('href'),'/floassist');
+ assert.equal(await page.getByRole('button',{name:'FloAssist',exact:true}).count(),0,'FloAssist has no sidebar submenu');
+ assert.equal(await page.getByRole('link',{name:'WhatsApp',exact:true}).count(),1,'WhatsApp remains an in-page tab only');
  await page.screenshot({path:join(out,'connections-desktop.png'),fullPage:true});
  const tabs=page.getByRole('navigation',{name:'FloAssist sections'});
  await tabs.getByRole('link',{name:'WhatsApp',exact:true}).click();await page.getByRole('button',{name:'Show / refresh QR',exact:true}).click();await page.getByRole('status').filter({hasText:'Connected'}).waitFor();
@@ -51,5 +55,5 @@ try{
    await page.screenshot({path:join(out,`${id}-${width}.png`),fullPage:true});
   }
  }
- assert.deepEqual(errors,[]);console.log('FLOASSIST_MANAGEMENT_BROWSER_OK: Company Tools submenu, app selection/save, QR continuity, deliveries, preferences, desktop/mobile and no browser errors');
+ assert.deepEqual(errors,[]);console.log('FLOASSIST_MANAGEMENT_BROWSER_OK: single Company Tools link, in-page tabs, app selection/save, QR continuity, deliveries, preferences, desktop/mobile and no browser errors');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
