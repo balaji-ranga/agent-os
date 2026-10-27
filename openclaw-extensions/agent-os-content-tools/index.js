@@ -1079,6 +1079,10 @@ export default definePluginEntry({
   register(api) {
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
+      // llm_input carries the trusted turn runId even when prompt-build context does not.
+      api.on("llm_input", (event, ctx) => {
+        if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
+      });
       api.on("before_tool_call", (event, ctx) => {
         const scope = loadSessionAllowlists()[ctx?.sessionKey || safeApiSessionKey(api)];
         const reason = steeringToolBlock(scope, event?.toolName || ctx?.toolName, event?.params);
