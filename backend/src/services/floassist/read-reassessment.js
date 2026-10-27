@@ -22,8 +22,8 @@ export async function recoverOrphanReassessment(db,owner,input,error,{caller,con
 // Read-only prerequisite recovery. Never applies the rejected task mutation.
 export async function recoverSourceReassessment(db,owner,input,error,{caller,context=currentFloAssistScope(),read=readFloAssistSource}={}){
  if(context?.owner!==owner||!context.run||!['FLOASSIST_THREAD_READ_REQUIRED','FLOASSIST_SOURCE_NOT_VERIFIED','FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'].includes(error.code))return null;
- const app=input.app_id;if(!['gmail','outlook','google_drive','onedrive'].includes(app))return null;
- const id=resolveSourceReference(db,owner,app,input.source_id,context);
+ const app=error.verifiedDeadlineSource?.app_id||input.app_id;if(!['gmail','outlook','google_drive','onedrive'].includes(app))return null;
+ const id=error.verifiedDeadlineSource?.source_id||resolveSourceReference(db,owner,app,input.source_id,context);
  const key=JSON.stringify([owner,context.run,app,id]),now=Date.now();
  for(const [k,until]of recoveries)if(until<=now)recoveries.delete(k);
  if(recoveries.has(key))return null;
@@ -36,7 +36,7 @@ export async function recoverSourceReassessment(db,owner,input,error,{caller,con
  const source=await read(owner,task?{task_id:task.task_id}:{app_id:app,source_id:id},{db,caller,context});
  if(recoveries.size>=5000)recoveries.delete(recoveries.keys().next().value);
  recoveries.set(key,now+30*60000);
- return {needs_reassessment:true,recovery_code:error.code,task_update_applied:false,source,
+ return {needs_reassessment:true,recovery_code:error.code,task_update_applied:false,...(error.verifiedDeadlineSource?{source_context_corrected:true,provenance_instruction:'The supplied evidence reference belongs to this returned source, not the source label in the rejected observation. Use this exact returned provenance and freshly reassess; do not copy the old title, task link, deadline or source ID.'}:{}),source,
   next_action:{tool:source.next_offset===null?'floassist_tracking_observe':'floassist_source_read',
    input:source.next_offset===null?{app_id:app,source_id:sourceReference(db,owner,app,source.source_id,context)}:{...source.next_request,app_id:app,source_id:sourceReference(db,owner,app,source.source_id,context),offset:source.next_offset},
    instruction:'The rejected task update remains unapplied. Read all pages, reassess the latest thread and deadline against this source, then submit a new observation only if still supported. Do not repeat old arguments without reassessment.'}};

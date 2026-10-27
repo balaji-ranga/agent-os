@@ -2,12 +2,17 @@ import {withFloAssistRuntimeGuidance} from '../src/services/floassist/runtime-gu
 import {normalizeDriveReadInput} from '../src/services/floassist/drive-read-input.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import {recordDeadlineText,assertDeadlineEvidence} from '../src/services/floassist/deadline-evidence.js';
+import {recordDeadlineText,assertDeadlineEvidence,deadlineEvidenceSuggestions,deadlineReferenceSource} from '../src/services/floassist/deadline-evidence.js';
 import {floAssistTaskSource} from '../src/services/floassist/task-source.js';
 const now=Date.parse('2026-10-27T00:00:00Z'),scope={owner:'a',run:'run'},quote='Please submit the report by 27 October 2026 at 3 PM SGT.';
 recordDeadlineText('a',scope,'gmail.fetch_message_by_thread_id',{data:{threadId:'t',messages:[{messageText:quote,messageTimestamp:'2026-10-26T08:00:00Z'}]}},now);
 const input={app_id:'gmail',source_id:'t',due_at:'2026-10-27T15:00:00+08:00',deadline_excerpt:quote};
 assert.equal(assertDeadlineEvidence('a',scope,input,'Asia/Singapore',now).verified,true);
+const reference=deadlineEvidenceSuggestions('a',scope,'gmail','t','Asia/Singapore',quote,now)[0].deadline_excerpt;
+assert.deepEqual(deadlineReferenceSource('a',scope,reference,now),{app_id:'gmail',source_id:'t'});
+assert.equal(deadlineReferenceSource('b',{...scope,owner:'b'},reference,now),null);assert.equal(deadlineReferenceSource('a',{...scope,run:'foreign'},reference,now),null);
+assert.throws(()=>assertDeadlineEvidence('a',scope,{...input,source_id:'different',deadline_excerpt:reference},'Asia/Singapore',now),e=>e.verifiedDeadlineSource?.source_id==='t','rejected observation identifies the actual evidence source without applying a task update');
+
 for(const bad of [{...input,deadline_excerpt:'Invented deadline by 27 October 2026'},{...input,due_at:'2026-01-07T15:00:00+08:00'},{...input,app_id:'google_drive'},{...input,due_at:'2026-10-27T12:00:00+08:00'}])assert.throws(()=>assertDeadlineEvidence('a',scope,bad,'Asia/Singapore',now),e=>e.code==='FLOASSIST_DEADLINE_EVIDENCE_REQUIRED');
 assert.throws(()=>assertDeadlineEvidence('b',scope,input,'Asia/Singapore',now));
 assert.throws(()=>assertDeadlineEvidence('a',{...scope,run:'another'},input,'Asia/Singapore',now));

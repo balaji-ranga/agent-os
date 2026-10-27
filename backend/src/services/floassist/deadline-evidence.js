@@ -82,12 +82,18 @@ function endOfDay(day,zone,hour=23,minute=59,second=59){
  }
  return new Date(at).toISOString();
 }
+export function deadlineReferenceSource(owner,context,reference,now=Date.now()){
+ trim(now);if(context?.owner!==owner||!reference?.startsWith('fa-evidence-'))return null;
+ for(const [k,v]of reads){const [o,run,app,id]=JSON.parse(k);if(o===owner&&run===(context.run||context.session)&&v.references?.has(reference))return {app_id:app,source_id:id};}
+ return null;
+}
 export function assertDeadlineEvidence(owner,context,input,zone,now=Date.now(),{historicalConfirmed=false}={}){
   trim(now);
   let quote=norm(input.deadline_excerpt);
   const cached=reads.get(key(owner,context.run||context.session,input.app_id,input.source_id));
   if(quote.startsWith('fa-evidence-'))quote=cached?.references?.get(quote)||'';
-  const fail=message=>{throw Object.assign(new Error(message),{status:409,code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'});};
+  const verifiedDeadlineSource=deadlineReferenceSource(owner,context,norm(input.deadline_excerpt),now);
+  const fail=message=>{throw Object.assign(new Error(message),{status:409,code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED',...(verifiedDeadlineSource?{verifiedDeadlineSource}:{})});};
   if(quote.length<12||quote.length>1200||! /\b(by|before|due|deadline|submit|approve|renew|pay|reply|send|deliver|return|complete|finish)\b/.test(quote))fail('Supply deadline_excerpt: an exact short source passage stating the requested action and deadline. File metadata, message timestamps and a task title are not deadline evidence.');
   if(!cached)fail('No complete readable source text is available for this deadline in the current run. Read the source content first; metadata/listing/export links alone cannot create or repeat a deadline task. Report unavailable document-content coverage rather than inventing a deadline.');
   const due=Date.parse(input.due_at);
