@@ -731,8 +731,10 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   if (planningGoal) discardGoalPlanningRun(planningGoal.id, ownerUserId);
 
   let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
-  prompt += guidance + steeringPrompt(consumeWorkSteering(ownerUserId, 'schedule_run', runId, 'scheduled_agent_dispatch'));
-  if(['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source))prompt+=`\n\n${TRACKING_RUN_INSTRUCTIONS}`;
+  // FloAssist's authoritative contract is supplied once in checkContract below.
+  // Repeating its source snapshot and tracking rules in the user prompt wastes
+  // context on every content-heavy run and makes compaction less reliable.
+  prompt += (floAssistRun?'':guidance) + steeringPrompt(consumeWorkSteering(ownerUserId, 'schedule_run', runId, 'scheduled_agent_dispatch'));
   try {
     prompt = getPromptForFreshGoalRun(prompt);
   } catch (_) {}

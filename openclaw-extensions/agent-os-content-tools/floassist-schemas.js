@@ -1,7 +1,7 @@
 const string={type:'string'};
 const identity={app_id:{type:'string',description:'Selected FloAssist app ID, for example gmail or google_calendar.'},account_id:{type:'string',description:'Exact account_id from tracking_list or the connected provider account.'},source_id:{type:'string',description:'Exact provider message/thread/event ID; never invent IDs.'},obligation_key:{type:'string',description:'Reuse the existing obligation_key, otherwise action.'}};
 identity.corrects_source_id={type:'string',description:'Only when correcting a previously rejected unverified source ID: the exact rejected ID. source_id must identify the verified actual source, with its full current thread read first. Never infer identity solely from similar wording or a candidate hint.'};
-identity.deadline_excerpt={type:'string',minLength:12,maxLength:1200,description:'Required with due_at: exact source passage stating the outstanding action and its deadline, including year (or today/tomorrow anchored to the original message). Never quote file metadata, a task summary, or sent/created/modified timestamps as a deadline.'};
+identity.deadline_excerpt={type:'string',minLength:12,maxLength:1200,description:'Required with due_at: prefer the exact fa-evidence reference and matching due_at returned by floassist_source_read.deadline_evidence. Otherwise an exact source passage must state the outstanding action and deadline. Never paraphrase, quote metadata/task summaries or use sent/created/modified timestamps.'};
 const object=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 export const floassistSchemas={
  floassist_source_read:object({snapshot_id:{type:'string',description:'Required for a continuation page. Copy the exact returned next_request to preserve the same source snapshot.'},kind:{type:'string',enum:['draft'],description:'Latest Gmail draft: pass only app_id gmail and kind draft. Omit source_id, task_id and query.'},app_id:{type:'string',enum:['gmail','outlook','google_drive','onedrive','google_calendar']},source_id:string,task_id:{type:'integer',minimum:1},query:{type:'string',maxLength:1000},offset:{type:'integer',minimum:0},time_min:string,time_max:string}),
@@ -37,6 +37,7 @@ export function scopedFloAssistSchema(name,schema,scope){
   if(module==='deadlines'){
    required.push('due_at','deadline_excerpt');
    properties.due_at={type:'string',description:'Verified obligation deadline as ISO datetime WITH timezone offset. Skip candidates without an explicit deadline; never use message timestamps or task SLA.'};
+   properties.deadline_excerpt={type:'string',pattern:'^fa-evidence-[a-f0-9]{16}$',description:'Copy deadline_excerpt and matching due_at from floassist_source_read.deadline_evidence. Do not write a quotation or invent a token. Read this exact source with floassist_source_read to obtain references; if none supports the obligation, report the ambiguity rather than creating a deadline.'};
   }
   if(module==='followups')required.push('latest_message_id','awaiting_reply');
   return {...schema,required:[...new Set(required)],properties};

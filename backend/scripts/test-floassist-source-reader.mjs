@@ -2,8 +2,8 @@ import {sourceReference,connectorReferenceResult} from '../src/services/floassis
 import {recordRunError} from '../src/services/floassist/source-receipts.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import {readFloAssistSource,decodeDocument} from '../src/services/floassist/source-reader.js';
-import {assertDeadlineEvidence,recordVerifiedSourceText,historicalDeadlineConfirmed} from '../src/services/floassist/deadline-evidence.js';
+import {readFloAssistSource,decodeDocument,briefingCalendarWindow} from '../src/services/floassist/source-reader.js';
+import {assertDeadlineEvidence,recordVerifiedSourceText,historicalDeadlineConfirmed,deadlineEvidenceSuggestions} from '../src/services/floassist/deadline-evidence.js';
 import {assertFloAssistConnector,resolveFloAssistScope,bindFloAssistWork,withFloAssistScope,assertFloAssistMcpRoute} from '../src/services/floassist/execution-scope.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from '../../openclaw-extensions/agent-os-content-tools/runtime-channel.js';
 const db=new Database(':memory:');
@@ -55,6 +55,9 @@ mode='wrong';await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},o
 mode='denied';await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},options),e=>e.status===403);
 mode='long';let out=await readFloAssistSource('a',{app_id:'gmail'},options);assert.equal(out.content.length,12000);assert.equal(out.next_offset,12000);out=await readFloAssistSource('a',{app_id:'gmail',source_id:out.source_id,snapshot_id:out.snapshot_id,offset:12000},options);assert.equal(out.next_offset,null);assert.match(out.content,/Please submit/);
 mode='normal';await assert.rejects(()=>readFloAssistSource('a',{app_id:'google_calendar',time_min:'2026-10-27T00:00Z',time_max:'2027-10-27T00:00Z'}, {...options,context:{owner:'a',origin:'whatsapp'}}),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED');
+for(const [zone,start]of [['Asia/Singapore','2026-10-26T16:00:00.000Z'],['Asia/Kolkata','2026-10-26T18:30:00.000Z'],['Asia/Jakarta','2026-10-26T17:00:00.000Z']])assert.equal(briefingCalendarWindow(now,zone).time_min,start);
+calls=[];await readFloAssistSource('a',{app_id:'google_calendar'},{...options,context:{...context,origin:'floassist:briefing'}});assert.equal(calls.at(-1).input.timeMin,'2026-10-26T16:00:00.000Z');assert.equal(calls.at(-1).input.timeMax,'2026-10-27T16:00:00.000Z');
+await assert.rejects(()=>readFloAssistSource('a',{app_id:'google_calendar'},{...options,context:{owner:'a',origin:'whatsapp'}}),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED','ad hoc requests still require their explicit intended window');
 mode='more';out=await readFloAssistSource('a',{app_id:'google_calendar',time_min:'2026-10-27T00:00Z',time_max:'2026-10-28T00:00Z'},{...options,context:{owner:'a',origin:'whatsapp'}});assert.equal(out.provider_complete,false);
 mode='normal';await assert.rejects(()=>decodeDocument(Buffer.from('video'),'video/quicktime','source.mov'),e=>e.code==='FLOASSIST_SOURCE_UNSUPPORTED');
 await assert.rejects(()=>decodeDocument(Buffer.alloc(5*1024*1024+1),'text/plain','big.txt'),e=>e.code==='FLOASSIST_SOURCE_SIZE_LIMIT');
@@ -81,6 +84,7 @@ for(const [quote,due,precision]of [['Please send by 27/10/2026 at 3 PM SGT.','20
  const verified=assertDeadlineEvidence('a',context,{app_id:'outlook',source_id:'date',deadline_excerpt:quote,due_at:due},'Asia/Singapore',now);assert.equal(verified.precision,precision);if(precision==='day')assert.equal(verified.due_at,'2026-10-27T15:59:59.000Z');
 }
 const ambiguous='Please send by 03/04/2026 at 3 PM.';recordVerifiedSourceText('a',context,'gmail','amb',[{text:ambiguous,at:null}],now);assert.throws(()=>assertDeadlineEvidence('a',context,{app_id:'gmail',source_id:'amb',deadline_excerpt:ambiguous,due_at:'2026-04-03T15:00:00+08:00'},'Asia/Singapore',now));
+const dateFirst='27 October 2026, 3 PM SGT: please submit the test report.';recordVerifiedSourceText('a',context,'gmail','date-first',[{text:dateFirst,at:now}],now);const suggested=deadlineEvidenceSuggestions('a',context,'gmail','date-first','Asia/Singapore',dateFirst,now);assert.equal(suggested.length,1);assert.equal(suggested[0].due_at,'2026-10-27T07:00:00.000Z');assert.equal(assertDeadlineEvidence('a',context,{app_id:'gmail',source_id:'date-first',...suggested[0]},'Asia/Singapore',now).verified,true);
 const old='Please submit by 7 January 2026 at 3 PM SGT.';recordVerifiedSourceText('a',context,'google_drive','video',[{text:old,at:null}],now);const oldInput={app_id:'google_drive',source_id:'video',deadline_excerpt:old,due_at:'2026-01-07T15:00:00+08:00'};
 assert.throws(()=>assertDeadlineEvidence('a',context,oldInput,'Asia/Singapore',now),e=>e.code==='FLOASSIST_DEADLINE_CONFIRMATION_REQUIRED');assert.equal(historicalDeadlineConfirmed(db,'a',oldInput),false);
 db.prepare("INSERT INTO kanban_user_action_audit(owner_user_id,task_id,status,action,evidence) VALUES ('a',1,'ok','update','This is still required; keep tracking.')").run();assert.equal(historicalDeadlineConfirmed(db,'a',oldInput),true);assert.equal(historicalDeadlineConfirmed(db,'b',oldInput),false);assert.equal(assertDeadlineEvidence('a',context,oldInput,'Asia/Singapore',now,{historicalConfirmed:historicalDeadlineConfirmed(db,'a',oldInput)}).verified,true);

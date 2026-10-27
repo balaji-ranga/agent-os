@@ -159,9 +159,14 @@ assert.deepEqual(requiredReconciliationSchema.properties.source_checked.enum,[tr
 
 const calendarSchema=scopedFloAssistSchema("floassist_source_read",floassistSchemas.floassist_source_read,{floassist_module:"conflicts",floassist_sources:["google_calendar"]});
 assert.deepEqual(calendarSchema.required,["app_id","time_min","time_max"]);assert.equal(calendarSchema.properties.task_id,undefined);assert.equal(calendarSchema.properties.kind,undefined);assert.deepEqual(calendarSchema.properties.app_id.enum,["google_calendar"]);
+const referenceDeadlineSchema=scopedFloAssistSchema('floassist_tracking_observe',floassistSchemas.floassist_tracking_observe,{floassist_module:'deadlines'});
+assert.ok(new RegExp(referenceDeadlineSchema.properties.deadline_excerpt.pattern).test('fa-evidence-0123456789abcdef'));
+assert.equal(new RegExp(referenceDeadlineSchema.properties.deadline_excerpt.pattern).test('Please submit the report by tomorrow.'),false,'scheduled tool schema rejects paraphrased quotations before execution');
+assert.equal(floassistSchemas.floassist_tracking_observe.properties.deadline_excerpt.pattern,undefined,'ordinary ad hoc literal source passages remain supported');
 
 const reassessment=classifyToolObservation({toolName:"floassist_tracking_observe",httpStatus:200,data:{needs_reassessment:true,task_update_applied:false,recovery_code:"FLOASSIST_THREAD_READ_REQUIRED"},behaviour:{fallback_capabilities:[]}});
 assert.equal(reassessment.status,"blocked_prerequisite");assert.equal(reassessment.progress,false);assert.equal(reassessment.retryable,true);
+assert.equal(classifyToolObservation({toolName:'floassist_tracking_update',httpStatus:200,data:{needs_reassessment:true,task_update_applied:false,recovery_code:'FLOASSIST_ORPHAN_UNVERIFIED'},behaviour:{fallback_capabilities:[]}}).progress,false,'a recovered closure prerequisite is never reported as an applied update');
 
 const {recoverOrphanReassessment}=await import('../src/services/floassist/read-reassessment.js');
 const orphanDb=new Database(':memory:');

@@ -113,9 +113,10 @@ export function historicalDeadlineConfirmed(db,owner,input){
 export function deadlineEvidenceSuggestions(owner,context,app,id,zone,segment,now=Date.now()){
  trim(now);const cached=reads.get(key(owner,context.run||context.session,app,id));if(!cached)return [];
  cached.references??=new Map();const output=[],text=norm(segment);
- for(const match of text.matchAll(/\b(submit|approve|renew|pay|reply|send|deliver|return|complete|finish)\b/g)){
-  let end=text.indexOf('. ',match.index);if(end<0||end-match.index>300)end=Math.min(text.length,match.index+300);
-  const quote=text.slice(match.index,end).trim();if(quote.length<12)continue;
+ for(const match of text.matchAll(/\b(submit|approve|renew|pay|reply|send|deliver|return|complete|finish|due|deadline|before|by)\b/g)){
+  const previous=text.lastIndexOf('. ',match.index),start=Math.max(previous<0?0:previous+2,match.index-150);
+  let end=text.indexOf('. ',match.index);if(end<0||end-start>600)end=Math.min(text.length,start+600);
+  const quote=text.slice(start,end).trim();if(quote.length<12)continue;
   const message=cached.messages.find(m=>m.text.includes(quote));if(!message)continue;
   const chosen=statedZone(quote,zone);if(!chosen)continue;const found=[...new Set(dates(quote,message.at,chosen))];if(found.length!==1)continue;
   const times=[];for(const t of quote.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/g))times.push((Number(t[1])%12+(t[3]==='pm'?12:0))*60+Number(t[2]||0));

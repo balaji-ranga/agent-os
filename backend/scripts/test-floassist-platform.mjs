@@ -92,7 +92,8 @@ try{
   const {CHAT_INSTRUCTION_KANBAN}=await import('../src/gateway/openclaw.js');
   check(chatRequests[0].messages.some(m=>m.content.includes(CHAT_INSTRUCTION_KANBAN)),false,'Kanban instructions excluded');
   check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not call notify_ceo')),true,'platform handles notification');
-  check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('floassist_tracking_observe')),true,'direct checks receive durable tracking contract');
+  const {TRACKING_RUN_INSTRUCTIONS}=await import('../src/services/floassist/tracking.js');
+  check(chatRequests[0].messages.filter(m=>m.content.includes(TRACKING_RUN_INSTRUCTIONS)).length,1,'durable tracking contract appears once at the system boundary');
   check(chatRequests[0].messages.some(m=>m.role==='user'&&m.content.includes('Do not create a goal plan, Kanban task')),false,'no conflicting prohibition against tracking tasks');
   check(db.prepare("SELECT count(*) AS n FROM floassist_notifications WHERE source_key LIKE '%:sg:%'").get().n,0,'no-update check queues no notification');
   fixtureReply='Your calendar is clear. Everything was checked.';

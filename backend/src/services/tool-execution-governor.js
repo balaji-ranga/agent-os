@@ -275,7 +275,7 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
   let reason_code = 'completed';
   let retryable = false;
   let progress = true;
-  if(toolName==='floassist_tracking_observe'&&data?.needs_reassessment===true&&data?.task_update_applied===false){
+  if(['floassist_tracking_observe','floassist_tracking_update'].includes(toolName)&&data?.needs_reassessment===true&&data?.task_update_applied===false){
     status='blocked_prerequisite';reason_code=data.recovery_code||'FLOASSIST_THREAD_READ_REQUIRED';retryable=true;progress=false;
   } else if (httpStatus === 202 || /approval required|awaiting approval/.test(text)) {
     status = 'awaiting_approval'; reason_code = 'approval_required'; progress = false;

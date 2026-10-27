@@ -6,6 +6,13 @@ import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from 
 import {resolveSourceReference,connectorReferenceInput} from './source-references.js';
 import {recordVerifiedSourceText,deadlineEvidenceSuggestions} from './deadline-evidence.js';
 import {extractTextFromBuffer} from '../master-data-extract.js';
+import {localAlertDay} from './alert-policy.js';
+
+export function briefingCalendarWindow(now,zone){
+ const day=localAlertDay(now,zone),next=new Date(Date.parse(day+'T12:00:00Z')+86400000).toISOString().slice(0,10);
+ const midnight=day=>{const target=Date.parse(day+'T00:00:00Z');let at=target;for(let i=0;i<3;i++){const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)).map(p=>[p.type,p.value]));const shown=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second);at=target-(shown-at);}return new Date(at).toISOString();};
+ return {time_min:midnight(day),time_max:midnight(next)};
+}
 
 const providers={gmail:'gmail',outlook:'outlook',google_drive:'googledrive',onedrive:'one_drive',google_calendar:'googlecalendar'};
 const fail=(code,message,status=422)=>{throw Object.assign(new Error(message),{code,status});};
@@ -76,6 +83,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
  execute=execute||api.executeConnectorAction;readTransit=readTransit||api?.readConnectorTransitFile;
  return withFloAssistScope(scope,async()=>{
   let app=input.app_id,id=input.source_id;
+  if(app==='google_calendar'&&scope.run&&scope.origin==='floassist:briefing'&&!input.time_min&&!input.time_max)input={...input,...briefingCalendarWindow(now,JSON.parse(profile.preferences_json||'{}').timezone||'UTC')};
   // These reserved selectors cannot be Gmail provider IDs. Treat them as the
   // bounded latest-draft operation; never reinterpret an actual specific ID.
   if(input.kind==='draft'&&app==='gmail'&&['latest','most_recent','@latest'].includes(id))id=undefined;
