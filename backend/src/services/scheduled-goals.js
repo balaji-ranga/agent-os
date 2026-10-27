@@ -781,9 +781,13 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         ...(floAssistRun?{retries:1}:{}),
       }
     );
-    if(floAssistRun)for(let pass=0;pass<2;pass++){
+    let priorCoverageSignature;
+    if(floAssistRun)for(let pass=0;pass<8;pass++){
       const pending=pendingSourceCoverage(db(),ownerUserId,runId),remaining=completionTimeout-(Date.now()-completionStarted);
       if(!pending.length||remaining<1000)break;
+      const coverageSignature=JSON.stringify(pending);
+      if(coverageSignature===priorCoverageSignature)break; // No progress: do not spin on the same unread pages.
+      priorCoverageSignature=coverageSignature;
       const hasActionContext=db().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_action_context'").get();
       const budgetStopped=hasActionContext&&db().prepare("SELECT 1 FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=? AND a.reason_code='floassist_tool_budget_exhausted'").get(ownerUserId,runId);
       if(budgetStopped)break;

@@ -141,8 +141,9 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   trimSnapshots(now);
   if((input.offset??0)>0){
    const snapshot=snapshots.get(snapshotKey(owner,scope,app,id,input));
-   if(!snapshot)fail('FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','The source snapshot expired or was evicted. Restart from offset 0, then follow the returned next_request. Do not combine pages from different reads.');
-   if(input.snapshot_id!==snapshot.id)fail('FLOASSIST_SOURCE_SNAPSHOT_EXPIRED','Copy the exact next_request from the current snapshot. The snapshot ID is missing or belongs to a different read; restart from offset 0 if necessary.');
+   const pagingFailure=message=>{throw Object.assign(new Error(message),{status:422,code:'FLOASSIST_SOURCE_SNAPSHOT_EXPIRED',next_action:{tool:'floassist_source_read',input:{app_id:app,source_id:id,offset:0,...(input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})},instruction:'Restart this exact source, then copy each returned next_request unchanged. Earlier partial pages are not complete coverage.'}});};
+   if(!snapshot)pagingFailure('The source snapshot expired or was evicted. Restart from offset 0; do not combine pages from different reads.');
+   if(input.snapshot_id!==snapshot.id)pagingFailure('The snapshot ID is missing or belongs to another read. Restart this exact source and follow its returned next_request.');
    for(const permission of snapshot.permissions){assertFloAssistConnector(owner,permission.action,db,scope);await authorize(owner,permission.action,caller||profile.agent_id,permission.args);}
    return sourcePage(snapshot,input.offset);
   }

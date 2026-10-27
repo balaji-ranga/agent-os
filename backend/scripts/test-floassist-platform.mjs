@@ -87,7 +87,7 @@ try{
   const run=await runScheduledGoal('owner-a',priority.id,{force:true});
   check(run.ok,false,'no-update reply without source reads is incomplete');check(run.mode,'chat','proactive run bypasses planner');
   check(db.prepare('SELECT count(*) AS n FROM agent_goal_runs').get().n,goalCount,'no internal goal run created');
-  check(chatRequests.length,3,'missing app verification gets at most two bounded continuations');
+  check(chatRequests.length,2,'missing app verification stops when continuation makes no progress');
   check(chatRequests[0].messages.some(m=>m.role==='system'&&m.content.includes('Finishing this check does not complete')),true,'scheduled reconciliation contract is explicit at the system boundary');
   const {CHAT_INSTRUCTION_KANBAN}=await import('../src/gateway/openclaw.js');
   check(chatRequests[0].messages.some(m=>m.content.includes(CHAT_INSTRUCTION_KANBAN)),false,'Kanban instructions excluded');
@@ -115,9 +115,11 @@ try{
   connectedProviders=['gmail'];await s.save('owner-a',{connectors:['gmail']});
   fixtureHook=()=>{const current=db.prepare("SELECT id FROM scheduled_goal_runs WHERE goal_id=? AND status='running' ORDER BY created_at DESC LIMIT 1").get(priority.id);verifyEmptyAppCoverage(db,{owner:'owner-a',run:current.id},'gmail');};
   const emptyMail=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'verified-empty-mail'});check(emptyMail.ok,true,'a verified empty mailbox is different from an app never checked');
+  let pagePass=0;fixtureHook=()=>{pagePass++;const current=db.prepare("SELECT id FROM scheduled_goal_runs WHERE goal_id=? AND owner_user_id=? AND status='running' ORDER BY created_at DESC LIMIT 1").get(priority.id,'owner-a');const ctx={owner:'owner-a',run:current.id,origin:'floassist:priority'};recordSourceReceipt('owner-a','gmail.fetch_message_by_thread_id',{data:{threadId:'long-review',messages:[{messageId:'long-message',messageText:'Synthetic long source',messageTimestamp:new Date().toISOString()}]}},{db,context:ctx});recordSourceCoverage(db,ctx,{app_id:'gmail',source_id:'long-review'},'long-snapshot',pagePass>=5,{app_id:'gmail',source_id:'long-review',snapshot_id:'long-snapshot',offset:pagePass*12000});};
+  const progressing=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'coverage-progressing'});check(progressing.ok,true,'advancing coverage continues beyond two passes within the same budgets');check(pagePass,5,'all five progressing pages reviewed');
   fixtureHook=coverageFixture(false);const beforeIncomplete=chatRequests.length;
   const stillPartial=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'coverage-incomplete'});
-  check(stillPartial.ok,false,'a partial source cannot become a green run');check(chatRequests.length-beforeIncomplete,3,'at most two continuation passes');check(runEvidenceSummary(db,'owner-a',stillPartial.run_id).incomplete_sources,1,'unread source stays visible in run evidence');fixtureHook=coverageFixture(true);fixtureReply='';const missingFinal=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'coverage-no-final'});check(missingFinal.ok,false,'complete reads without a final response are not a successful check');fixtureReply='FLOASSIST_NO_UPDATE';fixtureHook=null;
+  check(stillPartial.ok,false,'a partial source cannot become a green run');check(chatRequests.length-beforeIncomplete,2,'no-progress continuation stops immediately');check(runEvidenceSummary(db,'owner-a',stillPartial.run_id).incomplete_sources,1,'unread source stays visible in run evidence');fixtureHook=coverageFixture(true);fixtureReply='';const missingFinal=await runScheduledGoal('owner-a',priority.id,{force:true,requestKey:'coverage-no-final'});check(missingFinal.ok,false,'complete reads without a final response are not a successful check');fixtureReply='FLOASSIST_NO_UPDATE';fixtureHook=null;
   const {createScheduledGoal,updateScheduledGoal,getScheduledGoal}=await import('../src/services/scheduled-goals.js');
   const dynamic=await createScheduledGoal('owner-a',{agent_id:'fixture-coo',prompt:'Fixture dynamic plan',approve_plan:true});
   check(dynamic.execution_mode,'goal_plan','default mode is goal plan');check(dynamic.plan,null,'no plan generated during save without explicit plan');
