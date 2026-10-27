@@ -803,7 +803,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const reply = String(content || '').trim() || '(no response)';
     const evidence=floAssistRun?runEvidenceSummary(db(),ownerUserId,runId):null;
     const incomplete=evidence&&(evidence.errors>0||evidence.incomplete_sources>0||evidence.budget_exhausted||reply==='(no response)');
-    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) or app(s) with incomplete verification.${evidence.budget_exhausted?' Tool-call budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
+    const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) or app(s) with incomplete verification.${evidence.budget_exhausted?' Execution budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
     if(floAssistRun&&!incomplete)commitRunSourceAssessments(db(),ownerUserId,runId);
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)

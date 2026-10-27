@@ -62,6 +62,9 @@ try{
  for(let i=0;i<10;i++){const c=call('budget-other','error-'+i);admitNativeModel(c);finish(c,{status:'error',output_tokens:0,estimated:true});}
  assert.equal(getMemberBudgetStatus('budget-other',agent).state,'blocked');
  assert.throws(()=>admitNativeModel(call('budget-other','after-errors')),e=>e.code==='budget_exceeded');
+ assert.ok(db.prepare("SELECT 1 FROM native_model_budget_blocks WHERE run_key='limited'").get(),'budget refusal persists outside the rolled-back admission and cannot become successful coverage');
+ const {runEvidenceSummary}=await import('../src/services/floassist/source-receipts.js');
+ assert.equal(runEvidenceSummary(db,'budget-owner','limited').budget_exhausted,true);assert.equal(runEvidenceSummary(db,'budget-other','limited').budget_exhausted,false);
  const before=db.prepare('SELECT count(*) n FROM native_model_calls').get().n;
  assert.throws(()=>admitNativeModel({...call(),caller_agent_id:'t-budget-other--'+agent}),e=>e.status===403);assert.equal(db.prepare('SELECT count(*) n FROM native_model_calls').get().n,before);
  console.log('NATIVE_MODEL_BUDGET_OK: monthly reservations, once-only accounting, cache tokens, owner isolation, compaction/fallback/run caps, error budgets and transparent streaming');

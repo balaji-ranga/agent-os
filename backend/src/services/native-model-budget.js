@@ -14,6 +14,7 @@ export function ensureNativeModelBudget(db=getDb()){
  scheduled_run_id TEXT,provider TEXT,model TEXT,status TEXT NOT NULL,input_tokens INTEGER NOT NULL DEFAULT 0,
  output_tokens INTEGER NOT NULL DEFAULT 0,estimated INTEGER NOT NULL DEFAULT 1,reserved_tokens INTEGER NOT NULL DEFAULT 0,
  created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,test_budget_id TEXT);
+ CREATE TABLE IF NOT EXISTS native_model_budget_blocks(owner_id TEXT,agent_id TEXT,run_key TEXT,reason TEXT,created_at INTEGER,PRIMARY KEY(owner_id,agent_id,run_key,reason));
  CREATE TABLE IF NOT EXISTS native_model_test_budgets(id TEXT PRIMARY KEY,owner_id TEXT,agent_id TEXT,max_calls INTEGER,max_tokens INTEGER,expires_at INTEGER);
  CREATE TABLE IF NOT EXISTS native_model_test_sessions(session_key TEXT PRIMARY KEY,budget_id TEXT);
  CREATE INDEX IF NOT EXISTS native_model_calls_run ON native_model_calls(owner_id,agent_id,run_key);
@@ -51,17 +52,17 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
  ensureNativeModelBudget(db);const identity=nativeModelIdentity(input,db);
  if(!/^[a-zA-Z0-9:_-]{8,160}$/.test(input.id||'')||!input.run_id||String(input.run_id).length>200||!integer(input.input_tokens)||!integer(input.output_limit,1000000)||!input.output_limit)fail(400,'native_budget_input','Valid call identity and bounded numeric token estimates are required.');
  db.transaction(()=>recoverStaleReservations(db,identity,now))();
- return db.transaction(()=>{
+ const context=lookupSessionExecutionContext(identity.session,identity.owner)||{};
+ const persisted=resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web');
+ const scheduledRun=context.scheduled_goal_run_id||persisted?.run;
+ const runKey=String(scheduledRun||String(input.run_id).split(':compaction:')[0]);
+ try{return db.transaction(()=>{
   const prior=db.prepare('SELECT * FROM native_model_calls WHERE id=?').get(input.id);
   if(prior){if(prior.owner_id!==identity.owner||prior.agent_id!==identity.agent||prior.session_key!==identity.session)fail(403,'native_call_conflict','Call identity belongs to another owner/session.');if(prior.status!=='started')fail(409,'native_call_settled','This model call has already settled.');return {allowed:true,id:prior.id,output_limit:prior.reserved_tokens-prior.input_tokens};}
   const budget=enforceBudget(identity.owner,identity.agent,{action:'native_model'});
   if(budget.error)fail(503,'native_budget_unavailable','Native budget status is unavailable; no model request was started.');
   const prefsRow=db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get()?db.prepare("SELECT preferences_json FROM floassist_profiles WHERE owner_id=? AND agent_id=? AND status='active'").get(identity.owner,identity.agent):null;
   const prefs=JSON.parse(prefsRow?.preferences_json||'{}');
-  const context=lookupSessionExecutionContext(identity.session,identity.owner)||{};
-  const persisted=resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web');
-  const scheduledRun=context.scheduled_goal_run_id||persisted?.run;
-  const runKey=String(scheduledRun||String(input.run_id).split(':compaction:')[0]);
   // Include compaction/fallback requests in the scheduled run, not a new allowance.
   const sums=db.prepare("SELECT count(*) calls,COALESCE(sum(CASE WHEN status='started' THEN reserved_tokens ELSE input_tokens+output_tokens END),0) tokens FROM native_model_calls WHERE owner_id=? AND agent_id=? AND run_key=?").get(identity.owner,identity.agent,runKey);
   const callLimit=prefsRow?(prefs.model_call_budget??80):null,tokenLimit=prefsRow?(prefs.model_token_budget??2000000):null;
@@ -83,7 +84,10 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
   if(outputLimit<1)fail(429,'native_model_token_budget','Token budget reached for this request or owner; no further model request was started.');
   db.prepare('INSERT INTO native_model_calls VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(input.id,identity.owner,identity.agent,identity.session,runKey,scheduledRun||null,String(input.provider||'').slice(0,160),String(input.model||'').slice(0,160),'started',input.input_tokens,0,1,input.input_tokens+outputLimit,now,now,testBudget?.id||null);
   return {allowed:true,id:input.id,output_limit:outputLimit};
- })();
+ })();}catch(error){
+  if(error.code==='budget_exceeded'||String(error.code||'').startsWith('native_model_')||error.code==='native_test_budget_exhausted'||error.code==='native_budget_unavailable')db.prepare('INSERT OR REPLACE INTO native_model_budget_blocks VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,now);
+  throw error;
+ }
 }
 export function settleNativeModel(input,{db=getDb(),now=Date.now()}={}){
  ensureNativeModelBudget(db);const identity=nativeModelIdentity(input,db);

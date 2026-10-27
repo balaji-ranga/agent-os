@@ -219,6 +219,7 @@ export function recordRunError(error,{db=getDb(),context=currentFloAssistScope()
 export function runEvidenceSummary(db,owner,runId){
  ensureSourceReceipts(db);
  const hasContext=!!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_action_context'").get();
- const budgetExhausted=hasContext&&!!db.prepare("SELECT 1 FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=? AND a.reason_code='floassist_tool_budget_exhausted' LIMIT 1").get(owner,runId);
+ const nativeBudgetBlocked=!!db.prepare("SELECT 1 FROM sqlite_master WHERE name='native_model_budget_blocks'").get()&&!!db.prepare('SELECT 1 FROM native_model_budget_blocks WHERE owner_id=? AND run_key=? LIMIT 1').get(owner,runId);
+ const budgetExhausted=nativeBudgetBlocked||(hasContext&&!!db.prepare("SELECT 1 FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=? AND a.reason_code='floassist_tool_budget_exhausted' LIMIT 1").get(owner,runId));
  return {budget_exhausted:!!budgetExhausted,incomplete_sources:pendingSourceCoverage(db,owner,runId).length,errors:db.prepare('SELECT count(*) n FROM floassist_run_errors WHERE owner_id=? AND run_id=? AND resolved_at IS NULL').get(owner,runId).n,sources:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id NOT LIKE '@read:%'").get(owner,runId).n,reads:db.prepare("SELECT count(*) n FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND source_id LIKE '@read:%'").get(owner,runId).n};
 }
