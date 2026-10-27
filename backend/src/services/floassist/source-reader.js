@@ -1,3 +1,4 @@
+import {canonicalThreadInput} from './source-receipts.js';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from './execution-scope.js';
 import {resolveSourceReference,connectorReferenceInput} from './source-references.js';
@@ -82,6 +83,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    text=`Subject: ${latest.message.subject||''}\n${latest.message.messageText}`;
   }else if(app==='gmail'){
    if(!id){const list=await run('gmail.list_threads',{query:input.query||'newer_than:7d',maxResults:1});id=list.threads?.[0]?.threadId;if(!id)return {app_id:app,content_verified:true,empty:true,content:'',next_offset:null};}
+   id=canonicalThreadInput(db,owner,'gmail.fetch_message_by_thread_id',{threadId:id},scope).threadId;
    const data=await run('gmail.fetch_message_by_thread_id',{threadId:id});
    if(data.threadId!==id||!Array.isArray(data.messages)||data.messages.some(m=>typeof m.messageText!=='string'))fail('FLOASSIST_SOURCE_READ_FAILED','Complete matching Gmail thread content was not returned.');
    messages=data.messages.map(m=>({text:`Subject: ${m.subject||''}\n${m.messageText}`,at:m.messageTimestamp}));

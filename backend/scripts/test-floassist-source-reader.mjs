@@ -97,4 +97,6 @@ const reference=sourceReference(db,'a','gmail','real-thread',context);
 assert.equal((await readFloAssistSource('a',{app_id:'gmail',source_id:reference,task_id:2},projectedOptions)).content_verified,true);
 console.log('FLOASSIST_RUN_REFERENCES_OK: projected provider IDs and task-linked references resolve before identity comparison');
 rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'first'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'first');rememberRuntimeChannel({sessionKey:'same-chat',channel:'whatsapp',runId:'second'},now);assert.equal(runtimeRunId({sessionKey:'same-chat'},null,now),'second');assert.equal(runtimeRunId({sessionKey:'other-chat'},null,now),null);
+db.prepare('INSERT OR REPLACE INTO floassist_message_threads VALUES (?,?,?,?)').run('a','gmail','message-alias','real-thread');
+const messageRef=sourceReference(db,'a','gmail','message-alias',context);assert.equal((await readFloAssistSource('a',{app_id:'gmail',source_id:messageRef},projectedOptions)).source_id,'real-thread');
 db.close();
