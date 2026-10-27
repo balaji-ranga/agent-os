@@ -55,6 +55,9 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
  execute=execute||api.executeConnectorAction;readTransit=readTransit||api?.readConnectorTransitFile;
  return withFloAssistScope(scope,async()=>{
   let app=input.app_id,id=input.source_id;
+  // These reserved selectors cannot be Gmail provider IDs. Treat them as the
+  // bounded latest-draft operation; never reinterpret an actual specific ID.
+  if(input.kind==='draft'&&app==='gmail'&&['latest','most_recent','@latest'].includes(id))id=undefined;
   if(input.task_id){
    const task=db.prepare('SELECT app_id,source_id FROM floassist_task_tracking WHERE owner_id=? AND task_id=?').get(owner,input.task_id);
    if(!task)fail('FLOASSIST_SOURCE_NOT_FOUND','No source-backed task exists for this owner.',404);
