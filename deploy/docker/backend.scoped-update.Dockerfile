@@ -3,10 +3,13 @@
 # with only reviewed patches applied, not an older whole-repository checkout.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
+ARG SOURCE_REVISION=unversioned
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 COPY backend/src /opt/agent-os/backend/src
 COPY backend/package.json /opt/agent-os/backend/package.json
 COPY skills-catalog /opt/agent-os/skills-catalog
 COPY backend/scripts/test-* /opt/agent-os/backend/scripts/
+COPY backend/scripts/audit-floassist-native-efficiency.mjs /opt/agent-os/backend/scripts/
 COPY backend/scripts/grant-public-news-actions.mjs /opt/agent-os/backend/scripts/
 COPY openclaw-workspace-templates /opt/agent-os/openclaw-workspace-templates
 COPY scripts/lib/content-tools-allow.js /opt/agent-os/scripts/lib/content-tools-allow.js
