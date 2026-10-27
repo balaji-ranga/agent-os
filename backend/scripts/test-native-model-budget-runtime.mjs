@@ -21,7 +21,7 @@ try{
  const runtime=await import(join(dist,file));assert.equal(typeof runtime.t,'function','pinned wrapper export');
  const message={role:'assistant',content:[{type:'text',text:'fixture response'}],usage:{input:20,output:5,cacheRead:10,totalTokens:35},stopReason:'stop'};
  const upstream=async(_model,_context,options)=>{providerCalls++;assert.equal(options.maxTokens,100);return {[Symbol.asyncIterator]:async function*(){yield {type:'text_delta',delta:'fixture response'};yield {type:'done',message};},result:async()=>message};};
- const ctx={runId:'fixture-turn',sessionKey:'agent:t-fixture-owner--fixture-agent:whatsapp:fixture',provider:'fixture',model:'fixture',nextCallId:()=> 'fixture-model-call'};
+ const ctx={runId:'fixture-turn',sessionKey:'agent:t-fixture-owner--fixture-agent:whatsapp:fixture',provider:'fixture',model:'fixture',nextCallId:()=> 'fixture-model-call',trace:{traceId:'a'.repeat(32),spanId:'b'.repeat(16)}};
  const wrapped=runtime.t(upstream,ctx),stream=await wrapped({maxTokens:1000},{systemPrompt:'fixture',messages:[],tools:[]},{});
  const emitted=[];for await(const event of stream)emitted.push(event);assert.equal(emitted[1].message,message);assert.equal(await stream.result(),message);
  assert.equal(requests.filter(r=>String(r.url).endsWith('/admit')).length,1);assert.equal(requests.filter(r=>String(r.url).endsWith('/settle')).length,1);assert.equal(requests.at(-1).body.input_tokens,30);
