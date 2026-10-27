@@ -779,12 +779,12 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     );
     if(floAssistRun)for(let pass=0;pass<2;pass++){
       const pending=pendingSourceCoverage(db(),ownerUserId,runId),remaining=completionTimeout-(Date.now()-completionStarted);
-      if(!pending.length||remaining<1000||runEvidenceSummary(db(),ownerUserId,runId).errors>0)break;
+      if(!pending.length||remaining<1000)break;
       const hasActionContext=db().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_action_context'").get();
       const budgetStopped=hasActionContext&&db().prepare("SELECT 1 FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=? AND a.reason_code='floassist_tool_budget_exhausted'").get(ownerUserId,runId);
       if(budgetStopped)break;
       const requests=trackingReferenceResult(db(),ownerUserId,pending,{owner:ownerUserId,run:runId,origin:row.source});
-      const continuation=`Coverage is incomplete: source pages below remain unread. Continue this same bounded check. Call floassist_source_read with each exact next_request and follow its returned next_request until coverage_complete is true. Do not relist sources, re-read completed sources, repeat queued alerts or change task tracking preferences. Newly supported findings may be observed only after their source is complete. If a provider is incomplete without a next_request, report that blocker. Return the final outcome only after this review or an explicit tool/time budget stop. Remaining sources: ${JSON.stringify(requests)}`;
+      const continuation=`Coverage is incomplete: source pages below remain unread. Continue this same bounded check. Call floassist_source_read with each exact next_request and follow its returned next_request until coverage_complete is true. Do not relist sources, re-read completed sources, repeat queued alerts or change task tracking preferences. Newly supported findings and corrected earlier rejected observations may be submitted only after their source is complete. Use returned deadline_evidence references instead of rewriting passages. If a provider is incomplete without a next_request, report that blocker. Return the final outcome only after this review or an explicit tool/time budget stop. Remaining sources: ${JSON.stringify(requests)}`;
       const next=await openclaw.chatCompletions(openclawId,[...(checkContract?[checkContract]:[]),{role:'user',content:continuation}],sessionUser,false,{injectLearningsInstruction:false,injectKanbanInstruction:false,injectSessionHistoryInstruction:false,timeoutMs:remaining,retries:1});
       content=next.content;
     }

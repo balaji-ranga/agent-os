@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 // Full source text is transient: bounded process memory, never a DB body store.
 const reads=new Map(), TTL=30*60*1000, MAX_CHARS=2000000;
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
@@ -73,8 +74,8 @@ function clockMatches(text,due,zone){
   if(!times.length)for(const m of text.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g))times.push(Number(m[1])*60+Number(m[2]));
   return !times.length||times.includes(actual);
 }
-function endOfDay(day,zone){
- const target=Date.parse(day+'T23:59:59Z');let at=target;
+function endOfDay(day,zone,hour=23,minute=59,second=59){
+ const target=Date.parse(day+'T'+[hour,minute,second].map(n=>String(n).padStart(2,'0')).join(':')+'Z');let at=target;
  for(let i=0;i<3;i++){
   const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)).map(p=>[p.type,p.value]));
   const shown=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day),Number(parts.hour),Number(parts.minute),Number(parts.second));at=target-(shown-at);
@@ -83,10 +84,11 @@ function endOfDay(day,zone){
 }
 export function assertDeadlineEvidence(owner,context,input,zone,now=Date.now(),{historicalConfirmed=false}={}){
   trim(now);
-  const quote=norm(input.deadline_excerpt);
+  let quote=norm(input.deadline_excerpt);
+  const cached=reads.get(key(owner,context.run||context.session,input.app_id,input.source_id));
+  if(quote.startsWith('fa-evidence-'))quote=cached?.references?.get(quote)||'';
   const fail=message=>{throw Object.assign(new Error(message),{status:409,code:'FLOASSIST_DEADLINE_EVIDENCE_REQUIRED'});};
   if(quote.length<12||quote.length>1200||! /\b(by|before|due|deadline|submit|approve|renew|pay|reply|send|deliver|return|complete|finish)\b/.test(quote))fail('Supply deadline_excerpt: an exact short source passage stating the requested action and deadline. File metadata, message timestamps and a task title are not deadline evidence.');
-  const cached=reads.get(key(owner,context.run||context.session,input.app_id,input.source_id));
   if(!cached)fail('No complete readable source text is available for this deadline in the current run. Read the source content first; metadata/listing/export links alone cannot create or repeat a deadline task. Report unavailable document-content coverage rather than inventing a deadline.');
   const due=Date.parse(input.due_at);
   if(!Number.isFinite(due))fail('A valid obligation deadline is required.');
@@ -103,4 +105,27 @@ export function historicalDeadlineConfirmed(db,owner,input){
  if(!task)return false;
  const rows=db.prepare("SELECT evidence FROM kanban_user_action_audit WHERE owner_user_id=? AND task_id=? AND status='ok' AND action IN ('update','reopen') AND created_at>=datetime('now','-7 days') ORDER BY id DESC LIMIT 5").all(owner,task.task_id);
  return rows.some(r=>/\b(still required|still outstanding|still relevant|keep tracking|continue tracking)\b/i.test(r.evidence)&&! /\b(not|no longer|don't|do not|stop)\b/i.test(r.evidence));
+}
+
+// References avoid asking the model to retype source sentences. Every resolution
+// remains bound to the exact owner, run/session, app and source and is validated
+// by the same date/time checks as a literal passage.
+export function deadlineEvidenceSuggestions(owner,context,app,id,zone,segment,now=Date.now()){
+ trim(now);const cached=reads.get(key(owner,context.run||context.session,app,id));if(!cached)return [];
+ cached.references??=new Map();const output=[],text=norm(segment);
+ for(const match of text.matchAll(/\b(submit|approve|renew|pay|reply|send|deliver|return|complete|finish)\b/g)){
+  let end=text.indexOf('. ',match.index);if(end<0||end-match.index>300)end=Math.min(text.length,match.index+300);
+  const quote=text.slice(match.index,end).trim();if(quote.length<12)continue;
+  const message=cached.messages.find(m=>m.text.includes(quote));if(!message)continue;
+  const chosen=statedZone(quote,zone);if(!chosen)continue;const found=[...new Set(dates(quote,message.at,chosen))];if(found.length!==1)continue;
+  const times=[];for(const t of quote.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/g))times.push((Number(t[1])%12+(t[3]==='pm'?12:0))*60+Number(t[2]||0));
+  if(!times.length)for(const t of quote.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g))times.push(Number(t[1])*60+Number(t[2]));
+  const unique=[...new Set(times)];if(unique.length>1)continue;
+  const due=unique.length?endOfDay(found[0],chosen,Math.floor(unique[0]/60),unique[0]%60,0):endOfDay(found[0],chosen);
+  if(!clockMatches(quote,Date.parse(due),chosen))continue;
+  let reference=[...cached.references].find(([,q])=>q===quote)?.[0];
+  if(!reference){if(cached.references.size>=100)continue;reference='fa-evidence-'+createHash('sha256').update(JSON.stringify([owner,context.run||context.session,app,id,quote])).digest('hex').slice(0,16);cached.references.set(reference,quote);}
+  if(!output.some(r=>r.deadline_excerpt===reference))output.push({deadline_excerpt:reference,passage:quote,due_at:due,timezone:chosen});if(output.length>=4)break;
+ }
+ return output;
 }

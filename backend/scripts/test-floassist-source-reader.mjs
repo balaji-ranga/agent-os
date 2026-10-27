@@ -39,6 +39,7 @@ const execute=async(owner,action,input)=>{
 };
 const authorize=async(...args)=>authorizations.push(args);
 const options={db,context,execute,authorize,now,readTransit:async(owner,id)=>{assert.equal(owner,'a');assert.equal(id,'server-returned-transit-id');return Buffer.from(passage);}};
+let gmailEvidenceReference;
 for(const [app,id]of [['gmail',undefined],['outlook',undefined],['google_drive','doc'],['onedrive','file']]){
  calls=[];const out=await readFloAssistSource('a',{app_id:app,source_id:id},options);
  assert.equal(out.content_verified,true);assert.match(out.content,/Please submit/);assert.equal(out.next_offset,null);

@@ -301,8 +301,8 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
 
 export function completeToolExecution(action, { httpStatus, data }) {
   const observation = classifyToolObservation({ toolName: action.behaviour.tool_name, httpStatus, data, behaviour: action.behaviour });
-  const ledgerData=action.behaviour.tool_name==='floassist_source_read'?{...data,content:undefined,content_characters:data?.content?.length}:
-    data?.needs_reassessment?{...data,source:{...data.source,content:undefined,content_characters:data.source?.content?.length}}:data;
+  const ledgerData=action.behaviour.tool_name==='floassist_source_read'?{...data,content:undefined,deadline_evidence:data?.deadline_evidence?.map(({passage,...receipt})=>receipt),content_characters:data?.content?.length}:
+    data?.needs_reassessment?{...data,source:{...data.source,content:undefined,deadline_evidence:data.source?.deadline_evidence?.map(({passage,...receipt})=>receipt),content_characters:data.source?.content?.length}}:data;
   const redacted = redactForStorage(ledgerData);
   let stored = json(redacted, '{}');
   if (stored.length > 8000) {
