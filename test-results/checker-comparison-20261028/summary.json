@@ -1,0 +1,24 @@
+{
+  "acceptance": "failed",
+  "paid": {
+    "maker": "deepseek-v4-flash",
+    "checker": "gpt-4o-mini",
+    "passed": 8,
+    "total": 8,
+    "medianMs": 1159,
+    "p95Ms": 2374
+  },
+  "local": {
+    "checker": "flolah-checker-deepseek-structured",
+    "passed": 6,
+    "total": 8,
+    "medianMs": 31688,
+    "p95Ms": 38146
+  },
+  "medianSlowdown": 27.34,
+  "productionCheckerSwitched": false,
+  "envRestoredExactly": true,
+  "resourceQuotaRestored": 4,
+  "backupOnVps": "/opt/agent-os-backups/checker-local-20261028T121200Z",
+  "qualification": "Synthetic independent verdicts, not complete production goal-plan acceptance; ordinary mock-based regression timings are reported separately."
+}

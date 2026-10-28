@@ -1,0 +1,73 @@
+{
+  "stage": "local",
+  "requestedChecker": "flolah-checker-deepseek-structured",
+  "makerModel": "deepseek-v4-flash",
+  "makerCalls": 0,
+  "maker": [
+    {
+      "id": "valid_deadline",
+      "actualModel": "deepseek-flash",
+      "latencyMs": 1021,
+      "validJson": true,
+      "candidate": {
+        "id": "valid_deadline",
+        "expected": true,
+        "rules": "Only report the explicit deadline in its stated timezone.",
+        "source": "Submit the report by 28 October 2026 at 3 PM Singapore time.",
+        "candidate": {
+          "action": "Submit report",
+          "due_at": "2026-10-28T15:00:00+08:00"
+        }
+      }
+    },
+    {
+      "id": "complete_readonly_plan",
+      "actualModel": "deepseek-flash",
+      "latencyMs": 815,
+      "validJson": true,
+      "candidate": {
+        "id": "complete_readonly_plan",
+        "expected": true,
+        "rules": "Read supplied evidence, summarize it, and return a report. No external writes.",
+        "source": "Provided evidence says three invoices are awaiting review.",
+        "candidate": {
+          "steps": [
+            "read supplied evidence",
+            "summarize the three pending invoices",
+            "return report to user"
+          ],
+          "external_writes": false
+        }
+      }
+    }
+  ],
+  "checkerCalls": 2,
+  "passed": 1,
+  "total": 2,
+  "successRate": 0.5,
+  "wallModelMs": 115612,
+  "medianMs": 30389,
+  "p95Ms": 85223,
+  "results": [
+    {
+      "id": "wrong_timezone",
+      "expected": false,
+      "approved": false,
+      "passed": true,
+      "validSchema": true,
+      "actualModel": "flolah-checker-deepseek-structured",
+      "latencyMs": 30389,
+      "inputTokens": 136,
+      "outputTokens": 352
+    },
+    {
+      "id": "complete_readonly_plan",
+      "expected": true,
+      "passed": false,
+      "validSchema": false,
+      "latencyMs": 85223,
+      "error": "model_or_contract_failed"
+    }
+  ],
+  "scope": "Synthetic bounded independent verdicts; not complete production goal-plan acceptance; no implicit model fallback."
+}

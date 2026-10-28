@@ -1,0 +1,22 @@
+{
+  "suites": [
+    {
+      "suite": "floassist_final",
+      "passed": true,
+      "elapsedMs": 5990
+    },
+    {
+      "suite": "model_routes_final",
+      "passed": true,
+      "elapsedMs": 529
+    },
+    {
+      "suite": "dual_byok",
+      "passed": true,
+      "elapsedMs": 576
+    }
+  ],
+  "passed": 3,
+  "total": 3,
+  "scope": "Final narrow compatibility refinement; network disabled and synthetic fixtures only."
+}

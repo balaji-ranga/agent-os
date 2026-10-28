@@ -17,7 +17,7 @@ import {
 } from '../services/model-routing-registry.js';
 import { effectiveEfficiencyPlan, getEfficiencyPolicy, localEfficiencyModel } from '../services/efficiency-control-plane.js';
 import { executeEfficiency } from '../services/efficiency-execution.js';
-import { fetchEfficiencyOllama } from '../services/efficiency-ollama-transport.js';
+import { fetchEfficiencyOllama,fetchLocalCheckerOllama } from '../services/efficiency-ollama-transport.js';
 import { getLlmopsContext } from '../services/llmops-context.js';
 
 export function isLocalOllama(baseUrl) {
@@ -190,6 +190,12 @@ export async function resolveChatCompletionsConfig({
       using_byok: resolved.using_byok,
     };
     const effectiveModel = String(modelOverride || selected.model || '').trim();
+    // The explicit secondary checker must use its actual local deployment.
+    // Routing it through the generic gateway can silently invoke a paid fallback
+    // and loses native thinking/context/thread controls. Main chat is unchanged.
+    const selectedUrl=new URL(selected.baseUrl);
+    const nativeOllama=isLocalOllama(selected.baseUrl)&&(selectedUrl.hostname==='ollama'||selectedUrl.port==='11434'||cfg.provider==='ollama_free');
+    if(preference==='secondary'&&nativeOllama)return {cfg,effectiveModel,efficiencyMode:true,routeAlias:null,localCheckerTransport:true};
     // getLlmConfig presents the Admin-selected slot as primary and the other
     // slot as secondary. Map the logical preference back to the physical
     // registry alias so switching Active Slot also swaps maker/checker roles.
@@ -305,7 +311,7 @@ async function performChatCompletions({
     tool: toolName,
     agent: memberKey,
   });
-  const { cfg, effectiveModel, efficiencyMode, routeAlias = null } = _config || await resolveChatCompletionsConfig({
+  const { cfg, effectiveModel, efficiencyMode, routeAlias = null, localCheckerTransport = false } = _config || await resolveChatCompletionsConfig({
     ownerUserId,
     toolName,
     modelOverride,
@@ -336,7 +342,7 @@ async function performChatCompletions({
       tool: toolName || null,
     });
     const chatUrl = `${ep.baseUrl.replace(/\/$/, '')}/chat/completions`;
-    const fetchCompletion = _config?.utilityTransport === true && isLocalOllama(ep.baseUrl) ? fetchEfficiencyOllama : fetch;
+    const fetchCompletion = localCheckerTransport && isLocalOllama(ep.baseUrl) ? fetchLocalCheckerOllama : _config?.utilityTransport === true && isLocalOllama(ep.baseUrl) ? fetchEfficiencyOllama : fetch;
     const headers = { 'Content-Type': 'application/json' };
     if (ep.apiKey) headers.Authorization = `Bearer ${ep.apiKey}`;
     try {

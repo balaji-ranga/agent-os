@@ -1,0 +1,42 @@
+{
+  "image": "agent-os-backend:floassist-ux-v57-20261027",
+  "maker": "deepseek-v4-flash",
+  "checker": "gpt-4o-mini",
+  "suites": [
+    {
+      "suite": "floassist",
+      "passed": true,
+      "elapsedMs": 8819
+    },
+    {
+      "suite": "maker_checker_contract",
+      "passed": true,
+      "elapsedMs": 1245
+    },
+    {
+      "suite": "tenant_isolation",
+      "passed": true,
+      "elapsedMs": 2656
+    },
+    {
+      "suite": "action_policy",
+      "passed": false,
+      "elapsedMs": 738
+    },
+    {
+      "suite": "model_routes",
+      "passed": true,
+      "elapsedMs": 641
+    },
+    {
+      "suite": "router_planner",
+      "passed": true,
+      "elapsedMs": 3108
+    },
+    {
+      "suite": "steering_completion",
+      "passed": true,
+      "elapsedMs": 620
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "backend": {
+    "imageUnchanged": true,
+    "health": "healthy"
+  },
+  "openclaw": {
+    "imageUnchanged": true,
+    "health": "healthy"
+  },
+  "litellm": {
+    "imageUnchanged": true,
+    "health": "healthy"
+  },
+  "envRestoredExactly": true
+}

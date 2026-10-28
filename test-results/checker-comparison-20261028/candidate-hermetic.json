@@ -1,0 +1,57 @@
+{
+  "suites": [
+    {
+      "suite": "floassist",
+      "passed": true,
+      "elapsedMs": 5694
+    },
+    {
+      "suite": "maker_checker_contract",
+      "passed": true,
+      "elapsedMs": 791
+    },
+    {
+      "suite": "tenant_isolation",
+      "passed": true,
+      "elapsedMs": 1722
+    },
+    {
+      "suite": "action_policy",
+      "passed": true,
+      "elapsedMs": 1074
+    },
+    {
+      "suite": "model_routes",
+      "passed": true,
+      "elapsedMs": 1103
+    },
+    {
+      "suite": "router_planner",
+      "passed": true,
+      "elapsedMs": 2661
+    },
+    {
+      "suite": "steering_completion",
+      "passed": true,
+      "elapsedMs": 556
+    },
+    {
+      "suite": "local_checker_route",
+      "passed": true,
+      "elapsedMs": 526
+    },
+    {
+      "suite": "efficiency_transport",
+      "passed": true,
+      "elapsedMs": 378
+    },
+    {
+      "suite": "efficiency_controls",
+      "passed": true,
+      "elapsedMs": 922
+    }
+  ],
+  "passed": 10,
+  "total": 10,
+  "scope": "Isolated synthetic regressions; no provider inference, production data or network access."
+}

@@ -1,0 +1,1 @@
+{"passed": true, "elapsedMs": 873, "reason": "Original isolated harness omitted required internal-auth fixture; production policy was not changed."}

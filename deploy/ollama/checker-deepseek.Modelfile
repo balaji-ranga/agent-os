@@ -1,0 +1,28 @@
+# Experimental CPU checker profile; NOT approved as a paid-checker replacement.
+# See knowledgebase/LOCAL-CHECKER-EVALUATION-20261028.md for failed parity gates.
+# Source-controlled inference settings; never change base weights silently.
+FROM deepseek-r1:8b
+PARAMETER num_ctx 32768
+PARAMETER num_thread 6
+PARAMETER temperature 0
+# Restore the registry's native thinking-aware role template rather than the
+# stale Jinja template on the installed model. Tools remain disabled by callers.
+# Reference: https://ollama.com/library/deepseek-r1:8b/blobs/c5ad996bda6e
+TEMPLATE """{{- if .System }}{{ .System }}{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1}}
+{{- if eq .Role "user" }}<｜User｜>{{ .Content }}
+{{- else if eq .Role "assistant" }}<｜Assistant｜>
+{{- if and $.IsThinkSet (and $last .Thinking) -}}
+<think>{{ .Thinking }}</think>
+{{- end }}{{ .Content }}{{- if not $last }}<｜end▁of▁sentence｜>{{- end }}
+{{- end }}
+{{- if and $last (ne .Role "assistant") }}<｜Assistant｜>
+{{- if and $.IsThinkSet (not $.Think) -}}
+<think>
+
+</think>
+
+{{ end }}
+{{- end -}}
+{{- end }}"""
