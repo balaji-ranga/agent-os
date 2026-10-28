@@ -1,0 +1,12 @@
+{
+  "model": "llama3.2",
+  "cpusDuringTest": 6.0,
+  "threads": 6,
+  "context": 32768,
+  "originalCpus": 4.0,
+  "cpuQuotaRestored": true,
+  "productionImageUnchanged": true,
+  "productionEnvironmentUnchanged": true,
+  "productionRoutingChanged": false,
+  "productionCredentialsMounted": false
+}

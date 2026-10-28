@@ -1,0 +1,44 @@
+{
+  "scope": "Identical eight synthetic cases and recorded maker outputs; actual local secondary resolver; not complete production goal-plan acceptance.",
+  "paid": {
+    "model": "gpt-4o-mini",
+    "passed": 8,
+    "total": 8,
+    "medianMs": 1159,
+    "p95Ms": 2374
+  },
+  "deepseek": {
+    "model": "flolah-checker-deepseek-structured",
+    "passed": 6,
+    "total": 8,
+    "medianMs": 31688,
+    "p95Ms": 38146
+  },
+  "llama": {
+    "model": "llama3.2",
+    "passed": 6,
+    "total": 8,
+    "medianMs": 1266,
+    "p95Ms": 2667,
+    "warmupMs": 11136,
+    "failures": [
+      {
+        "case": "valid_deadline",
+        "expected": true,
+        "approved": false,
+        "validSchema": true
+      },
+      {
+        "case": "wrong_timezone",
+        "expected": false,
+        "approved": true,
+        "validSchema": true
+      }
+    ]
+  },
+  "llamaMedianSpeedupVsDeepseek": 25.03,
+  "llamaMedianRatioVsPaid": 1.09,
+  "llamaAcceptedAsSoleChecker": false,
+  "newPaidCalls": 0,
+  "productionRoutingChanged": false
+}

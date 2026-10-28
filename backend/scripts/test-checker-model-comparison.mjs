@@ -47,6 +47,11 @@ try{
   const saved=JSON.parse(readFileSync(join(output,'fixtures.json'),'utf8'));cases.splice(0,cases.length,...saved.cases);maker=saved.maker;
  }
  const ep=stage==='baseline'?cfg.secondary:{baseUrl:process.env.CHECKER_LOCAL_BASE_URL||'http://ollama:11434/v1',apiKey:'ollama',model:process.env.CHECKER_LOCAL_MODEL||process.env.DEEPSEEK_MODEL};
+ let warmup=null;
+ if(stage==='local'&&process.env.CHECKER_WARMUP==='1'){
+  const {result,latencyMs}=await call(ep,[{role:'system',content:'Reply only with a compact JSON object. No tools.'},{role:'user',content:'Return {"ready":true}.'}],128,'checker_benchmark_warmup');
+  warmup={latencyMs,actualModel:result.actualModel||result.modelUsed,finishReason:result.finishReason};
+ }
  const results=[];
  const selected=process.env.CHECKER_CASE_IDS?cases.filter(c=>process.env.CHECKER_CASE_IDS.split(',').includes(c.id)):cases;
  if(!selected.length)throw Error('No comparison cases selected');
@@ -61,7 +66,7 @@ try{
   }catch{results.push({id:item.id,expected:item.expected,passed:false,validSchema:false,latencyMs:Math.round(performance.now()-start),error:'model_or_contract_failed'});}
   writeFileSync(join(output,resultTag+'-progress.json'),JSON.stringify({stage,results},null,2),{mode:0o600});
  }
- const times=results.map(r=>r.latencyMs),report={stage,requestedChecker:ep.model,makerModel:cfg.primary.model,makerCalls:stage==='baseline'?maker.length:0,maker,checkerCalls:results.length,passed:results.filter(r=>r.passed).length,total:results.length,successRate:results.filter(r=>r.passed).length/results.length,wallModelMs:times.reduce((a,b)=>a+b,0),medianMs:percentile(times,.5),p95Ms:percentile(times,.95),results,scope:'Synthetic bounded independent verdicts; not complete production goal-plan acceptance; no implicit model fallback.'};
+ const times=results.map(r=>r.latencyMs),report={stage,requestedChecker:ep.model,makerModel:cfg.primary.model,makerCalls:stage==='baseline'?maker.length:0,maker,warmup,warmupCalls:warmup?1:0,checkerCalls:results.length,passed:results.filter(r=>r.passed).length,total:results.length,successRate:results.filter(r=>r.passed).length/results.length,wallModelMs:times.reduce((a,b)=>a+b,0),medianMs:percentile(times,.5),p95Ms:percentile(times,.95),results,scope:'Synthetic bounded independent verdicts; not complete production goal-plan acceptance; no implicit model fallback.'};
  writeFileSync(join(output,resultTag+'.json'),JSON.stringify(report,null,2),{mode:0o600});
  console.log('CHECKER_COMPARISON_RESULT '+JSON.stringify({...report,maker:undefined,results:undefined}));
 }finally{getDb().close();rmSync(root,{recursive:true,force:true});}
