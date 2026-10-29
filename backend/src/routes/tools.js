@@ -3669,6 +3669,7 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
     const base = {
       ownerUserId,
       agentId: caller?.id || 'balserve',
+      partial_goal: requestPayload.partial_goal,
       title: requestPayload.title || '',
       prompt,
       steps: requestPayload.steps || null,

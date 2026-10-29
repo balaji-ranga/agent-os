@@ -67,3 +67,4 @@ tmp-oc-*
 tmp-cf-*
 tmp-cheapflights-*
 t.js
+/test-results/partial-goal/

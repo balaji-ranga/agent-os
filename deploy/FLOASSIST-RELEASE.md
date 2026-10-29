@@ -22,6 +22,8 @@ When the operator requests no full deployment, build and recreate only affected 
 
 ## Native budget and timezone release gates
 
+Scheduled-goal partial execution requires the matching backend and frontend. The backend lazily adds `scheduled_goals.partial_goal` with default 0; per-run preferences live in durable goal context. No gateway schema or model-route change is required. Run `npm --prefix backend run test:goal-partial`, goal control/recovery, exception-policy and maker/checker contract regressions before a scoped backend/frontend release. Validate checkbox create/edit persistence, retained saved plans and partial run history against that frontend build. Keep the active gateway image intact, including its profile-clock fix.
+
 Both gateway Dockerfiles run `install-native-model-budget.mjs` against the pinned runtime. Keep this adaptation in the image build; never edit the installed SDK in a running gateway. Unsupported stream ABIs fail the build. The plugin's budget-reply and profile-timezone modules ship alongside its registered schemas and are covered by startup integrity verification.
 
 Run these additional tests in the built gateway image with `--network none`, no production volumes, and the committed backend test scripts available under `/opt/agent-os/backend/scripts/`:

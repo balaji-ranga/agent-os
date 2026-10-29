@@ -58,6 +58,8 @@ export function executeScheduledGoalList(ownerUserId, body = {}) {
       ends: g.ends_label,
       is_perpetual: g.is_perpetual,
       status: g.status,
+      partial_goal: g.partial_goal,
+      execution_mode: g.execution_mode,
       deliver_to: g.deliver_to,
       last_run_status: g.last_run_status,
       last_run_at: g.last_run_at,

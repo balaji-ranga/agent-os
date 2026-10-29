@@ -17,6 +17,7 @@ function statusClass(status) {
 
 const EMPTY_FORM = {
   execution_mode: 'goal_plan',
+  partial_goal: false,
   title: '',
   prompt: '',
   agent_id: '',
@@ -176,6 +177,7 @@ function ScheduledGoalsPanel() {
     setEditingId(g.id);
     setForm({
       execution_mode: g.execution_mode || 'goal_plan',
+      partial_goal: !!g.partial_goal,
       title: g.title || '',
       prompt: g.prompt || '',
       agent_id: g.agent_id || cooAgentId(agents),
@@ -259,6 +261,7 @@ function ScheduledGoalsPanel() {
     setError(null);
     const body = {
       execution_mode: agentIsCoo(agents, form.agent_id) ? form.execution_mode : 'direct_agent',
+      partial_goal: planForCoo && !!form.partial_goal,
       title: form.title || undefined,
       prompt: form.prompt,
       agent_id: form.agent_id,
@@ -275,6 +278,7 @@ function ScheduledGoalsPanel() {
       if (editingId) {
         await api.scheduledGoalsUpdate(editingId, {
           execution_mode: body.execution_mode,
+          partial_goal: body.partial_goal,
           title: body.title,
           prompt: body.prompt,
           agent_id: body.agent_id,
@@ -448,6 +452,10 @@ function ScheduledGoalsPanel() {
               <option value="direct_agent">Direct agent</option>
             </select>
             <small>{planForCoo ? 'Reuses the approved saved plan. With no saved plan, creates a plan when the schedule runs.' : 'Runs the prompt directly without creating a goal plan.'}</small>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <input type="checkbox" aria-label="Partial goal" checked={!!form.partial_goal && planForCoo} disabled={!planForCoo} onChange={ev=>setForm(f=>({...f,partial_goal:ev.target.checked}))} />
+            <span><strong>Partial goal</strong><small style={{ display: 'block' }}>{planForCoo ? 'Continue remaining steps after a step fails. Keep failures visible and report Partial success when some steps succeed. Required inputs and approvals still apply.' : 'Select Goal plan to continue individual steps after failure.'}</small></span>
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
@@ -767,7 +775,7 @@ function ScheduledGoalsPanel() {
                   <td data-label="Agent" style={{ padding: '0.5rem' }}>
                     <Link to={`/agents/${encodeURIComponent(g.agent_id)}/chat`}>{g.agent_name || g.agent_id}</Link>
                   </td>
-                  <td data-label="Schedule" style={{ padding: '0.5rem' }}>{g.schedule_label}<div>{g.execution_mode === 'direct_agent' ? 'Direct agent' : 'Goal plan'}</div></td>
+                  <td data-label="Schedule" style={{ padding: '0.5rem' }}>{g.schedule_label}<div>{g.execution_mode === 'direct_agent' ? 'Direct agent' : 'Goal plan'}{g.partial_goal ? ' · Partial goal' : ''}</div></td>
                   <td data-label="Ends" style={{ padding: '0.5rem' }}>{g.ends_label || (g.is_perpetual ? 'Perpetual' : g.ends_at)}</td>
                   <td data-label="Status" style={{ padding: '0.5rem' }}>
                     <span className={statusClass(g.status)}>{g.status}{g.plan_status && g.plan_status !== 'none' ? ` · plan ${g.plan_status}` : ''}</span>

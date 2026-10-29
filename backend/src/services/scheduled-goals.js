@@ -1,3 +1,4 @@
+import {resolvePartialGoal} from './goal-failure-mode.js';
 import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from './floassist/source-coverage.js';
 import {commitRunSourceAssessments,setRunAssessmentContext} from './floassist/assessment-cache.js';
 import {bindNativeTestBudget} from './native-model-budget.js';
@@ -164,6 +165,7 @@ function ensureScheduledGoalPlanCols() {
       db().exec("UPDATE scheduled_goals SET execution_mode='direct_agent' WHERE source LIKE 'floassist:%' OR agent_id IN (SELECT id FROM agents WHERE COALESCE(is_coo,0)=0)");
     }
     if (!cols.includes('plan_json')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_json TEXT');
+    if (!cols.includes('partial_goal')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN partial_goal INTEGER NOT NULL DEFAULT 0');
     if (!cols.includes('plan_status')) db().exec("ALTER TABLE scheduled_goals ADD COLUMN plan_status TEXT DEFAULT 'none'");
     if (!cols.includes('plan_feedback_json')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_feedback_json TEXT');
     if (!cols.includes('plan_version')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_version INTEGER DEFAULT 0');
@@ -277,6 +279,7 @@ export function serializeGoal(row) {
     last_run_at: row.last_run_at, last_run_status: row.last_run_status, last_run_error: row.last_run_error,
     last_run_key: row.last_run_key, run_count: row.run_count || 0, source: row.source,
     execution_mode: executionMode(row),
+    partial_goal: !!row.partial_goal,
     plan, plan_status: planStatusOf(row), plan_version: Number(row.plan_version) || 0,
     plan_feedback: feedback.slice(-10),
     deliver_to: normalizeDeliverTo(row.deliver_to),
@@ -340,6 +343,8 @@ export async function createScheduledGoal(ownerUserId, input = {}) {
   const execution_mode = normalizeExecutionMode(input.execution_mode ?? (agentAllowsScheduledGoalPlan(agent) ? 'goal_plan' : 'direct_agent'));
   if (execution_mode === 'goal_plan' && !agentAllowsScheduledGoalPlan(agent)) throw Object.assign(new Error('Goal plans require a COO agent'), {status:400});
   const allowsPlan = execution_mode === 'goal_plan';
+  const partial_goal=resolvePartialGoal(input.partial_goal,prompt);
+  if(partial_goal&&!allowsPlan)throw Object.assign(new Error('Partial goal requires Goal plan execution mode'),{status:400});
   const useClientPlan =
     allowsPlan &&
     clientSteps &&
@@ -363,10 +368,10 @@ export async function createScheduledGoal(ownerUserId, input = {}) {
   const id = newId();
   db().prepare(`INSERT INTO scheduled_goals (
     id, owner_user_id, title, prompt, agent_id, cadence, weekday,
-    time_local, timezone, ends_at, status, source, plan_json, plan_status, plan_version, deliver_to, execution_mode
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(
+    time_local, timezone, ends_at, status, source, plan_json, plan_status, plan_version, deliver_to, execution_mode, partial_goal
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`).run(
     id, ownerUserId, title, prompt, agent.id, cadence, weekday, time_local, timezone, ends_at,
-    status, source, plan ? JSON.stringify(plan) : null, plan_status, deliver_to, execution_mode
+    status, source, plan ? JSON.stringify(plan) : null, plan_status, deliver_to, execution_mode, Number(partial_goal)
   );
   console.log(`[scheduled-goals] created id=${id} owner=${ownerUserId} agent=${agent.id} status=${status} plan=${plan_status} deliver_to=${deliver_to}`);
   return serializeGoal(getGoalRow(id, ownerUserId));
@@ -453,6 +458,8 @@ export function updateScheduledGoal(ownerUserId, id, patch = {}) {
     if (p) prompt = p;
   }
   const execution_mode = normalizeExecutionMode(patch.execution_mode ?? executionMode(row));
+  const partial_goal=resolvePartialGoal(patch.partial_goal,prompt,{partial_goal:!!row.partial_goal});
+  if(partial_goal&&execution_mode!=='goal_plan')throw Object.assign(new Error('Partial goal requires Goal plan execution mode'),{status:400});
   let clearPlan = false;
   if (patch.agent_id || patch.agentId || patch.agent) {
     const nextAgent = resolveAgentForOwner(ownerUserId, patch.agent_id || patch.agentId || patch.agent);
@@ -495,13 +502,13 @@ export function updateScheduledGoal(ownerUserId, id, patch = {}) {
   if (clearPlan) {
     if (status === 'draft') status = 'paused';
     db().prepare(`UPDATE scheduled_goals SET title=?, prompt=?, agent_id=?, cadence=?, weekday=?,
-      time_local=?, timezone=?, ends_at=?, status=?, plan_json=NULL, plan_status='none', deliver_to=?, execution_mode=?, updated_at=datetime('now')
-      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, deliver_to, execution_mode, id, ownerUserId);
+      time_local=?, timezone=?, ends_at=?, status=?, plan_json=NULL, plan_status='none', deliver_to=?, execution_mode=?, partial_goal=?, updated_at=datetime('now')
+      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, deliver_to, execution_mode, Number(partial_goal), id, ownerUserId);
     console.log(`[scheduled-goals] updated id=${id} status=${status} cleared plan (non-COO agent)`);
   } else {
     db().prepare(`UPDATE scheduled_goals SET title=?, prompt=?, agent_id=?, cadence=?, weekday=?,
-      time_local=?, timezone=?, ends_at=?, status=?, deliver_to=?, execution_mode=?, updated_at=datetime('now')
-      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, deliver_to, execution_mode, id, ownerUserId);
+      time_local=?, timezone=?, ends_at=?, status=?, deliver_to=?, execution_mode=?, partial_goal=?, updated_at=datetime('now')
+      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, deliver_to, execution_mode, Number(partial_goal), id, ownerUserId);
     console.log(`[scheduled-goals] updated id=${id} status=${status}`);
   }
   return serializeGoal(getGoalRow(id, ownerUserId));
@@ -667,7 +674,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       source: 'scheduled_goal',
       scheduledGoalId: id,
       scheduledGoalRunId: runId,
-      context: { run_key: runKey, force },
+      context: { run_key: runKey, force, partial_goal:!!row.partial_goal },
     });
     try {
       planned = await planGoalStepsAsync(steeredPrompt, {
@@ -693,7 +700,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         source: 'scheduled_goal',
         scheduledGoalId: id,
         scheduledGoalRunId: runId,
-        context: { run_key: runKey, force },
+        context: { run_key: runKey, force, partial_goal:!!row.partial_goal },
         goalRunId: planningGoal?.id || null,
       });
       const g = started?.goal || getGoalRun(started?.goal?.id || started?.id, ownerUserId);
@@ -710,11 +717,16 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         (firstWf ? `First workflow run_id: ${firstWf} (async). Platform advances the plan on each workflow terminal.\n` : '') +
         `You do not need to re-trigger phase 1 unless the plan is agent_continue.`;
       try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
+      const durableStatus=g?.status==='completed'?'ok':g?.status==='partial_success'?'partial':['failed','cancelled'].includes(g?.status)?'error':'running';
+      const durableError=durableStatus==='error'?String(g?.error_message||g?.status||'Goal failed'):null;
       db().prepare(
-        `UPDATE scheduled_goals SET last_run_status='ok', last_run_error=NULL, run_count=COALESCE(run_count,0)+1, updated_at=datetime('now')
-         WHERE id=? AND owner_user_id=?`
-      ).run(id, ownerUserId);
-      db().prepare(`UPDATE scheduled_goal_runs SET status='ok', reply_preview=? WHERE id=?`).run(reply.slice(0, 2000), runId);
+        `UPDATE scheduled_goals SET last_run_status=?,last_run_error=?,updated_at=datetime('now')
+         WHERE id=? AND owner_user_id=? AND last_run_key=? AND last_run_status='running'`
+      ).run(durableStatus,durableError,id, ownerUserId,runKey);
+      db().prepare('UPDATE scheduled_goals SET run_count=COALESCE(run_count,0)+1 WHERE id=? AND owner_user_id=?').run(id,ownerUserId);
+      const runPreview=['completed','partial_success','failed','cancelled'].includes(g?.status)
+        ?`${g.status==='partial_success'?'Partial success':g.status}: ${(g.steps||[]).filter(s=>s.status==='completed').length}/${g.steps?.length||0} steps completed. Goal plan ${g.id}.`:reply.slice(0,2000);
+      db().prepare(`UPDATE scheduled_goal_runs SET status=?,reply_preview=?,error=? WHERE id=? AND status='running'`).run(durableStatus,runPreview,durableError,runId);
       if (isExpired(row.ends_at)) updateScheduledGoal(ownerUserId, id, { status: 'completed' });
       // Plan-mode: WhatsApp waits for the once-only completion nudge (completed/failed), not "plan started".
       return {
@@ -941,7 +953,7 @@ export function reconcileStuckScheduledGoalRuns(now = new Date()) {
         `UPDATE scheduled_goal_runs SET status = ?, reply_preview = COALESCE(?, reply_preview), error = COALESCE(?, error) WHERE id = ? AND status = 'running'`
       )
       .run(nextStatus, preview, err, row.id);
-    const goalStatus = nextStatus === 'ok' ? 'ok' : 'error';
+    const goalStatus = nextStatus === 'partial' ? 'partial' : nextStatus === 'ok' ? 'ok' : 'error';
     db()
       .prepare(
         `UPDATE scheduled_goals SET last_run_status = ?, last_run_error = ?, updated_at = datetime('now')

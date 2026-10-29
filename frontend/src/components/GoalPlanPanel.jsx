@@ -189,6 +189,7 @@ export default function GoalPlanPanel({
           }}
         />
       </div>
+      {goal.partial_goal ? <p style={{fontSize:'0.76rem',color:'var(--muted)',margin:'0 0 8px'}}>Partial goal: remaining steps continue after failure; failed steps stay visible.</p> : null}
       {goal.status === 'planning' ? (
         <div
           role="status"

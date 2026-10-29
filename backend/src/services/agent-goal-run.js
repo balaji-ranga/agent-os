@@ -67,6 +67,7 @@ import {
 import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
 import { qualityAssureGoalPlan, validateGoalPlanDraft } from './goal-plan-quality.js';
 import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
+import {resolvePartialGoal,partialGoalEnabled} from './goal-failure-mode.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { createMediaArtifact } from './ceo-media-artifacts.js';
 import { compactAgentWorkHistoryEvidence } from './agent-work-history.js';
@@ -291,6 +292,7 @@ export function hasUsefulPartialResult(result = {}) {
 
 export function terminalGoalStatusFromSteps(steps = []) {
   const list = Array.isArray(steps) ? steps : [];
+  if (list.some(step=>step.status==='failed')) return list.some(step=>step.status==='completed')?'partial_success':'failed';
   const hadPartial = list.some((step) => {
     const result = parseJson(step?.result_json ?? step?.result, {});
     return result?.partial_success === true;
@@ -1266,6 +1268,7 @@ export function serializeGoalRun(row, steps = null) {
     scheduled_goal_run_id: row.scheduled_goal_run_id,
     status: row.status,
     context: ctx,
+    partial_goal: partialGoalEnabled(row),
     plan_review: ctx.plan_review || null,
     current_step_index: row.current_step_index,
     error_message: row.error_message,
@@ -1372,7 +1375,9 @@ export function createGoalPlanningRun({
   scheduledGoalId = null,
   scheduledGoalRunId = null,
   context = {},
+  partial_goal,
 } = {}) {
+  context={...context,partial_goal:resolvePartialGoal(partial_goal,prompt,context)};
   ensureAgentGoalRunTables();
   const owner = String(ownerUserId || '').trim();
   const agent = String(agentId || '').trim();
@@ -1385,13 +1390,13 @@ export function createGoalPlanningRun({
   // the exact active request prevents a client retry from creating a second
   // durable goal while the first maker/checker is still working.
   const recent = db().prepare(
-    `SELECT id FROM agent_goal_runs
+    `SELECT id,context_json,prompt FROM agent_goal_runs
      WHERE owner_user_id=? AND agent_id=? AND prompt=?
        AND status IN ('planning','pending','running','awaiting_approval','awaiting_plan_review')
        AND COALESCE(scheduled_goal_run_id,'')=COALESCE(?,'')
        AND datetime(COALESCE(created_at,updated_at)) >= datetime('now','-10 minutes')
      ORDER BY datetime(COALESCE(created_at,updated_at)) DESC LIMIT 1`
-  ).get(owner, agent, String(prompt || ''), scheduledGoalRunId || null);
+  ).all(owner, agent, String(prompt || ''), scheduledGoalRunId || null).find(row=>partialGoalEnabled(row)===context.partial_goal);
   if (recent?.id) {
     const reused = getGoalRun(recent.id, owner);
     if (reused) reused.reused_active = true;
@@ -1693,8 +1698,10 @@ export function createGoalRun({
   scheduledGoalId = null,
   scheduledGoalRunId = null,
   context = {},
+  partial_goal,
   goalRunId = null,
 } = {}) {
+  context={...context,partial_goal:resolvePartialGoal(partial_goal,prompt,context)};
   ensureAgentGoalRunTables();
   const owner = String(ownerUserId || '').trim();
   const agent = String(agentId || '').trim();
@@ -2150,6 +2157,9 @@ export function assertRuntimeStepInputs(goalRunId, step) {
   }
   for (const dep of deps) {
     const row = byKey.get(String(dep));
+    // Order-only edges may continue after failure. Required data/artifacts
+    // below still demand a completed source and cannot be fabricated.
+    if (row?.status==='failed' && partialGoalEnabled(loadGoalRunRow(goalRunId))) continue;
     if (!row || row.status !== 'completed') throw new Error(`Required predecessor ${dep} is not completed`);
   }
   for (const input of required) {
@@ -2380,6 +2390,7 @@ export function bindWorkflowRunToGoalStep({ goalRunId, stepId, workflowRunId, ow
     err.status = 404;
     throw err;
   }
+
 
   // A cancelled run/step is immutable. This keeps Cancel and Retry safe when
   // an older synchronous executor returns after its work was superseded.
@@ -3158,6 +3169,20 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
     error_message: error ? String(error).slice(0, 1000) : null,
     completed_at: terminal ? new Date().toISOString() : null,
   });
+  if (terminal) {
+    const linked=loadGoalRunRow(goalRunId);
+    if (linked?.scheduled_goal_run_id) {
+      const rows=loadGoalSteps(goalRunId);
+      const successes=rows.filter(s=>s.status==='completed').length,failures=rows.filter(s=>s.status==='failed').length;
+      const runStatus=status==='completed'?'ok':status==='partial_success'?'partial':'error';
+      const preview=`${status==='partial_success'?'Partial success':status}: ${successes}/${rows.length} steps completed; ${failures} failed. Goal plan ${goalRunId}.`;
+      db().prepare('UPDATE scheduled_goal_runs SET status=?,reply_preview=?,error=? WHERE id=? AND owner_user_id=?')
+        .run(runStatus,preview,runStatus==='error'?String(error||status):null,linked.scheduled_goal_run_id,linked.owner_user_id);
+      db().prepare(`UPDATE scheduled_goals SET last_run_status=?,last_run_error=? WHERE id=? AND owner_user_id=?
+        AND last_run_key=(SELECT run_key FROM scheduled_goal_runs WHERE id=?)`)
+        .run(runStatus,runStatus==='error'?String(error||status):null,linked.scheduled_goal_id,linked.owner_user_id,linked.scheduled_goal_run_id);
+    }
+  }
   console.info('[goal-run] finished', { goalRunId, status });
   if (terminal) {
     const scope = db().prepare('SELECT owner_user_id FROM agent_goal_runs WHERE id=?').get(goalRunId);
@@ -3848,6 +3873,9 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
     throw err;
   }
 
+  if (['completed','partial_success','failed','cancelled'].includes(goal.status)) {
+    return {ok:true,skipped:true,done:true,reason:'terminal',goal:getGoalRun(goalRunId,ownerUserId)};
+  }
   const observation = observeStepResult(result || {});
   const resultPayload = { ...(result && typeof result === 'object' ? result : { result }), observation };
 
@@ -3936,6 +3964,21 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
         .run(JSON.stringify(spec), JSON.stringify(resultPayload), String(decision.reason).slice(0, 1000), stepId);
       touchGoalRun(goalRunId, { status: 'running' });
       return { ok: true, recovered: true, decision, goal: getGoalRun(goalRunId, ownerUserId) };
+    }
+
+    if (partialGoalEnabled(goal)) {
+      const reason=String(error||decision.reason||'Step failed').slice(0,1000);
+      resultPayload.continued_after_failure=true;
+      db().prepare("UPDATE agent_goal_steps SET status='failed',result_json=?,error_message=?,completed_at=datetime('now') WHERE id=?")
+        .run(JSON.stringify(resultPayload),reason,stepId);
+      recordMissionEvent({ownerUserId:goal.owner_user_id,goalRunId,event_type:'step_failed_continued',payload:{step_id:stepId,failure_class:classified.failure_class,reason}});
+      const remaining=loadGoalSteps(goalRunId).find(s=>['pending','running','awaiting_approval'].includes(s.status));
+      if (!remaining) {
+        completeGoalRun(goalRunId,{status:terminalGoalStatusFromSteps(loadGoalSteps(goalRunId)),error:reason});
+        return {ok:true,done:true,continued_after_failure:true,goal:getGoalRun(goalRunId,ownerUserId)};
+      }
+      touchGoalRun(goalRunId,{status:remaining.status==='awaiting_approval'?'awaiting_approval':'running',current_step_index:remaining.step_index,error_message:null});
+      return {ok:true,recovered:true,done:false,continued_after_failure:true,goal:getGoalRun(goalRunId,ownerUserId)};
     }
 
     // Preserve useful evidence and continue independent downstream work after
@@ -4560,6 +4603,7 @@ export async function onDelegationTerminalForGoalRun(taskId) {
   if (completion?.recovered) {
     return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
   }
+  if (completion?.continued_after_failure && completion.done) return completion;
   if (failed) {
     return { ok: false, failed: true, goal_run_id: goal.id, task_id: Number(taskId) };
   }
@@ -5213,6 +5257,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     if (completion?.recovered) {
       return startGoalRunExecution(goalRunId, { ownerUserId: goal.owner_user_id });
     }
+    if (completion?.continued_after_failure && completion.done) return completion;
     return { ok: false, error: msg, goal: getGoalRun(goal.id, goal.owner_user_id) };
   }
 }
@@ -5255,6 +5300,7 @@ export async function onWorkflowTerminalForGoalRun(workflowRunId) {
     return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
   }
 
+  if (completion?.continued_after_failure && completion.done) return completion;
   if (!failed) {
     try {
       return await startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
