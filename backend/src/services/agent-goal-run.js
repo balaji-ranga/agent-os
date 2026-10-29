@@ -3390,7 +3390,8 @@ function resetPlanningGoal(goal) {
 
 function resetExecutionGoal(goal, steps, retryStep) {
   const retryIndex = Number(retryStep.step_index);
-  const resetRows = steps.filter((step) => Number(step.step_index) >= retryIndex);
+  const resetRows = steps.filter((step) => Number(step.step_index) >= retryIndex &&
+    !(partialGoalEnabled(goal) && step.status==='completed' && !step.error_message && !parseJson(step.result_json,{})?.partial_success));
   db().transaction(() => {
     for (const step of resetRows) {
       db().prepare('DELETE FROM agent_goal_steps WHERE id=? AND goal_run_id=?').run(step.id, goal.id);

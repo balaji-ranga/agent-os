@@ -7,7 +7,7 @@ const originalFetch=globalThis.fetch;let networkCalls=0;
 globalThis.fetch=async()=>{networkCalls++;throw new Error('Unexpected network/model request');};
 const {getDb}=await import('../src/db/schema.js');
 const {resolvePartialGoal,promptRequestsPartialGoal}=await import('../src/services/goal-failure-mode.js');
-const {ensureAgentGoalRunTables,createGoalPlanningRun,createGoalRun,getGoalRun,completeGoalStep,startGoalRunExecution,assertRuntimeStepInputs,terminalGoalStatusFromSteps}=await import('../src/services/agent-goal-run.js');
+const {ensureAgentGoalRunTables,createGoalPlanningRun,createGoalRun,getGoalRun,completeGoalStep,startGoalRunExecution,retryGoalRun,terminalGoalStatusFromSteps}=await import('../src/services/agent-goal-run.js');
 const {createScheduledGoal,updateScheduledGoal,getScheduledGoal}=await import('../src/services/scheduled-goals.js');
 const {upsertExceptionPolicy}=await import('../src/services/exception-policy.js');
 ensureAgentGoalRunTables();const db=getDb(),owner='partial-owner',agent='partial-coo';
@@ -55,6 +55,10 @@ try {
  db.prepare("UPDATE scheduled_goals SET last_run_key=?,last_run_status='running' WHERE id=?").run(key,schedule.id);
  const scheduled=create(true,'Scheduled acceptance',{scheduledGoalId:schedule.id,scheduledGoalRunId:runId});await startGoalRunExecution(scheduled.id,{ownerUserId:owner});
  const history=db.prepare('SELECT * FROM scheduled_goal_runs WHERE id=?').get(runId);assert.equal(history.status,'partial');assert.match(history.reply_preview,/2\/4 steps completed/);assert.equal(getScheduledGoal(owner,schedule.id).last_run_status,'partial');
+ const oldSuccessIds=output.goal.steps.filter(s=>s.status==='completed').map(s=>s.id);
+ const retryPartial=await retryGoalRun(enabled.id,owner,{executeGoal:async()=>({ok:true})});
+ assert.deepEqual(retryPartial.goal.steps.filter(s=>s.status==='completed').map(s=>s.id),oldSuccessIds,'retry must not repeat successful later actions');
+ assert.deepEqual(retryPartial.goal.steps.map(s=>s.status),['pending','completed','pending','completed']);
  await new Promise(r=>setTimeout(r,20));assert.equal(networkCalls,0);
  console.log('PARTIAL_GOAL_OK: real execution continues failures, retains errors, guards required inputs, retries/policies/owner boundaries, ad hoc directives, opt-out defaults, saved-plan toggle and partial scheduled history; zero model/network calls');
 } finally {globalThis.fetch=originalFetch;db.close();rmSync(dir,{recursive:true,force:true});}

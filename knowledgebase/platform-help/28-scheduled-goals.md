@@ -250,6 +250,8 @@ See `tests/REGRESSION.md` and `knowledgebase/TESTING.md`.
 
 In **Goal plan** mode, enable **Partial goal** to attempt remaining steps after a step fails and its configured retries finish. Failed steps and their errors remain visible. If some steps succeed, the final result and schedule history show **Partial success**; if every step fails, the result is **Failed**. The option is off by default and does not regenerate an approved saved plan.
 
+Retrying a partial goal preserves successful later steps and their original results; it does not replay those completed actions.
+
 For an ad hoc goal, include: “Continue remaining steps even if a step fails. Report partial success and list failed steps.” The execution preference is saved with that goal and survives retries/restarts. An explicit `partial_goal` boolean in goal creation or `context.partial_goal` takes precedence over prompt inference.
 
 Required input/artifact checks and action policies still apply. A failed step cannot supply a missing document or authorize another action. Independent later work can continue. Approval requests continue to wait for approval. Direct agent mode has no platform-managed step sequence, so the checkbox requires Goal plan mode.
