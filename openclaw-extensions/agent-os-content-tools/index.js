@@ -1107,24 +1107,30 @@ export default definePluginEntry({
         const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
           ? "Current FloAssist read capability: use floassist_source_read for connected email, files and calendar content. Latest Gmail draft: {app_id: gmail, kind: draft}. Existing task source: {task_id: exact task number}. Do not replay invented action names or failed calls from older conversation history. If a current tool result is non-retryable, stop that attempt and provide one concise final explanation, not another equivalent call." : "";
         const timezoneContext=async()=>{
-          if(runtimeChannel(ctx,api.context)!=='whatsapp'||!isToolAllowedForAgent(recoveryAgent,'floassist_source_read',ctx?.sessionKey))return '';
+          // Profile metadata is not a source-read capability. Native resumed,
+          // compacted and cron turns need it even without channel/tool metadata.
+          // The broker endpoint derives owner/agent from the trusted session and
+          // returns enabled:false for agents without an active FloAssist profile.
+          const sessionKey=ctx?.sessionKey||safeApiSessionKey(api);
+          if(!sessionKey)return '';
           const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
           try{
-            const sessionKey=ctx?.sessionKey||safeApiSessionKey(api);
             const response=await fetch(base+'/api/tools/native-model-budget/profile-context',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify({session_key:sessionKey}),signal:AbortSignal.timeout(3000)});
             if(response.ok)return profileTimezoneHint(await response.json());
           }catch{}
           return profileTimezoneHint({enabled:true,timezone_available:false});
         };
         const [timezoneHint,result] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx)]);
-        const personalContext=[timezoneHint,recoveryHint].filter(Boolean).join('\n');
-        if (!result?.matched) return personalContext ? { prependContext: personalContext } : undefined;
+        const personalContext=recoveryHint;
+        const clockContext=timezoneHint?{appendSystemContext:timezoneHint}:{};
+        if (!result?.matched) return timezoneHint||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};
         const lead = result.lead || {};
         const classification = result.classification || {};
         const suppression = classification.outcome_type === "opt_out";
         const companyUser = result.identity?.kind === "company_user";
         return {
+          ...clockContext,
           prependContext: [
             personalContext,
             "Trusted Agent OS campaign attribution:",

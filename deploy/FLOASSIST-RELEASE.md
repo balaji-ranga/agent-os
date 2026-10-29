@@ -29,6 +29,8 @@ Run these additional tests in the built gateway image with `--network none`, no 
 - `node /opt/agent-os/backend/scripts/test-native-model-budget-runtime.mjs`
 - `node /opt/agent-os/backend/scripts/test-floassist-reply-hooks-runtime.mjs`
 
+Timezone context is appended to the system prompt on every trusted native session turn. Do not gate this metadata on WhatsApp channel discovery or the source-reader tool grant: resumed/compacted turns and reminder-only grants can omit them. The authenticated profile endpoint remains authoritative for owner/agent/profile matching. Preserve this hook test when updating OpenClaw or changing prompt hooks; a missing lookup must request the profile timezone rather than assume UTC.
+
 These fixtures exercise the installed SDK and actual hook registration with synthetic metadata/providers, without reading user sessions or calling a model. The ordinary `npm --prefix backend run test:floassist` suite separately covers owner isolation, timezone changes, refusal correlation and failure-preserving messages. Use the management browser harness against a fresh frontend build to verify one Company Tools link, all four internal tabs and desktop/mobile layouts.
 
 On Windows, package committed source with `git -c core.autocrlf=false archive` so exported files match the manifest's Git blobs. Verify the complete source manifest before building. The focused cutover script defaults to a 600-second per-service startup allowance and captures private startup diagnostics before automatic rollback; do not replace that with an unverified container patch or shorten it below the gateway's observed cold-start time.

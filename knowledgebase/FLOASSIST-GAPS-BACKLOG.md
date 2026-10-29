@@ -1,6 +1,20 @@
 # FloAssist gaps backlog
 
-Updated: 27 October 2026 (Asia/Singapore).
+Updated: 29 October 2026 (Asia/Singapore).
+
+## 29 October — native timezone regression and Gmail attachment capability
+
+The profile clock hook incorrectly depended on WhatsApp channel metadata and the `floassist_source_read` grant, and supplied the clock as ordinary conversation context. Sparse resumed/compacted turns or reminder-only grants could therefore omit it. The fix queries authenticated owner/agent profile metadata independently of these conditions and appends the current profile clock to system context. The installed-plugin harness covers changed timezone in an existing session, missing channel metadata, restricted session tools, inactive profiles and failed lookups. A failed lookup requests a verified timezone instead of assuming UTC. Production reply acceptance remains a live test; prompt injection alone cannot guarantee every generated date is correct.
+
+The live Gmail catalogue has `create_draft`, `create_email_draft`, `update_draft` and full-message reads, but no attachment input on draft actions and no attachment-download action. Full-message responses expose attachment metadata; FloAssist's bounded source reader currently extracts only message text. These are missing connector/reader capabilities, not evidence of an OAuth denial or a model failure. Do not claim attachment support or retry invented action names.
+
+## FA-GAP-013 — Gmail attachment reads and draft attachments
+
+Priority: High. Status: diagnosed; not implemented.
+
+Implement owner-scoped attachment retrieval and bounded document extraction without injecting binary/base64 files into the model context. Add attachment inputs to draft creation and safe updates through the existing connector execution and policy path. Preserve existing MIME attachments, inline parts, recipients, reply headers and thread identity when updating; the existing upstream text-only MIME rebuild must not be used to update an attachment-bearing draft. No implicit send, extra OAuth account or broad cross-user file lookup is permitted.
+
+Acceptance: synthetic MIME round trips; Unicode filenames; inline and downloaded parts; PDF/text extraction bounds; oversized/unsupported files; same-owner transient file access; wrong-owner denial; Advisory/Managerial approval enforcement; preservation of existing draft parts; no email send during draft tests. Follow with a controlled test draft and known attachment in the actual owner's mailbox. OAuth scope errors must be reported separately from unsupported formats/actions.
 
 This backlog records observed gaps, not implemented capabilities. Related scope: [implementation and testing](FLOASSIST-IMPLEMENTATION-AND-TESTING.md).
 
