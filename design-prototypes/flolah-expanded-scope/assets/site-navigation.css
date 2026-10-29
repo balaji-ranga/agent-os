@@ -1,0 +1,31 @@
+/* Native disclosure remains usable without JavaScript. Desktop navigation is unchanged. */
+.mobile-nav { display: none; }
+@media (max-width: 1280px) {
+  .nav-inner { position: relative; gap: 12px; }
+  .nav-inner > .nav-links, .nav-inner > .nav-cta { display: none; }
+  .mobile-nav { display: block; margin-left: auto; }
+  .mobile-nav > summary {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 76px; min-height: 44px; padding: 8px 16px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--paper); color: var(--ink); font: inherit;
+    font-weight: 750; cursor: pointer; list-style: none;
+  }
+  .mobile-nav > summary::-webkit-details-marker { display: none; }
+  .mobile-nav > summary::after { content: '+'; margin-left: 10px; }
+  .mobile-nav[open] > summary::after { content: '−'; }
+  .mobile-nav > summary:focus-visible, .mobile-nav-links a:focus-visible {
+    outline: 3px solid var(--blue); outline-offset: 3px;
+  }
+  .mobile-nav-links {
+    position: absolute; top: calc(100% - 2px); left: 0; right: 0;
+    display: flex; flex-direction: column; gap: 4px; padding: 12px;
+    max-height: calc(100vh - 90px); max-height: calc(100dvh - 90px);
+    overflow-y: auto; overscroll-behavior: contain;
+    border: 1px solid var(--line); border-radius: 16px;
+    background: var(--paper); box-shadow: var(--shadow);
+  }
+  .mobile-nav-links a { display: flex; align-items: center; min-height: 44px; padding: 10px 14px; border-radius: 10px; }
+  .mobile-nav-links a:hover { background: rgba(47,104,255,.08); }
+  .mobile-nav-links .button { margin-top: 6px; }
+}
