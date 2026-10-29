@@ -1,6 +1,6 @@
 /* Native disclosure remains usable without JavaScript. Desktop navigation is unchanged. */
 .mobile-nav { display: none; }
-@media (max-width: 1100px) {
+@media (max-width: 1280px) {
   .nav-inner { position: relative; gap: 12px; }
   .nav-inner > .nav-links, .nav-inner > .nav-cta { display: none; }
   .mobile-nav { display: block; margin-left: auto; }

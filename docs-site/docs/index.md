@@ -22,4 +22,6 @@ Follow the sections in order if you are new:
 
 Already logged in? Open **Platform Help** in the product for the same topics in chat, or use the sidebar here.
 
+**Planned scope expansion:** [Physical AI, humans and digital agents](/systems/physical-ai) explains how supported equipment and robots would extend the existing Company OS, with a [three-phase implementation plan](/systems/physical-ai-implementation-plan).
+
 **Sign in:** [https://login.flolah.cloud](https://login.flolah.cloud)

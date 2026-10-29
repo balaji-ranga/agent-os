@@ -14,6 +14,6 @@ document.querySelectorAll('.mobile-nav').forEach(menu => {
   document.addEventListener('click', event => {
     if (menu.open && !menu.contains(event.target)) menu.open = false;
   });
-  const desktop = window.matchMedia('(min-width: 1101px)');
+  const desktop = window.matchMedia('(min-width: 1281px)');
   desktop.addEventListener('change', () => { if (desktop.matches) menu.open = false; });
 });

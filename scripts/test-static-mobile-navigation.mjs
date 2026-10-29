@@ -24,7 +24,7 @@ if(liveOrigin&&liveOrigin!=='https://flolah.cloud')throw Error('Live acceptance 
 const origin=liveOrigin||`http://127.0.0.1:${server.address().port}`;
 let browser,checks=0;
 const check=(actual,expected,label)=>{assert.deepEqual(actual,expected,label);checks++;};
-const links=[['Docs','/docs/'],['Vision','/vision.html'],['Free Tools','/free-tools/']];
+const links=[['Docs','/docs/'],['Vision','/vision.html'],['Open Agents Ecosystem','/free-tools/']];
 try{
  browser=await chromium.launch({channel:'chrome',headless:true});
  const context=await browser.newContext();
@@ -35,7 +35,7 @@ try{
   for(const width of [320,375,390,620,768,900,901,1024,1100,1101,1280,1440]){
    await page.setViewportSize({width,height:568});await page.goto(origin+source);
    const menu=page.locator('.mobile-nav'),summary=menu.locator('summary');
-   const mobile=width<=1100;
+   const mobile=width<=1280;
    check(await summary.isVisible(),mobile,`${source} ${width}: mobile disclosure`);
    check(await page.locator('.nav-inner').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,`${source} ${width}: header fits`);
    if(!mobile){check(await page.locator('.nav-inner > .nav-links').isVisible(),true,'Desktop links preserved');continue;}
@@ -63,7 +63,7 @@ try{
    await page.waitForURL(url=>url.pathname===path);check(new URL(page.url()).pathname,path,`Click ${label} navigates`);
   }
   await page.goto(origin+source);await page.locator('.mobile-nav summary').click();
-  await page.setViewportSize({width:1280,height:768});await page.waitForFunction(()=>!document.querySelector('.mobile-nav').open);checks++;
+  await page.setViewportSize({width:1440,height:768});await page.waitForFunction(()=>!document.querySelector('.mobile-nav').open);checks++;
   await page.setViewportSize({width:390,height:568});check(await page.locator('.mobile-nav').evaluate(el=>el.open),false,'Resize does not restore stale open menu');
  }
  const noJs=await browser.newContext({javaScriptEnabled:false,viewport:{width:320,height:480}}),fallback=await noJs.newPage();

@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Flolah is the operating system for a company of AI agents—built for solo founders and lean teams." />
+  <meta name="description" content="Flolah is the AI Company OS for human-led work, expanding to unite AI employees, supported physical agents and connected devices in governed workflows." />
   <link rel="icon" type="image/png" href="/assets/flolah-mark.png" />
   <link rel="apple-touch-icon" href="/assets/flolah-mark.png" />
-  <title>Flolah — Your AI Agent Company</title>
+  <title>Flolah — Humans. AI employees. Physical AI. One OS.</title>
   <style>
     :root {
       --ink: #17233c;
@@ -242,6 +242,42 @@
       section { padding: 70px 0; }
       .panel { padding: 20px; }
     }
+
+    /* Scope preview: retain the existing Flolah visual system. */
+    .hero { gap: 36px; padding-top: 54px; }
+    h1 { font-size: clamp(2.9rem, 5.2vw, 4.7rem); line-height: 1.04; }
+    .scope-stage { padding: 28px; border: 1px solid var(--line); border-radius: 32px; background: linear-gradient(150deg,#fff,#eef5ff 65%,#e8faf5); box-shadow: var(--shadow); }
+    .scope-stage .stage-head { font-size: .7rem; letter-spacing: .08em; gap: 10px; }
+    .scope-tag { display:inline-block; font-size:.65rem; font-weight:750; padding:5px 9px; border-radius:20px; background:#fff0d3; color:#78500c; letter-spacing:0; }
+    .scope-tag.current { background:#def6ee; color:#19634d; }
+    .scope-human { display:flex; align-items:center; justify-content:center; gap:16px; padding:28px 0 8px; }
+    .scope-human small,.scope-core small { font-size:.67rem; letter-spacing:.12em; font-weight:800; }
+    .scope-symbol { font-size:3rem; color:var(--blue); }
+    .scope-human h3 { margin:5px 0; font-size:1.4rem; }
+    .scope-human p { margin:0; color:var(--muted); font-size:.8rem; }
+    .scope-spine { text-align:center; color:var(--blue); font-size:1.8rem; }
+    .scope-core { text-align:center; color:white; padding:22px; border-radius:22px; background:linear-gradient(120deg,#284cc7,#326bea); }
+    .scope-core h2 { font-size:2.7rem; margin:10px 0; }
+    .scope-core p { margin:0; font-size:.85rem; color:#e3ecff; }
+    .scope-branches { display:flex; justify-content:space-around; color:var(--blue); font-size:2rem; }
+    .scope-workers { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .scope-workers>div { background:#fff; border:1px solid var(--line); padding:17px 10px; border-radius:16px; text-align:center; }
+    .scope-workers h3 { margin:10px 0 5px; font-size:1.05rem; }
+    .scope-workers p { margin:0; font-size:.75rem; color:var(--muted); }
+    .scope-proof { border-top:1px solid var(--line); margin-top:22px; padding-top:17px; font-size:.7rem; text-align:center; color:var(--muted); }
+    .expanded-section { background:rgba(228,239,255,.4); border-block:1px solid var(--line); }
+    .actor-number { font-size:.7rem; letter-spacing:.09em; color:#3555a7; font-weight:800; }
+    .actor-grid .feature { border-top:3px solid var(--blue); }
+    .actor-grid .feature:last-child { border-top-color:#168376; }
+    .scope-note { font-size:.85rem; color:var(--muted); margin:25px 0 0; max-width:850px; }
+    .experience-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    .experience-grid h3 { font-size:1.7rem; line-height:1.2; margin-top:16px; }
+    .experience-grid p { color:var(--muted); }
+    .feature .phase-gate { margin-top:20px; padding-top:15px; border-top:1px solid var(--line); font-size:.82rem; }
+    @media(max-width:900px) { .hero { grid-template-columns:1fr; } .nav-links { display:none; } }
+    @media(max-width:620px) { .experience-grid { grid-template-columns:1fr; } .scope-stage { padding:18px; } .scope-stage .stage-head { flex-wrap:wrap; } .work-item { grid-template-columns:32px 1fr; } .work-item .status { grid-column:2; width:max-content; } .story { padding:24px; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } .reveal { transition:none; } .node { animation:none; } }
+
   </style>
   <link rel="stylesheet" href="/assets/site-navigation.css" />
   <script src="/assets/site-navigation.js" defer></script>
@@ -256,11 +292,11 @@
       <div class="nav-links">
         <a href="#evolution">Why now</a>
         <a href="#how">How it works</a>
-        <a href="#platform">Platform</a>
-        <a href="vision.html">Vision</a>
+        <a href="#platform">Platform</a><a href="#expanded-scope">Physical AI</a>
+        <a href="/vision.html">Vision</a>
         <a href="/blog/">Blog</a>
         <a href="/docs/">Docs</a>
-        <a href="/free-tools/">Free Tools</a>
+        <a href="/free-tools/">Open Agents Ecosystem</a>
       </div>
       <a class="button primary nav-cta" href="#contact">Build your agent company</a>
       <details class="mobile-nav">
@@ -268,11 +304,11 @@
         <div class="mobile-nav-links" aria-label="Mobile navigation">
           <a href="#evolution">Why now</a>
           <a href="#how">How it works</a>
-          <a href="#platform">Platform</a>
+          <a href="#platform">Platform</a><a href="#expanded-scope">Physical AI</a>
           <a href="/vision.html">Vision</a>
           <a href="/blog/">Blog</a>
           <a href="/docs/">Docs</a>
-          <a href="/free-tools/">Free Tools</a>
+          <a href="/free-tools/">Open Agents Ecosystem</a>
           <a class="button primary" href="#contact">Build your agent company</a>
         </div>
       </details>
@@ -284,28 +320,68 @@
       <div>
         <img class="hero-logo" src="assets/flolah-logo-transparent.png" alt="Flolah — Automate, Innovate, Elevate" />
         <span class="eyebrow"><span class="pulse"></span> Automate. Innovate. Elevate.</span>
-        <h1>Your company is one person. <span class="gradient">Your team does not have to be.</span></h1>
-        <p class="lead">Flolah is the operating system for an AI agent company. Create specialist agents, delegate work in plain language, track progress, and safely offer finished capabilities to customers and partners.</p>
+        <h1>Human direction.<br><span class="gradient">Digital &amp; physical work.</span><br>One OS.</h1>
+        <p class="lead">Flolah is the <strong>AI Company OS</strong>. Build a team of AI employees, connect your business systems, and keep humans in the loop. Flolah brings supported robots and devices into the same governed workflows—so digital and physical work move together.</p>
         <div class="hero-actions">
-          <a class="button primary" href="#how">See how Flolah works →</a>
+          <a class="button primary" href="#expanded-scope">Explore the expanded OS →</a>
           <a class="button secondary" href="/docs/">Read the docs</a>
         </div>
-        <div class="microcopy">Built for solo founders, lean teams, and operators who need a full organisation without full headcount.</div>
+        <div class="microcopy"><strong>Humans. AI employees. Physical AI.</strong> One platform for Business and Home.</div>
       </div>
 
-      <div class="org-stage" aria-label="Example AI agent organisation">
-        <div class="stage-head"><div class="stage-title">Your always-on agent company</div><span class="live">● Operating</span></div>
-        <div class="org">
-          <div class="line l1"></div><div class="line l2"></div><div class="line l3"></div><div class="line l4"></div><div class="line l5"></div>
-          <div class="node ceo"><div class="avatar">👤</div><div><strong>You — CEO</strong><small>Set direction & approve</small></div></div>
-          <div class="node coo"><div class="avatar">🧭</div><div><strong>COO Agent</strong><small>Routes work to specialists</small></div></div>
-          <div class="node research"><div class="avatar">🔎</div><div><strong>Research</strong><small>Finds & synthesises</small></div></div>
-          <div class="node ops"><div class="avatar">⚙️</div><div><strong>Operations</strong><small>Runs repeatable work</small></div></div>
-          <div class="node growth"><div class="avatar">📈</div><div><strong>Growth</strong><small>Plans & executes</small></div></div>
-          <div class="node connector"><div class="avatar">🔌</div><div><strong>Tools + Workflows</strong><small>APIs, MCP, apps and approvals</small></div></div>
-        </div>
+      <div class="scope-stage" aria-label="Humans, digital AI and physical AI connected through Flolah">
+        <div class="stage-head"><strong>THE FLOLAH OPERATING MODEL</strong><span class="scope-tag">One shared OS</span></div>
+        <div class="scope-human"><span class="scope-symbol">◎</span><div><small>HUMANS IN THE LOOP</small><h3>You set direction.</h3><p>Your people approve, act and handle exceptions.</p></div></div>
+        <div class="scope-spine" aria-hidden="true">↓</div>
+        <div class="scope-core"><small>THE SHARED PLATFORM</small><h2>Flolah OS</h2><p>Agents · Knowledge · Workflows<br>Policies · Approvals · Evidence</p></div>
+        <div class="scope-branches" aria-hidden="true">↙ <span>↘</span></div>
+        <div class="scope-workers"><div><span class="scope-tag current">Digital work</span><h3>AI employees</h3><p>Research, operations,<br>CRM, ERP and digital tools</p></div><div><span class="scope-tag">Physical work</span><h3>Physical AI</h3><p>Supported robots, devices<br>and local edge execution</p></div></div>
+        <div class="scope-proof">Request → Authorize → Execute → Verify → Human review</div>
       </div>
     </header>
+
+
+    <section id="expanded-scope" class="expanded-section">
+      <div class="shell">
+        <div class="section-head"><div class="kicker">An expanded scope. The same Company OS.</div><h2>Three kinds of work.<br>One accountable system.</h2><p>Keep the organization, knowledge, tools and workflows you already rely on. Extend their reach into the physical world, with people responsible for direction and consequential decisions.</p></div>
+        <div class="feature-grid actor-grid">
+          <article class="feature"><div class="actor-number">01 / HUMAN</div><h3>People lead.</h3><p>Define outcomes, assign authority, approve sensitive actions and complete hands-on work. Human participation stays part of the workflow.</p></article>
+          <article class="feature"><div class="actor-number">02 / DIGITAL</div><h3>AI employees coordinate.</h3><p>Your COO and specialists plan, use permitted tools, update business systems and bring decisions back to the right person.</p></article>
+          <article class="feature"><div class="actor-number">03 / PHYSICAL</div><h3>Physical agents act.</h3><p>Supported robots take on observable tasks. Connected devices provide approved actions and signals. A sensor or switch is a resource, not an autonomous employee.</p></article>
+        </div>
+        <p class="scope-note"><strong>Governed by design.</strong> Device and robot support depends on compatible adapters, equipment and permissions. Local controllers retain safety controls and emergency stops.</p>
+      </div>
+    </section>
+    <section id="physical-work">
+      <div class="shell">
+        <div class="story">
+          <div><div class="kicker" style="color:#8ff1e3">Example workflow / Flolah Business</div><h2>“Close the shop.<br>Show me what needs attention.”</h2><p>One outcome crosses software, the premises and your team. Every step has an owner, a permission boundary and evidence of its result.</p><span class="scope-tag">Humans + digital agents + physical agents</span></div>
+          <div class="workflow">
+            <div class="work-item"><div class="mini">01</div><div><strong>Digital employee</strong><br><small>Summarize permitted sales and inventory records</small></div><span class="status">Digital</span></div>
+            <div class="work-item"><div class="mini">02</div><div><strong>Human manager</strong><br><small>Approve the routine and assign a premises check</small></div><span class="status">Human</span></div>
+            <div class="work-item"><div class="mini">03</div><div><strong>Supported physical agent</strong><br><small>Clean an approved area; report progress and exceptions</small></div><span class="status">Physical</span></div>
+            <div class="work-item"><div class="mini">04</div><div><strong>Shared completion record</strong><br><small>Verify observed outcomes; escalate unfinished work</small></div><span class="status">Evidence</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="home-business" class="expanded-section">
+      <div class="shell">
+        <div class="section-head"><div class="kicker">One platform. More places to help.</div><h2>From the business<br>to the spaces around it.</h2></div>
+        <div class="experience-grid">
+          <article class="panel"><div class="kicker">Flolah Business</div><h3>Your Company OS, with a wider reach.</h3><p>Continue running digital operations with your AI team. Physical integrations connect shop, office and service workflows to supported equipment and robots.</p></article>
+          <article class="panel"><div class="kicker">Flolah Home</div><h3>Everyday routines, thoughtfully coordinated.</h3><p>Bring household members, digital assistants and supported devices together for routines such as preparing for guests—with explicit permissions and clear exceptions.</p></article>
+        </div>
+        <div class="takeaway">Shared platform capabilities. <em>Separate household and business data, roles and permissions.</em></div>
+      </div>
+    </section>
+    <section id="physical-roadmap">
+      <div class="shell">
+        <div class="section-head"><div class="kicker">Explore the architecture</div><h2>One OS. Connected execution.<br>Human oversight.</h2><p>See how Flolah connects people, AI employees and supported physical agents through shared workflows, permissions and observable outcomes.</p></div>
+        <a class="button primary" href="/docs/systems/physical-ai/">Explore physical AI in the docs →</a>
+        <a class="button secondary" href="/docs/systems/physical-ai-implementation-plan/">Implementation roadmap →</a>
+      </div>
+    </section>
 
     <section id="evolution">
       <div class="shell">
@@ -394,8 +470,8 @@
 
     <section id="free-tools">
       <div class="shell">
-        <div class="section-head reveal"><div class="kicker">Free Tools</div><h2>Explore the open agent ecosystem.</h2><p>Useful public resources from Flolah, protected for reliable community access.</p></div>
-        <div class="feature-grid"><article class="feature reveal"><div class="icon">✺</div><h3>FloAssist</h3><p>Your free personal assistant on WhatsApp. Connect your apps, get reminders and briefings, and manage your day with your Flolah COO.</p><a class="button primary" href="/free-tools/floassist/">Set up FloAssist →</a></article><article class="feature reveal"><div class="icon">🌌</div><h3>MCP Universe</h3><p>Search approved Model Context Protocol servers, inspect provenance, transports and declared capabilities, or submit your MCP for review.</p><a class="button primary" href="/free-tools/mcp-universe/">Explore MCP Universe →</a></article></div>
+        <div class="section-head reveal"><div class="kicker">Open Agents Ecosystem</div><h2>An open ecosystem for agents, tools and skills.</h2><p>Discover useful agents, connect through MCP, and explore reusable skills. Build on shared capabilities with clear permissions and human oversight.</p></div>
+        <div class="feature-grid"><article class="feature reveal"><div class="icon">✺</div><h3>FloAssist</h3><p>Your free personal assistant on WhatsApp. Connect your apps, get reminders and briefings, and manage your day with your Flolah COO.</p><a class="button primary" href="/free-tools/floassist/">Set up FloAssist →</a></article><article class="feature reveal"><div class="icon">🌌</div><h3>MCP Universe</h3><p>Search approved Model Context Protocol servers, inspect provenance, transports and declared capabilities, or submit your MCP for review.</p><a class="button primary" href="/free-tools/mcp-universe/">Explore MCP Universe →</a></article><article class="feature reveal"><div class="icon" aria-hidden="true">✧</div><h3>Skills Universe</h3><p>Discover reusable agent procedures for operations, sales, finance and more. Inspect their source, license and required capabilities before choosing a skill for your team.</p><a class="button primary" href="/free-tools/skills-universe/">Explore Skills Universe →</a></article></div>
       </div>
     </section>
 
@@ -405,7 +481,7 @@
           <img class="cta-logo" src="assets/flolah-logo-transparent.png" alt="Flolah" />
           <div class="kicker">The next company can start smaller</div>
           <h2>Build a company that feels fully staffed from day one.</h2>
-          <p>Flolah gives solo founders and lean operators a home base to build, operate, govern, and share an organisation of AI agents.</p>
+          <p>Bring your people, AI employees and supported physical agents together. Direct the outcome, govern execution and keep every step visible on one shared platform.</p>
           <a href="https://login.flolah.cloud" class="button primary">Start with Flolah →</a>
         </div>
       </div>

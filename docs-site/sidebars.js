@@ -56,6 +56,8 @@ const sidebars = {
         'systems/copilot-workflows',
         'systems/digital-adoption',
         'systems/connectors-and-mcp',
+        'systems/physical-ai',
+        'systems/physical-ai-implementation-plan',
         'systems/company-email-channels',
         'systems/mcp-universe',
         'systems/agent-exchange',
