@@ -24,10 +24,13 @@ try{
  // Resumed/compacted native turns can omit the channel, and calendar/reminder
  // tools do not require floassist_source_read to obtain profile metadata.
  const sparseSession=`agent:${id}:sparse`;
- writeFileSync(join(root,'agent-tool-session-allowlists.json'),JSON.stringify({[sparseSession]:{allow:[]}}));
+ writeFileSync(join(root,'agent-tool-session-allowlists.json'),JSON.stringify({[sparseSession]:{tools:[],expires_at:new Date(Date.now()+3600000).toISOString()}}));
  const sparse=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{agentId:id,sessionKey:sparseSession});
  assert.match(sparse.appendSystemContext,/Asia\/Kolkata/);
  assert.ok(!sparse.prependContext,'timezone must not depend on ordinary conversation context');
+ const restricted=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{agentId:id,sessionKey:sparseSession,channelId:'whatsapp'});
+ assert.match(restricted.appendSystemContext,/Asia\/Kolkata/);
+ assert.ok(!restricted.prependContext,'source-reader guidance stays absent when the session denies source tools');
  profileEnabled=false;
  const inactive=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{agentId:id,sessionKey:sparseSession});
  assert.ok(!inactive?.appendSystemContext,'unregistered agents must not inherit another profile timezone');
