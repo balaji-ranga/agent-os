@@ -20,6 +20,7 @@ import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 import { validateWorkflowInput } from './workflow-input-schema.js';
 import { listAgentMcpCapabilitySummaries } from './agent-mcp-tool-grants.js';
 import { requestedBrowserDriver } from './goal-plan-tool-args.js';
+import {synthesisNeedsGrounding,suppliedTextSource} from './goal-synthesis-grounding.js';
 import { compactAgentSkillManifest } from './agent-skills.js';
 
 const STEP_TYPES = new Set([
@@ -239,7 +240,7 @@ export function safeGoalClarificationPlan() {
   ]);
 }
 
-export function validateTypedGoalPlan(steps, catalog) {
+export function validateTypedGoalPlan(steps, catalog, {prompt=''} = {}) {
   const errors = [];
   if (!Array.isArray(steps) || !steps.length) return { ok: false, errors: ['Plan has no steps'] };
   const keys = new Set();
@@ -269,6 +270,9 @@ export function validateTypedGoalPlan(steps, catalog) {
     }
     dependencies.set(step.key, [...(step.depends_on || [])]);
     const ancestors = ancestorsOf(step.key);
+    if(step.type==='agent_continue'&&synthesisNeedsGrounding(step.label,step.spec)&&!suppliedTextSource(prompt).length&&!suppliedTextSource(step.spec?.message).length&&!steps.some(s=>ancestors.has(s.key)&&['agent_tool','workflow_trigger','specialty_task','human_task'].includes(s.type))) {
+      errors.push(`Step ${step.key} requests factual synthesis without an upstream source-read step. agent_continue cannot read email, tasks or calendars; add authorized source reads and bind their outputs before synthesis.`);
+    }
     for (const req of step.required_inputs || []) {
       if (req.source_step_key && !keys.has(req.source_step_key)) errors.push(`Step ${step.key} input ${req.key} has invalid source ${req.source_step_key}`);
       if (req.source_step_key && keys.has(req.source_step_key) && !ancestors.has(req.source_step_key)) {
@@ -969,7 +973,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       catalog
     ),
     validate: steps => {
-      const structural = validateTypedGoalPlan(steps, catalog);
+      const structural = validateTypedGoalPlan(steps, catalog,{prompt});
       const errors = [
         ...structural.errors,
         ...validateExplicitBrowserExecutor(steps, prompt, catalog),

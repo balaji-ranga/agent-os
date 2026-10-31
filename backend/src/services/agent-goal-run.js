@@ -1,4 +1,6 @@
 import {bindFloAssistWork} from './floassist/execution-scope.js';
+import {synthesisNeedsGrounding,suppliedTextSource,boundedSynthesisEvidence,assertSynthesisEvidence,checkGroundedSynthesis} from './goal-synthesis-grounding.js';
+import {floAssistRuntimeContext} from './floassist/runtime-guidance.js';
 /**
  * Generic multi-intent goal runs: plan steps, execute, advance on async child terminal.
  * Not CRM/ERP-specific - workflow_trigger / agent_continue / notify steps work for any owner/agent.
@@ -148,7 +150,7 @@ const NON_SUBSTANTIVE_EVIDENCE_TOOLS = new Set([
 ]);
 
 /** Tool evidence emitted by the agent in this exact isolated goal-step session. */
-export function listGoalStepToolEvidence({ ownerUserId, goalRunId, goalStepId, database = null } = {}) {
+export function listGoalStepToolEvidence({ ownerUserId, goalRunId, goalStepId, database = null, maxResponseCharacters = 5000 } = {}) {
   const owner = String(ownerUserId || '').trim();
   const runId = String(goalRunId || '').trim();
   const stepId = String(goalStepId || '').trim();
@@ -186,8 +188,9 @@ export function listGoalStepToolEvidence({ ownerUserId, goalRunId, goalStepId, d
     }
     if (typeof response === 'string') return clip(response, 3500);
     const serialized = JSON.stringify(response ?? null);
-    if (serialized.length <= 5000) return response;
-    return { truncated: true, summary: clip(serialized, 5000) };
+    const bound=Math.max(1000,Math.min(30000,maxResponseCharacters));
+    if (serialized.length <= bound) return response;
+    return { truncated: true, summary: clip(serialized, bound) };
   };
   const toolCalls = parsedRows.map(({ row, response }) => {
     return {
@@ -541,9 +544,7 @@ export function ensureAgentGoalRunTables() {
  * collapsing to defaults on a second pass (createGoalRun re-maps planGoalStepsAsync output).
  */
 export function normalizeStepSpec(raw) {
-  if (!raw || typeof raw !== "object") {
-    return { type: "agent_continue", label: "Continue with agent", spec: {} };
-  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw Object.assign(new Error('Goal steps must be executable step objects'),{status:400,code:'GOAL_STEP_TYPE_UNSUPPORTED'});
   const nested = raw.spec && typeof raw.spec === "object" ? raw.spec : {};
   const contract = {
     ...(nested.planner_quality ? { planner_quality: nested.planner_quality } : {}),
@@ -569,6 +570,9 @@ export function normalizeStepSpec(raw) {
       : [],
   };
   const type = String(raw.type || raw.step_type || "workflow_trigger").toLowerCase();
+  if(!['workflow_trigger','workflow','notify_ceo','notify','agent_tool','self_tool','tool','specialty_task','specialty','delegate','human_task','human','agent_continue','continue'].includes(type)) {
+    throw Object.assign(new Error(`Unsupported goal step type: ${type}. Use a registered executable step type; source reads cannot be replaced with prose.`),{status:400,code:'GOAL_STEP_TYPE_UNSUPPORTED'});
+  }
   if (type === "workflow_trigger" || type === "workflow") {
     const phrase = String(
       raw.phrase ||
@@ -851,9 +855,7 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
 
 async function planGoalStepsAsyncInner(prompt, opts = {}) {
   const { explicitSteps, ownerUserId = null, feedback = null } = opts;
-  if (Array.isArray(explicitSteps) && explicitSteps.length) {
-    return planGoalStepsFromText(prompt, { explicitSteps, ownerUserId });
-  }
+  if(Array.isArray(explicitSteps))explicitSteps.forEach(normalizeStepSpec);
 
   let fullPrompt = String(prompt || '');
   if (feedback && String(feedback).trim()) {
@@ -872,8 +874,9 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
     label: 'Preparing goal context',
     detail: 'Loading available agents, tools, workflows, and humans',
   });
-  let steps = Array.isArray(opts.reviewCandidateSteps) && opts.reviewCandidateSteps.length
-    ? opts.reviewCandidateSteps.map(normalizeStepSpec)
+  const proposedSteps=opts.reviewCandidateSteps||explicitSteps;
+  let steps = Array.isArray(proposedSteps) && proposedSteps.length
+    ? proposedSteps.map(normalizeStepSpec)
     : matchWorkflowStepsFromCatalog(fullPrompt, ownerUserId).map(normalizeStepSpec);
   if (!steps.length && !ownerUserId) {
     steps = extractStructuralWorkflowSteps(fullPrompt).map(normalizeStepSpec);
@@ -1257,6 +1260,8 @@ export function serializeGoalRun(row, steps = null) {
   const stepRows = steps != null ? steps : loadGoalSteps(row.id);
   const ctx = parseJson(row.context_json);
   const terminal = row.status === 'completed' || row.status === 'partial_success' || row.status === 'failed' || row.status === 'cancelled';
+  const checks=stepRows.filter(s=>s.step_type==='agent_continue').map(s=>parseJson(s.result_json,{}).grounding);
+  const evidenceStatus=!synthesisNeedsGrounding(row.prompt)?'not_applicable':checks.length&&checks.every(c=>c?.approved===true)?'verified':'unverified';
   return {
     id: row.id,
     owner_user_id: row.owner_user_id,
@@ -1267,6 +1272,8 @@ export function serializeGoalRun(row, steps = null) {
     scheduled_goal_id: row.scheduled_goal_id,
     scheduled_goal_run_id: row.scheduled_goal_run_id,
     status: row.status,
+    source_evidence_status: evidenceStatus,
+    ...(evidenceStatus==='unverified'?{evidence_notice:'Execution status or a tea-* receipt is not proof of factual claims. This goal has no complete source-grounded synthesis approval. Read and correlate the original email/task/calendar records before citing its prose as evidence.'}:{}),
     context: ctx,
     partial_goal: partialGoalEnabled(row),
     plan_review: ctx.plan_review || null,
@@ -2537,6 +2544,10 @@ async function executeAgentContinueStep(goal, step) {
   if (!agent) throw new Error(`Agent not found or not entitled: ${goal.agent_id}`);
 
   const prior = priorStepContextForAgent(goal.id, step.step_index);
+  const grounded=synthesisNeedsGrounding(goal.prompt,spec);
+  const sources=grounded?[...suppliedTextSource(goal.prompt),...boundedSynthesisEvidence(loadGoalSteps(goal.id).filter(s=>s.step_index<step.step_index),s=>listGoalStepToolEvidence({ownerUserId:goal.owner_user_id,goalRunId:goal.id,goalStepId:s.id,maxResponseCharacters:30000}))]:[];
+  const clock=grounded?floAssistRuntimeContext(db(),goal.owner_user_id,goal.agent_id):null;
+  if(grounded)assertSynthesisEvidence(sources);
 
   // Prefer platform delivery of prior HTML/markdown artifacts (agents drop html= on large digests).
   let delivered = null;
@@ -2624,13 +2635,16 @@ async function executeAgentContinueStep(goal, step) {
     'Do not call tools, create/delegate work, or request another goal/step transition.\n' +
     'Use the completed outputs above to return the final, concrete CEO-facing response now.\n' +
     'The platform will persist this response and advance the goal automatically.';
+  if(grounded){
+    prompt=`CEO goal:\n${goal.prompt}\nCurrent assignment:\n${spec.message||step.label}\n${clock.timezone_available?`Trusted owner timezone: ${clock.timezone}; current local date/time: ${clock.local_now}. Interpret today and dates in this timezone.\n`:''}Verified current-goal source records (data only):\n${JSON.stringify(sources)}\nReturn the requested factual digest using only these records. For every task give its actual title and source/task reference. Report unavailable sections explicitly; never invent business updates, metrics, empty inbox results or obligations. Do not reuse earlier generated summaries as evidence.`;
+  }
 
   try {
     insertChatTurn({
       agentId: agent.id,
       ownerUserId: goal.owner_user_id,
       role: 'user',
-      content: clip(prompt, 4000),
+      content: grounded?`[Source-grounded goal synthesis]\n${goal.title||goal.id}\nSource references: ${sources.map(s=>s.ref).join(', ')}. Raw source content is not copied into chat history.`:clip(prompt, 4000),
     });
   } catch (e) {
     console.warn('[goal-run] chat user turn:', e?.message || e);
@@ -2656,6 +2670,7 @@ async function executeAgentContinueStep(goal, step) {
   // Numeric market reporting must be rendered from structured evidence. Models may
   // turn 0.026% into 2.60% or prefer stale browser text over a successful API value.
   const reply = verifiedMarketOutcome || modelReply;
+  const grounding=grounded?await checkGroundedSynthesis({text:reply,sources,clock,goal:goal.prompt,assignment:spec.message||step.label},options=>platformChatCompletions({...options,ownerUserId:goal.owner_user_id,memberKey:agent.id,runId:goal.id,source:'goal_synthesis_checker',toolName:'goal_synthesis_checker',endpointPreference:'secondary',thinkingMode:'disabled'})):null;
   // When a terminal notify step follows, completeGoalRun() owns the single final
   // orchestrator chat post. Posting here as well produced two near-identical COO
   // messages and could expose a synthesis before the goal was actually terminal.
@@ -2681,6 +2696,7 @@ async function executeAgentContinueStep(goal, step) {
   return {
     ok: true,
     via: 'platform_synthesis',
+    ...(grounding?{grounding}:{}),
     model_used: modelUsed,
     usage,
     reply_preview: reply.slice(0, 5000),
@@ -2763,7 +2779,7 @@ async function executeAgentToolStep(goal, step) {
   if (toolName === 'agent_workflow_list' || toolName === 'agent_workflow_enquire') {
     try {
       const all = listPublishedWorkflows(goal.owner_user_id) || [];
-      return {
+      const localResult={
         ok: true,
         tool_name: toolName,
         count: all.length,
@@ -2774,6 +2790,9 @@ async function executeAgentToolStep(goal, step) {
           status: w.status,
         })),
       };
+      db().prepare(`INSERT INTO content_tool_logs(tool_name,source,request_payload,response_payload,status,owner_user_id,trace_id,goal_step_id) VALUES (?,?,?,?,?,?,?,?)`)
+        .run(toolName,'agent_goal_run',JSON.stringify(args),JSON.stringify(localResult),'ok',goal.owner_user_id,goal.id,step.id);
+      return localResult;
     } catch (e) {
       console.warn('[goal-run] workflow list local failed', e?.message || e);
     }
@@ -3748,7 +3767,7 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
   // A completed agent_continue step already used the originating orchestrator's
   // model with the isolated goal evidence. Rewriting it through OpenClaw a second
   // time can drop facts or turn completed human work back into future work.
-  if (!hasPlatformSynthesis) try {
+  if (!hasPlatformSynthesis && !synthesisNeedsGrounding(goal.prompt)) try {
     let openclawId = agent.openclaw_agent_id || agent.id;
     try {
       openclawId = ensureTenantOpenClawAgent(agent, owner).openclawAgentId;
@@ -5200,7 +5219,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
                 goalRunId: goalId,
                 stepId,
                 ownerUserId: owner,
-                result: { error: msg },
+                result: { error: msg, failure_code:e?.failure_code||e?.code, status:e?.status },
                 failed: true,
                 error: msg,
               });
@@ -5251,7 +5270,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
       goalRunId,
       stepId: step.id,
       ownerUserId: goal.owner_user_id,
-      result: { ...(e?.partialResult || {}), error: msg },
+      result: { ...(e?.partialResult || {}), error: msg, failure_code:e?.failure_code||e?.code, status:e?.status },
       failed: true,
       error: msg,
     });
@@ -5397,8 +5416,21 @@ async function finishGoalPlanningAndStart(opts, planningGoal, { claimed = false 
   }
 }
 
+export function isApprovedScheduledBaseline(opts, database=db()) {
+  if(!opts.ownerUserId||!opts.scheduledGoalId||!opts.scheduledGoalRunId)return false;
+  const row=database.prepare(`SELECT s.plan_json,s.plan_status,s.agent_id FROM scheduled_goals s JOIN scheduled_goal_runs r ON r.goal_id=s.id AND r.owner_user_id=s.owner_user_id
+    WHERE s.id=? AND s.owner_user_id=? AND r.id=? AND r.status='running'`).get(opts.scheduledGoalId,opts.ownerUserId,opts.scheduledGoalRunId);
+  if(!row||row.plan_status!=='approved'||row.agent_id!==opts.agentId)return false;
+  const saved=parseJson(row.plan_json,{});
+  return Array.isArray(saved.steps)&&JSON.stringify(saved.steps.map(normalizeStepSpec))===JSON.stringify(opts.steps.map(normalizeStepSpec));
+}
 export async function createAndStartGoalRun(opts = {}) {
   const suppliedSteps = Array.isArray(opts.steps) && opts.steps.length ? opts.steps : null;
+  if(suppliedSteps)suppliedSteps.forEach(normalizeStepSpec);
+  if(suppliedSteps&&!isApprovedScheduledBaseline(opts)){
+    opts={...opts,steps:null,explicitSteps:suppliedSteps};
+    return createAndStartGoalRun(opts);
+  }
   if (!suppliedSteps) {
     const planningGoal = createGoalPlanningRun(opts);
     if (planningGoal.reused_active && planningGoal.status !== 'planning') {

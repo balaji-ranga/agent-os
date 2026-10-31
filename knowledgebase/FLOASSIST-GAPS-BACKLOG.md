@@ -1,6 +1,14 @@
 # FloAssist gaps backlog
 
-Updated: 29 October 2026 (Asia/Singapore).
+Updated: 31 October 2026 (Asia/Singapore).
+
+## 31 October — ad hoc digest checker bypass and factual grounding
+
+The reported digest was an ad hoc goal, not the FloAssist briefing schedule. Unsupported `email_summary`, `task_summary` and `key_updates` types silently became tool-less `agent_continue` steps. Supplied steps bypassed maker/checker planning, and synthesis text was marked completed without validating source support. Later goal-status/work-history receipts were incorrectly presented as proof of the invented business tasks.
+
+The fix rejects unknown step types and routes unapproved agent-supplied plans through maker/checker planning. Reuse without replanning requires an exact match to an owner/agent-scoped approved stored schedule and its live run. Factual synthesis reads only successful, owner/run/step-correlated source audit records (or explicitly supplied text), excludes bookkeeping and mutating calls, and bounds source context. No source evidence means no generation. A configured secondary checker must approve every factual claim against known source references before any synthesis is published or marked completed; checker failure or invalid refs fail closed. Generated prose is not recycled as source evidence. Raw source bodies are not copied into synthesis chat-history prompts. Goal status now distinguishes execution completion from verified source evidence, including historical unverified digests. Existing profile timezone metadata is also applied to factual synthesis.
+
+Validation: `test-goal-digest-grounding.mjs` reproduces the incident and covers a full real local read → fake maker endpoint → configured fake checker endpoint → verified completion, plus rejected prose that is never published. It also covers unsupported types, saved-plan reuse, cross-owner/run evidence, unknown refs, source bounds, mutating receipts and checker unavailability. No external model calls are required. Existing FloAssist, partial-goal, control/recovery, maker/checker, human-review and exception-policy suites passed locally. VPS acceptance is recorded in the implementation/testing log after rollout.
 
 ## 29 October — native timezone regression and Gmail attachment capability
 
