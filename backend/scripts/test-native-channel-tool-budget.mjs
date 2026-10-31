@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {visibleContentTools,isToolGrantedForSession} from '../../openclaw-extensions/agent-os-content-tools/runtime-access.js';
+import {visibleContentTools,isToolGrantedForSession,scheduledGoalRoutingHint} from '../../openclaw-extensions/agent-os-content-tools/runtime-access.js';
 const names=['content_tools_enquire','floassist_status','floassist_reminder_create','connector_execute_action','kanban_get_task','intent_classify_and_delegate',...Array.from({length:160},(_,i)=>`fixture_${String(i).padStart(3,'0')}`)];
 const tools=names.map(name=>({name})),grants={owner:names,other:['fixture_159']};
 const visible=visibleContentTools('owner','native',tools,grants,{},{});
@@ -14,3 +14,15 @@ scopes.scheduled.expires_at=new Date(0).toISOString();
 assert.equal(visibleContentTools('owner','scheduled',tools,grants,{},scopes).size,96);
 assert.equal(visibleContentTools('missing','native',tools,grants,{},{}).size,0);
 console.log('NATIVE_CHANNEL_TOOL_BUDGET_OK: bounded discovery, core capabilities, grant isolation, explicit scopes and expiry');
+
+const scheduler=['scheduled_goal_list','scheduled_goal_run_now'];
+const crowded=[...Array.from({length:140},(_,i)=>`agent_goal_fixture_${i}`),...scheduler,'sessions_spawn'];
+const crowdedVisible=visibleContentTools('coo','native',crowded.map(name=>({name})),{coo:crowded},{},{});
+assert.equal(crowdedVisible.size,96);
+for(const name of scheduler)assert.ok(crowdedVisible.has(name),'Scheduler control must survive a crowded COO tool catalog');
+assert.ok(!crowdedVisible.has('sessions_spawn'),'Native tools are not re-registered');
+assert.equal(scheduledGoalRoutingHint(false),'');
+assert.match(scheduledGoalRoutingHint(true),/scheduled_goal_run_now/);
+assert.match(scheduledGoalRoutingHint(true),/only once/);
+assert.ok(!visibleContentTools('restricted','native',crowded.map(name=>({name})),{restricted:['agent_goal_fixture_1']},{},{}).has(scheduler[0]));
+console.log('SCHEDULED_GOAL_ROUTING_OK: scheduler visibility, no grant escalation, one-run guidance');

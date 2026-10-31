@@ -18,6 +18,7 @@ import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plu
 import {
   isToolGrantedForSession,
   visibleContentTools,
+  scheduledGoalRoutingHint,
   mergeRuntimeToolDescriptors,
   OPENCLAW_NATIVE_TOOL_NAMES,
   safeApiSessionKey,
@@ -1121,7 +1122,7 @@ export default definePluginEntry({
           return profileTimezoneHint({enabled:true,timezone_available:false});
         };
         const [timezoneHint,result] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx)]);
-        const personalContext=recoveryHint;
+        const personalContext=[recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const clockContext=timezoneHint?{appendSystemContext:timezoneHint}:{};
         if (!result?.matched) return timezoneHint||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};

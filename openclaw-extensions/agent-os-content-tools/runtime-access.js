@@ -85,6 +85,11 @@ export function visibleContentTools(agentId,sessionKey,descriptors,allowlists,co
  const active=scope&&Array.isArray(scope.tools)&&Date.parse(scope.expires_at||'')>at;
  const names=[...new Set(descriptors.map(t=>t.name).filter(n=>n&&!OPENCLAW_NATIVE_TOOL_NAMES.has(n)))].filter(n=>!agentId||isToolGrantedForSession(agentId,n,sessionKey,allowlists,configAllowByAgent,sessionScopes,at));
  if(active||names.length<=MAX_UNSCOPED_CONTENT_TOOLS)return new Set(names);
- const priority=n=>n==='content_tools_enquire'?0:/^(floassist_|connector_|ceo_profile|kanban_|intent_classify_and_delegate|agent_delegate|agent_goal_|agent_workflow_|agent_work_history|learnings_)/.test(n)?1:2;
+ const priority=n=>['content_tools_enquire','scheduled_goal_list','scheduled_goal_run_now'].includes(n)?0:/^(floassist_|connector_|ceo_profile|kanban_|intent_classify_and_delegate|agent_delegate|agent_goal_|agent_workflow_|agent_work_history|learnings_)/.test(n)?1:2;
  return new Set(names.sort((a,b)=>priority(a)-priority(b)||a.localeCompare(b)).slice(0,MAX_UNSCOPED_CONTENT_TOOLS));
+}
+
+// Scheduled responsibilities and one-off agent plans are different execution surfaces.
+export function scheduledGoalRoutingHint(canRunScheduledGoals) {
+  return canRunScheduledGoals ? "For an existing scheduled responsibility (Morning briefing, Priority alerts, Deadline tracking, Follow-ups or Calendar conflicts), use scheduled_goal_list to find the owner's schedule and scheduled_goal_run_now with its returned goal_id when asked to run it. Do not substitute agent_goal_list, agent_goal_complete_step, workflows, browser recipes or delegated sessions. A completed historical goal is not a fresh run. Start the requested schedule only once; report the returned run/delivery status accurately. If the tool reports a failure or queued delivery, explain that status once; do not promise delivery, spawn retries or switch execution systems." : '';
 }
