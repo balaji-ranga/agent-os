@@ -70,5 +70,17 @@ try{
  assert.equal(runEvidenceSummary(db,'budget-owner','limited').budget_exhausted,true);assert.equal(runEvidenceSummary(db,'budget-other','limited').budget_exhausted,false);
  const before=db.prepare('SELECT count(*) n FROM native_model_calls').get().n;
  assert.throws(()=>admitNativeModel({...call(),caller_agent_id:'t-budget-other--'+agent}),e=>e.status===403);assert.equal(db.prepare('SELECT count(*) n FROM native_model_calls').get().n,before);
+ // A second process may commit while a deferred reservation reads its snapshot.
+ const {default:Database}=await import('better-sqlite3');
+ const peer=new Database(db.name,{timeout:0});peer.exec('CREATE TABLE native_budget_lock_fixture(id INTEGER PRIMARY KEY)');
+ try{
+  assert.throws(()=>db.transaction(()=>{db.prepare('SELECT count(*) FROM native_budget_lock_fixture').get();peer.prepare('INSERT INTO native_budget_lock_fixture DEFAULT VALUES').run();db.prepare('INSERT INTO native_budget_lock_fixture DEFAULT VALUES').run();})(),e=>String(e.code).startsWith('SQLITE_BUSY'),'negative control reproduces the WAL deferred read/write upgrade race');
+  setAgentBudget('budget-owner',agent,{monthly_token_budget:2000000});
+  db.prepare('UPDATE floassist_profiles SET preferences_json=? WHERE owner_id=?').run(JSON.stringify({model_call_budget:80,model_token_budget:2000000}),'budget-owner');
+  const prepare=db.prepare;let blockedWriters=0;
+  db.prepare=function(sql,...rest){const stmt=prepare.call(this,sql,...rest);if(!sql.startsWith('SELECT * FROM native_model_calls WHERE id='))return stmt;return new Proxy(stmt,{get(target,key){if(key==='get')return(...args)=>{const row=target.get(...args);try{peer.prepare('INSERT INTO native_budget_lock_fixture DEFAULT VALUES').run();}catch(e){if(String(e.code).startsWith('SQLITE_BUSY'))blockedWriters++;else throw e;}return row;};const v=Reflect.get(target,key);return typeof v==='function'?v.bind(target):v;}});};
+  try{const concurrent=call('budget-owner','wal-contention');assert.equal(admitNativeModel(concurrent).allowed,true);finish(concurrent);assert.equal(blockedWriters,2,'admission and settlement acquire the writer reservation before reading');}finally{db.prepare=prepare;}
+ }finally{peer.close();}
+ console.log('NATIVE_MODEL_BUDGET_WAL_OK: real competing SQLite connection, reproduced old snapshot-upgrade failure, serialised admission and settlement');
  console.log('NATIVE_MODEL_BUDGET_OK: monthly reservations, once-only accounting, cache tokens, owner isolation, compaction/fallback/run caps, error budgets and transparent streaming');
 }finally{try{db?.close();}catch{}rmSync(root,{recursive:true,force:true});}
