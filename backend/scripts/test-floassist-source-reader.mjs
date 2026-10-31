@@ -1,6 +1,6 @@
 import {sourceReference,connectorReferenceResult} from '../src/services/floassist/source-references.js';
 import {recordRunError} from '../src/services/floassist/source-receipts.js';
-import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from '../src/services/floassist/source-coverage.js';
+import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage,resumeScheduledSourceInput} from '../src/services/floassist/source-coverage.js';
 import {commitRunSourceAssessments,setRunAssessmentContext} from '../src/services/floassist/assessment-cache.js';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
@@ -210,6 +210,27 @@ const adHoc=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-threa
 await assert.rejects(readFloAssistSource('b',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:againScope}),e=>e.status===403);
 const versionRows=db.prepare('SELECT signature FROM floassist_source_assessments').all();assert.ok(versionRows.every(r=>/^[0-9a-f]{64}$/.test(r.signature)));assert.ok(!JSON.stringify(versionRows).includes(passage));
 console.log('FLOASSIST_ASSESSMENT_CACHE_OK: fresh authorized fetch, complete-review prerequisite, changed content/instructions/module isolation, explicit refresh and full ad hoc bodies');
+const resumeScope={owner:'a',run:'resume-run',origin:'floassist:briefing'};
+const resumeOptions={...options,context:resumeScope,extract:async()=>('Verified document content. '.repeat(1500))};
+const selector={app_id:'google_drive',source_id:'resume-doc'};
+let resumedPage=await readFloAssistSource('a',selector,resumeOptions);
+const resumeProviderCalls=calls.length;let resumedBytes=resumedPage.content.length;
+assert.equal(resumeScheduledSourceInput(db,'a',selector,{owner:'a',origin:'whatsapp'}),selector);
+assert.equal(resumeScheduledSourceInput(db,'b',selector,resumeScope),selector);
+assert.equal(resumeScheduledSourceInput(db,'a',selector,{...resumeScope,run:'another-run'}),selector);
+const restart={...selector,offset:0};assert.equal(resumeScheduledSourceInput(db,'a',restart,resumeScope),restart);
+const resumeRef=sourceReference(db,'a','google_drive','resume-doc',resumeScope);
+while(!resumedPage.coverage_complete){
+ const priorOffset=resumedPage.offset;
+ const next=resumeScheduledSourceInput(db,'a',{app_id:'googledrive',source_id:resumeRef},resumeScope);
+ assert.deepEqual(next,resumedPage.next_request);
+ resumedPage=await readFloAssistSource('a',next,resumeOptions);
+ assert.ok(resumedPage.offset>priorOffset);resumedBytes+=resumedPage.content.length;
+}
+assert.equal(resumedBytes,resumedPage.total_characters);
+assert.equal(calls.length,resumeProviderCalls,'resuming a snapshot must not download it again');
+assert.equal(resumeScheduledSourceInput(db,'a',selector,resumeScope),selector,'a complete source is not silently restarted');
+console.log('FLOASSIST_SCHEDULED_SOURCE_RESUME_OK: repeated selectors advance verified pages, bounded owner/run scope, explicit restart and ad hoc semantics preserved');
 db.close();
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});
