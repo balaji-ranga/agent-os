@@ -27,7 +27,7 @@ try{
   assert.equal(initial.skipReason,'empty-heartbeat-file','empty legacy task file stops before a model request');
   const configured=await installed.resolveHeartbeatPreflight({...params,heartbeat:{prompt:'Check pending approvals'}});assert.equal(configured.skipReason,undefined,'explicit prompt remains active');
   const scheduled=await installed.resolveHeartbeatPreflight({...params,scheduledTasks:[{name:'Real check',prompt:'Read my agenda'}]});assert.equal(scheduled.skipReason,undefined,'scheduled work remains active');
-  const wake=await installed.resolveHeartbeatPreflight({...params,reason:'cron:fixture-work'});assert.equal(wake.isCronWake,true);assert.equal(wake.skipReason,undefined,'cron event wake bypass remains active');
+  const wake=await installed.resolveHeartbeatPreflight({...params,reason:'cron:fixture-work',source:'cron'});assert.equal(wake.isCronWake,true);assert.equal(wake.skipReason,undefined,'cron event wake bypass remains active');
   writeFileSync(join(workspace,'HEARTBEAT.md'),'Check the API uptime and report a failure.');
   const legacy=await installed.resolveHeartbeatPreflight(params);assert.equal(legacy.skipReason,undefined);assert.match(legacy.heartbeatScratchContent,/API uptime/,'real legacy instructions are retained');
   const start=source.indexOf('function resolveHeartbeatPreflight(params) {'),end=source.indexOf('\n}',start)+2;let legacyReads=0;
