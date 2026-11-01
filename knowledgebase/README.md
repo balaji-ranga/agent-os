@@ -4,6 +4,8 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 
 ## Index (for Cursor / future reference)
 
+Physical AI engineering: [implementation plan](PHYSICAL-AI-IMPLEMENTATION-PLAN.md) and [gaps / acceptance registry](PHYSICAL-AI-GAPS.md). Keep backlog and test history here; public docs focus on capabilities and usage.
+
 | File | Purpose |
 |------|---------|
 | **PROJECT.md** | Full product map, CEO UI overview, API, DB scripts, project layout (moved from root README). |

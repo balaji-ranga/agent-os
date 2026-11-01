@@ -57,6 +57,7 @@ const sidebars = {
         'systems/digital-adoption',
         'systems/connectors-and-mcp',
         'systems/physical-ai',
+        'systems/physical-ai-onboarding',
         'systems/physical-ai-implementation-plan',
         'systems/company-email-channels',
         'systems/mcp-universe',
