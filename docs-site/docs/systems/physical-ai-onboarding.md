@@ -296,6 +296,8 @@ The TV is ready only for the capabilities that pass on the actual model. Simulat
 
 Open **Company Tools → Physical AI**. **Devices** lists registered assets and timestamped observations, filtered by site/hub. Select a declared action, enter schema-valid JSON and request the operation. **Operations & evidence** shows approvals and results. **Register & onboard** embeds the existing registration dashboard; **Downloads & setup** contains the Windows/Linux suite and simulator.
 
+Devices, Operations & evidence and Sites & hubs use server-side pages. Choose rows per page, search, and filter by site or hub; counts include only resources you can access. Previous/Next changes the server page. Hidden tabs pause automatic refresh. The embedded registration dashboard has its own bounded pages.
+
 Enroll each edge installation separately with its site ID and private credential. Multiple hubs per site and multiple sites per company are supported. Same-named local devices have distinct registered asset IDs. Requests use the asset's bound hub; an offline site never reroutes to another location. Revoking one hub leaves other locations intact.
 
 To automate a registered device:

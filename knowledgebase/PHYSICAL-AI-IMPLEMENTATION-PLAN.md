@@ -161,3 +161,12 @@ Administrators use Physical AI → Device mappings and choose a site/hub. The co
 The authenticated outbound hub channel delivers only that hub's document. The edge validates the schema, installed adapter, document hash and device identities; an acknowledgement activates it on the server. The durable gateway store caches the accepted document. Binding changes disable affected action authority until reviewed; a rollback creates another activation rather than silently reusing old permissions.
 
 The HA service URL and credential-file reference remain in protected local deployment configuration. HA retains its own downstream pairing and endpoint settings. The mapping editor does not create or reconfigure HA integrations and does not upload local secrets.
+
+
+## Physical AI list pagination
+
+`GET /api/physical/view` applies authenticated company ownership and resource grants before search, location filtering, counts and paging. Devices, operations and hubs use bounded pages (default 20, maximum 100), deterministic ordering and minimal location metadata. The registration dashboard uses bounded pages of 5 by default (maximum 20). Hub credentials, private managed documents and candidate inventories are excluded from the normal list view.
+
+The browser debounces search, aborts superseded reads, ignores obsolete responses, prevents overlapping background polls and pauses polling while hidden. Mutation/approval APIs retain their existing authorization independently of list filtering.
+
+The current control plane still uses a durable SQLite JSON document and in-memory collections. Server paging bounds network/UI work; it does not convert persistence into SQL row-level queries. A 10k-operation fixture exercises isolation and bounded response size. Consider normalized indexed projections before substantially larger multi-writer deployments; do not present the fixture timing as a production SLA.
