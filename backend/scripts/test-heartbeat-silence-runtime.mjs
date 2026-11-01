@@ -25,6 +25,9 @@ try{
   writeFileSync(join(workspace,'HEARTBEAT.md'),'# HEARTBEAT.md\n\n# No periodic work configured.\n');
   const initial=await installed.resolveHeartbeatPreflight(params);
   assert.equal(initial.skipReason,'empty-heartbeat-file','empty legacy task file stops before a model request');
+  const enabledCfg={...cfg,agents:{...cfg.agents,defaults:{...cfg.agents.defaults,heartbeat:{agentId:'fixture-heartbeat',every:'30m'}}}};
+  const fullRun=await installed.n({...params,cfg:enabledCfg,intent:'scheduled'});
+  assert.deepEqual(fullRun,{status:'skipped',reason:'empty-heartbeat-file'},'complete native runner must exit before a model or send operation');
   const configured=await installed.resolveHeartbeatPreflight({...params,heartbeat:{prompt:'Check pending approvals'}});assert.equal(configured.skipReason,undefined,'explicit prompt remains active');
   const scheduled=await installed.resolveHeartbeatPreflight({...params,scheduledTasks:[{name:'Real check',prompt:'Read my agenda'}]});assert.equal(scheduled.skipReason,undefined,'scheduled work remains active');
   const wake=await installed.resolveHeartbeatPreflight({...params,reason:'cron:fixture-work',source:'cron'});assert.equal(wake.isCronWake,true);assert.equal(wake.skipReason,undefined,'cron event wake bypass remains active');
