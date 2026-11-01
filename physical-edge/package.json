@@ -16,6 +16,6 @@
     "ws": "^8.0.0"
   },
   "devDependencies": {
-    "aedes": "^0.51.3"
+    "aedes": "^1.2.0"
   }
 }
