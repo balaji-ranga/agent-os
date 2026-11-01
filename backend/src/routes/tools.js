@@ -1,3 +1,4 @@
+import {resumeScheduledSourceInput} from '../services/floassist/source-coverage.js';
 import {recordRunError} from '../services/floassist/source-receipts.js';
 import {floAssistTaskSource} from '../services/floassist/task-source.js';
 import {registerWhatsAppTask} from '../services/floassist/tracking.js';
@@ -4230,6 +4231,10 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     // vary them as tool arguments; downstream endpoints receive the trusted header above.
     for (const key of ['owner_user_id', 'ownerUserId', 'ceo_user_id', 'ceoUserId', 'user_id', 'userId']) {
       delete params[key];
+    }
+    if(toolName==='floassist_source_read'&&ownerUserId){
+      const resumed=resumeScheduledSourceInput(getDb(),ownerUserId,params,currentFloAssistScope());
+      if(resumed!==params){for(const key of Object.keys(params))delete params[key];Object.assign(params,resumed);}
     }
     governed = ownerUserId
       ? beginToolExecution({

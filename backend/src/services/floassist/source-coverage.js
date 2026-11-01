@@ -1,3 +1,4 @@
+import {resolveSourceReference} from './source-references.js';
 // Coverage receipts contain only source identity and page pointers, never bodies.
 export function ensureSourceCoverage(db){db.exec(`CREATE TABLE IF NOT EXISTS floassist_source_coverage(owner_id TEXT,run_id TEXT,app_id TEXT,source_id TEXT,snapshot_id TEXT,complete INTEGER NOT NULL,next_request_json TEXT,updated_at INTEGER NOT NULL,PRIMARY KEY(owner_id,run_id,app_id,source_id));`);}
 export function requireAppCoverage(db,context,app,nextRequest){
@@ -30,4 +31,17 @@ export function continuableSourceCoverage(pending){
 export function assertSourceCoverage(db,owner,run,app,source){
  ensureSourceCoverage(db);const r=db.prepare('SELECT complete,next_request_json FROM floassist_source_coverage WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,run,app,source);
  if(r&&!r.complete)throw Object.assign(new Error('Finish the current source pages before observing an obligation. The task update remains unapplied.'),{status:409,code:'FLOASSIST_SOURCE_REVIEW_INCOMPLETE',next_action:{tool:'floassist_source_read',input:JSON.parse(r.next_request_json),instruction:'Follow exact next_request values until coverage_complete is true, then reassess and submit the observation.'}});
+}
+
+// A scheduled scan may repeat the source selector instead of copying its cursor.
+// Resume only an already verified, partial snapshot in this exact owner/run.
+// Ad hoc re-reads, explicit restarts and explicit cursors retain their semantics.
+export function resumeScheduledSourceInput(db,owner,input,context){
+ if(!context?.run||context.owner!==owner||!String(context.origin||'').startsWith('floassist:')||!input?.source_id||Object.keys(input).some(k=>!['app_id','source_id'].includes(k)))return input;
+ const app=({googledrive:'google_drive',googlecalendar:'google_calendar',one_drive:'onedrive'})[input.app_id]||input.app_id;
+ let source;try{source=resolveSourceReference(db,owner,app,input.source_id,context);}catch{return input;}
+ ensureSourceCoverage(db);
+ const row=db.prepare("SELECT next_request_json FROM floassist_source_coverage WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=? AND complete=0 AND snapshot_id NOT IN ('discovery','required-app')").get(owner,context.run,app,source);
+ let next;try{next=JSON.parse(row?.next_request_json||'null');}catch{return input;}
+ return next&&typeof next.cursor==='string'&&Object.keys(next).length===1?{cursor:next.cursor}:input;
 }

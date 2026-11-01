@@ -52,11 +52,13 @@ function recoverStaleReservations(db,identity,now){
 export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
  ensureNativeModelBudget(db);const identity=nativeModelIdentity(input,db);
  if(!/^[a-zA-Z0-9:_-]{8,160}$/.test(input.id||'')||!input.run_id||String(input.run_id).length>200||!integer(input.input_tokens)||!integer(input.output_limit,1000000)||!input.output_limit)fail(400,'native_budget_input','Valid call identity and bounded numeric token estimates are required.');
- db.transaction(()=>recoverStaleReservations(db,identity,now))();
+ db.transaction(()=>recoverStaleReservations(db,identity,now)).immediate();
  const context=lookupSessionExecutionContext(identity.session,identity.owner)||{};
  const persisted=resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web');
  const scheduledRun=context.scheduled_goal_run_id||persisted?.run;
  const runKey=String(scheduledRun||String(input.run_id).split(':compaction:')[0]);
+ // Reserve the WAL writer before reading: a deferred snapshot cannot be upgraded
+ // after a concurrent process commits, even with SQLite busy_timeout enabled.
  try{return db.transaction(()=>{
   const prior=db.prepare('SELECT * FROM native_model_calls WHERE id=?').get(input.id);
   if(prior){if(prior.owner_id!==identity.owner||prior.agent_id!==identity.agent||prior.session_key!==identity.session)fail(403,'native_call_conflict','Call identity belongs to another owner/session.');if(prior.status!=='started')fail(409,'native_call_settled','This model call has already settled.');return {allowed:true,id:prior.id,output_limit:prior.reserved_tokens-prior.input_tokens};}
@@ -89,7 +91,7 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
   }
   db.prepare('INSERT INTO native_model_calls VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(input.id,identity.owner,identity.agent,identity.session,runKey,scheduledRun||null,String(input.provider||'').slice(0,160),String(input.model||'').slice(0,160),'started',input.input_tokens,0,1,input.input_tokens+outputLimit,now,now,testBudget?.id||null);
   return {allowed:true,id:input.id,output_limit:outputLimit};
- })();}catch(error){
+ }).immediate();}catch(error){
   if(error.code==='budget_exceeded'||/^native_(?:model|monthly)_/.test(String(error.code||''))||error.code==='native_test_budget_exhausted'||error.code==='native_budget_unavailable'){db.prepare('INSERT OR REPLACE INTO native_model_budget_blocks VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,now);db.prepare('INSERT OR REPLACE INTO native_model_budget_block_sessions VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,identity.session);}
   throw error;
  }
@@ -122,5 +124,5 @@ export function settleNativeModel(input,{db=getDb(),now=Date.now()}={}){
   db.prepare('UPDATE native_model_calls SET status=?,input_tokens=?,output_tokens=?,estimated=?,reserved_tokens=0,updated_at=? WHERE id=?').run(input.status,input.input_tokens,input.output_tokens,input.estimated?1:0,now,call.id);
   if((input.input_tokens||input.output_tokens)&&!recordTokenUsage(identity.owner,{memberKey:identity.agent,agentId:identity.agent,source:'native_model',modelId:call.model,inputTokens:input.input_tokens,outputTokens:input.output_tokens,estimated:input.estimated,sessionId:call.session_key,runId:call.scheduled_run_id||call.run_key,traceId:call.id}))throw Error('Native usage ledger write failed.');
   return {ok:true};
- })();
+ }).immediate();
 }
