@@ -34,4 +34,9 @@ backend/tmp/
 backend/.codex-tmp/
 backend/scripts/.tmp-*
 .local/
+physical-edge/.local/
 releases/
+
+physical-edge/android/.gradle/
+physical-edge/android/**/build/
+physical-edge/dist/.lock/

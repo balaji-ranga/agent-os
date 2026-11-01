@@ -39,6 +39,15 @@ try {
   assert.equal(selection.grants_count, 140);
   assert.ok(selection.tools.length <= MAX_SESSION_CONTENT_TOOLS);
   assert.ok(selection.tools.includes('calendar_list_events'), 'router-selected capability must survive bounding');
+  for(const name of ['physical_entities_list','physical_invoke','physical_operation_get']){
+    insertMeta.run(name,name,`/fixture/${name}`,'Registered physical device capability');insertGrant.run('scope-agent',name);
+  }
+  const physical=selectSessionContentTools({agentId:'scope-agent',message:'Operate a registered device',route:{executor_evidence:{capability_names:['physical_invoke']}}});
+  for(const name of ['physical_entities_list','physical_invoke','physical_operation_get'])assert.ok(physical.tools.includes(name),'physical request must retain discovery/invoke/verification tools');
+  assert.ok(!physical.tools.includes('physical_evidence_get'),'protocol family must not grant unassigned tools');
+  assert.ok(physical.tools.every(name=>name.startsWith('physical_')),'a single physical-device route cannot fall back to desktop browser or unrelated tools');
+  const physicalRead=selectSessionContentTools({agentId:'scope-agent',message:'Inspect registered capabilities',route:{executor_evidence:{capability_names:['physical_entities_list']}}});
+  assert.ok(!physicalRead.tools.includes('physical_invoke'),'a read-only device route does not gain an action tool');
   const key = 'agent:t-fixture--scope-agent:request-1';
   installSessionToolScope(key, selection);
   assert.equal(existsSync(SESSION_TOOL_SCOPES_PATH), true);

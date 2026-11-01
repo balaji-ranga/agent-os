@@ -94,6 +94,11 @@ export function selectSessionContentTools({ agentId, ownerUserId = null, message
       selected_mcp_capabilities: selectedMcpCapabilities,
     };
   }
+  if(routeNames.length&&routeNames.every(name=>name.startsWith('physical_'))){
+    const requested=new Set([...routeNames,'physical_entities_list','physical_operation_get']);
+    const tools=grants.filter(name=>requested.has(name));
+    return {scoped:true,tools,grants_count:grants.length,selected_count:tools.length};
+  }
   if (grants.length <= limit) return { scoped: false, tools: grants, grants_count: grants.length };
 
   const granted = new Set(grants);
@@ -104,6 +109,7 @@ export function selectSessionContentTools({ agentId, ownerUserId = null, message
   };
 
   for (const name of routeNames) add(name);
+  if(routeNames.some(name=>name.startsWith('physical_')))for(const name of ['physical_entities_list','physical_invoke','physical_operation_get'])add(name);
   if (/\b(download|attach|pdf|spreadsheet|file)\b/i.test(message)) add('download_file');
   const ranked = enquireContentTools(
     [message, ...routeCapabilityNames(route)].filter(Boolean).join(' '),

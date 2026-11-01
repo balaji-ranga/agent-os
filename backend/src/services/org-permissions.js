@@ -48,6 +48,7 @@ export const PLATFORM_PERMISSION_KEYS = [
   'ai-employees',
   'content-tools',
   'connectors',
+  'physical-ai',
   'mcp',
   'custom-scripts',
   'agent-exchange',
@@ -276,6 +277,7 @@ export function matchApiPermission(method, path) {
   const m = String(method || 'GET').toUpperCase();
   const p = String(path || '');
   const rules = [
+    { prefix: '/physical', permission: 'physical-ai' },
     // Copilot filters every proposed form/route by the current actor's grants;
     // it never executes business mutations or bypasses their existing APIs.
     { prefix: '/ui-copilot', allow: true },

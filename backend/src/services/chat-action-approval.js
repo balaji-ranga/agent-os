@@ -1,3 +1,4 @@
+import {getPhysicalControlPlane} from './physical/runtime.js';
 import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { isCeoDelegate } from './org-permissions.js';
@@ -83,6 +84,7 @@ function safeSummary(body = {}) {
     } catch (_) {}
   }
   const summary = {};
+  if(source.entityId&&source.action){summary.device_asset=String(source.entityId).slice(0,96);summary.action=String(source.action).slice(0,96);summary.arguments=JSON.stringify(nested).slice(0,2000);summary.approval_scope='Company tool execution only; the device operation may require a separate human approval.';}
   for (const key of ['to', 'recipient', 'email', 'phone', 'subject', 'amount', 'total', 'value', 'campaign_id']) {
     if (source[key] != null && source[key] !== '') summary[key] = String(source[key]).slice(0, 300);
   }
@@ -199,6 +201,7 @@ export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = nul
   const requestedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + DEFAULT_TTL_SECONDS * 1000).toISOString();
   const summary = safeSummary(body);
+  if(tool==='physical_invoke'&&process.env.FLOLAH_PHYSICAL_ENABLED==='1'){try{const p=getPhysicalControlPlane(),e=p.owned('entities',owner,body.entityId),h=p.owned('hubs',owner,e.hubId);Object.assign(summary,{device:e.description.title,site:e.siteId,hub:h.name});}catch{/* Exact envelope remains visible if the device was removed. */}}
   const description = [
     '[CHAT_ACTION_APPROVAL]',
     `approval_id: ${id}`,

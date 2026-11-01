@@ -1,0 +1,5 @@
+# Optional overlay only. Default deployments retain the existing behavior.
+services:
+  backend:
+    environment:
+      FLOLAH_PHYSICAL_ENABLED: ${FLOLAH_PHYSICAL_ENABLED:-0}

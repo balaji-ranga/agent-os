@@ -2,6 +2,7 @@ import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-chan
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {profileTimezoneHint} from './profile-timezone.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
+import {physicalSchemas} from './physical-schemas.js';
 /**
  * OpenClaw plugin: registers content tools from the Agent OS tools list file.
  * OpenClaw 2026.7+ requires definePluginEntry + contracts.tools in the manifest.
@@ -223,6 +224,7 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  ...physicalSchemas,
   ...floassistSchemas,
   'multi-format-content-tool': multiFormatSchema,
   download_file: {

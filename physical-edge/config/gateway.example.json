@@ -1,0 +1,11 @@
+{
+  "dataDir": "./.local/site-gateway",
+  "localTokenFile": "credentials/local-ui.token",
+  "hub": {
+    "cloudUrl": "wss://YOUR_FLOLAH_HOST/api/physical/hub",
+    "hubId": "YOUR_ENROLLED_HUB_ID",
+    "siteId": "YOUR_SITE_ID",
+    "tokenFile": "credentials/hub.token"
+  },
+  "adapters": {}
+}

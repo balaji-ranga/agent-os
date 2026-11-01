@@ -13,6 +13,7 @@ import {
 } from './agent-workflow-secrets.js';
 
 const NODE_PURPOSE = {
+  physical_device: 'Read a registered physical asset or invoke a declared capability through its enrolled site hub. Company owner/delegate publication is required; human gates apply; only verified action outcomes continue. No device credentials or protocol payloads in workflows.',
   trigger: 'Entry point. Starts runs via manual button, chat phrase, cron schedule, or webhook.',
   agent: 'Delegates work to a workspace agent with a prompt template. Use {{input}} for prior step text.',
   tool: 'Runs a registered content tool by exact toolName (see Content tools catalog / enquire_content_tools).',
@@ -387,6 +388,7 @@ export function analyzeWorkflowForPublish(graph, ownerUserId = null) {
       custom_script: [['customScriptId', cfg.customScriptId]],
       connector: [['appId', cfg.appId], ['actionId', cfg.actionId]],
       sub_workflow: [['targetWorkflowId', cfg.targetWorkflowId]],
+      physical_device: [['entityId',cfg.entityId],[(cfg.operation||'invoke')==='read'?'property':'action',(cfg.operation||'invoke')==='read'?cfg.property:cfg.action]],
       externalAgent: [['externalAgentId', cfg.externalAgentId]],
     };
     for (const [field, value] of identityRequirements[node.type] || []) {

@@ -161,6 +161,7 @@ import jobApplicantTools from './job-applicant-tools.js';
 import crmTools from './crm-tools.js';
 import erpTools from './erp-tools.js';
 import eventProductivityTools from './event-productivity-tools.js';
+import physicalTools from './physical-tools.js';
 import floAssistTools from './floassist-tools.js';
 import marketingTools from './marketing-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
@@ -975,6 +976,7 @@ router.use(jobApplicantTools);
 router.use(crmTools);
 router.use(erpTools);
 router.use(eventProductivityTools);
+router.use(physicalTools);
 router.use(floAssistTools);
 router.use(marketingTools);
 

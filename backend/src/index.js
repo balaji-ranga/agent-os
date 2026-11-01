@@ -745,6 +745,18 @@ apiRouter.use('/agent-goal-runs', agentGoalRunsRoutes);
 apiRouter.use('/agent-actions', agentActionsRoutes);
 apiRouter.use('/company-reviews', companyReviewsRoutes);
 apiRouter.use('/company-executions', companyExecutionsRoutes);
+// Opt-in extension: disabled installations create no physical tables, jobs or routes.
+let physicalHubAttach = null;
+if (process.env.FLOLAH_PHYSICAL_ENABLED === '1') {
+  const [{ physicalRouter }, { getPhysicalControlPlane }, { attachPhysicalHubServer }, { seedPhysicalTools }] = await Promise.all([
+    import('./routes/physical.js'), import('./services/physical/runtime.js'),
+    import('./services/physical/socket-server.js'), import('./db/seed-physical-tools.js'),
+  ]);
+  const plane = getPhysicalControlPlane();
+  apiRouter.use('/physical', physicalRouter({ plane }));
+  seedPhysicalTools();
+  physicalHubAttach = server => attachPhysicalHubServer(server, plane);
+}
 apiRouter.use('/company-objectives', companyObjectivesRoutes);
 apiRouter.use('/company-capabilities', companyCapabilitiesRoutes);
 apiRouter.use('/job-applicant', jobApplicantRoutes);
@@ -1219,7 +1231,7 @@ function sanitizeSafeUrl(req) {
   }
 }
 
-app.listen(PORT, () => {
+const appServer = app.listen(PORT, () => {
   startIbkrNewProfileRefresh();
   log.info(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid}) PLATFORM_LOG_LEVEL=${getPlatformLogLevel()}`);
   // Always print listen line even when level=off so ops can confirm process is up.
@@ -1254,3 +1266,4 @@ app.listen(PORT, () => {
       .catch((e) => console.warn('[startup] CRM TLS SAN sync', e?.message || e));
   }, 15000).unref?.();
 });
+physicalHubAttach?.(appServer);

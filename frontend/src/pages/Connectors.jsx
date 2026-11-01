@@ -6,6 +6,7 @@ import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 import McpConnectorsPanel from '../components/connectors/McpConnectorsPanel.jsx';
 import BrowserWorkerVersions from '../components/BrowserWorkerVersions.jsx';
 import EventProductivityPanel from '../components/connectors/EventProductivityPanel.jsx';
+import PhysicalAiPanel from '../components/connectors/PhysicalAiPanel.jsx';
 import CompanyEmailChannelsPanel from '../components/connectors/CompanyEmailChannelsPanel.jsx';
 
 const STARTERS = [
@@ -23,6 +24,7 @@ function ConnectorsPanel() {
       const q = new URLSearchParams(window.location.search).get('tab');
       if (q === 'mcps' || q === 'mcp') return 'mcps';
       if (q === 'events' || q === 'productivity') return 'events';
+      if (q === 'physical') return 'physical';
       if (q === 'channels' || q === 'company-channels') return 'channels';
       if (window.location.hash === '#mcps' || window.location.hash === '#mcp') return 'mcps';
     } catch {
@@ -467,6 +469,7 @@ function ConnectorsPanel() {
         {[
           { id: 'openconnector', label: 'OpenConnector' },
           { id: 'mcps', label: 'MCPs (OAuth)' },
+          ...(!isAdmin ? [{ id: 'physical', label: 'Physical AI' }] : []),
           ...(!isAdmin ? [{ id: 'channels', label: 'Company channels' }] : []),
           ...(!isAdmin ? [{ id: 'events', label: 'Events & Productivity' }] : []),
         ].map((t) => (
@@ -478,6 +481,7 @@ function ConnectorsPanel() {
               try {
                 const url = new URL(window.location.href);
                 if (t.id === 'mcps') url.searchParams.set('tab', 'mcps');
+                else if (t.id === 'physical') url.searchParams.set('tab', 'physical');
                 else if (t.id === 'channels') url.searchParams.set('tab', 'channels');
                 else if (t.id === 'events') url.searchParams.set('tab', 'events');
                 else url.searchParams.delete('tab');
@@ -527,6 +531,8 @@ function ConnectorsPanel() {
           <McpConnectorsPanel />
         </div>
       )}
+
+      {!isAdmin && mainTab === 'physical' && <PhysicalAiPanel />}
 
       {!isAdmin && mainTab === 'events' && <EventProductivityPanel />}
 

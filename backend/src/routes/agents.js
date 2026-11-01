@@ -34,6 +34,7 @@ import { log } from '../utils/logger.js';
 import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import { getActiveLearningPrompt, recordExecutionLearningVersions } from '../services/agent-learning-rollout.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
+import {physicalAgentAssets,physicalAgentInstructions} from '../services/physical/agent-context.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { writeOpenClawConfigSafe } from '../services/openclaw-config-safe.js';
 import { isOpenClawEmptyResponse, toAgentSystemUserMessage } from '../services/openclaw-runtime-tools.js';
@@ -1530,6 +1531,7 @@ router.post('/:id/chat', requireAuth, (req,res,next) => {
       }
     }
 
+    routedMessage += physicalAgentInstructions(physicalAgentAssets({ownerUserId,principal:['agent:'+agent.openclaw_agent_id,...(req.authUser.id!==ownerUserId?['user:'+req.authUser.id]:[])],grants:agentTools.getAgentToolGrants(agent.id)}));
     const threadId = getChatThreadId(agentId, ownerUserId);
     // The platform DB is the authoritative Dashboard history and is supplied above.
     // A fresh gateway session per request prevents OpenClaw from appending the same

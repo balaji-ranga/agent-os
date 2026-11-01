@@ -66,6 +66,8 @@ COPY THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 # Platform Help corpus → Master Data RAG (Platform Help agent / master_data_rag; protected from purge/delete)
 COPY knowledgebase/platform-help ./knowledgebase/platform-help
 COPY docs-site/docs ./docs-site/docs
+# Optional generated packages live under this source tree; ordinary builds work without dist.
+COPY physical-edge ./physical-edge
 RUN node backend/scripts/check-platform-help-corpus.mjs
 COPY knowledgebase/video-tours ./knowledgebase/video-tours
 

@@ -1,0 +1,76 @@
+// Runs against a disposable, fresh Home Assistant container on a private test network.
+// Never point this onboarding test at an existing customer installation.
+import assert from 'node:assert/strict';
+import { randomBytes,randomUUID } from 'node:crypto';
+import { HomeAssistantAdapter } from '../src/home-assistant-adapter.js';
+import { Simulator } from '../src/simulator.js';
+import { startTestBroker } from '../src/test-broker.js';
+import { topicRoot } from '../src/mqtt-adapter.js';
+import { fingerprint } from '../../backend/src/services/physical/contracts.js';
+import { PhysicalControlPlane,emptyState } from '../../backend/src/services/physical/control-plane.js';
+import { attachPhysicalHubServer } from '../../backend/src/services/physical/socket-server.js';
+import { EdgeGateway } from '../src/gateway.js';
+import { createServer } from 'node:http';
+const base=process.env.PHYSICAL_HA_TEST_URL;if(!base)throw Error('PHYSICAL_HA_TEST_URL must identify the disposable HA test container');
+const brokerHost=process.env.PHYSICAL_HA_BROKER_HOST;if(!brokerHost)throw Error('PHYSICAL_HA_BROKER_HOST required');
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+async function until(fn,label,timeout=120000){const start=Date.now();while(Date.now()-start<timeout){try{const result=await fn();if(result)return result;}catch{}await pause(500);}throw Error('Timed out: '+label);}
+let token;
+async function api(path,body){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});if(!r.ok){let code;try{const error=await r.json();code={message:error.message,code:error.code};}catch{}throw Error('HA request failed at '+path+' ('+r.status+') '+JSON.stringify(code));}return r.json();}
+await until(()=>api('/api/onboarding'),'HA fresh startup');
+const clientId=base+'/',password=randomBytes(32).toString('hex');
+const registration=await api('/api/onboarding/users',{client_id:clientId,name:'Isolated Flolah adapter acceptance',username:'physical_acceptance',password,language:'en'});
+assert.ok(registration.auth_code,'Expected fresh onboarding code');
+const auth=await fetch(base+'/auth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:registration.auth_code,client_id:clientId})});
+assert.equal(auth.status,200);token=(await auth.json()).access_token;assert.ok(token);
+const scope={tenantId:randomUUID(),siteId:'ha-test',hubId:randomUUID()};const root=topicRoot(scope),mqttPassword=randomBytes(32).toString('hex');
+const broker=await startTestBroker({simulator:{password:mqttPassword,root,role:'simulator',discoveryPrefix:scope.hubId},ha:{password:mqttPassword,root,role:'home-assistant',discoveryPrefix:scope.hubId}},{host:'0.0.0.0'});
+const port=broker.server.address().port;let state={devices:{},operations:{}};
+const simulator=new Simulator({...scope,url:'mqtt://127.0.0.1:'+port,username:'simulator',password:mqttPassword},{load:()=>structuredClone(state),save:s=>{state=structuredClone(s);}});
+let adapter,gateway,cloud,sockets;
+try{
+  simulator.add('test-switch','switch');simulator.add('test-sensor','sensor');await simulator.start();
+  let flow=await api('/api/config/config_entries/flow',{handler:'mqtt',show_advanced_options:false});
+  console.log('HA_MQTT_FORM '+JSON.stringify({step:flow.step_id,fields:flow.data_schema?.map(f=>f.name)}));
+  const fields=new Set(flow.data_schema?.map(f=>f.name)||[]);
+  const brokerSettings={broker:brokerHost,port,username:'ha',password:mqttPassword};
+  if(fields.has('protocol'))brokerSettings.protocol='3.1.1';
+  if(fields.has('other_settings'))brokerSettings.other_settings={set_ca_cert:'off',set_client_cert:false,transport:'tcp'};
+  flow=await api('/api/config/config_entries/flow/'+flow.flow_id,brokerSettings);
+  if(flow.type==='form'&&flow.step_id==='options')flow=await api('/api/config/config_entries/flow/'+flow.flow_id,{});
+  assert.equal(flow.type,'create_entry','MQTT integration should be configured');
+  const states=await until(async()=>{simulator.announce();const list=await api('/api/states');return list.some(s=>s.entity_id.startsWith('switch.')&&s.attributes.friendly_name===scope.hubId+'_test-switch'&&s.state==='off')?list:null;},'MQTT switch discovery');
+  const switchId=states.find(s=>s.entity_id.startsWith('switch.')&&s.attributes.friendly_name===scope.hubId+'_test-switch').entity_id;
+  const sensorId=(await until(async()=>{const list=await api('/api/states');return list.find(s=>s.entity_id.startsWith('sensor.')&&s.attributes.friendly_name===scope.hubId+'_test-sensor'&&Number(s.state)===22);},'MQTT sensor discovery')).entity_id;
+  adapter=new HomeAssistantAdapter({url:base,token,entities:[{id:'ha-switch',haEntityId:switchId,profile:'switch',simulated:true},{id:'ha-sensor',haEntityId:sensorId,profile:'sensor',simulated:true}]});
+  const events=[];adapter.on('event',e=>events.push(e));await adapter.start();assert.equal(adapter.discover().length,2);
+  const command={id:randomUUID(),entityId:'ha-switch',action:'set_state',input:{on:true},descriptionHash:fingerprint(adapter.describe('ha-switch')),authorized:true,expiresAt:Date.now()+10000};
+  await adapter.invokeAction(command);
+  await until(()=>events.find(e=>e.entityId==='ha-switch'&&e.operationId===command.id&&e.value===true),'independent HA observed outcome');
+  assert.equal(simulator.state.devices['test-switch'].values.on,true);
+  simulator.control('test-sensor',{temperature:26});await until(()=>events.find(e=>e.entityId==='ha-sensor'&&e.value===26),'HA sensor event');
+  simulator.control('test-switch',{mode:'accepted_only'});
+  const silent={...command,id:randomUUID(),input:{on:false},expiresAt:Date.now()+800};await adapter.invokeAction(silent);await pause(1000);
+  assert.ok(!events.some(e=>e.operationId===silent.id&&e.value===false),'Service acceptance must not fabricate observed state');
+  await adapter.close();
+  const memory=initial=>{let value=structuredClone(initial);return {load:()=>structuredClone(value),save:s=>{value=structuredClone(s);}};};
+  const plane=new PhysicalControlPlane(memory(emptyState()));
+  const hub=plane.enroll(scope.tenantId,{siteId:scope.siteId,name:'Real HA acceptance gateway'});
+  cloud=createServer((req,res)=>{res.writeHead(404);res.end();});sockets=attachPhysicalHubServer(cloud,plane);await new Promise(r=>cloud.listen(0,'127.0.0.1',r));
+  adapter=new HomeAssistantAdapter({url:base,token,entities:[{id:'ha-switch',haEntityId:switchId,profile:'switch',simulated:true},{id:'ha-sensor',haEntityId:sensorId,profile:'sensor',simulated:true}]});
+  gateway=new EdgeGateway({cloudUrl:'ws://127.0.0.1:'+cloud.address().port+'/api/physical/hub',allowInsecureLocal:true,hubId:hub.hubId,siteId:scope.siteId,token:hub.token},memory({configuration:null,journal:{},events:[],offlineUses:{}}),{ha:adapter});
+  await gateway.start();await until(()=>plane.state.hubs[hub.hubId].candidates.length===2,'HA gateway discovery');
+  const entity=plane.register(scope.tenantId,{hubId:hub.hubId,candidateId:'ha-switch',actions:{set_state:'autonomous'}});
+  const sensor=plane.register(scope.tenantId,{hubId:hub.hubId,candidateId:'ha-sensor',actions:{}});
+  await until(()=>gateway.state.configuration?.entities.length===2,'HA asset grants');
+  simulator.control('test-switch',{mode:'normal'});
+  const operation=plane.operation(scope.tenantId,{entityId:entity.id,action:'set_state',input:{on:false},idempotencyKey:randomUUID(),timeoutMs:10000});
+  await until(()=>plane.state.operations[operation.id].status==='completed','Cloud to edge to real HA outcome');
+  assert.equal(plane.state.operations[operation.id].evidence.value,false);
+  simulator.control('test-sensor',{temperature:27});await until(()=>plane.state.entities[sensor.id].observations.temperature?.value===27,'HA sensor reaches cloud registry');
+  simulator.control('test-switch',{mode:'accepted_only'});
+  const uncertain=plane.operation(scope.tenantId,{entityId:entity.id,action:'set_state',input:{on:true},idempotencyKey:randomUUID(),timeoutMs:1200});
+  await until(()=>{plane.expire();return plane.state.operations[uncertain.id].status==='uncertain';},'HA missing evidence becomes uncertain');
+  assert.ok(!plane.state.operations[uncertain.id].evidence);
+  console.log(JSON.stringify({stage:'PHYSICAL_REAL_HOME_ASSISTANT_PASS',switchAction:true,observedState:true,sensorEvent:true,acceptedOnlyNotCompleted:true,cloudToEdgeToHomeAssistant:true,sensorObservationInCloud:true,missingEvidenceUncertain:true,hardware:'simulated',homeAssistant:'real disposable container',existingServicesTouched:false}));
+}finally{if(gateway)await gateway.close();else await adapter?.close();await sockets?.close();if(cloud)await new Promise(r=>cloud.close(r));await simulator.close();await broker.close();}

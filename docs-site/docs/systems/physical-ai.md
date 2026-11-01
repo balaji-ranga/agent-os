@@ -1,15 +1,19 @@
 ---
 title: Physical AI, humans and digital agents
-description: Planned expansion of the Flolah Company OS to coordinate people, digital agents and supported physical equipment.
+description: Expansion of the Flolah Company OS to coordinate people, digital agents and supported physical equipment.
 ---
 
 # Physical AI, humans and digital agents
 
-Flolah remains the **AI Company OS**: humans set direction, digital AI employees own outcomes, and workflows execute under policy and supervision. The proposed physical AI expansion extends that same platform to supported devices and task-capable robots, bringing human, digital and physical work into one coordinated process.
+Flolah remains the **AI Company OS**: humans set direction, digital AI employees own outcomes, and workflows execute under policy and supervision. The physical AI expansion extends that same platform to supported devices and task-capable robots, bringing human, digital and physical work into one coordinated process.
 
-:::info Proposed scope — 29 October 2026
-This page describes the planned architecture and product direction. It does not announce generally available device integrations, robot support, an Edge Hub or a TV app. Existing Company OS capabilities and guides continue to apply. Delivery follows the [three-phase implementation plan](/systems/physical-ai-implementation-plan).
+:::info Supported capabilities
+The desktop edge foundation provides governed registration, simulator testing and supported HA/MQTT integrations. Use only the operations declared for your registered equipment. Android APK delivery and broader robot integrations are separate delivery stages. See the [capability overview](/systems/physical-ai-implementation-plan).
 :::
+
+## Connect your first physical device
+
+Follow the [device onboarding how-to](/systems/physical-ai-onboarding) for the shared Flolah and Windows edge setup, hub enrollment, supported-device registration, approvals and outcome verification. It includes a PRISM+ Smart TV pilot checklist and explicitly identifies model-specific compatibility requirements.
 
 ## One platform, expanded experiences
 
@@ -26,11 +30,11 @@ Both experiences reuse the platform's agents, knowledge, workflows, policies, ap
 - **Physical agents** own delegated physical tasks and expose progress and outcomes. A supported cleaning robot could accept a room-cleaning task through an adapter.
 - **Physical devices** expose state, commands or events. Lights, sensors and thermostats are resources; executing a command does not make them autonomous agents.
 
-The proposed **PhysicalEntity** registry describes real-world assets, ownership, location, connectivity and capabilities. A **PhysicalDevice** exposes properties, actions and events. A **PhysicalAgent** adds delegated task responsibility, permissions, progress and failure handling. Agent identity is separate from hardware, and a physical agent need not use an LLM.
+The **PhysicalEntity** registry describes real-world assets, ownership, location, connectivity and capabilities. A **PhysicalDevice** exposes properties, actions and events. A **PhysicalAgent** adds delegated task responsibility, permissions, progress and failure handling. Agent identity is separate from hardware, and a physical agent need not use an LLM.
 
 ## How the architecture expands
 
-The existing [Company OS capability architecture](/start/company-os-capabilities) and [operating model](/start/how-the-company-runs) remain the foundation. The proposed extension adds a governed physical capability layer alongside existing digital connectors:
+The existing [Company OS capability architecture](/start/company-os-capabilities) and [operating model](/start/how-the-company-runs) remain the foundation. The extension adds a governed physical capability layer alongside existing digital connectors:
 
 1. **Existing platform:** people and digital agents define and coordinate work through goals, knowledge, workflows, policies, approvals and audit.
 2. **Unified capability interface:** discover assets, read properties, invoke approved actions, subscribe to events and manage supported tasks. Curated agent tools expose only authorized capabilities.
@@ -46,15 +50,23 @@ Use W3C Web of Things Thing Descriptions for device properties, actions and even
 
 Add camera, robot and industrial adapters only for validated use cases. Candidate interfaces include ONVIF, robot vendor APIs or ROS 2, and dedicated gateways for Modbus, OPC UA or BACnet. Avoid overlapping gateway runtimes in the initial pilot.
 
+### Shared adapter contract and onboarding
+
+Business workflows call a common, governed capability API rather than vendor robot APIs. The core owns tenant/site identity, permissions, approvals, task/operation records, evidence and audit. Curated edge plugins own discovery, pairing, credentials, vendor command translation, events and declared limitations. A compatible robot instance normally needs configuration; a new protocol/vendor interface needs an adapter, not new workflow logic. Different functions still need appropriate capability definitions, and common transport alone does not make task semantics interchangeable.
+
+Onboarding proceeds through hub enrollment, approved adapter selection, discovery or explicit endpoint entry, owner-authorized pairing, description validation and PhysicalEntity registration. Enable a PhysicalAgent profile only for supported delegated tasks with progress and observable outcomes. Apply capability permissions and run a controlled validation before enabling work. Discovery alone never grants authority; adapter/capability version changes require review.
+
+The initial Phase 1 environment uses a Windows laptop and one generic software simulator through the same contracts. A Home Assistant adapter stage reuses its MQTT devices. This avoids equipment purchases for integration tests; it does not establish real vendor compatibility or safety. See the [testing approach](/systems/physical-ai-implementation-plan) for acceptance boundaries.
+
 ### Interfaces and hardware
 
 Web, mobile, voice and a proposed Android TV app provide conversation, status and approvals. A separate Linux Edge Hub is the preferred device gateway. An ordinary USB storage stick cannot turn an arbitrary TV into a Flolah client. An optional HDMI computing device is a later product decision, after hardware and support validation.
 
 ## Shared workflows in practice
 
-**Close shop — Business:** a manager requests closing; a digital agent summarizes permitted sales and inventory data; a staff member completes a manual premises check; authorized equipment actions run; Flolah records observed results, outstanding approvals and exceptions. A missing staff confirmation leaves the step incomplete.
+**Close shop â€” Business:** a manager requests closing; a digital agent summarizes permitted sales and inventory data; a staff member completes a manual premises check; authorized equipment actions run; Flolah records observed results, outstanding approvals and exceptions. A missing staff confirmation leaves the step incomplete.
 
-**Prepare for guests — Home:** a household member requests preparation; a digital agent checks permitted context and proposes a routine; a supported physical agent cleans the selected room; a person handles any obstruction or exception. Completion requires task results, not merely acceptance of a command.
+**Prepare for guests â€” Home:** a household member requests preparation; a digital agent checks permitted context and proposes a routine; a supported physical agent cleans the selected room; a person handles any obstruction or exception. Completion requires task results, not merely acceptance of a command.
 
 ## Authority, safety and evidence
 

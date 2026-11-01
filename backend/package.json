@@ -24,6 +24,7 @@
     "seed": "node scripts/seed-all.js",
     "avatars:refresh-workflows": "node scripts/refresh-avatar-workflows.mjs",
     "test:smoke": "node ../tests/api-smoke.js",
+    "test:physical": "node scripts/test-physical-integration.mjs && npm --prefix ../physical-edge test",
     "test:router-contract": "node scripts/test-router-adjudicator-contract.mjs",
     "test:router-planner:focused": "node scripts/test-router-planner-focused.mjs",
     "test:router-planner:live-local": "node scripts/test-router-planner-live-local.mjs",
@@ -136,6 +137,7 @@
     "pdfkit": "^0.19.1",
     "pg": "^8.22.0",
     "ssh2-sftp-client": "^11.0.0",
+    "ws": "^8.22.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

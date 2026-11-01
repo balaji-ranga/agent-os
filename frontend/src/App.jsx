@@ -29,6 +29,7 @@ import JobProfiles from './pages/JobProfiles';
 import BrowserSession from './pages/BrowserSession';
 import UserProfile from './pages/UserProfile';
 import Connectors from './pages/Connectors';
+import PhysicalAI from './pages/PhysicalAI';
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
 import AdminPlatformFeedback from './pages/AdminPlatformFeedback';
@@ -517,6 +518,7 @@ function Shell() {
                 <Route path="/org" element={<Perm user={user} k="org"><Dashboard /></Perm>} />
                 <Route path="/profile" element={<UserProfile />} />
                 <Route path="/connectors" element={<Perm user={user} k="connectors"><Connectors /></Perm>} />
+                <Route path="/physical-ai" element={<Perm user={user} k="physical-ai"><PhysicalAI user={user} /></Perm>} />
                 <Route path="/job-profiles" element={<Perm user={user} k="job-profiles"><JobProfiles /></Perm>} />
                 <Route path="/browser-session" element={<Perm user={user} k="browser-session"><BrowserSession /></Perm>} />
                 <Route path="/workspace" element={<Perm user={user} k="ai-employees"><Workspace /></Perm>} />

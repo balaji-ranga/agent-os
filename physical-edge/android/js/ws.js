@@ -1,0 +1,3 @@
+import {EventEmitter} from './events.js';
+const sockets=new Map();window.nativeSocketEvent=(id,type,data)=>{const s=sockets.get(id);if(!s)return;if(type==='open')s.readyState=1;if(type==='close'){s.readyState=3;sockets.delete(id);}s.emit(type,type==='message'?data:undefined);};
+export default class WebSocket extends EventEmitter {static OPEN=1;constructor(url,options={}){super();this.id=NativeEdge.uuid();this.readyState=0;sockets.set(this.id,this);NativeEdge.open(this.id,url,JSON.stringify(options.headers||{}));}send(message){NativeEdge.send(this.id,message);}close(){NativeEdge.close(this.id);} }

@@ -146,6 +146,7 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
 
       {(() => {
         const configFields = (catalog.configFields || [])            .filter((f) => {
+              if (node.type === 'physical_device') return ['operationTimeoutMs','requireVisualEvidence'].includes(f.id);
               if (node.type === 'mcp_tool') {
                 return !['mcpServerId', 'toolName', 'authBearer', 'authHeadersJson', 'httpHeadersJson', 'staticArguments'].includes(f.id);
               }

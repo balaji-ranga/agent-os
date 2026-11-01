@@ -1,3 +1,4 @@
+import {assertPhysicalWorkflowAuthority} from './physical/workflow-authority.js';
 /**
  * Agent workflow definitions: draft/publish, audit trail, run listing.
  */
@@ -302,6 +303,7 @@ export function updateDraft(id, ownerUserId, patch, actor) {
 export function publishDefinition(id, ownerUserId, actor) {
   const def = getDefinition(id, ownerUserId);
   if (!def) return null;
+  if(def.draft_graph?.nodes?.some(n=>n.type==='physical_device'))assertPhysicalWorkflowAuthority(ownerUserId,actor);
   const publishErrors = validateWorkflowForPublish(def.draft_graph, ownerUserId);
   if (publishErrors.length) {
     throw new Error(`Cannot publish: ${publishErrors.join('; ')}`);

@@ -1,3 +1,5 @@
+import {getPhysicalControlPlane} from './physical/runtime.js';
+import {validateInput as validatePhysicalInput} from './physical/contracts.js';
 /**
  * Generic action-family policy: Autonomous / Approval required / Prohibited.
  * Risk tiers R0–R4 resolved from explicit tool metadata/name and, for
@@ -740,6 +742,7 @@ export function actionPolicyMiddleware(req, res, next) {
     }
   }
   if (!ownerUserId) return next();
+  if(toolName==='physical_invoke'&&process.env.FLOLAH_PHYSICAL_ENABLED==='1'){try{const asset=getPhysicalControlPlane().assertResource(ownerUserId,req.body?.entityId,'agent:'+policyAgentId,req.body?.action);const spec=asset.description.actions[req.body?.action];if(!asset.enabled||!spec||(asset.actions[req.body.action]||'prohibited')==='prohibited')throw Object.assign(Error('Unsupported or prohibited physical action'),{status:403});validatePhysicalInput(spec.input,req.body?.input);if(typeof req.body?.idempotencyKey!=='string'||! /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,95}$/.test(req.body.idempotencyKey))throw Object.assign(Error('Valid physical idempotencyKey required'),{status:400});}catch(e){return res.status(e.status||400).json({ok:false,error:e.message,failure_class:'invalid_physical_request',needs_approval:false});}}
   // Copilot commands require a live recipient/payload snapshot before a grant
   // can be evaluated. Every execution entry point calls the shared connector
   // service, which evaluates that exact snapshot once and rechecks each effect.

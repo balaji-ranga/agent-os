@@ -68,3 +68,13 @@ tmp-cf-*
 tmp-cheapflights-*
 t.js
 /test-results/partial-goal/
+
+# Generated distributable packages and Android build outputs
+physical-edge/dist/
+physical-edge/android/.gradle/
+physical-edge/android/**/build/
+physical-edge/android/local.properties
+
+# Physical edge private deployment material
+physical-edge/config/credentials/
+physical-edge/config/gateway.json

@@ -1,0 +1,1 @@
+export class EventEmitter { constructor(){this.listeners={};} on(t,f){(this.listeners[t] ||= []).push(f);return this;} once(t,f){const g=(...a)=>{this.off(t,g);f(...a);};return this.on(t,g);} off(t,f){this.listeners[t]=(this.listeners[t]||[]).filter(x=>x!==f);return this;} emit(t,...a){for(const f of this.listeners[t]||[])f(...a);} }

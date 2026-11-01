@@ -20,6 +20,7 @@ import KnowledgeSourcePicker from '../components/KnowledgeSourcePicker.jsx';
 import HttpHeadersEditor from '../components/HttpHeadersEditor.jsx';
 import VaultOrLiteralSecret from '../components/VaultOrLiteralSecret.jsx';
 import BrainMcpToolCallingPanel from '../components/workflow/BrainMcpToolCallingPanel.jsx';
+import PhysicalDeviceFields from '../components/workflow/PhysicalDeviceFields.jsx';
 import CopilotConnectorFields from '../components/workflow/CopilotConnectorFields.jsx';
 import WorkflowVariablesPanel from '../components/workflow/WorkflowVariablesPanel.jsx';
 import {
@@ -1799,6 +1800,8 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
         </>
       )}
 
+      {node.type === 'physical_device' && <PhysicalDeviceFields config={data.taskConfig||{}} onChange={taskConfig=>set({taskConfig})} />}
+
       <InputOutputPanel
         node={node}
         taskCatalog={taskCatalog}
@@ -1871,6 +1874,7 @@ function analyzeGraphReadinessClient(nodes, edges, taskCatalog) {
       custom_script: [['Custom script', cfg.customScriptId]],
       connector: [['Connector app', cfg.appId], ['Connector action', cfg.actionId]],
       sub_workflow: [['Target workflow', cfg.targetWorkflowId]],
+      physical_device: [['Registered asset',cfg.entityId],[(cfg.operation||'invoke')==='read'?'Property':'Action',(cfg.operation||'invoke')==='read'?cfg.property:cfg.action]],
       externalAgent: [['External agent', cfg.externalAgentId]],
     };
     for (const [field, value] of identities[node.type] || []) {

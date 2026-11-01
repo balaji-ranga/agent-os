@@ -73,6 +73,7 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
     { id: 'ai-employees', label: 'AI Employees', to: '/workspace', group: 'Company Tools' },
     { id: 'content-tools', label: 'Tools', to: '/content-tools', group: 'Company Tools' },
     { id: 'connectors', label: 'Connectors', to: '/connectors', group: 'Company Tools' },
+    { id: 'physical-ai', label: 'Physical AI', to: '/physical-ai', group: 'Company Tools', permission: 'physical-ai' },
     { id: 'mcp', label: 'MCP', to: '/integrations/mcp', group: 'Company Tools' },
     { id: 'custom-scripts', label: 'Custom scripts', to: '/integrations/custom-scripts', group: 'Company Tools' },
     { id: 'agent-exchange', label: 'AgentExchange', to: '/agent-exchange', group: 'Company Tools' },

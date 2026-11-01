@@ -21,6 +21,7 @@ export function hasPermission(user, key) {
 export function filterCatalogByPermissions(items, user) {
   if (isTenantFullAccess(user)) return items;
   return (items || []).filter((it) => {
+    if (it.fullAccess) return false;
     if (it.always || ALWAYS_ON.has(it.id)) return true;
     if (it.id === 'home' || it.id === 'kanban') return true;
     return hasPermission(user, it.permission || it.id);

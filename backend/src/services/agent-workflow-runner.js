@@ -1,3 +1,5 @@
+import {executePhysicalWorkflowTask} from './physical/workflow-task.js';
+import {assertPhysicalWorkflowAuthority} from './physical/workflow-authority.js';
 import {assertFloAssistMcpRoute,withFloAssistScope,resolveFloAssistScope,bindFloAssistWork} from './floassist/execution-scope.js';
 /**
  * Execute published agent workflows: agent nodes, tool nodes, parallel branches.
@@ -624,6 +626,7 @@ function failRun(runId, message) {
 /** Node types that can safely re-dispatch after a process restart. */
 const RESUMABLE_IN_PROGRESS_TYPES = new Set([
   'brain',
+  'physical_device',
   'api',
   'custom_script',
   'mcp_tool',
@@ -720,6 +723,7 @@ async function completeTimedNodeStep({
     updateRunProgress(runId);
     await advanceFromNode(runId, nodeId);
   } catch (err) {
+    if(err.code==='PHYSICAL_WORKFLOW_STOPPED')return;
     if(err.code==='COPILOT_AWAITING_APPROVAL'){
       const summary=JSON.stringify({action:config.actionId,execution:err.approvalContext,expiresAt:Date.now()+60000});
       const description=buildAgentWorkflowDescription({runId,definitionId:def.id,definitionName:def.name,nodeId:node.id,nodeLabel:node.data?.label||'Copilot approval',nodeType:'ceo_approval',ownerUserId:runRow.owner_user_id,summary});
@@ -727,7 +731,7 @@ async function completeTimedNodeStep({
       context.copilot_approvals||={};context.copilot_approvals[node.id]={execution:err.approvalContext,actionId:config.actionId,policyToolName:err.policy.tool_name,family:err.policy.action_family,expiresAt:Date.now()+60000};saveContext(runId,context);
       upsertStep(runId,node,'in_progress',{input:inputRecord,kanban_task_id:id,error_message:'COPILOT_AWAITING_APPROVAL'});notifyWorkflowRunWaitingCeo(runId,{nodeId:node.id,kanbanTaskId:id});return;
     }
-    if (isNodeTimeoutError(err) && timeoutAction === 'default_output' && !String(config.actionId||'').startsWith('digital_adoption.')) {
+    if (isNodeTimeoutError(err) && timeoutAction === 'default_output' && node.type !== 'physical_device' && !String(config.actionId||'').startsWith('digital_adoption.')) {
       const outputs = buildTimeoutFallbackOutputs(node.type, defaultOutput, timeoutMs);
       storeNodeOutput(context, node.id, outputs);
       saveContext(runId, context);
@@ -1549,6 +1553,17 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     return;
   }
 
+  if (node.type === 'physical_device') {
+    const inputRecord=buildStepInputRecord(node,graph,context);
+    const config=node.data?.taskConfig||{};
+    await completeTimedNodeStep({runId,node,nodeId,def,runRow,context,inputRecord,
+      work:async()=>{
+        if(context.actor?.type!=='system')assertPhysicalWorkflowAuthority(runRow.owner_user_id,context.actor);
+        return executePhysicalWorkflowTask(inputRecord.resolved,config,context,{ownerUserId:runRow.owner_user_id,principal:context.actor?.type==='system'?'workflow:'+def.id:context.actor?.id===runRow.owner_user_id?'owner':'user:'+context.actor?.id,runId,nodeId:node.id,iteration:loopIteration,dispatchId:context._event_dispatch?.dispatchId||'',isRunActive:()=>db().prepare('SELECT status FROM agent_workflow_runs WHERE id=?').get(runId)?.status==='running'});
+      },kanban:outputs=>({nodeLabel:node.data?.label||'Physical Device',summary:outputs.text,detail:{operationId:outputs.operation_id,site:outputs.site_id,hub:outputs.hub_id}})});
+    return;
+  }
+
   if (node.type === 'email') {
     const inputRecord = buildStepInputRecord(node, graph, context);
     const config = node.data?.taskConfig || node.data?.config || {};
@@ -2270,7 +2285,7 @@ async function applyPersistedNodeTimeout(runId, node, def, runRow, context, time
   const secs = Math.max(1, Math.round(Number(timeoutMs) / 1000));
   const errMessage = `Node timed out after ${secs}s (limit ${timeoutMs}ms)`;
 
-  if (timeoutAction === 'default_output') {
+  if (timeoutAction === 'default_output' && node.type !== 'physical_device') {
     const outputs = buildTimeoutFallbackOutputs(node.type, defaultOutput, timeoutMs);
     storeNodeOutput(context, node.id, outputs);
     saveContext(runId, context);

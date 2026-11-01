@@ -1,0 +1,53 @@
+name: flolah-physical-edge
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: physical-edge/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./.local/config:/config:ro
+      - gateway-data:/data
+    ports:
+      - "127.0.0.1:${PHYSICAL_GATEWAY_UI_PORT:-8791}:8791"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - broker
+    networks: [edge]
+  simulator:
+    build:
+      context: ..
+      dockerfile: physical-edge/Dockerfile
+    profiles: [simulator]
+    command: [node, src/simulator-cli.js, /config/simulator.json]
+    volumes:
+      - ./.local/config:/config:ro
+      - simulator-data:/data
+    ports:
+      - "127.0.0.1:${PHYSICAL_SIMULATOR_UI_PORT:-8792}:8792"
+    depends_on: [broker]
+    networks: [edge]
+  broker:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    volumes:
+      - ./.local/mosquitto:/mosquitto/config:ro
+      - broker-data:/mosquitto/data
+    ports:
+      - "${PHYSICAL_MQTT_BIND:-127.0.0.1}:${PHYSICAL_MQTT_PORT:-1883}:1883"
+    networks: [edge]
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    profiles: [homeassistant-linux]
+    network_mode: host
+    volumes:
+      - ha-data:/config
+    restart: unless-stopped
+networks:
+  edge: {}
+volumes:
+  gateway-data: {}
+  simulator-data: {}
+  broker-data: {}
+  ha-data: {}

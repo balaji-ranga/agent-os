@@ -1,6 +1,7 @@
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {visibleContentTools} from './runtime-access.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
+import {physicalSchemas} from './physical-schemas.js';
 /**
  * OpenClaw plugin: registers content tools from the Agent OS tools list file.
  * OpenClaw 2026.7+ requires definePluginEntry + contracts.tools in the manifest.
@@ -256,6 +257,7 @@ type PromptBuildContext = {
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+  ...physicalSchemas,
   ...floassistSchemas,
   'multi-format-content-tool': multiFormatSchema,
   download_file: {

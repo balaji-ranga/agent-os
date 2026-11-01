@@ -1,0 +1,21 @@
+{
+  "name": "flolah-physical-edge",
+  "private": true,
+  "version": "0.3.1",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "lab": "node src/lab.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.0.0",
+    "ws": "^8.0.0"
+  },
+  "devDependencies": {
+    "aedes": "^0.51.3"
+  }
+}

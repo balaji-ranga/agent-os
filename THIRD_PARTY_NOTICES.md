@@ -273,6 +273,10 @@ Image-layer OS packages (Debian/Alpine) can be listed with `dpkg -l` / `apk info
 
 ## 11. Where notices are published
 
+### Optional physical AI pilot dependencies (31 October 2026)
+
+The opt-in physical pilot uses **ws** ([websockets/ws](https://github.com/websockets/ws), MIT) for authenticated hub and Home Assistant WebSocket connections and **MQTT.js** ([mqttjs/MQTT.js](https://github.com/mqttjs/MQTT.js), MIT) for the edge transport. The local lab/test package uses **Aedes** ([moscajs/aedes](https://github.com/moscajs/aedes), MIT) as its authenticated test broker. Their package license files accompany installed dependencies; exact versions are recorded in the backend and physical-edge lockfiles. Optional Home Assistant and Eclipse Mosquitto images retain their upstream licenses and bundled notices; consult the selected image and upstream project before distribution.
+
 | Location | Audience |
 |----------|----------|
 | `THIRD_PARTY_NOTICES.md` (repo root; copied into the backend image) | Operators / engineering |

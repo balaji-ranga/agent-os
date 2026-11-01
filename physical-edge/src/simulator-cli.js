@@ -1,0 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { resolve,join } from 'node:path';
+import { Simulator } from './simulator.js';
+import { FileStore } from './store.js';
+import { localServer } from './local-server.js';
+if(!process.argv[2])throw Error('Usage: node src/simulator-cli.js <protected-config.json>');
+const config=JSON.parse(readFileSync(process.argv[2],'utf8'));
+const store=new FileStore(join(resolve(config.dataDir),'simulator.json'),{devices:{},operations:{}});
+const simulator=new Simulator(config.mqtt,store);for(const d of config.devices)simulator.add(d.id,d.profile);await simulator.start();
+const server=localServer({token:config.localToken,simulator});server.listen(config.uiPort||0,config.uiBind||'127.0.0.1',()=>console.log('Simulator UI port: '+server.address().port));
+for(const sig of ['SIGINT','SIGTERM'])process.once(sig,async()=>{server.close();await simulator.close();store.close();process.exit(0);});
