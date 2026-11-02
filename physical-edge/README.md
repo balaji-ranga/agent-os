@@ -153,3 +153,7 @@ Only an administrator configures package IDs. Agents discover the declared `laun
 Install the reusable HA adapter and its protected endpoint/token once. Device/action mappings can then be staged from Physical AI → Device mappings. Only data for this hub is delivered. Supported managed transports are a fixed HA script/button and an approved media-player app catalog, with independently bound typed observations. Secrets remain local. MQTT canonical devices continue discovering their declared capabilities through their existing adapter.
 
 Accepted revisions are durably cached; invalid revisions retain the last valid cache. Changed bindings do not inherit old action permissions. HA reconnects automatically; commands are not replayed on reconnect. Use stable DHCP reservations/hostnames in downstream integrations rather than treating an IP address as device identity.
+
+### Virtual room camera
+
+The simulator includes a still-image room camera linked to its virtual TV. `capture` emits a fresh 640×360 PNG without TV-state metadata. Change the virtual TV power or select the camera’s `linked`, `on`, `off`, or `unknown` scene in the authenticated local simulator UI. This is a rendered test harness, not CCTV footage or a live-video adapter. Workflow image analysis uses the configured vision LLM on the captured pixels.

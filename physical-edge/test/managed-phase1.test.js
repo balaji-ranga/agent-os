@@ -55,7 +55,7 @@ test('two real simulator hubs at same site isolate commands, approvals and offli
  const labs=[],gateways=[];
  try{
   const enrolled=[];for(const name of ['first','second']){const hub=p.enroll('owner',{siteId:'same-site',name});enrolled.push(hub);const config={hub:{...hub,cloudUrl:'ws://127.0.0.1:'+http.address().port+'/api/physical/hub',allowInsecureLocal:true}};const lab=await siteSimulator(config,(_,initial)=>store(initial));labs.push(lab);const g=new EdgeGateway(config.hub,store(null),{simulator:lab.adapter});gateways.push(g);await g.start();}
-  await until(()=>enrolled.every(h=>p.state.hubs[h.hubId].candidates.length===4));
+  await until(()=>enrolled.every(h=>p.state.hubs[h.hubId].candidates.length===5));
   const assets=enrolled.map(h=>p.register('owner',{hubId:h.hubId,candidateId:'virtual-switch',actions:{set_state:'approval_required'}}));
   await until(()=>gateways.every(g=>g.state.configuration?.entities.length===1));
   const op=p.operation('owner',{entityId:assets[0].id,action:'set_state',input:{on:true},idempotencyKey:randomUUID(),timeoutMs:5000});assert.equal(op.status,'awaiting_approval');assert.equal(labs[0].simulator.state.devices['virtual-switch'].values.on,false);

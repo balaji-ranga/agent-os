@@ -4,7 +4,7 @@ import { id, fault, fingerprint } from '../../backend/src/services/physical/cont
 
 export function topicRoot({tenantId,siteId,hubId}) { return ['flolah','physical',id(tenantId),id(siteId),id(hubId)].join('/'); }
 export class MqttAdapter extends EventEmitter {
-  static manifest={id:'mqtt',version:1,profiles:['switch','sensor','robot'],capabilities:['read','invoke','subscribe','tasks'],credentialRequirements:['broker username/password'],limitations:['Only configured canonical device protocol; not arbitrary MQTT payloads']};
+  static manifest={id:'mqtt',version:1,profiles:['switch','sensor','robot','tv','camera'],capabilities:['read','invoke','subscribe','tasks'],credentialRequirements:['broker username/password'],limitations:['Only configured canonical device protocol; not arbitrary MQTT payloads']};
   constructor(config){super();this.config=config;this.root=topicRoot(config);this.descriptions=new Map();this.latest=new Map();if(config.entityIds!==undefined){if(!Array.isArray(config.entityIds))throw fault('Invalid MQTT entity allowlist');config.entityIds.forEach(id);}}
   async start(){
     if(!this.config.username||!this.config.password)throw fault('MQTT credentials required');

@@ -66,7 +66,7 @@ test('real HTTP + WebSocket + MQTT simulator acceptance', {timeout:90000}, async
   const current=o=>{lab.plane.expire();return lab.plane.state.operations[o.id];};
   const invoke=async(e,action,input,timeoutMs=1500,key=randomUUID())=>{const r=await call('/operations',{entityId:e.id,action,input,timeoutMs,idempotencyKey:key});assert.equal(r.status,200,JSON.stringify(r.data));return r.data;};
   try{
-    await until(()=>lab.plane.state.hubs[lab.hub.hubId].candidates.length===4,'discovery');
+    await until(()=>lab.plane.state.hubs[lab.hub.hubId].candidates.length===5,'discovery');
     let light,sensor,robot;
     await t.test('onboarding and two device types share the capability interface',async()=>{
       for(const [device,actions]of [['lab-switch',{set_state:'autonomous'}],['lab-sensor',{}],['lab-robot',{clean_area:'approval_required'}]]){

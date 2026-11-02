@@ -64,6 +64,10 @@ export function profile(entityId, kind = 'switch') {
       select_channel:action({channel:{type:'integer',minimum:1,maximum:9999}},['channel'],{property:'channel',input:'channel'}),
       navigate:action({command:{type:'string',enum:['DPAD_UP','DPAD_DOWN','DPAD_LEFT','DPAD_RIGHT','DPAD_CENTER','BACK','HOME']}},['command'],{property:'last_navigation',input:'command'})
     };
+  } else if(kind==='camera'){
+    td.properties={captured:{type:'boolean'}};
+    td.actions={capture:{risk:'routine',task:false,input:{type:'object',properties:{},required:[]},expected:{property:'captured',value:true}}};
+    td.flolah.evidence={visual:true,kind:'simulator_snapshot'};
   } else if (kind === 'sensor') td.properties={temperature:{type:'number'}};
   else if (kind === 'robot') {
     td.flolah.taskLifecycle={progress:true,outcomes:true,cancellation:true};

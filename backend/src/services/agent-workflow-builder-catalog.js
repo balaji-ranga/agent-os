@@ -13,6 +13,8 @@ import {
 } from './agent-workflow-secrets.js';
 
 const NODE_PURPOSE = {
+  analyze_image:'Vision LLM inspection of an owner-scoped image or fresh physical evidence reference; optional strict structured result schema for branching.',
+  time_window:'Check current time in an IANA time zone; start inclusive and end exclusive. Optional ISO test clock is allowed only for fixed simulated physical devices.',
   physical_device: 'Read a registered physical asset or invoke a declared capability through its enrolled site hub. Company owner/delegate publication is required; human gates apply; only verified action outcomes continue. No device credentials or protocol payloads in workflows.',
   trigger: 'Entry point. Starts runs via manual button, chat phrase, cron schedule, or webhook.',
   agent: 'Delegates work to a workspace agent with a prompt template. Use {{input}} for prior step text.',

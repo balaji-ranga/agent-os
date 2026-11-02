@@ -369,9 +369,14 @@ export function SubWorkflowNode({ id, data }) {
 
 export function PhysicalDeviceNode({id,data}) {const c=data.taskConfig||{};return <NodeShell nodeId={id} color="#0891b2" icon="◉" title={data.label||'Physical Device'} subtitle={`${c.operation||'invoke'} · ${c.action||c.property||'Select capability'}`} />;}
 
+export function AnalyzeImageNode({id,data}) {return <NodeShell nodeId={id} color="#7c3aed" icon="◉" title={data.label||'Analyze Image'} subtitle="Configured vision LLM · captured pixels" />;}
+export function TimeWindowNode({id,data}) {const c=data.taskConfig||{};return <NodeShell nodeId={id} color="#0d9488" icon="◷" title={data.label||'Time Window'} subtitle={`${c.startTime||'--:--'}–${c.endTime||'--:--'} · ${c.timeZone||'UTC'}`} />;}
+
 export const workflowNodeTypes = {
   trigger: TriggerNode,
   physical_device: PhysicalDeviceNode,
+  analyze_image: AnalyzeImageNode,
+  time_window: TimeWindowNode,
   agent: AgentNode,
   tool: ToolNode,
   mcp_tool: McpToolNode,
@@ -406,6 +411,8 @@ export const PALETTE_ITEMS = [
   { type: 'if', label: 'IF', color: '#0d9488', desc: 'Branch on condition (true/false handles)' },
   { type: 'while', label: 'While', color: '#db2777', desc: 'Loop while condition (loop/exit handles)' },
   { type: 'email', label: 'Send Email', color: '#dc2626', desc: 'SMTP email with static + dynamic inputs' },
+  {type:'analyze_image',label:'Analyze Image',color:'#7c3aed',desc:'Vision LLM analysis of a captured image, with optional validated JSON result'},
+  {type:'time_window',label:'Time Window',color:'#0d9488',desc:'Check local time in an IANA time zone; start inclusive and end exclusive'},
   { type: 'physical_device', label: 'Physical Device', color: '#0891b2', desc: 'Read a registered asset or invoke its approved capability through the correct site hub, waiting for verified evidence' },
   { type: 'api', label: 'Call API', color: '#7c3aed', desc: 'HTTP request with configurable URL/body' },
   { type: 'elevenlabs', label: 'ElevenLabs', color: '#0ea5e9', desc: 'TTS / STT — audio media refs for downstream nodes' },

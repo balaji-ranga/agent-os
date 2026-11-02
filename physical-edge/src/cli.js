@@ -19,7 +19,7 @@ for(const [name,value]of Object.entries(config.adapters||{})){
   else throw Error('Unapproved adapter type');
 }
 let simulator,siteLab;
-if(!Object.keys(adapters).length||config.includeSimulator===true){siteLab=await siteSimulator(config,store);simulator=siteLab.simulator;adapters.simulator=siteLab.adapter;console.log(Object.keys(config.adapters||{}).length?'Simulator profiles enabled alongside configured device adapters.':'Simulator-only hub: virtual TV, switch, sensor and robot. No real device controls.');}
+if(!Object.keys(adapters).length||config.includeSimulator===true){siteLab=await siteSimulator(config,store);simulator=siteLab.simulator;adapters.simulator=siteLab.adapter;console.log(Object.keys(config.adapters||{}).length?'Simulator profiles enabled alongside configured device adapters.':'Simulator-only hub: virtual TV, room camera, switch, sensor and robot. No real device controls.');}
 if(config.simulator){simulator=new Simulator(config.simulator.mqtt,store('simulator',{devices:{},operations:{}}));for(const d of config.simulator.devices)simulator.add(d.id,d.profile);await simulator.start();}
 const gateway=new EdgeGateway(config.hub,store('gateway',{configuration:null,journal:{},events:[],offlineUses:{}}),adapters);
 await gateway.start();

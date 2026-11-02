@@ -32,7 +32,7 @@ export async function startLab({dataDir,cloudPort=0,uiPort=0}={}){
   const broker=await startTestBroker(accounts);
   const mqttConfig={...scope,url:broker.url,password};
   const simulator=new Simulator({...mqttConfig,username:'simulator'},store('simulator',{devices:{},operations:{}}));
-  simulator.add('lab-switch','switch');simulator.add('lab-sensor','sensor');simulator.add('lab-robot','robot');simulator.add('lab-tv','tv');await simulator.start();
+  simulator.add('lab-switch','switch');simulator.add('lab-sensor','sensor');simulator.add('lab-robot','robot');simulator.add('lab-tv','tv');simulator.add('lab-camera','camera',{observedDeviceId:'lab-tv'});await simulator.start();
   let adapter=new MqttAdapter({...mqttConfig,username:'gateway'});
   const gatewayConfig={cloudUrl:'ws://127.0.0.1:'+cloud.address().port+'/api/physical/hub',allowInsecureLocal:true,hubId:hub.hubId,siteId:scope.siteId,token:hub.token};
   const gatewayStore=store('gateway',{configuration:null,journal:{},events:[],offlineUses:{}});

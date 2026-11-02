@@ -1553,6 +1553,16 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     return;
   }
 
+  if (node.type === 'time_window') {
+    const inputRecord=buildStepInputRecord(node,graph,context);
+    await completeTimedNodeStep({runId,node,nodeId,def,runRow,context,inputRecord,work:async()=>{
+      const {executeTimeWindow}=await import('./workflow-time-window.js');
+      const {getPhysicalControlPlane}=await import('./physical/runtime.js');
+      return executeTimeWindow(inputRecord.resolved,node.data?.taskConfig||{}, {graph,owner:runRow.owner_user_id,plane:node.data?.taskConfig?.allowSimulationClock?getPhysicalControlPlane():null});
+    },kanban:outputs=>({nodeLabel:node.data?.label||'Time Window',summary:outputs.text,detail:outputs})});
+    return;
+  }
+
   if (node.type === 'physical_device') {
     const inputRecord=buildStepInputRecord(node,graph,context);
     const config=node.data?.taskConfig||{};
@@ -1678,7 +1688,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       work: () =>
         executeAnalyzeImageTask(inputRecord.resolved, { ...config, timeoutMs }, {
           ...context,
-          owner_user_id: runRow.owner_user_id,
+          owner_user_id: runRow.owner_user_id, definition_id:def.id,
         }),
       kanban: (outputs) => ({
         nodeLabel: node.data?.label || 'Analyze Image',

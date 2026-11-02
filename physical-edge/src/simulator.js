@@ -1,3 +1,4 @@
+import {roomCameraSnapshot} from './room-camera.js';
 import mqtt from 'mqtt';
 import {simulatorSnapshot} from './simulator-snapshot.js';
 import { id, profile, fingerprint, validateCommand, fault } from '../../backend/src/services/physical/contracts.js';
@@ -5,7 +6,7 @@ import { topicRoot } from './mqtt-adapter.js';
 
 export class Simulator {
   constructor(config,store){this.config=config;this.store=store;this.state=store.load()||{devices:{},operations:{}};this.root=topicRoot(config);this.timers=new Set();}
-  add(deviceId,kind){id(deviceId);if(!this.state.devices[deviceId])this.state.devices[deviceId]={description:profile(deviceId,kind),values:kind==='switch'?{on:false}:kind==='sensor'?{temperature:22}:kind==='tv'?{on:false,app:'home',channel:1,last_navigation:'HOME'}:{task_state:'idle'},mode:'normal',delayMs:50};if(kind==='tv')this.state.devices[deviceId].description.flolah.evidence={visual:true,kind:'simulator_snapshot'};this.save();}
+  add(deviceId,kind,options={}){id(deviceId);if(!this.state.devices[deviceId])this.state.devices[deviceId]={description:profile(deviceId,kind),values:kind==='camera'?{captured:false}:kind==='switch'?{on:false}:kind==='sensor'?{temperature:22}:kind==='tv'?{on:false,app:'home',channel:1,last_navigation:'HOME'}:{task_state:'idle'},mode:'normal',delayMs:50};if(kind==='camera'){if(!options.observedDeviceId||this.state.devices[options.observedDeviceId]?.description.flolah.profile!=='tv')throw fault('Camera requires a virtual TV source');this.state.devices[deviceId].observedDeviceId=options.observedDeviceId;}if(kind==='tv')this.state.devices[deviceId].description.flolah.evidence={visual:true,kind:'simulator_snapshot'};this.save();}
   save(){this.store.save(this.state);}
   async start(){
     this.client=mqtt.connect(this.config.url,{username:this.config.username,password:this.config.password,reconnectPeriod:500});this.client.on('error',()=>{});
@@ -50,14 +51,15 @@ export class Simulator {
       this.finish(c.id,{type:'observation',entityId:deviceId,operationId:c.id,property:prop,value,at:d.mode==='stale'?c.expiresAt-400000:Date.now()});
     },d.delayMs);
   }
-  finish(operationId,event){if(event.type==='observation'&&this.state.devices[event.entityId]?.description.flolah.profile==='tv')event={...event,attachments:[simulatorSnapshot(this.state.devices[event.entityId].values,event.at)]};this.state.operations[operationId].event=event;this.state.operations[operationId].status=event.type==='observation'?'completed':event.type;this.save();this.publish(event);if(event.type==='observation'&&this.state.devices[event.entityId].mode!=='stale')this.haState(event.entityId);}
+  frame(deviceId,at=Date.now()){const d=this.state.devices[deviceId];if(d?.description.flolah.profile!=='camera')throw fault('Not a virtual camera');const source=this.state.devices[d.observedDeviceId];return roomCameraSnapshot({on:d.scene==='on'?true:d.scene==='off'?false:source?.values.on===true,ambiguous:d.scene==='unknown'},at);}
+  finish(operationId,event){if(event.type==='observation'&&this.state.devices[event.entityId]?.description.flolah.profile==='camera'&&event.property==='captured')event={...event,attachments:[this.frame(event.entityId,event.at)]};if(event.type==='observation'&&this.state.devices[event.entityId]?.description.flolah.profile==='tv')event={...event,attachments:[simulatorSnapshot(this.state.devices[event.entityId].values,event.at)]};this.state.operations[operationId].event=event;this.state.operations[operationId].status=event.type==='observation'?'completed':event.type;this.save();this.publish(event);if(event.type==='observation'&&this.state.devices[event.entityId].mode!=='stale')this.haState(event.entityId);}
   cancel(deviceId,operationId){const op=this.state.operations[operationId],d=this.state.devices[deviceId];if(!op||op.deviceId!==deviceId||d.description.flolah.kind!=='PhysicalAgent')return;if(op.status==='completed')return;d.values.task_state='cancelled';this.finish(operationId,{type:'cancelled',entityId:deviceId,operationId,at:Date.now()});}
-  control(deviceId,{mode,delayMs,temperature}){
+  control(deviceId,{mode,delayMs,temperature,on,scene}){
     const d=this.state.devices[id(deviceId)];if(!d)throw fault('Unknown simulator device',404);
     if(mode!==undefined){if(!['normal','offline','accepted_only','lost_ack','stale','fail'].includes(mode))throw fault('Invalid fault mode');d.mode=mode;}
     if(delayMs!==undefined){if(!Number.isInteger(delayMs)||delayMs<0||delayMs>300000)throw fault('Invalid delay');d.delayMs=delayMs;}
     if(temperature!==undefined){if(d.description.flolah.profile!=='sensor'||typeof temperature!=='number'||!Number.isFinite(temperature))throw fault('Invalid temperature');d.values.temperature=temperature;}
-    this.save();this.report(deviceId);
+    if(on!==undefined){if(d.description.flolah.profile!=='tv'||typeof on!=='boolean')throw fault('Virtual TV state required');d.values.on=on;}if(scene!==undefined){if(d.description.flolah.profile!=='camera'||!['linked','on','off','unknown'].includes(scene))throw fault('Invalid virtual scene');d.scene=scene;}this.save();this.report(deviceId);
   }
   async close(){for(const t of this.timers)clearTimeout(t);this.timers.clear();if(this.client)await this.client.endAsync();}
 }

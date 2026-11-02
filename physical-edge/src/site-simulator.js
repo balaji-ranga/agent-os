@@ -8,5 +8,6 @@ export async function siteSimulator(config,store){
   const root=topicRoot(scope),password=identity.password,broker=await startTestBroker({gateway:{password,root,role:'gateway',discoveryPrefix:scope.hubId},simulator:{password,root,role:'simulator',discoveryPrefix:scope.hubId}});
   const mqtt={...scope,url:broker.url,password};const simulator=new Simulator({...mqtt,username:'simulator'},store('simulator',{devices:{},operations:{}}));
   for(const [id,type]of [['virtual-tv','tv'],['virtual-switch','switch'],['virtual-sensor','sensor'],['virtual-robot','robot']])simulator.add(id,type);
+  simulator.add('virtual-camera','camera',{observedDeviceId:'virtual-tv'});
   await simulator.start();return {simulator,adapter:new MqttAdapter({...mqtt,username:'gateway'}),broker};
 }

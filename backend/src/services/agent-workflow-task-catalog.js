@@ -29,11 +29,17 @@ export const WORKFLOW_TASK_TYPES = {
     ],
     outputs: [{ id: 'result', label: 'Tool result', description: 'JSON or text from tool' }],
   },
+  time_window: {
+    type:'time_window',label:'Time Window',color:'#0d9488',
+    inputs:[{id:'at',label:'Simulation timestamp (optional)',required:false,mode:'dynamic'}],
+    outputs:[{id:'in_window',label:'Within time window'},{id:'local_time',label:'Local time'},{id:'time_zone',label:'Time zone'},{id:'evaluated_at',label:'Evaluated timestamp'},{id:'simulated_clock',label:'Test clock used'},{id:'text',label:'Summary'}],
+    configFields:[{id:'timeZone',label:'IANA time zone',type:'text',default:'UTC'},{id:'startTime',label:'Start inclusive (HH:mm)',type:'text'},{id:'endTime',label:'End exclusive (HH:mm)',type:'text'},{id:'allowSimulationClock',label:'Allow test clock for fixed simulated devices only',type:'boolean',default:false}],
+  },
   physical_device: {
     type: 'physical_device', label: 'Physical Device', color: '#0891b2',
-    inputs: [{id:'entity_id',label:'Registered asset ID override',required:false,mode:'dynamic'}, {id:'arguments',label:'Action arguments (JSON)',required:false,mode:'dynamic'}],
-    outputs: [{id:'ok',label:'Verified success'},{id:'status',label:'Operation status'},{id:'operation_id',label:'Physical operation ID'},{id:'entity_id',label:'Registered asset ID'},{id:'site_id',label:'Site ID'},{id:'hub_id',label:'Edge hub ID'},{id:'simulated',label:'Simulated equipment'},{id:'result',label:'Full result'},{id:'evidence',label:'Observed evidence'},{id:'property',label:'Read property'},{id:'value',label:'Observed value'},{id:'observed_at',label:'Observation timestamp'},{id:'text',label:'Summary'}],
-    configFields: [{id:'requireVisualEvidence',label:'Require visual evidence',type:'boolean',default:false,description:'Fail the step if the adapter has no captured screenshot/snapshot, even when state is verified.'},{id:'entityId',label:'Registered device',type:'text'}, {id:'operation',label:'Operation',type:'select',options:['invoke','read'],default:'invoke'}, {id:'action',label:'Capability action',type:'text'}, {id:'property',label:'Property to read',type:'text'}, {id:'argumentsJson',label:'Action arguments (JSON)',type:'textarea',default:'{}'}, {id:'siteId',label:'Expected site (optional)',type:'text'}, {id:'hubId',label:'Expected hub (optional)',type:'text'}, {id:'operationTimeoutMs',label:'Operation + approval deadline (ms)',type:'number',default:30000,description:'1000–300000 ms; only observed completion advances an action. Approve in Physical AI → Operations.'}],
+    inputs: [{id:'entity_id',label:'Registered asset ID override',required:false,mode:'dynamic',defaultMode:'static'}, {id:'arguments',label:'Action arguments (JSON)',required:false,mode:'dynamic',defaultMode:'static'}],
+    outputs: [{id:'image',label:'Private captured image reference'},{id:'ok',label:'Verified success'},{id:'status',label:'Operation status'},{id:'operation_id',label:'Physical operation ID'},{id:'entity_id',label:'Registered asset ID'},{id:'site_id',label:'Site ID'},{id:'hub_id',label:'Edge hub ID'},{id:'simulated',label:'Simulated equipment'},{id:'result',label:'Full result'},{id:'evidence',label:'Observed evidence'},{id:'property',label:'Read property'},{id:'value',label:'Observed value'},{id:'observed_at',label:'Observation timestamp'},{id:'text',label:'Summary'}],
+    configFields: [{id:'requireSimulated',label:'Simulated devices only',type:'boolean',default:false},{id:'requireVisualEvidence',label:'Require visual evidence',type:'boolean',default:false,description:'Fail the step if the adapter has no captured screenshot/snapshot, even when state is verified.'},{id:'entityId',label:'Registered device',type:'text'}, {id:'operation',label:'Operation',type:'select',options:['invoke','read'],default:'invoke'}, {id:'action',label:'Capability action',type:'text'}, {id:'property',label:'Property to read',type:'text'}, {id:'argumentsJson',label:'Action arguments (JSON)',type:'textarea',default:'{}'}, {id:'siteId',label:'Expected site (optional)',type:'text'}, {id:'hubId',label:'Expected hub (optional)',type:'text'}, {id:'operationTimeoutMs',label:'Operation + approval deadline (ms)',type:'number',default:30000,description:'1000–300000 ms; only observed completion advances an action. Approve in Physical AI → Operations.'}],
   },
   mcp_tool: {
     type: 'mcp_tool',
@@ -301,12 +307,13 @@ export const WORKFLOW_TASK_TYPES = {
       },
     ],
     outputs: [
+      { id: 'result', label: 'Validated structured result' },
       { id: 'text', label: 'Description / analysis' },
       { id: 'description', label: 'Description' },
       { id: 'ocr_text', label: 'OCR text' },
       { id: 'ok', label: 'Success' },
     ],
-    configFields: withNodeTimeoutConfigFields([
+    configFields: withNodeTimeoutConfigFields([{id:'resultSchemaJson',label:'Structured result schema (JSON, optional)',type:'textarea',description:'Strict typed JSON result; malformed or missing fields fail the step.'},
       {
         id: 'mode',
         label: 'Mode',
