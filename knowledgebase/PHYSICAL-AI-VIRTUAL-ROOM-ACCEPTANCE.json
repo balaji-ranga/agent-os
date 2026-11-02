@@ -1,0 +1,101 @@
+{
+  "scope": "synthetic room camera and virtual TV only",
+  "manualOnly": true,
+  "realPrismStandbyOff": "unresolved; not exercised",
+  "runs": [
+    {
+      "runId": 4074,
+      "status": "completed",
+      "vision": {
+        "tv_state": "on",
+        "confidence": 0.9,
+        "reason": "The television screen is visibly displaying a colorful picture with a blue sky, a green landscape, and a sun, indicating that it is turned on."
+      },
+      "model": "gpt-4o-mini",
+      "clock": {
+        "ok": true,
+        "in_window": true,
+        "simulated_clock": true,
+        "time_zone": "Asia/Singapore",
+        "evaluated_at": "2026-11-02T06:00:00.000Z",
+        "local_time": "14:00",
+        "text": "Inside time window"
+      },
+      "capture": "b8371451-c4e6-4891-b40e-5bc886516d9c",
+      "powerOff": "ce565cd3-c913-4205-8220-e7574cd71bbd",
+      "after": "171583ad-cc74-4a28-8185-56d2c6cc5a95",
+      "continued": false,
+      "error": null
+    },
+    {
+      "runId": 4075,
+      "status": "completed",
+      "vision": {
+        "tv_state": "on",
+        "confidence": 0.9,
+        "reason": "The television screen is visibly displaying a picture of a landscape, indicating it is turned on."
+      },
+      "model": "gpt-4o-mini",
+      "clock": {
+        "ok": true,
+        "in_window": false,
+        "simulated_clock": true,
+        "time_zone": "Asia/Singapore",
+        "evaluated_at": "2026-11-02T10:00:00.000Z",
+        "local_time": "18:00",
+        "text": "Outside time window"
+      },
+      "capture": "8ab586a9-25a3-4b55-946a-fc8a89cfc99e",
+      "continued": true,
+      "error": null
+    },
+    {
+      "runId": 4076,
+      "status": "completed",
+      "vision": {
+        "tv_state": "off",
+        "confidence": 1,
+        "reason": "The television screen is displaying a completely black surface, indicating it is not powered on."
+      },
+      "model": "gpt-4o-mini",
+      "capture": "d5b461d1-f47c-4f1f-a316-37ce17d0c6b8",
+      "continued": true,
+      "error": null
+    },
+    {
+      "runId": 4077,
+      "status": "completed",
+      "vision": {
+        "tv_state": "unknown",
+        "confidence": 0.5,
+        "reason": "The television screen is covered with vertical stripes, obscuring any visible image, making it unclear whether it is on or off."
+      },
+      "model": "gpt-4o-mini",
+      "capture": "82722efe-5349-4dee-a793-16e4e86e49c1",
+      "continued": true,
+      "error": null
+    },
+    {
+      "runId": 4078,
+      "status": "completed",
+      "vision": {
+        "tv_state": "on",
+        "confidence": 0.9,
+        "reason": "The television screen is displaying a colorful image with a sun, a mountain, and green fields, indicating that it is turned on."
+      },
+      "model": "gpt-4o-mini",
+      "clock": {
+        "ok": true,
+        "in_window": false,
+        "simulated_clock": false,
+        "time_zone": "Asia/Singapore",
+        "evaluated_at": "2026-11-02T14:32:02.924Z",
+        "local_time": "22:32",
+        "text": "Outside time window"
+      },
+      "capture": "39eed65c-588f-4f8e-bfb9-9fdaadfff89a",
+      "continued": true,
+      "error": null
+    }
+  ]
+}

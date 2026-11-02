@@ -30,10 +30,18 @@ Assets: camera `e8357797-7142-4870-8cd6-60097ca4b650`; TV `e0ae2a03-326d-45ee-a3
 - Private image references reject another owner, an unentitled member, absent images and captures older than 60 seconds.
 - Actual configured model preflight (`gpt-4o-mini`, platform effective secondary) classified rendered on/off/obscured images correctly. This uses real image inference independently of the mocked runner regression.
 - First UI run 4073 failed before dispatch: editor defaults copied trigger text into optional physical asset/arguments inputs. Fixed new optional input defaults to static and made the template's empty overrides explicit; regression passes with the JSON trigger payload. Retain the failed run as history.
-- Live corrected workflow acceptance: pending normal UI sign-in and rerun. Do not report this pending acceptance as complete.
+- Corrected draft was reimported, saved and republished through the signed-in UI; manual-only trigger retained. All five live company workflow runs completed using the actual configured vision model and laptop edge/MQTT simulator:
+  - Run 4074: linked room TV on; LLM `on`, confidence 0.90; labelled test clock 14:00 SGT; approved virtual `set_power {"on":false}` operation `ce565cd3-c913-4205-8220-e7574cd71bbd` completed with correlated `on=false`; post-off camera capture completed.
+  - Run 4075: TV on, confidence 0.90, test clock exactly 18:00 SGT; continued, no power-off operation; virtual TV stayed on.
+  - Run 4076: already-off image; LLM `off`, confidence 1.00; continued, no power-off operation.
+  - Run 4077: obscured image; LLM `unknown`, confidence 0.50; continued, no power-off operation; virtual TV stayed on.
+  - Run 4078: TV on, confidence 0.90, no test timestamp; actual Singapore time 22:32, `simulated_clock=false`; continued, no power-off operation; virtual TV stayed on.
+- All camera and TV action approvals were performed through the normal Flolah UI; company/device gates were preserved. No real-device commands were issued and no agent/member permissions were expanded.
+- Positive capture image SHA256: before `73d96abe3ab1f65c640d1c5c753f2fd09583cba897c486983ab9d47497e007d6`, after `1e78f04806e3275d544c1c91af2ba2a650fbbea6b18558cd62f5b248c02d157d`. Actual private evidence PNGs were independently saved and inspected; before shows a lit landscape screen, after shows an unlit black screen.
+- Completed run audit: https://login.flolah.cloud/workflows/runs/4074 . The earlier failed run 4073 remains visible as history.
 
 ## Deployment
 
-Backend/frontend release `virtual-room-1793622680` passed API/pagination/existing physical-runner and new virtual-runner tests, with both services healthy and gateway unchanged. Backend input-default correction `virtual-room-input-1793623147` is healthy; frontend/gateway were retained. Laptop edge installed suite source 0.3.2 with protected credentials, managed mappings and durable journals retained. Downloadable Windows/Linux edge suite includes the virtual camera; Android APK is not part of this change.
+Backend/frontend release `virtual-room-1793622680` passed API/pagination/existing physical-runner and new virtual-runner tests, with both services healthy and gateway unchanged. Backend input-default correction `virtual-room-input-1793623147` is healthy; frontend/gateway were retained. Laptop edge installed suite source 0.3.2 with protected credentials, managed mappings and durable journals retained. Frontend labels release `virtual-room-labels-1793623275` is healthy and retained backend/gateway. Downloadable Windows/Linux edge suite includes the virtual camera; Android APK is not part of this change.
 
 The real PRISM screen standby-off gap remains open pending a proven control path and independent physical feedback. Virtual evidence cannot prove physical screen power or close that gap.
