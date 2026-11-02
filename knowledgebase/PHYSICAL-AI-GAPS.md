@@ -121,3 +121,24 @@ Real post-release agent and Fire TV acceptance must be recorded separately. PRIS
 - An earlier already-active YouTube request expired without fresh feedback and remains uncertain. Do not rewrite that history as success. Same-state HA operations need an independently fresh read contract if they are to complete without a state transition.
 - COO discovered the correct capability but made two unnecessary operation-status lookups with invalid IDs; requests were rejected. Keep model argument/retry reliability in progress. A subsequent COO preparation produced resolved device/action/input arguments. Its unused company approval was rejected through Kanban without device execution.
 - PRISM screen power-off and actual visual evidence remain unverified; no additional TV commands are required for this documentation change.
+
+
+## Requested camera/TV ad hoc workflow — 2 November 2026
+
+User prerequisite: resolve actual PRISM screen standby-off before implementing the workflow. Existing Fire TV sleep/power/CEC trials did not establish TV-off. Local HA currently exposes only the paired Fire TV remote; no IR/RF transmitter is available. The user confirmed no blaster has been purchased. This is a hardware acceptance dependency, not a closed software fix. Do not repeat ineffective power-key trials or represent stick sleep as screen standby.
+
+Recommended candidate: BroadLink RM4 Pro with Home Assistant's official Broadlink integration, subject to exact SKU/RF band and appliance compatibility. Official product: https://www.ibroadlink.com/productinfo/762672.html?templateId=1133605 ; integration: https://www.home-assistant.io/integrations/broadlink/ . Vendor page currently states Singapore security support until 31 July 2027; confirm any extension before purchase.
+
+On hardware arrival: pair the blaster locally in HA, learn/test the PRISM remote's code, prefer a discrete standby-off command. A toggle is not an idempotent off operation: do not blindly repeat it. Verify real screen-off and repeatability with the user or an independent real sensor. Expose the reviewed HA script through the existing server-managed fixed script binding; no vendor/device branch belongs in the edge core. Retain device/company approval policies.
+
+Workflow contract after the prerequisite passes:
+
+- Manual/ad hoc trigger only; no schedule, cron, timer or periodic camera monitoring.
+- Registered camera source exposes capture and video metadata. The requested test camera can be a simulator/harness; mark its frames and provenance as simulated. Live video is not required for a still-frame decision.
+- Capture a bounded fresh image, send the actual image to the configured vision-capable LLM, and return structured TV state (`on`, `off`, `unknown`) with confidence/reasoning. Do not substitute hardcoded fixture metadata for the requested visual analysis.
+- Evaluate the server clock using `Asia/Singapore`; use 13:00 inclusive through 18:00 exclusive. Test boundaries with an isolated clock fixture, not a production bypass.
+- Invoke only the registered verified TV-off capability if the image result is confidently on and the time condition passes. Preserve human approvals; do not create new autonomous authority implicitly.
+- Off/outside-window follows the continue branch. Unknown, stale, missing or invalid image/LLM output must not actuate the TV; record an explicit outcome.
+- Simulator camera evidence cannot prove the physical screen actually switched off. Real-device completion requires real independent evidence or a clearly labelled authorized human attestation.
+
+No workflow has been created, published or scheduled while this prerequisite is unresolved. RF is not universal: match fixed-code protocol/frequency, and do not assume support for rolling-code, Bluetooth or 2.4 GHz RF remotes. AC commands may encode the whole mode/temperature/fan state; validate the actual model and avoid treating IR emission as confirmed appliance state.
