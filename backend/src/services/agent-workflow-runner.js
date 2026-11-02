@@ -424,7 +424,7 @@ function allPredecessorsComplete(runId, graph, nodeId) {
 
 function buildStepInputRecord(node, graph, context) {
   const { resolved, summary } = resolveNodeInputs(node, graph, context);
-  const outputSchema = node.data?.outputs || getTaskTypeDef(node.type)?.outputs || [];
+  const outputSchema = (node.type==='physical_device'&&node.data?.taskConfig?.outputContract?.ports) || node.data?.outputs || getTaskTypeDef(node.type)?.outputs || [];
   const record = {
     inputs: summary,
     resolved,

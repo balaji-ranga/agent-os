@@ -1,3 +1,4 @@
+import {physicalWorkflowContract} from '../services/physical/output-contracts.js';
 import {physicalPage,physicalOnboardingPage} from '../services/physical/pagination.js';
 import { Router } from 'express';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,7 @@ export function physicalApiRouter({plane,auth,owner,isAdmin=req=>req.authUser?.r
   route('post','/hubs/:id/configuration',(o,r)=>plane.stageManaged(o,r.params.id,r.body));
   route('post','/hubs/:id/configuration/rollback',(o,r)=>plane.rollbackManaged(o,r.params.id,r.body));
   route('put','/entities/:id/entitlements',(o,r)=>plane.setEntitlements(o,r.params.id,r.body));
+  route('get','/entities/:id/workflow-contract',(o,r)=>{const asset=plane.assertResource(o,r.params.id,principal(r),r.query.operation==='read'?undefined:r.query.action);return physicalWorkflowContract(asset,r.query);});
   route('post','/entities',(o,r)=>plane.register(o,r.body));
   route('patch','/entities/:id',(o,r)=>plane.configure(o,r.params.id,r.body));
   route('post','/entities/:id/revalidate',(o,r)=>plane.revalidate(o,r.params.id));

@@ -7,7 +7,7 @@ export function physicalAgentAssets({ownerUserId,principal,grants=[],enabled=pro
    let asset={
     entityId:entity.id,title:entity.description.title,siteId:entity.siteId,hubId:entity.hubId,
     readiness:entity.readiness,observations:entity.observations,enabled:entity.enabled,simulated:entity.description.flolah.simulated,
-    actions:Object.fromEntries(Object.entries(entity.description.actions).slice(0,32).map(([name,spec])=>[name,{input:spec.input,expected:spec.expected,policy:entity.actions[name]||'prohibited'}]))
+    actions:Object.fromEntries(Object.entries(entity.description.actions).slice(0,32).map(([name,spec])=>[name,{input:spec.input,output:spec.output?{version:spec.output.version,schema:spec.output.schema}:null,expected:spec.expected,policy:entity.actions[name]||'prohibited'}]))
    };
    if(JSON.stringify(asset).length>12000)asset={...asset,actions:Object.fromEntries(Object.entries(asset.actions).map(([name,spec])=>[name,{policy:spec.policy}])),schemaSource:'physical_entities_list'};
    const size=JSON.stringify(asset).length;if(chars+size>16000)continue;chars+=size;result.push(asset);

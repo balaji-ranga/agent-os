@@ -292,7 +292,7 @@ export const WORKFLOW_TASK_TYPES = {
     color: '#7c3aed',
     inputs: [
       {
-        id: 'image',
+        id: 'image', acceptsMediaType:'image',
         label: 'Image',
         required: true,
         mode: 'dynamic',

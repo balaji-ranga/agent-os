@@ -18,7 +18,7 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
   const data = node?.data || {};
   const catalog = taskCatalog?.find((t) => t.type === node?.type) || {};
   const inputBindings = data.inputBindings || [];
-  const outputs = data.outputs || catalog.outputs || [];
+  const outputs = (node?.type==='physical_device'&&data.taskConfig?.outputContract?.ports) || data.outputs || catalog.outputs || [];
   const taskConfig = data.taskConfig || {};
 
   const setBindings = (bindings) => onChange({ inputBindings: bindings });
@@ -146,7 +146,7 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
 
       {(() => {
         const configFields = (catalog.configFields || [])            .filter((f) => {
-              if (node.type === 'physical_device') return ['operationTimeoutMs','requireVisualEvidence'].includes(f.id);
+              if (node.type === 'physical_device') return ['operationTimeoutMs','requireVisualEvidence','requireSimulated'].includes(f.id);
               if (node.type === 'mcp_tool') {
                 return !['mcpServerId', 'toolName', 'authBearer', 'authHeadersJson', 'httpHeadersJson', 'staticArguments'].includes(f.id);
               }
@@ -249,7 +249,7 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
       <ul className="wf-output-list">
         {(outputs.length ? outputs : catalog.outputs || []).map((o) => (
           <li key={o.id}>
-            <strong>{o.id}</strong> — {o.label}
+            <strong>{o.id}</strong> — {o.label}{(o.mediaType||o.type)&&<small>Type: {o.mediaType||o.type}{o.required?' · required':''}</small>}
             {o.description && <small>{o.description}</small>}
           </li>
         ))}

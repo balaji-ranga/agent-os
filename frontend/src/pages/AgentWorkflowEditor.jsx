@@ -1800,7 +1800,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
         </>
       )}
 
-      {node.type === 'physical_device' && <PhysicalDeviceFields config={data.taskConfig||{}} onChange={taskConfig=>set({taskConfig})} />}
+      {node.type === 'physical_device' && <PhysicalDeviceFields config={data.taskConfig||{}} onChange={taskConfig=>set({taskConfig,...(data.taskConfig?.outputContract&&!taskConfig.outputContract?{outputs:[]}: {})})} onContractChange={outputContract=>set({taskConfig:{...data.taskConfig,dynamicOutputs:true,outputContract},outputs:outputContract.ports})} />}
 
       <InputOutputPanel
         node={node}

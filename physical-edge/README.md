@@ -157,3 +157,7 @@ Accepted revisions are durably cached; invalid revisions retain the last valid c
 ### Virtual room camera
 
 The simulator includes a still-image room camera linked to its virtual TV. `capture` emits a fresh 640×360 PNG without TV-state metadata. Change the virtual TV power or select the camera’s `linked`, `on`, `off`, or `unknown` scene in the authenticated local simulator UI. This is a rendered test harness, not CCTV footage or a live-video adapter. Workflow image analysis uses the configured vision LLM on the captured pixels.
+
+### Device-defined workflow outputs
+
+An action may declare `output: {version, schema, bindings}` in its registered Thing Description. Output schemas are bounded typed objects, including nested objects and arrays. Declarative bindings select the matching observation value/time, a validated device result path, or a protected captured-image reference; they cannot execute code. The virtual camera declares `frame` (image reference) and `captured_at`; virtual TV power declares `power_state` and `reported_at`. Flolah validates required outputs before completing an operation. Workflow consumers pin the selected contract hash and version; changed contracts need review. Operations without a declaration retain legacy behavior. Video/stream schemas do not by themselves implement video transport or model support.

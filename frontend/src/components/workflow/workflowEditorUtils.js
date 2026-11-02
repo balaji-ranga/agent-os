@@ -35,10 +35,10 @@ export function formatNodeStepLabel(node) {
 export function getSourceOutputKeyOptions(sourceNode, taskCatalog) {
   if (!sourceNode) return [];
   const catalog = taskCatalog?.find((t) => t.type === sourceNode.type);
-  const outs = sourceNode.data?.outputs?.length ? sourceNode.data.outputs : catalog?.outputs || [];
+  const outs = sourceNode.type==='physical_device'&&sourceNode.data?.taskConfig?.outputContract?.ports ? sourceNode.data.taskConfig.outputContract.ports : sourceNode.data?.outputs?.length ? sourceNode.data.outputs : catalog?.outputs || [];
   return outs.map((o) => ({
     value: o.id,
-    label: o.label ? `${o.id} — ${o.label}` : o.id,
+    label: o.label ? `${o.id} — ${o.label} (${o.mediaType||o.type||'value'})` : o.id,
   }));
 }
 

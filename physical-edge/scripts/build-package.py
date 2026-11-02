@@ -10,7 +10,7 @@ for folder in ['physical-edge/src','physical-edge/public']:
   if p.is_file():entries[str(p.relative_to(root)).replace('\\','/')]=p.read_bytes()
 for f in ['physical-edge/package.json','physical-edge/package-lock.json','physical-edge/run.ps1','physical-edge/run.sh','physical-edge/README.md','THIRD_PARTY_NOTICES.md']:
  entries[f]=(root/f).read_bytes()
-for f in ['contracts.js','control-plane.js','socket-server.js','evidence-store.js','managed-config.js','managed-control.js','pagination.js']:
+for f in ['contracts.js','output-contracts.js','control-plane.js','socket-server.js','evidence-store.js','managed-config.js','managed-control.js','pagination.js']:
  entries['backend/src/services/physical/'+f]=(root/'backend/src/services/physical'/f).read_bytes()
 for f in ['backend/src/routes/physical-api.js','backend/src/public/physical.html']:
  entries[f]=(root/f).read_bytes()

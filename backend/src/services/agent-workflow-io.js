@@ -11,7 +11,7 @@ function looksLikeMediaRef(v) {
     v != null &&
     typeof v === 'object' &&
     !Array.isArray(v) &&
-    (v.artifactId || v.kind === 'audio' || v.kind === 'video' || v.kind === 'model')
+    (v.artifactId || v.kind === 'audio' || v.kind === 'video' || v.kind === 'model' || v.kind === 'image' || v.kind === 'stream')
   );
 }
 

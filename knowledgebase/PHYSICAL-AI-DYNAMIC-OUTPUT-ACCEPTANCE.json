@@ -1,0 +1,216 @@
+{
+  "scope": "same manual workflow; virtual room camera and virtual TV only",
+  "runtimeContractValidation": true,
+  "legacyImageAliasAbsentOnPinnedNodes": true,
+  "runs": [
+    {
+      "runId": 4079,
+      "status": "completed",
+      "error": null,
+      "vision": {
+        "tv_state": "on",
+        "confidence": 0.9,
+        "reason": "The television screen is displaying a blue sky with a sun and green landscape, indicating it is turned on."
+      },
+      "model": "gpt-4o-mini",
+      "clock": {
+        "ok": true,
+        "in_window": true,
+        "simulated_clock": true,
+        "time_zone": "Asia/Singapore",
+        "evaluated_at": "2026-11-02T06:00:00.000Z",
+        "local_time": "14:00",
+        "text": "Inside time window"
+      },
+      "continued": false,
+      "capture": {
+        "operationId": "8aca41c4-1d7e-4c88-9b5c-27e55bfa34f9",
+        "frame": {
+          "kind": "image",
+          "ref": "physical-evidence:8aca41c4-1d7e-4c88-9b5c-27e55bfa34f9:0",
+          "mime_type": "image/png",
+          "sha256": "73d96abe3ab1f65c640d1c5c753f2fd09583cba897c486983ab9d47497e007d6",
+          "captured_at": 1793632334761,
+          "simulated": true
+        },
+        "contract": {
+          "version": 1,
+          "hash": "b500708916bef5b508e7a8964dcf311006404ee2ad45ae0862a2fba661e2b13f"
+        },
+        "hasLegacyImage": false
+      },
+      "powerOff": {
+        "operationId": "8847fd06-5620-458f-a337-6b1f74e5a2e9",
+        "power_state": false,
+        "valueType": "boolean",
+        "contract": {
+          "version": 1,
+          "hash": "2d51a2873b8e8098508a22304baadf3c699ba96821a71519acab7d14a7cd8438"
+        },
+        "operationContract": {
+          "version": 1,
+          "hash": "2d51a2873b8e8098508a22304baadf3c699ba96821a71519acab7d14a7cd8438"
+        }
+      },
+      "offConfirmed": true,
+      "after": {
+        "operationId": "ecee1625-fa1e-4e60-a150-45c39a71fe36",
+        "frame": {
+          "kind": "image",
+          "ref": "physical-evidence:ecee1625-fa1e-4e60-a150-45c39a71fe36:0",
+          "mime_type": "image/png",
+          "sha256": "1e78f04806e3275d544c1c91af2ba2a650fbbea6b18558cd62f5b248c02d157d",
+          "captured_at": 1793632391377,
+          "simulated": true
+        },
+        "contract": {
+          "version": 1,
+          "hash": "b500708916bef5b508e7a8964dcf311006404ee2ad45ae0862a2fba661e2b13f"
+        }
+      },
+      "manualOnly": true
+    },
+    {
+      "runId": 4080,
+      "status": "completed",
+      "error": null,
+      "vision": {
+        "tv_state": "off",
+        "confidence": 1,
+        "reason": "The television screen is visibly displaying a black unlit screen, indicating that it is off."
+      },
+      "model": "gpt-4o-mini",
+      "continued": true,
+      "capture": {
+        "operationId": "c19f1a0d-b3c0-4129-bf1f-a735f4ab5513",
+        "frame": {
+          "kind": "image",
+          "ref": "physical-evidence:c19f1a0d-b3c0-4129-bf1f-a735f4ab5513:0",
+          "mime_type": "image/png",
+          "sha256": "1e78f04806e3275d544c1c91af2ba2a650fbbea6b18558cd62f5b248c02d157d",
+          "captured_at": 1793632439428,
+          "simulated": true
+        },
+        "contract": {
+          "version": 1,
+          "hash": "b500708916bef5b508e7a8964dcf311006404ee2ad45ae0862a2fba661e2b13f"
+        },
+        "hasLegacyImage": false
+      },
+      "powerOff": null,
+      "after": null,
+      "manualOnly": true
+    },
+    {
+      "runId": 4081,
+      "status": "completed",
+      "error": null,
+      "vision": {
+        "tv_state": "on",
+        "confidence": 1,
+        "reason": "The television screen is displaying a colorful picture with a blue sky, a green landscape, and a yellow sun, indicating it is on."
+      },
+      "model": "gpt-4o-mini",
+      "clock": {
+        "ok": true,
+        "in_window": false,
+        "simulated_clock": true,
+        "time_zone": "Asia/Singapore",
+        "evaluated_at": "2026-11-02T10:00:00.000Z",
+        "local_time": "18:00",
+        "text": "Outside time window"
+      },
+      "continued": true,
+      "capture": {
+        "operationId": "c129443a-242a-4488-ad0d-14550a6fc1cb",
+        "frame": {
+          "kind": "image",
+          "ref": "physical-evidence:c129443a-242a-4488-ad0d-14550a6fc1cb:0",
+          "mime_type": "image/png",
+          "sha256": "73d96abe3ab1f65c640d1c5c753f2fd09583cba897c486983ab9d47497e007d6",
+          "captured_at": 1793632480076,
+          "simulated": true
+        },
+        "contract": {
+          "version": 1,
+          "hash": "b500708916bef5b508e7a8964dcf311006404ee2ad45ae0862a2fba661e2b13f"
+        },
+        "hasLegacyImage": false
+      },
+      "powerOff": null,
+      "after": null,
+      "manualOnly": true
+    },
+    {
+      "runId": 4082,
+      "status": "completed",
+      "error": null,
+      "vision": {
+        "tv_state": "unknown",
+        "confidence": 0.5,
+        "reason": "The television screen is partially obscured by vertical lines and does not clearly display a picture. Its state cannot be determined definitively."
+      },
+      "model": "gpt-4o-mini",
+      "continued": true,
+      "capture": {
+        "operationId": "8020566d-8222-4249-a3f9-b35a7185415c",
+        "frame": {
+          "kind": "image",
+          "ref": "physical-evidence:8020566d-8222-4249-a3f9-b35a7185415c:0",
+          "mime_type": "image/png",
+          "sha256": "8fae3a0f67e068c6a1dc62f43b44fceef552f868b5a1c6cf044169f3146cb4ae",
+          "captured_at": 1793632586187,
+          "simulated": true
+        },
+        "contract": {
+          "version": 1,
+          "hash": "b500708916bef5b508e7a8964dcf311006404ee2ad45ae0862a2fba661e2b13f"
+        },
+        "hasLegacyImage": false
+      },
+      "powerOff": null,
+      "after": null,
+      "manualOnly": true
+    },
+    {
+      "runId": 4083,
+      "status": "completed",
+      "error": null,
+      "vision": {
+        "tv_state": "on",
+        "confidence": 0.9,
+        "reason": "The television screen is displaying a colorful picture of a landscape with a blue sky, green hills, and a sun, indicating that it is on."
+      },
+      "model": "gpt-4o-mini",
+      "clock": {
+        "ok": true,
+        "in_window": false,
+        "simulated_clock": false,
+        "time_zone": "Asia/Singapore",
+        "evaluated_at": "2026-11-02T15:17:53.789Z",
+        "local_time": "23:17",
+        "text": "Outside time window"
+      },
+      "continued": true,
+      "capture": {
+        "operationId": "470f6ee6-15e7-4119-9ccd-fb4f05d5f496",
+        "frame": {
+          "kind": "image",
+          "ref": "physical-evidence:470f6ee6-15e7-4119-9ccd-fb4f05d5f496:0",
+          "mime_type": "image/png",
+          "sha256": "73d96abe3ab1f65c640d1c5c753f2fd09583cba897c486983ab9d47497e007d6",
+          "captured_at": 1793632671222,
+          "simulated": true
+        },
+        "contract": {
+          "version": 1,
+          "hash": "b500708916bef5b508e7a8964dcf311006404ee2ad45ae0862a2fba661e2b13f"
+        },
+        "hasLegacyImage": false
+      },
+      "powerOff": null,
+      "after": null,
+      "manualOnly": true
+    }
+  ]
+}

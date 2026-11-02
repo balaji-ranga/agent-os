@@ -1,3 +1,4 @@
+import {projectDeviceOutputs,physicalWorkflowContract} from './output-contracts.js';
 import {managedControl} from './managed-control.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { VERSION, TERMINAL, id, fault, hash, fingerprint, validateDescription, validateInput, validateCommand } from './contracts.js';
@@ -152,6 +153,8 @@ export class PhysicalControlPlane {
             try{if(!e.description.flolah.evidence?.visual||!this.evidenceStore)throw Error('Visual capture/storage is not configured');if(event.attachments.some(a=>a.at<o.dispatchedAt||a.at>this.now()+5000||(!e.description.flolah.simulated&&a.kind==='simulator_snapshot')||(e.description.flolah.evidence.kind&&a.kind!==e.description.flolah.evidence.kind)))throw Error('Capture source/time mismatch');attachments=this.evidenceStore.put(e.owner,o.id,event.attachments);}
             catch{captureError='Visual evidence unavailable or rejected; observed-state evidence retained';}
           }
+          const output=e.description.actions[o.action].output;
+          if(output){try{const c=physicalWorkflowContract(e,{action:o.action});o.outputContract={version:c.version,hash:c.hash};o.outputs=projectDeviceOutputs(output,{value:event.value,at:event.at,attachments,result:event.result,operationId:o.id,simulated:e.description.flolah.simulated});}catch{o.status='failed';o.error='Declared device output missing or invalid';this.audit(e.owner,'device_output_rejected',{operationId:o.id});return;}}
           o.status='completed';o.evidence={kind:'observed_state',type:'observation',entityId:event.entityId,operationId:o.id,property:event.property,value:clone(event.value),at:event.at,expected:{property:expected.property,value:clone(value)},source:{siteId:e.siteId,hubId:e.hubId,deviceId:e.deviceId,adapter:e.adapter},attachments,captureError:captureError||null,simulated:e.description.flolah.simulated};o.completedAt=this.now();
         }
       }

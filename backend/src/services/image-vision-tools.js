@@ -273,12 +273,14 @@ export async function executeAnalyzeImageTool(body = {}, ownerUserId) {
 export async function executeAnalyzeImageTask(resolvedInputs, nodeConfig = {}, context = null) {
   const owner = context?.owner_user_id || context?.actor?.id;
   if (!owner) throw new Error('analyze_image node requires workflow owner');
-  const media =
+  let media =
     resolvedInputs.image ??
     resolvedInputs.path ??
     resolvedInputs.media ??
     resolvedInputs.audio ??
     resolvedInputs.text;
+  if(typeof media==='string'&&media.trim().startsWith('{')){try{media=JSON.parse(media);}catch{/* Existing text/path handling remains authoritative. */}}
+  if(media&&typeof media==='object'){if(media.kind!=='image'||typeof media.ref!=='string')throw new Error('Image node requires a typed image reference');media=media.ref;}
   let payload = {path:media};
   if (typeof media === 'string' && media.startsWith('physical-evidence:')) {
     const match = /^physical-evidence:([a-zA-Z0-9_-]{1,96}):(0)$/.exec(media);

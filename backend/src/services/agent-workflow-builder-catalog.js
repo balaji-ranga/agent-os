@@ -1,3 +1,5 @@
+import {assertPinnedContract} from './physical/output-contracts.js';
+import {getPhysicalControlPlane} from './physical/runtime.js';
 /**
  * Workflow Builder node catalog — purposes, attributes, publish preflight for the agent.
  */
@@ -353,6 +355,7 @@ export function analyzeWorkflowForPublish(graph, ownerUserId = null) {
       issues.push({ code: 'node_not_connected', node_id: node.id, message: `${label}: connect this node from an upstream step.` });
     }
 
+    if(node.type==='physical_device'&&node.data?.taskConfig?.outputContract){try{assertPinnedContract(getPhysicalControlPlane().owned('entities',ownerUserId,node.data.taskConfig.entityId),node.data.taskConfig);}catch(e){issues.push({code:'physical_output_contract',node_id:node.id,message:label+': '+e.message});}}
     const bindings = Array.isArray(node.data?.inputBindings) ? node.data.inputBindings : [];
     for (const input of def.inputs || []) {
       if (!input.required) continue;
@@ -370,7 +373,9 @@ export function analyzeWorkflowForPublish(graph, ownerUserId = null) {
         if (!source) continue;
         const outputKey = binding.sourceOutputKey || 'text';
         const rootOutputKey = String(outputKey).split('.')[0];
-        const outputs = getTaskTypeDef(source.type)?.outputs || source.data?.outputs || [];
+        const outputs = source.type==='physical_device'&&source.data?.taskConfig?.outputContract ? source.data.taskConfig.outputContract.ports : getTaskTypeDef(source.type)?.outputs || source.data?.outputs || [];
+        const port=outputs.find(o=>o.id===rootOutputKey);
+        if(port&&(port.type||port.mediaType)&&input.acceptsMediaType&&port.mediaType!==input.acceptsMediaType)issues.push({code:'incompatible_media_binding',node_id:node.id,message:label+': '+input.id+' requires '+input.acceptsMediaType+' output'});
         if (outputs.length && !outputs.some((output) => output.id === rootOutputKey)) {
           issues.push({
             code: 'invalid_output_binding',

@@ -29,6 +29,37 @@ export function validateInput(schema, value) {
   }
   return value;
 }
+// Output contracts are bounded data, never executable adapter instructions.
+export const PHYSICAL_RESERVED_OUTPUTS=new Set(['ok','status','operation_id','entity_id','site_id','hub_id','simulated','result','evidence','property','value','observed_at','text','output_contract','__proto__','prototype','constructor']);
+export function validateOutputSchema(schema,depth=0){
+  object(schema);if(depth>5)throw fault('Output schema nesting limit');
+  if(!['object','array','string','number','integer','boolean'].includes(schema.type))throw fault('Unsupported output type');
+  if(schema.type==='object'){
+    object(schema.properties||{});if(Object.keys(schema.properties||{}).length>32)throw fault('Too many output fields');
+    for(const [k,v]of Object.entries(schema.properties||{})){id(k);if(['__proto__','constructor','prototype'].includes(k))throw fault('Invalid output field');validateOutputSchema(v,depth+1);}
+    if(!Array.isArray(schema.required||[])||(schema.required||[]).some(k=>!Object.hasOwn(schema.properties||{},k)))throw fault('Invalid required outputs');
+  }else if(schema.type==='array'){validateOutputSchema(schema.items,depth+1);if(!Number.isInteger(schema.maxItems)||schema.maxItems<1||schema.maxItems>64)throw fault('Output arrays require maxItems 1–64');}
+  if(schema.mediaType&&!['image','video','stream','audio'].includes(schema.mediaType))throw fault('Unsupported output media type');
+  if(schema.mediaType&&schema.type!=='object')throw fault('Media output must be a protected reference object');
+  if(JSON.stringify(schema).length>16384)throw fault('Output schema too large');return schema;
+}
+export function validateOutputValue(schema,value){
+  if(schema.type==='array'){if(!Array.isArray(value)||value.length>schema.maxItems)throw fault('Invalid output array');for(const v of value)validateOutputValue(schema.items,v);}
+  else if(schema.type==='object'){object(value);if(Object.keys(value).some(k=>!Object.hasOwn(schema.properties||{},k)))throw fault('Undeclared output field');for(const k of schema.required||[])if(!Object.hasOwn(value,k))throw fault('Missing output: '+k);for(const [k,v]of Object.entries(value))validateOutputValue(schema.properties[k],v);}
+  else validateInput(schema,value);return value;
+}
+export function validateActionOutput(output){
+  object(output);if(!Number.isSafeInteger(output.version)||output.version<1||output.version>100000)throw fault('Invalid output contract version');
+  validateOutputSchema(output.schema);if(output.schema.type!=='object')throw fault('Operation output must be an object');object(output.bindings);
+  if(Object.keys(output.bindings).some(k=>!Object.hasOwn(output.schema.properties,k)))throw fault('Undeclared output binding');
+  for(const key of Object.keys(output.schema.properties)){
+    if(PHYSICAL_RESERVED_OUTPUTS.has(key))throw fault('Output conflicts with operation metadata');const b=object(output.bindings[key]);
+    if(!['observation_value','observation_time','evidence_image','device_result'].includes(b.source)||Object.keys(b).some(k=>!['source','index','path'].includes(k)))throw fault('Unsupported output binding');
+    if(b.source==='evidence_image'&&(b.index!==0||output.schema.properties[key].mediaType!=='image'))throw fault('Invalid evidence output binding');
+    if(b.source==='device_result'&&(!Array.isArray(b.path)||!b.path.length||b.path.length>5||b.path.some(k=>typeof k!=='string'||! /^[a-zA-Z0-9_-]{1,96}$/.test(k)||['__proto__','constructor','prototype'].includes(k))))throw fault('Invalid result binding path');
+  }return output;
+}
+export function imageReferenceSchema(){return {type:'object',mediaType:'image',properties:{kind:{type:'string',enum:['image']},ref:{type:'string',maxLength:160},mime_type:{type:'string',enum:['image/png','image/jpeg']},sha256:{type:'string',minLength:64,maxLength:64},captured_at:{type:'number'},simulated:{type:'boolean'}},required:['kind','ref','mime_type','sha256','captured_at','simulated']};}
 export function validateDescription(td) {
   object(td); id(td.id);
   if (td['@context'] !== 'https://www.w3.org/2022/wot/td/v1.1' || typeof td.title !== 'string' || td.title.length > 200) throw fault('Invalid WoT profile');
@@ -37,6 +68,7 @@ export function validateDescription(td) {
   if (Object.keys(td.actions).length > 32 || Object.keys(td.properties).length > 32) throw fault('Too many capabilities');
   for (const [name, spec] of Object.entries(td.actions)) {
     id(name);
+    if(spec.output)validateActionOutput(spec.output);
     if (!['routine','approval_required','prohibited'].includes(spec.risk) || spec.input?.type !== 'object' || typeof spec.task !== 'boolean') throw fault('Invalid action specification');
     if (spec.task && td.flolah.kind !== 'PhysicalAgent') throw fault('Device cannot own tasks');
     if (!spec.expected || typeof spec.expected.property !== 'string' || !Object.hasOwn(td.properties, spec.expected.property)) throw fault('Action requires observable evidence contract');
@@ -74,6 +106,8 @@ export function profile(entityId, kind = 'switch') {
     td.properties={task_state:{type:'string'}};
     td.actions={clean_area:{risk:'approval_required',task:true,input:{type:'object',properties:{areaId:{type:'string',minLength:1,maxLength:64}},required:['areaId']},expected:{property:'task_state',value:'completed'}}};
   } else throw fault('Unsupported profile');
+  if(kind==='camera')td.actions.capture.output={version:1,schema:{type:'object',properties:{frame:{...imageReferenceSchema(),title:'Captured frame'},captured_at:{type:'number',title:'Capture timestamp'}},required:['frame','captured_at']},bindings:{frame:{source:'evidence_image',index:0},captured_at:{source:'observation_time'}}};
+  if(kind==='tv')for(const [name,spec]of Object.entries(td.actions)){const key={set_power:'power_state',launch_app:'active_app',select_channel:'selected_channel',navigate:'navigation'}[name];spec.output={version:1,schema:{type:'object',properties:{[key]:{...td.properties[spec.expected.property],title:key},reported_at:{type:'number'}},required:[key,'reported_at']},bindings:{[key]:{source:'observation_value'},reported_at:{source:'observation_time'}}};}
   return validateDescription(td);
 }
 export function validateCommand(command, entity, now = Date.now()) {
