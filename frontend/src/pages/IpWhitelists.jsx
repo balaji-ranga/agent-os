@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 
 const FEATURES = [
+  {key:'apply_physical_edge',label:'Flolah physical edge',help:'All enrolled company edge hubs → Flolah; use their public egress IPs or network ranges'},
   {
     key: 'apply_ibkr_bridge',
     label: 'IBKR bridge',
@@ -37,6 +38,7 @@ const emptyForm = () => ({
   apply_workflow_desktop: false,
   apply_a2a: false,
   apply_browser_worker: false,
+  apply_physical_edge:false,
   definition_id: '',
   publish_id: '',
 });
@@ -47,6 +49,7 @@ function featureChips(entry) {
   if (entry.apply_workflow_desktop) bits.push('Desktop');
   if (entry.apply_a2a) bits.push('A2A');
   if (entry.apply_browser_worker) bits.push('Browser');
+  if(entry.apply_physical_edge)bits.push('Physical edge');
   return bits.join(' · ') || '—';
 }
 
@@ -89,6 +92,7 @@ export default function IpWhitelists() {
       apply_workflow_desktop: !!entry.apply_workflow_desktop,
       apply_a2a: !!entry.apply_a2a,
       apply_browser_worker: !!entry.apply_browser_worker,
+      apply_physical_edge:!!entry.apply_physical_edge,
       definition_id: entry.definition_id || '',
       publish_id: entry.publish_id || '',
     });
@@ -113,6 +117,7 @@ export default function IpWhitelists() {
         apply_workflow_desktop: form.apply_workflow_desktop,
         apply_a2a: form.apply_a2a,
         apply_browser_worker: form.apply_browser_worker,
+        apply_physical_edge:form.apply_physical_edge,
         definition_id: form.definition_id.trim() || null,
         publish_id: form.publish_id.trim() || null,
       };
@@ -121,7 +126,7 @@ export default function IpWhitelists() {
         setMessage('Rule updated. Enforcement is immediate for new connections.');
       } else {
         await api.ipWhitelistsAdd(body);
-        setMessage('Rule added. Empty lists still allow any IP for desktop/browser/IBKR until the first rule applies.');
+        setMessage('Rule added. Rules saved. Physical edge restrictions apply when at least one rule targets that feature.');
       }
       cancelEdit();
       await load();
@@ -177,8 +182,7 @@ export default function IpWhitelists() {
           <section className="this-week-card" style={{ marginBottom: '1rem' }}>
             <h3 className="this-week-card-title">{editingId ? 'Edit rule' : 'Add rule'}</h3>
             <p className="this-week-muted" style={{ marginTop: 0 }}>
-              Use exact IPv4/IPv6 or IPv4 CIDR (e.g. <code>203.0.113.0/24</code>). IPv6 ranges are
-              not supported — use an exact address.
+              Use IPv4/IPv6 addresses or CIDR ranges (e.g. <code>203.0.113.0/24</code>). Add lists separated by commas, spaces or new lines; edit one saved rule at a time.
               {currentIp ? (
                 <>
                   {' '}
@@ -196,8 +200,8 @@ export default function IpWhitelists() {
             </p>
             <div style={{ display: 'grid', gap: '0.65rem', maxWidth: 560 }}>
               <label style={{ display: 'grid', gap: 4 }}>
-                <span>IP or CIDR</span>
-                <input
+                <span>IP, CIDR or IP list</span>
+                <textarea rows={3}
                   value={form.cidr_or_ip}
                   onChange={(e) => setFlag('cidr_or_ip', e.target.value)}
                   placeholder="203.0.113.10 or 203.0.113.0/24"
@@ -275,8 +279,8 @@ export default function IpWhitelists() {
           <section className="this-week-card">
             <h3 className="this-week-card-title">Your rules ({entries.length})</h3>
             <p className="this-week-muted" style={{ marginTop: 0 }}>
-              For desktop, browser worker, and IBKR bridge: <strong>no rules</strong> for that feature
-              means any client IP is accepted (token/secret still required). For A2A, set AgentExchange →
+              For physical edge, desktop, browser worker, and IBKR bridge: <strong>no rules</strong> for that feature
+              means any client IP is accepted (token/secret still required). Edge rules apply to every hub in this company; changed rules are checked on active connections too. For A2A, set AgentExchange →
               Security to <strong>IP whitelist</strong>; with that policy, an empty matching list denies all.
             </p>
             {!entries.length ? (

@@ -1,3 +1,4 @@
+import {BlockList,isIP} from 'node:net';
 /**
  * Shared client-IP extraction and CIDR matching (no DB).
  */
@@ -34,18 +35,15 @@ function ipv4ToInt(ip) {
   return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
 }
 
-export function ipMatchesCidrOrIp(clientIp, rule) {
-  const ip = normalizeClientIp(clientIp);
-  const r = String(rule || '').trim();
-  if (!ip || !r) return false;
-  if (!r.includes('/')) return ip === normalizeClientIp(r);
-  const [base, bitsStr] = r.split('/');
-  const bits = Number(bitsStr);
-  const ipInt = ipv4ToInt(ip);
-  const baseInt = ipv4ToInt(base);
-  if (ipInt == null || baseInt == null || !Number.isInteger(bits) || bits < 0 || bits > 32) {
-    return ip === normalizeClientIp(base);
-  }
-  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
-  return (ipInt & mask) === (baseInt & mask);
+export function ipMatchesCidrOrIp(clientIp,rule){
+ const r=String(rule||'').trim(),parts=r.split('/');if(!r||parts.length>2)return false;
+ let ip=String(clientIp||'').trim(),base=parts[0];
+ if(parts.length===1){ip=normalizeClientIp(ip);base=normalizeClientIp(base);}
+ else{if(ip.startsWith('::ffff:'))ip=ip.slice(7);if(base.startsWith('::ffff:')){const n=Number(parts[1]);if(n<96)return false;base=base.slice(7);parts[1]=String(n-96);}}
+ if(!isIP(ip)||!isIP(base)||isIP(ip)!==isIP(base))return false;
+ try{const block=new BlockList(),family=isIP(base)===4?'ipv4':'ipv6';
+  if(parts.length===1)block.addAddress(base,family);
+  else{if(!/^\d+$/.test(parts[1]))return false;const bits=Number(parts[1]);if(bits<0||bits>(family==='ipv4'?32:128))return false;block.addSubnet(base,bits,family);}
+  return block.check(ip,family);
+ }catch{return false;}
 }

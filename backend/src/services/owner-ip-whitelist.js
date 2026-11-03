@@ -1,3 +1,6 @@
+import {EventEmitter} from 'node:events';
+const ipPolicyEvents=new EventEmitter();ipPolicyEvents.setMaxListeners(0);
+export const onOwnerIpWhitelistChange=listener=>{ipPolicyEvents.on('change',listener);return()=>ipPolicyEvents.off('change',listener);};
 /**
  * Central owner-scoped IP whitelist (single source of truth).
  *
@@ -27,6 +30,7 @@ export const IP_FEATURES = Object.freeze({
   WORKFLOW_DESKTOP: 'workflow_desktop',
   A2A: 'a2a',
   BROWSER_WORKER: 'browser_worker',
+  PHYSICAL_EDGE: 'physical_edge',
 });
 
 export const IP_FEATURE_LIST = Object.freeze([
@@ -34,6 +38,7 @@ export const IP_FEATURE_LIST = Object.freeze([
   IP_FEATURES.WORKFLOW_DESKTOP,
   IP_FEATURES.A2A,
   IP_FEATURES.BROWSER_WORKER,
+  IP_FEATURES.PHYSICAL_EDGE,
 ]);
 
 const FEATURE_COLUMN = Object.freeze({
@@ -41,6 +46,7 @@ const FEATURE_COLUMN = Object.freeze({
   [IP_FEATURES.WORKFLOW_DESKTOP]: 'apply_workflow_desktop',
   [IP_FEATURES.A2A]: 'apply_a2a',
   [IP_FEATURES.BROWSER_WORKER]: 'apply_browser_worker',
+  [IP_FEATURES.PHYSICAL_EDGE]: 'apply_physical_edge',
 });
 
 function db() {
@@ -70,10 +76,8 @@ export function validateIpOrCidr(raw) {
   if (!Number.isInteger(prefix) || prefix < 0 || prefix > max) {
     throw new Error(`CIDR prefix must be between 0 and ${max}`);
   }
-  if (family === 6 && prefix !== 128) {
-    throw new Error('IPv6 CIDR ranges are not supported yet; use an exact IPv6 address');
-  }
-  return family === 6 ? parts[0] : `${parts[0]}/${prefix}`;
+  if(!/^\d+$/.test(parts[1]))throw new Error('CIDR prefix must be an integer');
+  return `${parts[0]}/${prefix}`;
 }
 
 function bool01(v) {
@@ -92,6 +96,7 @@ function rowToEntry(row) {
     apply_workflow_desktop: !!row.apply_workflow_desktop,
     apply_a2a: !!row.apply_a2a,
     apply_browser_worker: !!row.apply_browser_worker,
+    apply_physical_edge: !!row.apply_physical_edge,
     definition_id: row.definition_id || null,
     publish_id: row.publish_id || null,
     created_at: row.created_at,
@@ -106,6 +111,7 @@ function applyFlagsFromBody(body = {}) {
     (body.apply_ibkr_bridge != null ||
     body.apply_workflow_desktop != null ||
     body.apply_a2a != null ||
+    body.apply_physical_edge != null ||
     body.apply_browser_worker != null
       ? body
       : null);
@@ -116,6 +122,7 @@ function applyFlagsFromBody(body = {}) {
       apply_workflow_desktop: 0,
       apply_a2a: 0,
       apply_browser_worker: 0,
+      apply_physical_edge: 0,
     };
   }
 
@@ -131,6 +138,7 @@ function applyFlagsFromBody(body = {}) {
       apply_workflow_desktop: set.has(IP_FEATURES.WORKFLOW_DESKTOP) ? 1 : 0,
       apply_a2a: set.has(IP_FEATURES.A2A) ? 1 : 0,
       apply_browser_worker: set.has(IP_FEATURES.BROWSER_WORKER) ? 1 : 0,
+      apply_physical_edge: set.has(IP_FEATURES.PHYSICAL_EDGE) ? 1 : 0,
     };
   }
 
@@ -143,6 +151,7 @@ function applyFlagsFromBody(body = {}) {
         body.apply?.workflow_desktop ??
         explicit.workflow_desktop
     ),
+    apply_physical_edge:bool01(body.apply_physical_edge ?? body.apply?.physical_edge ?? explicit.physical_edge),
     apply_a2a: bool01(body.apply_a2a ?? body.apply?.a2a ?? explicit.a2a),
     apply_browser_worker: bool01(
       body.apply_browser_worker ?? body.apply?.browser_worker ?? explicit.browser_worker
@@ -155,10 +164,11 @@ function ensureAtLeastOneApply(flags) {
     !flags.apply_ibkr_bridge &&
     !flags.apply_workflow_desktop &&
     !flags.apply_a2a &&
-    !flags.apply_browser_worker
+    !flags.apply_browser_worker &&
+    !flags.apply_physical_edge
   ) {
     throw new Error(
-      'Select at least one target: IBKR bridge, Workflow download, A2A, or Browser Session package'
+      'Select at least one target: IBKR bridge, Workflow download, A2A, Browser Session package, or Flolah physical edge'
     );
   }
 }
@@ -179,6 +189,7 @@ export function ensureOwnerIpWhitelistTables() {
       apply_workflow_desktop INTEGER NOT NULL DEFAULT 0,
       apply_a2a INTEGER NOT NULL DEFAULT 0,
       apply_browser_worker INTEGER NOT NULL DEFAULT 0,
+      apply_physical_edge INTEGER NOT NULL DEFAULT 0,
       definition_id TEXT,
       publish_id TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -186,6 +197,8 @@ export function ensureOwnerIpWhitelistTables() {
       FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
     )
   `);
+  if(!d.prepare('PRAGMA table_info(owner_ip_whitelists)').all().some(c=>c.name==='apply_physical_edge'))d.exec('ALTER TABLE owner_ip_whitelists ADD COLUMN apply_physical_edge INTEGER NOT NULL DEFAULT 0');
+  d.exec('CREATE INDEX IF NOT EXISTS idx_owner_ip_wl_edge ON owner_ip_whitelists(owner_user_id,apply_physical_edge)');
   d.exec(
     `CREATE INDEX IF NOT EXISTS idx_owner_ip_wl_owner
      ON owner_ip_whitelists(owner_user_id, created_at DESC)`
@@ -366,7 +379,7 @@ export function getOwnerIpWhitelistEntry(entryId, ownerUserId) {
 /**
  * Add or merge: same owner+cidr (+same scope keys) ORs apply flags.
  */
-export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
+export function addOwnerIpWhitelistEntry(ownerUserId, body = {}, {notify=true}={}) {
   ensureOwnerIpWhitelistTables();
   const rule = validateIpOrCidr(body.cidr_or_ip ?? body.cidrOrIp ?? body.ip);
   const label = String(body.label || '').trim();
@@ -377,7 +390,8 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
     !flags.apply_ibkr_bridge &&
     !flags.apply_workflow_desktop &&
     !flags.apply_a2a &&
-    !flags.apply_browser_worker
+    !flags.apply_browser_worker &&
+    !flags.apply_physical_edge
   ) {
     if (body.feature) {
       const f = String(body.feature).trim().toLowerCase();
@@ -385,6 +399,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
       else if (f === IP_FEATURES.WORKFLOW_DESKTOP) flags.apply_workflow_desktop = 1;
       else if (f === IP_FEATURES.A2A) flags.apply_a2a = 1;
       else if (f === IP_FEATURES.BROWSER_WORKER) flags.apply_browser_worker = 1;
+      else if(f===IP_FEATURES.PHYSICAL_EDGE)flags.apply_physical_edge=1;
     }
   }
   ensureAtLeastOneApply(flags);
@@ -398,6 +413,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
       ? String(body.publish_id ?? body.publishId ?? '').trim() || null
       : null;
 
+  if(flags.apply_physical_edge&&(definitionId||publishId))throw new Error('Physical edge IP rules are company-wide; leave workflow and A2A scopes empty');
   // Merge if identical scope key exists for this owner+cidr
   const existing = db()
     .prepare(
@@ -410,6 +426,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
 
   if (existing) {
     const next = {
+      apply_physical_edge:existing.apply_physical_edge||flags.apply_physical_edge?1:0,
       apply_ibkr_bridge: existing.apply_ibkr_bridge || flags.apply_ibkr_bridge ? 1 : 0,
       apply_workflow_desktop:
         existing.apply_workflow_desktop || flags.apply_workflow_desktop ? 1 : 0,
@@ -424,7 +441,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
              apply_ibkr_bridge = ?,
              apply_workflow_desktop = ?,
              apply_a2a = ?,
-             apply_browser_worker = ?,
+             apply_browser_worker = ?, apply_physical_edge = ?,
              updated_at = datetime('now')
          WHERE id = ? AND owner_user_id = ?`
       )
@@ -435,6 +452,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
         next.apply_workflow_desktop,
         next.apply_a2a,
         next.apply_browser_worker,
+        next.apply_physical_edge,
         existing.id,
         ownerUserId
       );
@@ -444,6 +462,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
       existing.id,
       rule
     );
+    if(notify)ipPolicyEvents.emit('change',ownerUserId);
     return getOwnerIpWhitelistEntry(existing.id, ownerUserId);
   }
 
@@ -452,8 +471,8 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
     .prepare(
       `INSERT INTO owner_ip_whitelists
        (id, owner_user_id, cidr_or_ip, label, apply_ibkr_bridge, apply_workflow_desktop,
-        apply_a2a, apply_browser_worker, definition_id, publish_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        apply_a2a, apply_browser_worker, apply_physical_edge, definition_id, publish_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -464,6 +483,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
       flags.apply_workflow_desktop,
       flags.apply_a2a,
       flags.apply_browser_worker,
+      flags.apply_physical_edge,
       definitionId,
       publishId
     );
@@ -477,6 +497,7 @@ export function addOwnerIpWhitelistEntry(ownerUserId, body = {}) {
     flags.apply_browser_worker,
     flags.apply_ibkr_bridge
   );
+  if(notify)ipPolicyEvents.emit('change',ownerUserId);
   return getOwnerIpWhitelistEntry(id, ownerUserId);
 }
 
@@ -492,6 +513,7 @@ export function updateOwnerIpWhitelistEntry(entryId, ownerUserId, body = {}) {
   const label = body.label != null ? String(body.label).trim() : cur.label;
 
   const flags = {
+    apply_physical_edge:body.apply_physical_edge!=null||body.apply?.physical_edge!=null?bool01(body.apply_physical_edge??body.apply?.physical_edge):cur.apply_physical_edge?1:0,
     apply_ibkr_bridge:
       body.apply_ibkr_bridge != null || body.apply?.ibkr_bridge != null
         ? bool01(body.apply_ibkr_bridge ?? body.apply?.ibkr_bridge)
@@ -529,12 +551,14 @@ export function updateOwnerIpWhitelistEntry(entryId, ownerUserId, body = {}) {
     publishId = String(body.publish_id ?? body.publishId ?? '').trim() || null;
   }
 
+  if(flags.apply_physical_edge&&(definitionId||publishId))throw new Error('Physical edge IP rules are company-wide; leave workflow and A2A scopes empty');
+
   db()
     .prepare(
       `UPDATE owner_ip_whitelists
        SET cidr_or_ip = ?, label = ?,
            apply_ibkr_bridge = ?, apply_workflow_desktop = ?,
-           apply_a2a = ?, apply_browser_worker = ?,
+           apply_a2a = ?, apply_browser_worker = ?, apply_physical_edge = ?,
            definition_id = ?, publish_id = ?,
            updated_at = datetime('now')
        WHERE id = ? AND owner_user_id = ?`
@@ -546,12 +570,14 @@ export function updateOwnerIpWhitelistEntry(entryId, ownerUserId, body = {}) {
       flags.apply_workflow_desktop,
       flags.apply_a2a,
       flags.apply_browser_worker,
+      flags.apply_physical_edge,
       definitionId,
       publishId,
       entryId,
       ownerUserId
     );
   console.info('[owner-ip-whitelist] update owner=%s id=%s rule=%s', ownerUserId, entryId, rule);
+  ipPolicyEvents.emit('change',ownerUserId);
   return getOwnerIpWhitelistEntry(entryId, ownerUserId);
 }
 
@@ -563,6 +589,7 @@ export function removeOwnerIpWhitelistEntry(entryId, ownerUserId) {
   if (r.changes > 0) {
     console.info('[owner-ip-whitelist] remove owner=%s id=%s', ownerUserId, entryId);
   }
+  if(r.changes>0)ipPolicyEvents.emit('change',ownerUserId);
   return r.changes > 0;
 }
 
@@ -633,6 +660,7 @@ export function assertFeatureIpAllowed(
       [IP_FEATURES.WORKFLOW_DESKTOP]: 'desktop',
       [IP_FEATURES.A2A]: 'A2A agent',
       [IP_FEATURES.BROWSER_WORKER]: 'browser worker',
+      [IP_FEATURES.PHYSICAL_EDGE]: 'Flolah physical edge',
     };
     return {
       ok: false,
@@ -655,4 +683,13 @@ export function listFeatureCidrs(
     definitionId: feature === IP_FEATURES.WORKFLOW_DESKTOP ? definitionId : undefined,
     publishId: feature === IP_FEATURES.A2A ? publishId : undefined,
   }).map((e) => e.cidr_or_ip);
+}
+
+export function parseIpRuleList(raw){
+ const values=(Array.isArray(raw)?raw:String(raw||'').split(/[\s,;]+/)).map(v=>String(v).trim()).filter(Boolean);if(!values.length||values.length>100)throw new Error('Provide 1–100 IP addresses or CIDRs');
+ const rules=[...new Set(values.map(v=>String(v).trim()).filter(Boolean).map(validateIpOrCidr))];if(!rules.length)throw new Error('Provide at least one IP address or CIDR');return rules;
+}
+export function addOwnerIpWhitelistEntries(owner,body={}){
+ const rules=parseIpRuleList(body.ips??body.cidr_or_ip??body.cidrOrIp??body.ip);
+ const entries=db().transaction(()=>rules.map(rule=>addOwnerIpWhitelistEntry(owner,{...body,cidr_or_ip:rule},{notify:false})))();ipPolicyEvents.emit('change',owner);return entries;
 }

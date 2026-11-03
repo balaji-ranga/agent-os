@@ -755,7 +755,9 @@ if (process.env.FLOLAH_PHYSICAL_ENABLED === '1') {
   const plane = getPhysicalControlPlane();
   apiRouter.use('/physical', physicalRouter({ plane }));
   seedPhysicalTools();
-  physicalHubAttach = server => attachPhysicalHubServer(server, plane);
+  const {createPhysicalHubIpPolicy}=await import('./services/physical/hub-ip-policy.js');
+  const hubIpPolicy=createPhysicalHubIpPolicy();
+  physicalHubAttach = server => attachPhysicalHubServer(server, plane,{authorizeConnection:hubIpPolicy.check,subscribePolicyChanges:hubIpPolicy.subscribe});
 }
 apiRouter.use('/company-objectives', companyObjectivesRoutes);
 apiRouter.use('/company-capabilities', companyCapabilitiesRoutes);

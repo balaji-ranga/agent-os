@@ -2943,6 +2943,7 @@ export function initDb() {
         apply_workflow_desktop INTEGER NOT NULL DEFAULT 0,
         apply_a2a INTEGER NOT NULL DEFAULT 0,
         apply_browser_worker INTEGER NOT NULL DEFAULT 0,
+        apply_physical_edge INTEGER NOT NULL DEFAULT 0,
         definition_id TEXT,
         publish_id TEXT,
         created_at TEXT DEFAULT (datetime('now')),

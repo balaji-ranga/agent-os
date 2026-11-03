@@ -9,6 +9,7 @@ import {
   IP_FEATURE_LIST,
   listOwnerIpWhitelists,
   addOwnerIpWhitelistEntry,
+  addOwnerIpWhitelistEntries,
   updateOwnerIpWhitelistEntry,
   removeOwnerIpWhitelistEntry,
   getOwnerIpWhitelistEntry,
@@ -56,8 +57,8 @@ router.post('/', (req, res) => {
   try {
     const owner = ownerId(req, res);
     if (!owner) return;
-    const entry = addOwnerIpWhitelistEntry(owner, req.body || {});
-    res.status(201).json({ entry, current_ip: clientIpFromRequest(req) || null });
+    const entries=addOwnerIpWhitelistEntries(owner,req.body||{});
+    res.status(201).json({entry:entries.length===1?entries[0]:undefined,entries,current_ip:clientIpFromRequest(req)||null});
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
