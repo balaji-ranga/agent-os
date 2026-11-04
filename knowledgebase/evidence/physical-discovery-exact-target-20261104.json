@@ -1,0 +1,28 @@
+[
+  {
+    "label": "original-conversation",
+    "at": "2026-11-04T15:15:29.915Z",
+    "sessionHash": "914c098bc164",
+    "sessionToolOverride": false,
+    "delivery": false,
+    "status": "ok",
+    "runId": "c2c167df-8faa-4b86-9bca-5cab36e14982",
+    "reply": "From: COO / BalServe The authorized inventory for switching off the Prism TV is as follows:\n\n- **Entity ID**: `d36abe9b-7317-4c52-9ee3-624e425689a6`\n- **Title**: PRISM E55 — BroadLink IR (delivery receipt only)\n- **Action**: send_power_toggle\n- **Input**: {}\n- **Policy**: The action `send_power_toggle` is an **autonomous** command, meaning it is designed to toggle the power state of the TV, allowing it to switch off if it is currently on.\n\nThis command enables remote control of the TV's power state effectively. If you need further details or assistance, feel free to ask!",
+    "tools": {
+      "calls": 2,
+      "tools": [
+        "physical_entities_list",
+        "tool_call"
+      ],
+      "failures": 0
+    },
+    "ms": 6009,
+    "modelTools": [
+      "read",
+      "sessions_yield",
+      "tool_search",
+      "tool_describe",
+      "tool_call"
+    ]
+  }
+]

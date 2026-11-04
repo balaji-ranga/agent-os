@@ -1,0 +1,72 @@
+[
+  {
+    "label": "original-conversation",
+    "at": "2026-11-04T15:10:19.360Z",
+    "sessionHash": "914c098bc164",
+    "sessionToolOverride": false,
+    "delivery": false,
+    "status": "ok",
+    "runId": "1fad3db9-5953-4cd0-be52-b26de3c75417",
+    "reply": "From: COO / BalServe To switch off the Prism TV, I would utilize the registered device known as the **PRISM E55** along with the **send_power_toggle** operation. Here’s how it works:\n\n1. **Device**: **PRISM E55**, which is smart TV capable of receiving power commands through a connected interface.\n2. **Operation**: **send_power_toggle**, a command that instructs the TV to turn off or on based on its current state.\n\nThis operation allows you to manage the TV remotely without needing to interact physically with it. If you need further assistance or have any more questions, feel free to ask!",
+    "ms": 69174,
+    "modelTools": [
+      "read",
+      "sessions_yield",
+      "tool_search",
+      "tool_describe",
+      "tool_call"
+    ]
+  },
+  {
+    "label": "different-device",
+    "at": "2026-11-04T15:10:29.071Z",
+    "sessionHash": "5dc8b97f66ad",
+    "sessionToolOverride": false,
+    "delivery": false,
+    "status": "ok",
+    "runId": "4054c359-c48c-4a2e-8485-f1b00c9ed40d",
+    "reply": "From: COO / BalServe To open Netflix on the Living Room Fire TV, you would use the following registered device and operation:\n\n### Device:\n- **Name:** Living Room Fire TV\n- **Device ID:** living-room-fire-tv\n- **Description:** This device is designed to launch various applications.\n\n### Operation:\n- **Action:** launch_app\n- **Input Required:** \n  - A JSON object that requires a property `app`, which needs to be set to `\"netflix\"` in order to specify the application that should be launched.\n  - Schema:\n    ```json\n    {\n      \"type\": \"object\",\n      \"properties\": {\n        \"app\": {\n          \"type\": \"string\",\n          \"enum\": [\"netflix\", \"youtube\"]\n        }\n      },\n      \"required\": [\"app\"]\n    }\n    ```\n  \nThis action may require approval, depending on the device's configuration. Currently, the device's readiness status is marked as \"unavailable,\" indicating it may not be able to accept commands at this time.",
+    "tools": {
+      "calls": 2,
+      "tools": [
+        "physical_entities_list",
+        "tool_call"
+      ],
+      "failures": 0
+    },
+    "ms": 6469,
+    "modelTools": [
+      "read",
+      "sessions_yield",
+      "tool_search",
+      "tool_describe",
+      "tool_call"
+    ]
+  },
+  {
+    "label": "ambiguous",
+    "at": "2026-11-04T15:10:58.201Z",
+    "sessionHash": "ba576487d3b6",
+    "sessionToolOverride": false,
+    "delivery": false,
+    "status": "ok",
+    "runId": "c628c53e-a9f0-4560-a824-576d55e0fa5a",
+    "reply": "From: COO / BalServe You currently have access to the following devices:\n\n1. **PRISM E55**\n   - **Actions**:\n     - `open_youtube` (requires approval)\n     - `wake` (prohibited)\n   - **State**: YouTube is currently running, and the network is reachable.\n\n2. **Living Room Fire TV**\n   - **Actions**:\n     - `launch_app` (requires approval; apps available: Netflix, YouTube)\n   - **State**: Currently set to YouTube.\n\n3. **PRISM E55 BroadLink IR**\n   - **Actions**:\n     - `send_power_toggle` (available for autonomous use)\n   - **State**: Power toggle delivery confirmed sent.\n\nPlease specify which device and operation you'd like to control. If you have any questions or need further clarification, let me know!",
+    "tools": {
+      "calls": 2,
+      "tools": [
+        "physical_entities_list",
+        "tool_call"
+      ],
+      "failures": 0
+    },
+    "ms": 5686,
+    "modelTools": [
+      "read",
+      "sessions_yield",
+      "tool_search",
+      "tool_describe",
+      "tool_call"
+    ]
+  }
+]
