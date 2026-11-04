@@ -166,8 +166,9 @@ if (contentTools?.config?.apiKey) {
 const marketingInboundAttributionEnabled = ['1', 'true'].includes(
   String(process.env.MARKETING_INBOUND_ATTRIBUTION_ENABLED || '').trim().toLowerCase()
 );
-if (marketingInboundAttributionEnabled && contentTools?.hooks?.allowConversationAccess !== true) {
-  fail('agent-os-content-tools hooks.allowConversationAccess must be true for trusted inbound attribution');
+const sharedConversationContextEnabled=['1','true'].includes(String(process.env.AGENT_OS_CONVERSATION_CONTEXT_ENABLED||'').trim().toLowerCase());
+if ((marketingInboundAttributionEnabled || sharedConversationContextEnabled) && contentTools?.hooks?.allowConversationAccess !== true) {
+  fail('agent-os-content-tools hooks.allowConversationAccess must be true for enabled shared conversation context / trusted inbound attribution');
 }
 const legacyCredentials = join(OPENCLAW_DIR, 'agent-os-tool-credentials.json');
 if (existsSync(legacyCredentials)) {

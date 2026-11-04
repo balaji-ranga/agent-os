@@ -1,3 +1,4 @@
+import {physicalContextHint} from './physical-context.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {profileTimezoneHint} from './profile-timezone.js';
@@ -1107,6 +1108,7 @@ export default definePluginEntry({
       api.on("before_prompt_build", async (event, ctx) => {
         rememberRuntimeChannel(ctx);
         const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
+        const physicalHint = await physicalContextHint({allowed:isToolAllowedForAgent(recoveryAgent,'physical_entities_list',ctx?.sessionKey),sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:String(resolvePluginConfig(api).baseUrl||'').trim(),brokerSecret:loadToolBrokerSecret});
         const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
           ? "Current FloAssist read capability: use floassist_source_read for connected email, files and calendar content. Latest Gmail draft: {app_id: gmail, kind: draft}. Existing task source: {task_id: exact task number}. Do not replay invented action names or failed calls from older conversation history. If a current tool result is non-retryable, stop that attempt and provide one concise final explanation, not another equivalent call." : "";
         const timezoneContext=async()=>{
@@ -1125,8 +1127,9 @@ export default definePluginEntry({
         };
         const [timezoneHint,result] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx)]);
         const personalContext=[recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
-        const clockContext=timezoneHint?{appendSystemContext:timezoneHint}:{};
-        if (!result?.matched) return timezoneHint||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
+        const systemContext=[timezoneHint,physicalHint].filter(Boolean).join('\n');
+        const clockContext=systemContext?{appendSystemContext:systemContext}:{};
+        if (!result?.matched) return systemContext||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};
         const lead = result.lead || {};
         const classification = result.classification || {};

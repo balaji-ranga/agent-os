@@ -1,3 +1,4 @@
+import {physicalContextHint} from './physical-context.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {visibleContentTools,scheduledGoalRoutingHint} from './runtime-access.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
@@ -787,17 +788,19 @@ export default definePluginEntry({
       api.on("before_prompt_build", async (event: PromptBuildEvent, ctx: PromptBuildContext) => {
         rememberRuntimeChannel(ctx);
         const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
+        const physicalHint = await physicalContextHint({allowed:isToolAllowedForAgent(recoveryAgent,'physical_entities_list',ctx?.sessionKey),sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:String(resolvePluginConfig(api).baseUrl||'').trim(),brokerSecret:loadToolBrokerSecret});
         const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
           ? "Current FloAssist read capability: use floassist_source_read for connected email, files and calendar content. Latest Gmail draft: {app_id: gmail, kind: draft}. Existing task source: {task_id: exact task number}. Do not replay invented action names or failed calls from older conversation history. If a current tool result is non-retryable, stop that attempt and provide one concise final explanation, not another equivalent call." : "";
         const personalContext = [recoveryHint, scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const result = await correlateInboundCampaign(api, event, ctx);
-        if (!result?.matched) return personalContext ? { prependContext: personalContext } : undefined;
+        if (!result?.matched) return personalContext || physicalHint ? { ...(personalContext ? {prependContext: personalContext} : {}), ...(physicalHint ? {appendSystemContext: physicalHint} : {}) } : undefined;
         const campaign = result.campaign || {};
         const lead = result.lead || {};
         const classification = result.classification || {};
         const suppression = classification.outcome_type === "opt_out";
         const companyUser = result.identity?.kind === "company_user";
         return {
+          ...(physicalHint ? {appendSystemContext: physicalHint} : {}),
           prependContext: [
             personalContext,
             "Trusted Agent OS campaign attribution:",

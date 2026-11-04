@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 
 const script = resolve('deploy/scripts/configure-openclaw-docker.js');
 
-function runCase({ name, baseUrl, model, marker = null, routing = false, marketingInboundAttribution = false, compaction = undefined }) {
+function runCase({ name, baseUrl, model, marker = null, routing = false, marketingInboundAttribution = false, compaction = undefined, approvedHook = false, conversationContext = undefined }) {
   const dir = mkdtempSync(join(tmpdir(), `flolah-openclaw-runtime-${name}-`));
   const configPath = join(dir, 'openclaw.json');
   const originalAgent = {
@@ -21,7 +21,7 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
       gateway: { mode: 'local' },
       agents: { defaults: { model: { primary: model }, ...(compaction?{compaction}:{}) }, list: [originalAgent] },
       models: { providers: {} },
-      plugins: { entries: { codex: { enabled: true } }, allow: ['codex'] },
+      plugins: { entries: { codex: { enabled: true }, 'agent-os-content-tools': {hooks:{allowConversationAccess:approvedHook}} }, allow: ['codex'] },
       tools: { sessions: { visibility: 'agent' } },
     }, null, 2)}\n`,
     'utf8'
@@ -52,6 +52,7 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
         OPENCLAW_TRUSTED_PROXIES: '127.0.0.1,::1,172.18.0.1',
         OPENCLAW_GATEWAY_TOKEN: 'stale-bootstrap-token',
         MARKETING_INBOUND_ATTRIBUTION_ENABLED: marketingInboundAttribution ? '1' : '0',
+        ...(conversationContext===undefined?{}:{AGENT_OS_CONVERSATION_CONTEXT_ENABLED:conversationContext?'1':'0'}),
       },
     });
     assert.equal(result.status, 0, `${name}: configure failed\n${result.stderr}\n${result.stdout}`);
@@ -70,7 +71,7 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
     assert.equal(configured.plugins.entries.deepseek?.enabled, false);
     assert.equal(
       configured.plugins.entries['agent-os-content-tools']?.hooks?.allowConversationAccess,
-      marketingInboundAttribution,
+      conversationContext ?? (approvedHook || marketingInboundAttribution),
       `${name}: inbound correlation hook must be permitted to inspect channel conversation context`
     );
     assert.equal(configured.plugins.allow.includes('codex'), false);
@@ -121,3 +122,5 @@ runCase({
 });
 
 console.log('OPENCLAW_RUNTIME_POLICY_OK');
+
+for(const fixture of [{approvedHook:true},{conversationContext:true},{approvedHook:true,conversationContext:false}])runCase({name:'shared-conversation-hook',baseUrl:'https://api.openai.com/v1',model:'openai/gpt-4o-mini',...fixture});

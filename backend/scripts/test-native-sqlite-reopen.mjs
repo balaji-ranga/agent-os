@@ -1,0 +1,7 @@
+import {DatabaseSync} from 'node:sqlite';import {mkdtempSync,rmSync,readdirSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';import assert from 'node:assert/strict';
+const root=mkdtempSync(join(tmpdir(),'sqlite-reopen-test-')),dist='/usr/local/lib/node_modules/openclaw/dist';process.env.OPENCLAW_DIR=root;
+const module=await import(join(dist,readdirSync(dist).find(f=>/^openclaw-agent-db-maintenance-.*\.js$/.test(f))));
+const find=name=>Object.values(module).find(f=>typeof f==='function'&&f.name===name);
+const db=new DatabaseSync(join(root,'test.sqlite'));const ensure=find('ensureAgentSchema'),validate=find('assertAgentDatabaseIntegrityBeforeMutation');
+let scans=0;const original=db.prepare.bind(db);db.prepare=(sql,...args)=>{if(/PRAGMA.*integrity_check/i.test(sql))scans++;return original(sql,...args)};
+try{ensure(db,'fixture',join(root,'test.sqlite'));scans=0;validate(db,'fixture',join(root,'test.sqlite'));assert.ok(scans>0);scans=0;validate(db,'fixture',join(root,'test.sqlite'),true);assert.equal(scans,0);assert.throws(()=>validate(db,'different',join(root,'test.sqlite'),true),/belongs to agent/);db.exec('PRAGMA user_version=18');scans=0;validate(db,'fixture',join(root,'test.sqlite'),true);assert.ok(scans>0);console.log('SQLITE_REOPEN_OK: full first validation, fast validated reopen, wrong owner rejected, migration retains full scan');}finally{db.close();rmSync(root,{recursive:true,force:true})}

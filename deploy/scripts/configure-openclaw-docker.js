@@ -378,9 +378,11 @@ config.plugins.entries['agent-os-content-tools'] = {
   enabled: true,
   hooks: {
     ...(plugin.hooks || {}),
-    // Fail closed until the channel identity registry can distinguish a
-    // verified company user from a campaign contact.
-    allowConversationAccess: MARKETING_INBOUND_ATTRIBUTION_ENABLED,
+    // Shared physical/timezone/channel guidance is independent of marketing.
+    // Preserve explicit approval; deployments can explicitly enable or revoke it.
+    allowConversationAccess: process.env.AGENT_OS_CONVERSATION_CONTEXT_ENABLED === undefined
+      ? (plugin.hooks?.allowConversationAccess === true || MARKETING_INBOUND_ATTRIBUTION_ENABLED)
+      : ['1','true'].includes(String(process.env.AGENT_OS_CONVERSATION_CONTEXT_ENABLED).trim().toLowerCase()),
   },
   config: pluginConfig,
 };

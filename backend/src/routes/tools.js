@@ -1,3 +1,4 @@
+import {physicalAgentAssets,physicalAgentInstructions} from '../services/physical/agent-context.js';
 import {resumeScheduledSourceInput} from '../services/floassist/source-coverage.js';
 import {recordRunError} from '../services/floassist/source-receipts.js';
 import {floAssistTaskSource} from '../services/floassist/task-source.js';
@@ -822,11 +823,20 @@ router.post('/native-model-budget/:operation', (req,res)=>{
   try{
     if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});
     if(!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker']))return res.status(401).json({error:'Native budget authentication failed'});
-    if(!['admit','settle','failure-reason','profile-context'].includes(req.params.operation))return res.status(404).json({error:'Not found'});
+    if(!['admit','settle','failure-reason','profile-context','physical-context'].includes(req.params.operation))return res.status(404).json({error:'Not found'});
     // Accept telemetry only, never provider prompts, headers or source content.
     const allowed=new Set(['id','session_key','caller_agent_id','run_id','provider','model','input_tokens','output_tokens','output_limit','status','estimated']);
     if(Object.keys(req.body||{}).some(key=>!allowed.has(key)))return res.status(400).json({error:'Only numeric usage and call identity metadata are accepted'});
     res.setHeader('Cache-Control','no-store');
+    if(req.params.operation==='physical-context'){
+      const identity=nativeModelIdentity(req.body);
+      const raw=String(identity.session).match(/^agent::?([^:]+):/)[1];
+      const base=parseTenantOpenClawAgentId(raw).baseOpenClawId;
+      const actor=lookupOpenClawSessionActor(identity.session);
+      const principal=['agent:'+base,...(actor?.ownerUserId===identity.owner&&actor.actorUserId!==identity.owner?['user:'+actor.actorUserId]:[])];
+      const assets=physicalAgentAssets({ownerUserId:identity.owner,principal,grants:getAgentToolGrants(identity.agent)});
+      return res.json({instructions:physicalAgentInstructions(assets)});
+    }
     if(req.params.operation==='profile-context'){
       const identity=nativeModelIdentity(req.body);
       return res.json(floAssistRuntimeContext(getDb(),identity.owner,identity.agent));

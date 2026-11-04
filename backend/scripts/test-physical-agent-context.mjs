@@ -24,3 +24,6 @@ assert.equal(physicalAgentInstructions([]),'');
 const prompt=physicalAgentInstructions(assets);
 for(const text of ['physical_entities_list','physical_invoke','physical_operation_get','Do not substitute desktop browser','never self-approve','fresh idempotencyKey'])assert.ok(prompt.includes(text));
 console.log('PHYSICAL_AGENT_CONTEXT_PASS: granted owner-scoped schemas, no private fields, governed device route and evidence instructions');
+
+// The same generic contract is consumed by web chat and native channel hooks.
+for(const text of ['first inspect the current authorized inventory','operation descriptions, input schemas','If multiple authorized devices or actions plausibly match','Copy the exact entityId and action','Discovery is read-only'])assert.ok(prompt.includes(text),text);
