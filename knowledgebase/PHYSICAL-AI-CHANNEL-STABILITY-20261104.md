@@ -35,3 +35,15 @@ The configurator previously rewrote allowConversationAccess from the marketing-a
 ## Channel integration contract
 
 Every channel must enter either the common web executor context or the native prompt hook with an authenticated tenant/agent/session. Future channel adapters must not construct their own device-specific prompts. Physical discovery is grant-filtered; operation descriptions, schemas, policy modes and evidence requirements remain server-managed. Ambiguity requires clarification rather than arbitrary target selection. This is shared runtime guidance, not a PRISM-specific skill or list of hardcoded verbs.
+
+## Post-cutover native acceptance
+
+The approved hook setting was verified true after startup; extension integrity passed; the gateway reached healthy and WhatsApp reported listening at 21:53:59 SGT. Backend logs now show the actual native hook calling physical-context (HTTP 200), rather than relying only on an isolated mock registration.
+
+Three new sessions were restricted to physical discovery/status tools, with channel delivery disabled:
+
+- c3fa1541-25f4-4826-8b73-5ff2427db8c7: approximate PRISM power request selected the BroadLink IR device and send_power_toggle, 10.9 seconds, one successful physical_entities_list call.
+- 55b51801-61ea-4ae2-91e6-da4b8849086b: living-room streaming-stick/Netflix request selected Fire TV and launch_app with app schema, 5.5 seconds, one successful discovery call.
+- aa310802-8d1b-49cd-bd90-9c280a7d9e0d: ambiguous device request listed authorized devices/actions/policies and explicitly asked which device and operation, 6.5 seconds, one successful discovery call.
+
+No physical invocation occurred. These validate native routing/clarification, not real power execution or WhatsApp delivery. A fresh test from the user's actual WhatsApp conversation remains requested. Sustained production stability requires observing real traffic; the synthetic index timing reduction does not eliminate all synchronous work.
