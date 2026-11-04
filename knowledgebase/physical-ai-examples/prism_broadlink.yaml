@@ -1,0 +1,34 @@
+# Reports command delivery only. This sensor never represents TV power state.
+template:
+  - triggers:
+      - trigger: event
+        event_type: flolah_prism_ir_delivery
+      - trigger: homeassistant
+        event: start
+    sensor:
+      - name: PRISM IR delivery
+        unique_id: flolah_prism_ir_delivery
+        state: "{{ trigger.event.data.status if trigger.platform == 'event' else 'idle' }}"
+        attributes:
+          observed_at: "{{ now().isoformat() }}"
+          evidence_scope: command_delivery_only
+
+script:
+  prism_ir_power_toggle:
+    alias: PRISM IR power toggle - single transmission
+    description: Sends the learned IR toggle once. Does not verify screen power. Never retry automatically.
+    mode: single
+    sequence:
+      - event: flolah_prism_ir_delivery
+        event_data:
+          status: sending
+      - action: remote.send_command
+        target:
+          entity_id: remote.bala
+        data:
+          device: prism_tv
+          command: power_toggle
+          num_repeats: 1
+      - event: flolah_prism_ir_delivery
+        event_data:
+          status: sent

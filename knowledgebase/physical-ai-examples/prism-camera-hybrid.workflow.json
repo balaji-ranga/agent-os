@@ -1,0 +1,603 @@
+{
+  "name": "Room Camera Brain - PRISM IR TV Control",
+  "description": "Manual hybrid test: simulated camera pixels -> vision LLM -> confidence >=0.85 -> actual 13:00-18:00 Asia/Singapore -> real PRISM single IR toggle. Requires run input actual_tv_confirmed_on=true. IR delivery receipt does not prove screen state; no automatic retries. No simulated clock or fabricated post-off camera evidence.",
+  "trigger_modes": [
+    "manual"
+  ],
+  "schedule_cron": "",
+  "chat_trigger_phrase": "",
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "type": "trigger",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "data": {
+          "label": "Manual hybrid test - real TV",
+          "taskConfig": {},
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "capture",
+        "type": "physical_device",
+        "position": {
+          "x": 290,
+          "y": 0
+        },
+        "data": {
+          "label": "Virtual camera - capture room",
+          "taskConfig": {
+            "entityId": "e8357797-7142-4870-8cd6-60097ca4b650",
+            "action": "capture",
+            "argumentsJson": "{}",
+            "dynamicOutputs": true,
+            "outputContract": {
+              "entityId": "e8357797-7142-4870-8cd6-60097ca4b650",
+              "operation": "invoke",
+              "action": "capture",
+              "property": "",
+              "version": 1,
+              "hash": "b500708916bef5b508e7a8964dcf311006404ee2ad45ae0862a2fba661e2b13f",
+              "input": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "frame": {
+                    "type": "object",
+                    "mediaType": "image",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "image"
+                        ]
+                      },
+                      "ref": {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      "mime_type": {
+                        "type": "string",
+                        "enum": [
+                          "image/png",
+                          "image/jpeg"
+                        ]
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64
+                      },
+                      "captured_at": {
+                        "type": "number"
+                      },
+                      "simulated": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "ref",
+                      "mime_type",
+                      "sha256",
+                      "captured_at",
+                      "simulated"
+                    ],
+                    "title": "Captured frame"
+                  },
+                  "captured_at": {
+                    "type": "number",
+                    "title": "Capture timestamp"
+                  }
+                },
+                "required": [
+                  "frame",
+                  "captured_at"
+                ]
+              },
+              "bindings": {
+                "frame": {
+                  "source": "evidence_image",
+                  "index": 0
+                },
+                "captured_at": {
+                  "source": "observation_time"
+                }
+              },
+              "ports": [
+                {
+                  "id": "ok",
+                  "label": "ok",
+                  "type": "boolean"
+                },
+                {
+                  "id": "status",
+                  "label": "status",
+                  "type": "string"
+                },
+                {
+                  "id": "operation_id",
+                  "label": "operation_id",
+                  "type": "string"
+                },
+                {
+                  "id": "entity_id",
+                  "label": "entity_id",
+                  "type": "string"
+                },
+                {
+                  "id": "site_id",
+                  "label": "site_id",
+                  "type": "string"
+                },
+                {
+                  "id": "hub_id",
+                  "label": "hub_id",
+                  "type": "string"
+                },
+                {
+                  "id": "simulated",
+                  "label": "simulated",
+                  "type": "boolean"
+                },
+                {
+                  "id": "evidence",
+                  "label": "evidence",
+                  "type": "object"
+                },
+                {
+                  "id": "text",
+                  "label": "text",
+                  "type": "string"
+                },
+                {
+                  "id": "output_contract",
+                  "label": "output_contract",
+                  "type": "object"
+                },
+                {
+                  "id": "frame",
+                  "label": "Captured frame",
+                  "type": "object",
+                  "mediaType": "image",
+                  "schema": {
+                    "type": "object",
+                    "mediaType": "image",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "image"
+                        ]
+                      },
+                      "ref": {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      "mime_type": {
+                        "type": "string",
+                        "enum": [
+                          "image/png",
+                          "image/jpeg"
+                        ]
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64
+                      },
+                      "captured_at": {
+                        "type": "number"
+                      },
+                      "simulated": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "ref",
+                      "mime_type",
+                      "sha256",
+                      "captured_at",
+                      "simulated"
+                    ],
+                    "title": "Captured frame"
+                  },
+                  "required": true
+                },
+                {
+                  "id": "captured_at",
+                  "label": "Capture timestamp",
+                  "type": "number",
+                  "mediaType": null,
+                  "schema": {
+                    "type": "number",
+                    "title": "Capture timestamp"
+                  },
+                  "required": true
+                }
+              ]
+            },
+            "requireSimulated": true,
+            "requireVisualEvidence": true,
+            "operationTimeoutMs": 300000,
+            "nodeTimeoutMs": 300000,
+            "timeoutAction": "fail"
+          },
+          "outputs": [
+            {
+              "id": "ok",
+              "label": "ok",
+              "type": "boolean"
+            },
+            {
+              "id": "status",
+              "label": "status",
+              "type": "string"
+            },
+            {
+              "id": "operation_id",
+              "label": "operation_id",
+              "type": "string"
+            },
+            {
+              "id": "entity_id",
+              "label": "entity_id",
+              "type": "string"
+            },
+            {
+              "id": "site_id",
+              "label": "site_id",
+              "type": "string"
+            },
+            {
+              "id": "hub_id",
+              "label": "hub_id",
+              "type": "string"
+            },
+            {
+              "id": "simulated",
+              "label": "simulated",
+              "type": "boolean"
+            },
+            {
+              "id": "evidence",
+              "label": "evidence",
+              "type": "object"
+            },
+            {
+              "id": "text",
+              "label": "text",
+              "type": "string"
+            },
+            {
+              "id": "output_contract",
+              "label": "output_contract",
+              "type": "object"
+            },
+            {
+              "id": "frame",
+              "label": "Captured frame",
+              "type": "object",
+              "mediaType": "image",
+              "schema": {
+                "type": "object",
+                "mediaType": "image",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "image"
+                    ]
+                  },
+                  "ref": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "mime_type": {
+                    "type": "string",
+                    "enum": [
+                      "image/png",
+                      "image/jpeg"
+                    ]
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64
+                  },
+                  "captured_at": {
+                    "type": "number"
+                  },
+                  "simulated": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ref",
+                  "mime_type",
+                  "sha256",
+                  "captured_at",
+                  "simulated"
+                ],
+                "title": "Captured frame"
+              },
+              "required": true
+            },
+            {
+              "id": "captured_at",
+              "label": "Capture timestamp",
+              "type": "number",
+              "mediaType": null,
+              "schema": {
+                "type": "number",
+                "title": "Capture timestamp"
+              },
+              "required": true
+            }
+          ],
+          "inputBindings": [
+            {
+              "id": "entity_id",
+              "mode": "static",
+              "value": ""
+            },
+            {
+              "id": "arguments",
+              "mode": "static",
+              "value": ""
+            }
+          ]
+        }
+      },
+      {
+        "id": "vision",
+        "type": "analyze_image",
+        "position": {
+          "x": 580,
+          "y": 0
+        },
+        "data": {
+          "label": "Brain / vision LLM - inspect room",
+          "taskConfig": {
+            "mode": "describe",
+            "resultSchemaJson": "{\"type\":\"object\",\"properties\":{\"tv_state\":{\"type\":\"string\",\"enum\":[\"on\",\"off\",\"unknown\"]},\"confidence\":{\"type\":\"number\",\"minimum\":0,\"maximum\":1},\"reason\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":800}},\"required\":[\"tv_state\",\"confidence\",\"reason\"]}",
+            "prompt": "Inspect only the attached room image. Is the television screen visibly displaying a picture and therefore on? A black unlit screen means off. If the screen is hidden, absent or ambiguous report unknown with low confidence. Do not infer state from the filename or metadata. Return tv_state, confidence from 0 to 1, and a concise visible reason.",
+            "nodeTimeoutMs": 90000,
+            "timeoutAction": "fail"
+          },
+          "inputBindings": [
+            {
+              "id": "image",
+              "mode": "dynamic",
+              "sourceNodeId": "capture",
+              "sourceOutputKey": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "is-on",
+        "type": "if",
+        "position": {
+          "x": 870,
+          "y": 0
+        },
+        "data": {
+          "label": "TV visibly on?",
+          "taskConfig": {
+            "sourceNodeId": "vision",
+            "sourceOutputKey": "result.tv_state",
+            "operator": "eq",
+            "compareValue": "on"
+          },
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "confident",
+        "type": "if",
+        "position": {
+          "x": 1160,
+          "y": 0
+        },
+        "data": {
+          "label": "Vision confidence at least 0.85?",
+          "taskConfig": {
+            "sourceNodeId": "vision",
+            "sourceOutputKey": "result.confidence",
+            "operator": "gte",
+            "compareValue": "0.85"
+          },
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "clock",
+        "type": "time_window",
+        "position": {
+          "x": 0,
+          "y": 260
+        },
+        "data": {
+          "label": "Singapore time - 13:00 to 18:00",
+          "taskConfig": {
+            "timeZone": "Asia/Singapore",
+            "startTime": "13:00",
+            "endTime": "18:00",
+            "allowSimulationClock": false
+          },
+          "inputBindings": [
+            {
+              "id": "at",
+              "mode": "dynamic",
+              "sourceNodeId": "start",
+              "sourceOutputKey": "trigger_input.simulation_time"
+            }
+          ]
+        }
+      },
+      {
+        "id": "in-hours",
+        "type": "if",
+        "position": {
+          "x": 290,
+          "y": 260
+        },
+        "data": {
+          "label": "Within permitted hours?",
+          "taskConfig": {
+            "sourceNodeId": "clock",
+            "sourceOutputKey": "in_window",
+            "operator": "eq",
+            "compareValue": "true"
+          },
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "power-off",
+        "type": "physical_device",
+        "position": {
+          "x": 580,
+          "y": 260
+        },
+        "data": {
+          "label": "PRISM IR - send power toggle ONCE (delivery only)",
+          "taskConfig": {
+            "entityId": "d36abe9b-7317-4c52-9ee3-624e425689a6",
+            "action": "send_power_toggle",
+            "argumentsJson": "{}",
+            "requireSimulated": false,
+            "requireVisualEvidence": false,
+            "operationTimeoutMs": 60000,
+            "nodeTimeoutMs": 70000,
+            "timeoutAction": "fail"
+          },
+          "inputBindings": [
+            {
+              "id": "entity_id",
+              "mode": "static",
+              "value": ""
+            },
+            {
+              "id": "arguments",
+              "mode": "static",
+              "value": ""
+            }
+          ]
+        }
+      },
+      {
+        "id": "continue",
+        "type": "merge",
+        "position": {
+          "x": 0,
+          "y": 520
+        },
+        "data": {
+          "label": "Continue without switching off",
+          "taskConfig": {},
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "real-state",
+        "type": "if",
+        "position": {
+          "x": 450,
+          "y": 260
+        },
+        "data": {
+          "label": "Real TV confirmed ON for this manual test?",
+          "taskConfig": {
+            "sourceNodeId": "start",
+            "sourceOutputKey": "trigger_input.actual_tv_confirmed_on",
+            "operator": "eq",
+            "compareValue": "true"
+          },
+          "inputBindings": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "start-capture",
+        "source": "start",
+        "target": "capture"
+      },
+      {
+        "id": "capture-vision",
+        "source": "capture",
+        "target": "vision"
+      },
+      {
+        "id": "vision-is-on",
+        "source": "vision",
+        "target": "is-on"
+      },
+      {
+        "id": "is-on-confident",
+        "source": "is-on",
+        "target": "confident",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "is-on-continue",
+        "source": "is-on",
+        "target": "continue",
+        "sourceHandle": "false"
+      },
+      {
+        "id": "confident-clock",
+        "source": "confident",
+        "target": "clock",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "confident-continue",
+        "source": "confident",
+        "target": "continue",
+        "sourceHandle": "false"
+      },
+      {
+        "id": "clock-in-hours",
+        "source": "clock",
+        "target": "in-hours"
+      },
+      {
+        "id": "in-hours-real-state",
+        "source": "in-hours",
+        "target": "real-state",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "in-hours-continue",
+        "source": "in-hours",
+        "target": "continue",
+        "sourceHandle": "false"
+      },
+      {
+        "id": "real-state-power",
+        "source": "real-state",
+        "target": "power-off",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "real-state-skip",
+        "source": "real-state",
+        "target": "continue",
+        "sourceHandle": "false"
+      }
+    ]
+  }
+}

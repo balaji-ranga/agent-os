@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+const dir=mkdtempSync(join(tmpdir(),'physical-policy-'));
+process.env.AGENT_OS_DATA_DIR=dir;process.env.OPENCLAW_DIR=join(dir,'openclaw');process.env.FLOLAH_PHYSICAL_ENABLED='1';
+const {getDb}=await import('../src/db/schema.js');const db=getDb();
+const {getPhysicalControlPlane}=await import('../src/services/physical/runtime.js');
+const {profile}=await import('../src/services/physical/contracts.js');
+const {upsertActionPolicyOverride}=await import('../src/services/action-policy.js');
+const {executePhysicalWorkflowTask}=await import('../src/services/physical/workflow-task.js');
+const owner='policy-fixture';
+db.prepare("INSERT INTO platform_users(id,email,password_hash,name,role) VALUES(?,?,'fixture','Fixture','ceo')").run(owner,'policy@invalid.test');
+try {
+ const p=getPhysicalControlPlane(),h=p.enroll(owner,{siteId:'test',name:'Test'});
+ const td=profile('camera','camera');delete td.actions.capture.output;p.discover(h.hubId,[td]);
+ const e=p.register(owner,{hubId:h.hubId,candidateId:'camera',actions:{capture:'autonomous'}});
+ let count=0;p.connect(h.hubId,{send(raw){const m=JSON.parse(raw);if(m.type==='command'){count++;setTimeout(()=>p.event(h.hubId,{type:'observation',entityId:'camera',operationId:m.command.id,property:'captured',value:true,at:Date.now()}),10);}},close(){}});
+ const invoke=(key,ctx={})=>p.operation(owner,{entityId:e.id,action:'capture',input:{},idempotencyKey:key},'owner','owner',ctx);
+ assert.equal(invoke('default').status,'awaiting_approval');
+ upsertActionPolicyOverride(owner,{scope_type:'workflow',scope_id:'allowed',action_family:'communicate_external',mode:'autonomous',max_uses:1});
+ assert.equal(p.operation(owner,{entityId:e.id,action:'capture',input:{},idempotencyKey:'forged-context',workflowId:'allowed',policyContext:{workflowId:'allowed'}},'owner').status,'awaiting_approval');
+ const out=await executePhysicalWorkflowTask({}, {entityId:e.id,action:'capture',operationTimeoutMs:2000}, {}, {ownerUserId:owner,workflowId:'allowed',runId:1,nodeId:'capture',plane:p});
+ assert.equal(out.status,'completed');assert.equal(count,1);
+ assert.equal(invoke('exhausted',{workflowId:'allowed'}).status,'awaiting_approval');
+ assert.equal(invoke('unrelated',{workflowId:'other'}).status,'awaiting_approval');
+ upsertActionPolicyOverride(owner,{scope_type:'tool',scope_id:'physical_invoke',action_family:'communicate_external',mode:'autonomous'});
+ upsertActionPolicyOverride(owner,{scope_type:'agent',scope_id:'restricted',action_family:'communicate_external',mode:'approval_required'});
+ assert.equal(invoke('agent-restricted',{agentId:'restricted'}).status,'awaiting_approval');
+ p.configure(owner,e.id,{actions:{capture:'prohibited'}});
+ assert.throws(()=>invoke('device-denied'),/prohibited/);
+ assert.equal(count,1);
+ console.log('PHYSICAL_POLICY_CONTEXT_PASS: scoped workflow autonomy, bounded use, unrelated and agent approval, device denial.');
+} finally {db.close();rmSync(dir,{recursive:true,force:true});}
+process.exit(0);

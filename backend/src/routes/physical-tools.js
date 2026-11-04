@@ -12,7 +12,7 @@ for(const [path,run] of [
   ['/physical-entities-list',(p,o,b,r)=>({entities:p.resourceList(o,access(r,o)).entities})],
   ['/physical-operation-get',(p,o,b,r)=>scopedOperation(p,o,b,r)],
   ['/physical-evidence-get',(p,o,b,r)=>{const operation=scopedOperation(p,o,b,r),index=b.index??0;if(!Number.isInteger(index)||index<0||!operation.evidence?.attachments?.[index]||!p.evidenceStore)throw Object.assign(Error('Evidence not found'),{status:404});const a=operation.evidence.attachments[index];return {operationId:operation.id,simulated:operation.simulated,kind:a.kind,mimeType:a.mimeType,sha256:a.sha256,at:a.at,dataBase64:p.evidenceStore.get(o,a).toString('base64')};}],
-  ['/physical-invoke',(p,o,b,r)=>p.operation(o,b,principal(r),access(r,o))],
+  ['/physical-invoke',(p,o,b,r)=>p.operation(o,b,principal(r),access(r,o),{agentId:principal(r).slice(6),evaluatedDecision:r.actionPolicy})],
   ['/physical-cancel',(p,o,b,r)=>{const op=scopedOperation(p,o,b,r);p.assertResource(o,op.entityId,access(r,o),op.action);return p.cancel(o,b.operationId);}],
 ])router.post(path,(req,res,next)=>{
   if(process.env.FLOLAH_PHYSICAL_ENABLED!=='1')return next();

@@ -1569,7 +1569,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     await completeTimedNodeStep({runId,node,nodeId,def,runRow,context,inputRecord,
       work:async()=>{
         if(context.actor?.type!=='system')assertPhysicalWorkflowAuthority(runRow.owner_user_id,context.actor);
-        return executePhysicalWorkflowTask(inputRecord.resolved,config,context,{ownerUserId:runRow.owner_user_id,principal:context.actor?.type==='system'?'workflow:'+def.id:context.actor?.id===runRow.owner_user_id?'owner':'user:'+context.actor?.id,runId,nodeId:node.id,iteration:loopIteration,dispatchId:context._event_dispatch?.dispatchId||'',isRunActive:()=>db().prepare('SELECT status FROM agent_workflow_runs WHERE id=?').get(runId)?.status==='running'});
+        return executePhysicalWorkflowTask(inputRecord.resolved,config,context,{ownerUserId:runRow.owner_user_id,workflowId:def.id,principal:context.actor?.type==='system'?'workflow:'+def.id:context.actor?.id===runRow.owner_user_id?'owner':'user:'+context.actor?.id,runId,nodeId:node.id,iteration:loopIteration,dispatchId:context._event_dispatch?.dispatchId||'',isRunActive:()=>db().prepare('SELECT status FROM agent_workflow_runs WHERE id=?').get(runId)?.status==='running'});
       },kanban:outputs=>({nodeLabel:node.data?.label||'Physical Device',summary:outputs.text,detail:{operationId:outputs.operation_id,site:outputs.site_id,hub:outputs.hub_id}})});
     return;
   }

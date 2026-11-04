@@ -87,7 +87,8 @@ export class PhysicalControlPlane {
     entities:Object.values(this.state.entities).filter(e=>e.hubId===hubId&&e.enabled).map(e=>({id:e.deviceId,entityId:e.id,description:e.description,descriptionHash:e.descriptionHash,actions:e.actions,policyVersion:e.policyVersion,bindingRevision:e.bindingRevision||null,offline:e.offline})),
     pending:Object.values(this.state.operations).filter(o=>o.hubId===hubId&&['dispatched','accepted','running','cancelling'].includes(o.status)).map(o=>({id:o.id,deviceId:this.state.entities[o.entityId].deviceId}))}; }
   sendConfig(hubId) { const c=this.connections.get(hubId);if(c)c.send(JSON.stringify(this.configuration(hubId))); }
-  operation(owner,{entityId,action,input={},idempotencyKey,timeoutMs=30000},requester='human',accessPrincipal=requester) {
+  // Policy context comes from the server runner/tool middleware, never operation JSON.
+  operation(owner,{entityId,action,input={},idempotencyKey,timeoutMs=30000},requester='human',accessPrincipal=requester,policyContext={}) {
     const e=this.assertResource(owner,entityId,accessPrincipal,action);id(action);id(idempotencyKey);
     if(!e.enabled||this.state.hubs[e.hubId].revoked)throw fault('Asset unavailable',403);
     if(this.state.hubs[e.hubId].managedPending)throw fault('Configuration activation pending',409);
@@ -99,10 +100,10 @@ export class PhysicalControlPlane {
     if(previous){if(previous.fingerprint!==digest)throw fault('Idempotency key reused with different inputs',409);return clone(previous);}
     const mode=e.actions[action]||'prohibited';
     if(mode==='prohibited'||spec.risk==='prohibited'){this.audit(owner,'operation_denied',{entityId,action,requester});throw fault('Physical action prohibited',403);}
-    const decision=this.companyPolicy(owner,action,input);
+    const decision=this.companyPolicy(owner,action,input,{...policyContext,entityId,phase:'create'});
     if(!decision.ok){this.audit(owner,'company_policy_denied',{entityId,action});throw fault('Company policy does not authorize this action',403);}
     const op={id:randomUUID(),owner,entityId,hubId:e.hubId,action,input:clone(input),idempotencyKey,fingerprint:digest,requester,accessPrincipal:clone(accessPrincipal),createdAt:this.now(),expiresAt:this.now()+timeoutMs,
-      policyVersion:e.policyVersion,bindingRevision:e.bindingRevision||null,status:decision.requiresApproval||mode==='approval_required'||spec.risk==='approval_required'?'awaiting_approval':'queued',simulated:e.description.flolah.simulated};
+      policyContext:{workflowId:policyContext.workflowId||null,agentId:policyContext.agentId||null},policyVersion:e.policyVersion,bindingRevision:e.bindingRevision||null,status:decision.requiresApproval||mode==='approval_required'||spec.risk==='approval_required'?'awaiting_approval':'queued',simulated:e.description.flolah.simulated};
     this.state.operations[op.id]=op;this.audit(owner,'operation_proposed',{operationId:op.id,entityId,requester});if(op.status==='queued')this.dispatch(op);return clone(op);
   }
   approve(owner,operationId,actor,{allow=true}={}) {
@@ -113,7 +114,9 @@ export class PhysicalControlPlane {
   }
   dispatch(o) {
     const e=this.state.entities[o.entityId],h=this.state.hubs[o.hubId];
-    if(!e.enabled||h.revoked||o.policyVersion!==e.policyVersion||!this.companyPolicy(o.owner,o.action,o.input).ok||!this.authorized(e,o.accessPrincipal||o.requester,o.action)||o.bindingRevision!==(e.bindingRevision||null)){o.status='denied';this.save();return;}
+    const decision=this.companyPolicy(o.owner,o.action,o.input,{...o.policyContext,entityId:o.entityId,phase:'dispatch'});
+    if(!e.enabled||h.revoked||o.policyVersion!==e.policyVersion||!decision.ok||!this.authorized(e,o.accessPrincipal||o.requester,o.action)||o.bindingRevision!==(e.bindingRevision||null)){o.status='denied';this.save();return;}
+    if(decision.requiresApproval&&!o.approvedBy){o.status='awaiting_approval';this.save();return;}
     if(!this.connections.has(o.hubId)){o.status='queued';this.save();return;}
     if(o.expiresAt<=this.now()){o.status='timed_out';this.save();return;}
     const ready=this.deviceReadiness(e);if(h.readiness&&ready.status!=='available'){o.status='failed';o.error='Device readiness unavailable; request fresh work after recovery';this.save();return;}

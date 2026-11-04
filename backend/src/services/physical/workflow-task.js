@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {renderWorkflowTemplates} from '../agent-workflow-io.js';
 import {fault,validateOutputValue} from './contracts.js';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-export async function executePhysicalWorkflowTask(inputs,config,context,{ownerUserId,runId,nodeId,iteration=1,dispatchId='',plane,principal='owner',isRunActive=()=>true,pollMs=200}={}){
+export async function executePhysicalWorkflowTask(inputs,config,context,{ownerUserId,workflowId,runId,nodeId,iteration=1,dispatchId='',plane,principal='owner',isRunActive=()=>true,pollMs=200}={}){
  if(!ownerUserId||runId==null||!nodeId)throw fault('Physical workflow authority required',403);
  if(!plane){const {getPhysicalControlPlane}=await import('./runtime.js');plane=getPhysicalControlPlane();}
  const render=value=>renderWorkflowTemplates(value,context||{});
@@ -24,7 +24,7 @@ export async function executePhysicalWorkflowTask(inputs,config,context,{ownerUs
  const timeoutMs=Number(config.operationTimeoutMs??30000);if(!Number.isInteger(timeoutMs)||timeoutMs<1000||timeoutMs>300000)throw fault('Physical operation timeout must be 1000–300000 ms');
  if(!isRunActive())throw Object.assign(Error('Workflow stopped'),{code:'PHYSICAL_WORKFLOW_STOPPED'});
  const idempotencyKey='wf-'+createHash('sha256').update(JSON.stringify([String(runId),nodeId,iteration,dispatchId])).digest('hex');
- const operation=plane.operation(ownerUserId,{entityId,action,input,idempotencyKey,timeoutMs},principal==='owner'?'workflow:'+runId+':'+nodeId:principal,principal);
+ const operation=plane.operation(ownerUserId,{entityId,action,input,idempotencyKey,timeoutMs},principal==='owner'?'workflow:'+runId+':'+nodeId:principal,principal,{workflowId});
  for(;;){
   if(!isRunActive()){
    try{plane.cancel(ownerUserId,operation.id);}catch{/* Already-dispatched device work cannot always be cancelled. Its operation/evidence remain visible. */}
