@@ -1531,7 +1531,10 @@ router.post('/:id/chat', requireAuth, (req,res,next) => {
       }
     }
 
-    routedMessage += physicalAgentInstructions(physicalAgentAssets({ownerUserId,principal:['agent:'+agent.openclaw_agent_id,...(req.authUser.id!==ownerUserId?['user:'+req.authUser.id]:[])],grants:agentTools.getAgentToolGrants(agent.id)}));
+    const physicalContext = physicalAgentInstructions(physicalAgentAssets({ownerUserId,principal:['agent:'+agent.openclaw_agent_id,...(req.authUser.id!==ownerUserId?['user:'+req.authUser.id]:[])],grants:agentTools.getAgentToolGrants(agent.id)}));
+    // messages was already built above: changing routedMessage alone never reaches the executor LLM.
+    if (physicalContext) messages.unshift({role:'system',content:physicalContext});
+    routedMessage += physicalContext;
     const threadId = getChatThreadId(agentId, ownerUserId);
     // The platform DB is the authoritative Dashboard history and is supplied above.
     // A fresh gateway session per request prevents OpenClaw from appending the same

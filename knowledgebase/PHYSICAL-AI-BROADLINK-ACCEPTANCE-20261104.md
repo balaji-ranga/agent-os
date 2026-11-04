@@ -28,3 +28,11 @@ Validation passed: isolated real workflow runner, scoped workflow autonomy, one-
 - Managed revision activation resets permissions for all included mappings, including unchanged mappings. Fire TV's previous enabled / launch_app approval-required setting was restored in the UI; existing resource grants were preserved. Improve revision granularity separately.
 
 Public docs remain capability/how-to documentation. This acceptance record is internal engineering knowledge.
+
+## Follow-up grounding correction
+
+The user's 19:37 SGT `Retry this` response incorrectly reported a missing device. Inspection confirmed the IR asset remained registered, enabled, available and autonomous. The recent physical-tool log contained the earlier successful invocation but no subsequent successful invocation for this follow-up; that alone does not establish whether rejection occurred before logging.
+
+Found a concrete executor-context bug: `routes/agents.js` appended the registered-device context to `routedMessage` after building `messages`, then sent the unchanged messages to the executor. The context now reaches the executor as a system message. Device/action descriptions accompany schemas. Generic instructions resolve approximate conversational names by capabilities, location and selected conversation; require exact discovered identifiers at invocation; infer supported actions rather than requiring user API names; clarify ambiguity; refresh discovery on unresolved targets; and distinguish repeating a non-idempotent operation from checking its previous result. No device names, specific commands or agent IDs are hardcoded in this fix.
+
+Deployed image `agent-os-backend:physical-grounding-20261104`. Agent-context, session tool-scope and scoped physical-policy regressions pass. Live semantic resolution retest pending normal browser sign-in. No additional TV toggle was sent while diagnosing.
