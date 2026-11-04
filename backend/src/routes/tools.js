@@ -819,6 +819,18 @@ router.delete('/logs', attachAuthUser, requireAuth, (req, res) => {
  * Exchange the protected OpenClaw-plugin broker secret for a short-lived,
  * one-tool, owner+agent+session-bound lease. Nothing in this contract is model-visible.
  */
+router.post('/native-retention/:operation',async(req,res)=>{
+ try{
+  if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});
+  if(!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker']))return res.status(401).json({error:'Retention authentication failed'});
+  res.setHeader('Cache-Control','no-store');
+  const queue=await import('../services/native-retention-queue.js');
+  if(req.params.operation==='claim')return res.json({job:queue.claimNativeRetention()});
+  if(req.params.operation==='complete')return res.json(queue.completeNativeRetention(req.body||{}));
+  return res.status(404).json({error:'Not found'});
+ }catch(error){return res.status(500).json({error:error.message});}
+});
+
 router.post('/native-model-budget/:operation', (req,res)=>{
   try{
     if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});

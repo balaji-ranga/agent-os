@@ -1,4 +1,5 @@
 import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
+import {registerNativeRetentionService} from './native-retention-service.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {profileTimezoneHint} from './profile-timezone.js';
@@ -1087,6 +1088,7 @@ export default definePluginEntry({
     if (!floassistSchemas.floassist_source_read?.properties?.cursor) throw new Error('FloAssist schema v2 requires continuation cursor support');
     api.logger?.info?.('FloAssist schema v2 loaded: continuation cursor supported');
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
+    registerNativeRetentionService(api,{baseUrl:resolvePluginConfig(api).baseUrl,brokerSecret:loadToolBrokerSecret,root:OPENCLAW_DIR});
     if (typeof api.on === "function") {
       api.on('reply_payload_sending',event=>rewriteBudgetFailureReply(event,{lookup:async body=>{
         const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');

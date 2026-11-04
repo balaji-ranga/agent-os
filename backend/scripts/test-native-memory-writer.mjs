@@ -18,6 +18,11 @@ try{
  t=performance.now();await m.writeChunks({entry:{...entry,hash:'fixture-v2'},source:'sessions',chunks:next},{provider:{model:'fixture'}},nextEmb,true);const changed=performance.now()-t;
  for(const table of ['memory_index_chunks','memory_index_chunks_vec','memory_index_chunks_fts'])assert.equal(db.prepare(`SELECT count(*) n FROM ${table}`).get().n,count,table);
  assert.equal(db.prepare("SELECT count(*) n FROM memory_index_chunks WHERE text='replacement'").get().n,1);
+ db.exec('CREATE TABLE flolah_retention_fences(session_id TEXT PRIMARY KEY,changed_at INTEGER)');
+ db.prepare('INSERT INTO flolah_retention_fences VALUES(?,?)').run(entry.sessionId,entry.mtimeMs+1);
+ await assert.rejects(()=>m.writeChunks({entry,source:'sessions',chunks},{provider:{model:'fixture'}},embeddings,true),/fresh transcript/);
+ assert.equal(db.prepare("SELECT count(*) n FROM memory_index_chunks WHERE text='replacement'").get().n,1,'stale indexing snapshot must roll back');
+ await m.writeChunks({entry:{...entry,mtimeMs:entry.mtimeMs+1},source:'sessions',chunks:next},{provider:{model:'fixture'}},nextEmb,true);
  console.log(JSON.stringify({initialMs:Math.round(initial),unchangedMs:Math.round(unchanged),changedMs:Math.round(changed),rows:count,dims,unchangedWrites,verified:true}));
 }finally{db.close();rmSync(root,{recursive:true,force:true})}
 

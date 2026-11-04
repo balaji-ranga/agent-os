@@ -1,4 +1,5 @@
 import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
+import {registerNativeRetentionService} from './native-retention-service.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {visibleContentTools,scheduledGoalRoutingHint} from './runtime-access.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
@@ -779,6 +780,7 @@ export default definePluginEntry({
     if (!floassistSchemas.floassist_source_read?.properties?.cursor) throw new Error('FloAssist schema v2 requires continuation cursor support');
     api.logger?.info?.('FloAssist schema v2 loaded: continuation cursor supported');
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
+    registerNativeRetentionService(api,{baseUrl:resolvePluginConfig(api).baseUrl,brokerSecret:loadToolBrokerSecret,root:OPENCLAW_DIR});
     if (typeof api.on === "function") {
       api.on("before_tool_call", (_event: unknown, ctx: PromptBuildContext) => { rememberRuntimeChannel(ctx); });
       // llm_input carries the trusted turn runId even when prompt-build context does not.

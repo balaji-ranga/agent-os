@@ -1,0 +1,54 @@
+import {retentionRules,retentionChildren,retentionRedactions} from './retention-policy-registry.js';
+const preserved=new Map();
+const keep=(reason,names)=>names.trim().split(/\s+/).forEach(name=>preserved.set(name,reason));
+keep('Configuration, identity, credentials, or user-managed reference data; retained until explicitly removed',`
+action_family_policies action_policy_overrides agent_a2a_publications agent_connector_action_grants
+agent_connector_action_scopes agent_learning_versions agent_mcp_tool_grants agent_ops_budgets
+agent_skill_assignments agent_skill_versions agent_skills agent_tool_grants agent_workflow_definitions
+agent_workflow_schedules agents browser_executor_nodes browser_recipe_steps browser_recipes
+browser_worker_ip_whitelist browser_worker_nodes browser_worker_tokens ceo_agent_channels ceo_avatars
+ceo_browser_session ceo_guardrails ceo_org_strategy ceo_vr_room_members ceo_vr_rooms ceo_vr_scenes
+chat_session_meta company_business_profiles company_email_channels company_erpnext_user_map
+company_industry_blueprints company_industry_default_blueprints company_initiative_goals
+company_initiative_scheduled_goals company_initiatives company_key_results company_measurement_registry
+company_objectives company_workspace_boards connector_action_registry content_tools_meta custom_scripts
+docker_onboarded_tools efficiency_control_settings efficiency_evaluations efficiency_preferences
+exception_policies external_agents floassist_profiles floassist_resources human_conversation_participants
+ibkr_bridge_tokens ibkr_position_meta ibkr_strategy_bundles ibkrnew_account_state ibkrnew_bridge_attestations
+ibkrnew_bridges ibkrnew_circuit_breakers ibkrnew_config_versions ibkrnew_execution_modes
+ibkrnew_reaction_registry job_pipeline_state job_search_ceo_settings job_search_profiles
+knowledge_agent_access knowledge_exclusions knowledge_field_rules knowledge_mappings knowledge_sources
+llm_price_book master_data_doc_chunks master_data_documents master_data_rows master_data_tables
+mcp_oauth_configs mcp_oauth_connections mcp_prompts_cache mcp_resources_cache mcp_servers mcp_tools_cache
+mcp_universe_servers mcp_universe_sources model_deployments model_routes openconnector_oauth_client_overrides
+openconnector_user_links org_agent_members org_role_permissions org_roles org_user_channels
+owner_ip_whitelist_meta owner_ip_whitelists platform_agent_workspace_templates platform_industries
+platform_settings platform_users productivity_action_bindings productivity_event_subscriptions
+promotion_campaign_targets promotion_campaigns promotion_user_preferences scheduled_goals
+tool_api_rate_limits tool_execution_behaviour tool_model_overrides tool_risk_mappings tool_service_credentials
+ui_copilot_platform_documents ui_copilot_platform_map_state ui_copilot_platform_search
+ui_copilot_platform_search_config ui_copilot_platform_search_content ui_copilot_platform_search_data
+ui_copilot_platform_search_docsize ui_copilot_platform_search_idx ui_copilot_recipes user_agents user_api_keys
+work_assignment_policies workflow_a2a_access_tokens workflow_a2a_ip_whitelist workflow_a2a_publications
+workflow_desktop_ip_whitelist workflow_desktop_tokens workflow_file_pollers workflow_messaging_connections workspace_files`);
+keep('Replay prevention or synchronization state; deleting it could repeat external side effects',`
+agent_workflow_schedule_ticks delegation_callbacks deleted_agents demo_seed_pack_installs floassist_deliveries
+floassist_execution_scopes floassist_message_threads knowledge_advice_attempt knowledge_advice_scan
+knowledge_cleanup knowledge_incremental_drafts knowledge_incremental_records knowledge_retry_state
+knowledge_source_members knowledge_source_versions native_model_budget_block_sessions native_model_budget_blocks
+scheduled_run_requests workflow_file_poller_seen workflow_messaging_deliveries`);
+keep('Current resource, lock, cache, or accounting state with its own operational expiry',`
+auth_rate_limits connector_read_budget floassist_locks ibkr_account_snapshot_cache ibkr_budget_days
+ibkrnew_fmp_request_budget knowledge_worker_health market_data_cache`);
+keep('Platform-wide operational records without company ownership; company policy cannot authorize their deletion',`
+admin_tls_cert_jobs ibkrnew_privacy_migrations mcp_universe_reports mcp_universe_submissions
+mcp_universe_sync_runs openclaw_session_cleanup_runs`);
+keep('Handled by content/media retention, including the corresponding files',`
+ceo_media_artifacts inbound_openclaw_sync openclaw_media_ownership`);
+keep('Handled by the physical control-plane retention adapter; registrations and replay keys preserved','physical_control_state');
+
+export function retentionCoverage(db){
+ const children=new Set(Object.values(retentionChildren).flat().map(r=>r[0]));
+ const tables=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
+ return tables.map(({name})=>({table:name,mode:retentionRules[name]?'history':retentionRedactions[name]?'redact':children.has(name)?'parent_lifetime':preserved.has(name)?'preserve_or_adapter':'unclassified',reason:preserved.get(name)||null}));
+}

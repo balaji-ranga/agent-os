@@ -17,6 +17,7 @@ export function createCommandReceiptStore(db) {
         if (row) {
           if (row.command_hash !== hash) fail('Request key already used for a different command');
           if (row.state !== 'completed') fail('Command already submitted; outcome unverified. Check execution logs before submitting again.');
+          if (row.response_json == null) fail('Command already executed; response expired under company retention. Do not replay this request.');
           return JSON.parse(row.response_json);
         }
         db.prepare("INSERT INTO agent_command_receipts(owner_user_id,actor_user_id,agent_id,request_key,command_hash,state) VALUES(?,?,?,?,?,'submitted')").run(...args(context), hash);

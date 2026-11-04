@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
+import {purgeSqliteHistory} from '../src/services/retention-sqlite.js';
+import {createCommandReceiptStore} from '../src/services/agent-command-receipts.js';
+import {PhysicalControlPlane} from '../src/services/physical/control-plane.js';
+const db=new Database(':memory:');
+const old=new Date(Date.now()-100*86400000).toISOString(),recent=new Date().toISOString(),cutoffMs=Date.now()-90*86400000;
+try{
+ db.exec(`CREATE TABLE agent_workflow_runs(id INTEGER PRIMARY KEY,owner_user_id TEXT,status TEXT,completed_at TEXT,updated_at TEXT);
+ CREATE TABLE agent_workflow_run_steps(id INTEGER PRIMARY KEY,run_id INTEGER,status TEXT);
+ CREATE TABLE chat_turns(id INTEGER PRIMARY KEY,owner_user_id TEXT,created_at TEXT);
+ CREATE TABLE native_model_calls(id TEXT PRIMARY KEY,owner_id TEXT,status TEXT,updated_at INTEGER);
+ CREATE TABLE tool_write_idempotency(owner_user_id TEXT,created_at TEXT,result_json TEXT);
+ CREATE TABLE productivity_action_receipts(owner_user_id TEXT,updated_at TEXT,status TEXT,idempotency_key TEXT,request_summary_json TEXT,response_summary_json TEXT,error TEXT);
+ CREATE TABLE unexpected_new_history(owner_user_id TEXT,created_at TEXT);`);
+ for(const [id,owner,status,date]of [[1,'a','completed',old],[2,'b','completed',old],[3,'a','running',old],[4,'a','completed',recent],[5,'a','completed',old]]){
+  db.prepare('INSERT INTO agent_workflow_runs VALUES(?,?,?,?,?)').run(id,owner,status,date,date);
+  db.prepare('INSERT INTO agent_workflow_run_steps VALUES(?,?,?)').run(id,id,id===5?'running':'completed');
+ }
+ for(let i=0;i<7;i++)db.prepare('INSERT INTO chat_turns(owner_user_id,created_at) VALUES(?,?)').run('a',old);
+ db.prepare('INSERT INTO chat_turns(owner_user_id,created_at) VALUES(?,?)').run('b',old);
+ db.prepare('INSERT INTO native_model_calls VALUES(?,?,?,?)').run('old','a','completed',Date.now()-100*86400000);
+ db.prepare('INSERT INTO native_model_calls VALUES(?,?,?,?)').run('active','a','started',Date.now()-100*86400000);
+ db.prepare('INSERT INTO tool_write_idempotency VALUES(?,?,?)').run('a',old,'{"secret":"expired"}');
+ db.prepare('INSERT INTO unexpected_new_history VALUES(?,?)').run('a',old);
+ db.prepare('INSERT INTO productivity_action_receipts VALUES(?,?,?,?,?,?,?)').run('a',old,'completed','no-replay','private request','private response','private error');
+ const receipts=createCommandReceiptStore(db),ctx={ownerUserId:'a',actor:{id:'u'},agentId:'agent',idempotencyKey:'test-request-1',tool_name:'test',params:{}};
+ receipts.claim(ctx);receipts.complete(ctx,{content:'expired'});db.prepare('UPDATE agent_command_receipts SET created_at=?').run(old);
+ const dry=await purgeSqliteHistory(db,'a',{cutoffMs,dryRun:true,batchSize:2});
+ assert.equal(dry.deleted.chat_turns,7);assert.equal(db.prepare('SELECT count(*) n FROM chat_turns').get().n,8);
+ let ticks=0;const timer=setInterval(()=>ticks++,0);
+ const out=await purgeSqliteHistory(db,'a',{cutoffMs,batchSize:2});clearInterval(timer);
+ assert.equal(out.deleted.chat_turns,7);assert.equal(db.prepare('SELECT count(*) n FROM chat_turns').get().n,1);
+ assert(out.errors.some(e=>e.table==='agent_workflow_runs'&&e.error.includes('Active child')));
+ assert(db.prepare('SELECT 1 FROM agent_workflow_runs WHERE id=5').get(),'active child rolls parent batch back');
+ assert(db.prepare('SELECT 1 FROM agent_workflow_runs WHERE id=2').get(),'other company untouched');
+ assert(db.prepare('SELECT 1 FROM agent_workflow_runs WHERE id=3').get(),'active run untouched');
+ assert(db.prepare('SELECT 1 FROM agent_workflow_runs WHERE id=4').get(),'recent run untouched');
+ assert(db.prepare("SELECT 1 FROM native_model_calls WHERE id='active'").get());
+ assert.equal(db.prepare("SELECT 1 FROM native_model_calls WHERE id='old'").get(),undefined);
+ assert.equal(db.prepare('SELECT result_json FROM tool_write_idempotency').get().result_json,null);
+ assert.deepEqual(db.prepare('SELECT idempotency_key,request_summary_json,response_summary_json,error FROM productivity_action_receipts').get(),{idempotency_key:'no-replay',request_summary_json:'{}',response_summary_json:'{}',error:null});
+ assert.throws(()=>receipts.claim(ctx),/expired under company retention/,'redaction must not permit a replay');
+ assert.equal(db.prepare('SELECT count(*) n FROM unexpected_new_history').get().n,1,'unknown tables are not inferred deletions');
+ assert(ticks>0,'cleanup yields to event loop');
+ await assert.rejects(()=>purgeSqliteHistory(db,'a',{cutoffMs,tenantOwner:'b'}),/owner mismatch/);
+ const state={operations:{old:{id:'old',owner:'a',status:'completed',createdAt:1,expiresAt:2,input:{secret:1},outputs:{secret:2},idempotencyKey:'key',fingerprint:'hash'},active:{owner:'a',status:'running',createdAt:1},other:{owner:'b',status:'completed',createdAt:1}},entities:{},audit:[{owner:'a',at:1},{owner:'b',at:1}],hubs:{}};
+ const plane=new PhysicalControlPlane({load:()=>state,save:()=>{}});plane.purgeHistory('a',cutoffMs);
+ assert.equal(state.operations.old.input,undefined);assert.equal(state.operations.old.idempotencyKey,'key');assert(state.operations.active);assert.equal(plane.state.audit.length,1);
+ console.log('SQLITE_RETENTION_OK: boundaries, batching, rollback, active work, company isolation, physical redaction, replay safety');
+}finally{db.close();}

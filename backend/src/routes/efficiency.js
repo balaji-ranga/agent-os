@@ -188,13 +188,15 @@ router.get('/storage', async (req, res) => {
 /**
  * GET /api/efficiency/retention — current retention days + allowed options.
  */
-router.get('/retention', (req, res) => {
+router.get('/retention', async (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
     const user = getUserById(ownerUserId);
+    const {latestNativeRetention}=await import('../services/native-retention-queue.js');
     res.json({
       data_retention_days: normalizeRetentionDays(user?.data_retention_days),
       options: RETENTION_DAY_OPTIONS,
+      native_cleanup:latestNativeRetention(ownerUserId),
     });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });

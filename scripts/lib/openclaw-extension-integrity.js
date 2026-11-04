@@ -13,7 +13,7 @@ export function verifyExtensionIntegrity(sourceRoot,runtimeRoot=null){
   const walk=(dir,relative='')=>{for(const item of readdirSync(dir,{withFileTypes:true})){
    const path=join(dir,item.name),rel=join(relative,item.name);
    if(item.isDirectory())walk(path,rel);
-   else if(item.name.endsWith('.js')){
+   else if(/\.(?:m?js)$/.test(item.name)){
     const digest=codeHash(path);
     if(runtimeRoot){const active=join(runtimeRoot,id,rel);if(!existsSync(active)||codeHash(active)!==digest)throw new Error(`Extension source/runtime mismatch: ${id}/${rel}`);}
     records.push([`${id}/${rel.replaceAll('\\','/')}`,digest]);

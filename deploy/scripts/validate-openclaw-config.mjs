@@ -8,6 +8,7 @@ import {assertOpenClawConfigContract} from '../../scripts/lib/openclaw-config-co
 const path=process.env.OPENCLAW_CONFIG_PATH||join(resolveOpenClawDir(),'openclaw.json');
 try{
  if(process.argv.includes('--if-present')&&!existsSync(path)){console.log(JSON.stringify({skipped:true,reason:'Fresh installation: generated config is gated during setup/startup'}));process.exit(0);}
+ for(let attempt=0;attempt<3;attempt++){
  const before=readFileSync(path,'utf8');assertOpenClawConfigContract(JSON.parse(before));
  const result=spawnSync(process.env.OPENCLAW_CONFIG_VALIDATOR_BIN||'openclaw',['config','validate','--json'],{env:{...process.env,OPENCLAW_CONFIG_PATH:path},encoding:'utf8',timeout:120000,maxBuffer:4*1024*1024,windowsHide:true});
  let output;try{output=JSON.parse(result.stdout.trim());}catch{}
@@ -21,7 +22,11 @@ try{
   writeFileSync(path+'.validation-error.log',JSON.stringify({at:new Date().toISOString(),exitCode:result.status,error:result.error?.code,stdout:result.stdout,stderr:result.stderr}),{mode:0o600});
   throw new Error('Installed OpenClaw schema validation failed; inspect the protected validation-error.log. Running configuration was not replaced by this check.');
  }
- if(readFileSync(path,'utf8')!==before)throw new Error('Configuration changed during validation; retry before startup.');
+ if(readFileSync(path,'utf8')!==before){
+  if(attempt===2)throw new Error('Configuration kept changing during validation; startup remains blocked.');
+  console.warn('[openclaw-config-gate] Configuration changed; revalidating the latest revision without restarting setup.');
+  continue;
+ }
  if(process.argv.includes('--record-last-good')){
   const temp=path+'.runtime-validated.last-good.tmp-'+process.pid;
   try{writeFileSync(temp,before,{mode:0o600});renameSync(temp,path+'.runtime-validated.last-good');}catch(e){try{unlinkSync(temp);}catch{}throw e;}
@@ -30,4 +35,6 @@ try{
   try{writeFileSync(catalogTemp,JSON.stringify({source:'installed-openclaw-schema-validation',validatedAt:new Date().toISOString(),plugins},null,2)+'\n',{mode:0o600});renameSync(catalogTemp,catalog);}catch(e){try{unlinkSync(catalogTemp);}catch{}throw e;}
  }
  console.log(JSON.stringify({valid:true,sha256:createHash('sha256').update(before).digest('hex'),warningCount:output.warnings?.length||0,validator:'installed-openclaw',lastGoodRecorded:process.argv.includes('--record-last-good')}));
+ break;
+ }
 }catch(error){console.error('[openclaw-config-gate] '+error.message);process.exitCode=1;}

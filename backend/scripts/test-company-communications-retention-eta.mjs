@@ -83,10 +83,11 @@ try {
     VALUES('voice-old',?,?,?,'ended',?,datetime('now','-45 days'),datetime('now','-45 days'),datetime('now','-44 days'),0)`).run(
       owner, 'coo-retention', 'voice-old-hash', JSON.stringify([{ role: 'user', text: 'old transcript' }])
     );
-  assert.equal(voice.listVoiceSessions(owner, 'coo-retention').some((s) => s.transcript[0]?.text === 'current transcript'), true);
+  assert.equal(voice.listVoiceSessions(owner, 'coo-retention').sessions.some((s) => s.transcript[0]?.text === 'current transcript'), true);
 
   const retention = await import('../src/services/data-retention.js');
   const purged = await retention.purgeOwnerRetention(owner);
+  assert.equal(purged.ok,true,JSON.stringify(purged.errors));
   assert.equal(purged.retention_days, 30, 'CEO profile is the company retention source');
   assert.equal(purged.deleted.human_messages, 1);
   assert.equal(purged.deleted.agent_voice_sessions, 1);
@@ -99,6 +100,8 @@ try {
   database.close(); database = null;
   console.log('company-communications-retention-eta: OK');
 } finally {
+  const {closeCeoDb}=await import('../src/db/ceo-db.js');
+  closeCeoDb('ceo-retention-test');
   try { if (database?.open) database.close(); } catch {}
   rmSync(dataDir, { recursive: true, force: true });
 }

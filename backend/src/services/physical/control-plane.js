@@ -12,6 +12,21 @@ export class PhysicalControlPlane {
     this.store=store; this.now=now; this.companyPolicy=companyPolicy; this.state=store.load() || emptyState(); this.connections=new Map(); this.evidenceStore=evidenceStore;
   }
   save() { this.store.save(this.state); }
+  purgeHistory(owner, cutoffMs) {
+    if(!owner||!Number.isFinite(cutoffMs)||cutoffMs>=this.now())throw fault('Invalid retention scope');
+    let operations=0,observations=0;
+    for(const o of Object.values(this.state.operations)) {
+      if(o.owner!==owner||o.retentionExpired||!TERMINAL.has(o.status)||Math.max(o.createdAt||0,o.completedAt||0,o.expiresAt||0)>=cutoffMs)continue;
+      for(const attachment of o.evidence?.attachments||[])this.evidenceStore?.remove?.(owner,attachment);
+      // Preserve request hashes/IDs so an old retry cannot actuate a device again.
+      for(const field of ['input','outputs','evidence','error','accessPrincipal','policyContext'])delete o[field];
+      o.retentionExpired=true;operations++;
+    }
+    for(const e of Object.values(this.state.entities))if(e.owner===owner)for(const [key,value]of Object.entries(e.observations||{}))if(value.at<cutoffMs){delete e.observations[key];observations++;}
+    const before=this.state.audit.length;
+    this.state.audit=this.state.audit.filter(a=>a.owner!==owner||a.at>=cutoffMs);
+    this.save();return {operations_redacted:operations,observations_deleted:observations,audit_deleted:before-this.state.audit.length};
+  }
   audit(owner, type, data={}) {
     this.state.audit.push({id:randomUUID(),owner,type,at:this.now(),...data});
     if(this.state.audit.length>10000)this.state.audit.splice(0,this.state.audit.length-10000);

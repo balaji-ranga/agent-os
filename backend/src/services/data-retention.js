@@ -26,279 +26,70 @@ export function normalizeRetentionDays(value) {
   return best;
 }
 
-/**
- * Permanently delete aged history for one CEO.
- * @returns {{ owner_user_id, retention_days, deleted: object }}
- */
-export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
+/** Company policy is the only age source for shared and tenant SQLite history. */
+export async function purgeOwnerRetention(ownerUserId, { days = null, dryRun = false } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw new Error('owner_user_id required');
   const db = getDb();
-  const row = db.prepare(`SELECT data_retention_days,role FROM platform_users WHERE id = ?`).get(owner);
+  const row = db.prepare('SELECT data_retention_days,role FROM platform_users WHERE id=?').get(owner);
   if (!row || row.role !== 'ceo') throw Object.assign(new Error('CEO owner profile required for company retention'), { status: 403 });
-  const retentionDays = normalizeRetentionDays(days ?? row?.data_retention_days ?? DEFAULT_RETENTION_DAYS);
-  const cutoff = `-${retentionDays} days`;
-  // Assistance drafts expire sooner than company history; never touch another
-  // company's sessions when running owner-specific retention.
-  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ui_copilot_sessions'").get()) {
-    db.prepare('DELETE FROM ui_copilot_sessions WHERE owner=? AND expires_at<=?').run(owner,Date.now());
+  const retentionDays = normalizeRetentionDays(days ?? row.data_retention_days ?? DEFAULT_RETENTION_DAYS);
+  const cutoffMs = Date.now() - retentionDays * 86400000;
+  const { purgeSqliteHistory } = await import('./retention-sqlite.js');
+  const users = db.prepare('SELECT id FROM platform_users WHERE id=? OR owner_user_id=?').all(owner,owner).map(r=>r.id);
+  const stores = { platform: await purgeSqliteHistory(db,owner,{cutoffMs,userIds:users,dryRun}) };
+  const tenant = getDbForCeo(owner);
+  if (tenant !== db) stores.tenant = await purgeSqliteHistory(tenant,owner,{cutoffMs,userIds:users,tenantOwner:owner,dryRun});
+  const deleted = {}, errors = [];
+  for (const [store,result] of Object.entries(stores)) {
+    for (const [table,count] of Object.entries(result.deleted)) deleted[table]=(deleted[table]||0)+count;
+    errors.push(...result.errors.map(e=>({store,...e})),...result.deferred.map(table=>({store,table,error:'Batch budget reached; continuation required'})));
+    errors.push(...result.unclassified.map(table=>({store,table,error:'Missing retention classification; preserved pending review'})));
   }
-
-  const deleted = {
-    chat_turns: 0,
-    agent_workflow_chat_turns: 0,
-    standup_messages: 0,
-    workflow_run_steps: 0,
-    workflow_runs: 0,
-    tool_execution_actions: 0,
-    inbound_attachments: 0,
-    generated_media: 0,
-    human_messages: 0,
-    human_conversations: 0,
-    human_calls: 0,
-    human_call_invites: 0,
-    agent_voice_sessions: 0,
-    platform_notifications: 0,
-    kanban_sla_events: 0,
-    kanban_user_action_audit: 0,
-    opensearch_documents: 0,
-    ibkrnew_events: 0,
-    ibkrnew_event_reactions: 0,
-    ibkrnew_commands: 0,
-    ibkrnew_authorizations: 0,
-    ibkrnew_reservations: 0,
-    ibkrnew_snapshots: 0,
-    ibkrnew_instrument_profiles: 0,
-    ibkrnew_component_errors: 0,
-    ibkrnew_component_health: 0,
-    ibkrnew_executions: 0,
-    ibkrnew_trades: 0,
-    ibkrnew_allocation_decisions: 0,
-    ibkrnew_goal_trade_links: 0,
-    ibkrnew_goal_cycles: 0,
-    ibkrnew_goals: 0,
-    ibkrnew_bridge_attestations: 0,
-    productivity_events: 0,
-    productivity_action_receipts: 0,
-    company_email_channel_receipts: 0,
-    marketing_engagement_events: 0,
-    marketing_campaign_outcomes: 0,
-    marketing_distribution_list_members: 0,
-    agent_mcp_action_receipts: 0,
-  };
-
-  deleted.chat_turns =
-    db
-      .prepare(
-        `DELETE FROM chat_turns
-         WHERE owner_user_id = ? AND datetime(created_at) < datetime('now', ?)`
-      )
-      .run(owner, cutoff).changes || 0;
-
-  try {
-    deleted.agent_workflow_chat_turns =
-      db
-        .prepare(
-          `DELETE FROM agent_workflow_chat_turns
-           WHERE owner_user_id = ? AND datetime(created_at) < datetime('now', ?)`
-        )
-        .run(owner, cutoff).changes || 0;
-  } catch (_) {
-    /* table may not exist on older DBs */
-  }
-
-  // Retain active safety state; purge only aged audit events and terminal execution records.
-  try {
-    deleted.ibkrnew_event_reactions = db.prepare(`DELETE FROM ibkrnew_event_reactions WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_events = db.prepare(`DELETE FROM ibkrnew_events WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_commands = db.prepare(`DELETE FROM ibkrnew_command_outbox WHERE owner_user_id=? AND status IN ('expired','rejected','cancelled','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_authorizations = db.prepare(`DELETE FROM ibkrnew_authorizations WHERE owner_user_id=? AND status IN ('expired','rejected','cancelled','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_reservations = db.prepare(`DELETE FROM ibkrnew_budget_reservations WHERE owner_user_id=? AND status IN ('released','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_snapshots = db.prepare(`DELETE FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND datetime(captured_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_instrument_profiles = db.prepare(`DELETE FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_component_errors = db.prepare(`DELETE FROM ibkrnew_component_errors WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_component_health = db.prepare(`DELETE FROM ibkrnew_component_health WHERE owner_user_id=? AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_executions = db.prepare(`DELETE FROM ibkrnew_executions WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_trades = db.prepare(`DELETE FROM ibkrnew_trade_records WHERE owner_user_id=? AND status IN ('closed','cancelled','rejected') AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_allocation_decisions = db.prepare(`DELETE FROM ibkrnew_allocation_decisions WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_goal_trade_links = db.prepare(`DELETE FROM ibkrnew_goal_trade_links WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?) AND cycle_id IN (SELECT cycle_id FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND status IN ('ACHIEVED','EXPIRED'))`).run(owner, cutoff, owner).changes || 0;
-    deleted.ibkrnew_goal_cycles = db.prepare(`DELETE FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND status IN ('ACHIEVED','EXPIRED') AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_goals = db.prepare(`DELETE FROM ibkrnew_goals WHERE owner_user_id=? AND status='COMPLETED' AND datetime(updated_at)<datetime('now',?) AND NOT EXISTS(SELECT 1 FROM ibkrnew_goal_cycles c WHERE c.goal_id=ibkrnew_goals.goal_id)`).run(owner, cutoff).changes || 0;
-    deleted.ibkrnew_bridge_attestations = db.prepare(`DELETE FROM ibkrnew_bridge_attestations WHERE owner_user_id=? AND datetime(updated_at)<datetime('now',?) AND bridge_id IN (SELECT bridge_id FROM ibkrnew_bridges WHERE owner_user_id=? AND revoked_at IS NOT NULL)`).run(owner, cutoff, owner).changes || 0;
-  } catch (_) {
-    /* IBKRNew tables are lazy-created when the feature is first opened. */
-  }
-
-  try {
-    deleted.productivity_events = db.prepare(
-      `DELETE FROM productivity_events WHERE owner_user_id=? AND status IN ('completed','dead_letter','acknowledged','ignored') AND datetime(received_at)<datetime('now',?)`
-    ).run(owner, cutoff).changes || 0;
-    deleted.productivity_action_receipts = db.prepare(
-      `DELETE FROM productivity_action_receipts WHERE owner_user_id=? AND status IN ('completed','failed') AND datetime(created_at)<datetime('now',?)`
-    ).run(owner, cutoff).changes || 0;
-  } catch (_) {
-    /* Event & Productivity tables are lazy-created at feature startup. */
-  }
-
-  try {
-    deleted.agent_mcp_action_receipts = db.prepare(
-      `DELETE FROM agent_mcp_action_receipts WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`
-    ).run(owner, cutoff).changes || 0;
-  } catch (_) {
-    /* Agent MCP binding tables are created with the MCP registry schema. */
-  }
-
-  try {
-    deleted.company_email_channel_receipts = db.prepare(
-      `DELETE FROM company_email_channel_receipts
-       WHERE owner_user_id=? AND datetime(COALESCE(received_at,created_at))<datetime('now',?)`
-    ).run(owner, cutoff).changes || 0;
-  } catch (_) {
-    /* Company Email tables are lazy-created at feature startup. */
-  }
-
-  try {
-    const marketingDb = getDbForCeo(owner);
-    const retentionTables = [
-      ['marketing_engagement_events', 'marketing_engagement_events'],
-      ['marketing_campaign_outcomes', 'marketing_campaign_outcomes'],
-      ['marketing_distribution_list_members', 'marketing_distribution_list_members'],
-    ];
-    for (const [tableName, resultKey] of retentionTables) {
-      const table = marketingDb.prepare(`SELECT id FROM master_data_tables WHERE owner_user_id=? AND lower(name)=? LIMIT 1`).get(owner, tableName);
-      if (!table?.id) continue;
-      deleted[resultKey] = marketingDb.prepare(`DELETE FROM master_data_rows WHERE owner_user_id=? AND table_id=? AND datetime(COALESCE(json_extract(row_json,'$.observed_at'),json_extract(row_json,'$.created_at'),created_at))<datetime('now',?)`).run(owner, table.id, cutoff).changes || 0;
-      marketingDb.prepare(`UPDATE master_data_tables SET row_count=(SELECT COUNT(*) FROM master_data_rows WHERE owner_user_id=? AND table_id=?),updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(owner, table.id, table.id, owner);
-    }
-  } catch (_) {
-    /* Marketing Knowledge tables are lazy-created when the workspace is first opened. */
-  }
-
-  // Human/voice communications belong to the CEO company, including employee activity.
-  try {
-    deleted.human_messages = db.prepare(
-      `DELETE FROM human_messages WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`
-    ).run(owner, cutoff).changes || 0;
-    db.prepare(`UPDATE human_conversations SET summary_text='',summary_updated_at=NULL
-      WHERE owner_user_id=? AND summary_updated_at IS NOT NULL AND datetime(summary_updated_at)<datetime('now',?)`).run(owner, cutoff);
-    const stale = db.prepare(`SELECT id FROM human_conversations c WHERE owner_user_id=?
-      AND datetime(updated_at)<datetime('now',?) AND NOT EXISTS(SELECT 1 FROM human_messages m WHERE m.conversation_id=c.id)`).all(owner, cutoff).map((r) => r.id);
-    if (stale.length) {
-      const ph = stale.map(() => '?').join(',');
-      db.prepare(`DELETE FROM human_conversation_participants WHERE conversation_id IN (${ph})`).run(...stale);
-      deleted.human_conversations = db.prepare(`DELETE FROM human_conversations WHERE id IN (${ph})`).run(...stale).changes || 0;
-    }
-    deleted.human_calls = db.prepare(`DELETE FROM human_calls WHERE owner_user_id=?
-      AND datetime(COALESCE(ended_at,expires_at,created_at))<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.human_call_invites = db.prepare(`DELETE FROM human_call_invites WHERE owner_user_id=?
-      AND datetime(COALESCE(consumed_at,expires_at,created_at))<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.agent_voice_sessions = db.prepare(`DELETE FROM ceo_voice_sessions WHERE owner_user_id=?
-      AND status<>'open' AND datetime(COALESCE(ended_at,expires_at,created_at))<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    deleted.platform_notifications = db.prepare(`DELETE FROM platform_user_notifications WHERE user_id IN
-      (SELECT id FROM platform_users WHERE id=? OR owner_user_id=?) AND datetime(created_at)<datetime('now',?)`).run(owner, owner, cutoff).changes || 0;
-    deleted.kanban_sla_events = db.prepare(`DELETE FROM kanban_sla_events
-      WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    try {
-      deleted.kanban_user_action_audit = db.prepare(`DELETE FROM kanban_user_action_audit
-        WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
-    } catch (_) { /* table is created on first channel task action */ }
-  } catch (e) {
-    console.warn('[retention] company communication purge failed', owner, e?.message || e);
-  }
-
-  deleted.standup_messages =
-    db
-      .prepare(
-        `DELETE FROM standup_messages
-         WHERE standup_id IN (SELECT id FROM standups WHERE owner_user_id = ?)
-           AND datetime(created_at) < datetime('now', ?)`
-      )
-      .run(owner, cutoff).changes || 0;
-
-  try {
-    deleted.tool_execution_actions =
-      db.prepare(
-        `DELETE FROM tool_execution_actions
-          WHERE owner_user_id = ? AND datetime(created_at) < datetime('now', ?)`
-      ).run(owner, cutoff).changes || 0;
-  } catch (_) {
-    /* table may not exist on older DBs */
-  }
-
-
-  // Delete only this CEO's aged uploaded/generated RAG documents; platform help is in a separate owner index.
-  if (isOpenSearchConfigured()) {
-    try {
-      const docs = [];
-      let offset = 0;
-      for (;;) {
-        const page = await listDocuments(owner, { limit: 200, offset });
-        docs.push(...(page.documents || []));
-        if (!page.has_more) break;
-        offset += page.documents.length;
-        if (!page.documents.length) break;
-      }
-      const cutoffMs = Date.now() - retentionDays * 86400000;
-      for (const doc of docs) {
-        const at = Date.parse(doc.created_at || doc.updated_at || '');
-        if (Number.isFinite(at) && at < cutoffMs && !doc.is_protected) {
-          await deleteDocument(owner, doc.id);
-          deleted.opensearch_documents += 1;
+  // Keep public response names used by the existing UI.
+  deleted.agent_voice_sessions=deleted.ceo_voice_sessions||0;
+  deleted.workflow_runs=deleted.agent_workflow_runs||0;
+  deleted.opensearch_documents=0;
+  if (!dryRun) {
+    if (isOpenSearchConfigured()) {
+      try {
+        const docs=[];
+        for(let offset=0;;) {
+          const page=await listDocuments(owner,{limit:200,offset}); docs.push(...(page.documents||[]));
+          if(!page.has_more||!page.documents?.length)break; offset+=page.documents.length;
         }
-      }
-    } catch (e) {
-      console.warn('[retention] OpenSearch document purge failed', owner, e?.message || e);
+        for(const doc of docs) {
+          const at=Date.parse(doc.created_at||doc.updated_at||'');
+          if(Number.isFinite(at)&&at<cutoffMs&&!doc.is_protected){await deleteDocument(owner,doc.id);deleted.opensearch_documents++;}
+        }
+      } catch(error) { errors.push({store:'opensearch',error:error.message}); }
+    }
+    try { Object.assign(deleted,purgeAgedContentExplorerMedia(owner,retentionDays)); }
+    catch(error){errors.push({store:'media',error:error.message});}
+    if(process.env.FLOLAH_PHYSICAL_ENABLED==='1') {
+      try {
+        const {getPhysicalControlPlane}=await import('./physical/runtime.js');
+        stores.physical=getPhysicalControlPlane().purgeHistory(owner,cutoffMs);
+      } catch(error){errors.push({store:'physical',error:error.message});}
     }
   }
-
-  const oldRuns = db
-    .prepare(
-      `SELECT id FROM agent_workflow_runs
-       WHERE owner_user_id = ?
-         AND datetime(COALESCE(started_at, updated_at, '1970-01-01')) < datetime('now', ?)`
-    )
-    .all(owner, cutoff)
-    .map((r) => r.id);
-
-  if (oldRuns.length) {
-    const ph = oldRuns.map(() => '?').join(',');
-    deleted.workflow_run_steps =
-      db.prepare(`DELETE FROM agent_workflow_run_steps WHERE run_id IN (${ph})`).run(...oldRuns)
-        .changes || 0;
-    deleted.workflow_runs =
-      db.prepare(`DELETE FROM agent_workflow_runs WHERE id IN (${ph})`).run(...oldRuns).changes || 0;
+  const result={ok:errors.length===0,owner_user_id:owner,retention_days:retentionDays,cutoff:new Date(cutoffMs).toISOString(),dry_run:dryRun,deleted,stores,errors};
+  if(!dryRun){
+    const {enqueueNativeRetention}=await import('./native-retention-queue.js');
+    result.native=enqueueNativeRetention(owner,cutoffMs);
+    db.exec(`CREATE TABLE IF NOT EXISTS data_retention_runs(id INTEGER PRIMARY KEY,owner_user_id TEXT NOT NULL,finished_at TEXT NOT NULL,result_json TEXT NOT NULL)`);
+    db.prepare('INSERT INTO data_retention_runs(owner_user_id,finished_at,result_json) VALUES(?,?,?)').run(owner,new Date().toISOString(),JSON.stringify(result));
   }
-
-  try {
-    const media = purgeAgedContentExplorerMedia(owner, retentionDays);
-    deleted.inbound_attachments = media.inbound_attachments || 0;
-    deleted.generated_media = media.generated_media || 0;
-  } catch (e) {
-    console.warn('[retention] media purge failed', owner, e?.message || e);
-  }
-
-  // Use the same authenticated owner/profile policy as the existing cleanup.
-  const { knowledgeStore } = await import('./knowledge-store.js');
-  deleted.knowledge_jobs = knowledgeStore(db).cleanupHistory(owner,retentionDays).jobs_deleted;
-
-  console.log(
-    `[retention] owner=${owner} days=${retentionDays} deleted=${JSON.stringify(deleted)}`
-  );
-  return { owner_user_id: owner, retention_days: retentionDays, deleted };
+  return result;
 }
 
 export async function purgeRetentionForAllCeos() {
-  const ceos = getDb()
-    .prepare(`SELECT id, data_retention_days FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
-    .all();
-  const results = [];
-  for (const ceo of ceos) {
-    try {
-      results.push({ ok: true, ...(await purgeOwnerRetention(ceo.id)) });
-    } catch (e) {
-      console.warn('[retention] failed', ceo.id, e?.message || e);
-      results.push({ ok: false, owner_user_id: ceo.id, error: e.message || String(e) });
-    }
+  const results=[];
+  for(const ceo of getDb().prepare("SELECT id FROM platform_users WHERE role='ceo'").all()) {
+    try { results.push(await purgeOwnerRetention(ceo.id)); }
+    catch(error){results.push({ok:false,owner_user_id:ceo.id,error:error.message});}
   }
-  return { count: results.length, results };
+  const result={ok:results.every(r=>r.ok),count:results.length,results};
+  if(!result.ok)throw Object.assign(new Error('Company retention incomplete; inspect data_retention_runs'),{result});
+  return result;
 }
