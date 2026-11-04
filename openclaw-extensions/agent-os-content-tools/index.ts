@@ -1,4 +1,4 @@
-import {physicalContextHint} from './physical-context.js';
+import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {visibleContentTools,scheduledGoalRoutingHint} from './runtime-access.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
@@ -782,8 +782,18 @@ export default definePluginEntry({
     if (typeof api.on === "function") {
       api.on("before_tool_call", (_event: unknown, ctx: PromptBuildContext) => { rememberRuntimeChannel(ctx); });
       // llm_input carries the trusted turn runId even when prompt-build context does not.
-      api.on("llm_input", (event: { runId?: string }, ctx: PromptBuildContext) => {
+      api.on("llm_input", (event: { runId?: string; systemPrompt?: string; prompt?: string }, ctx: PromptBuildContext) => {
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
+        if (isToolAllowedForAgent(resolveCallerAgentId(api, {}, ctx), 'physical_entities_list', ctx?.sessionKey)) {
+          const system = typeof event?.systemPrompt === 'string' ? event.systemPrompt : '';
+          api.logger?.info?.('[agent-os-content-tools] prompt-evidence ' + JSON.stringify({
+            runId:event?.runId,systemChars:system.length,
+            turnPhysicalContext:JSON.stringify(event?.prompt || '').includes('[Registered physical device capabilities'),
+            physicalContext:system.includes('[Registered physical device capabilities'),
+            inventoryFirst:system.includes('first inspect the current authorized inventory'),
+            nativeDiscovery:system.includes('call tool_call with id="physical_entities_list"'),
+          }));
+        }
       });
       api.on("before_prompt_build", async (event: PromptBuildEvent, ctx: PromptBuildContext) => {
         rememberRuntimeChannel(ctx);
@@ -791,7 +801,7 @@ export default definePluginEntry({
         const physicalHint = await physicalContextHint({allowed:isToolAllowedForAgent(recoveryAgent,'physical_entities_list',ctx?.sessionKey),sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:String(resolvePluginConfig(api).baseUrl||'').trim(),brokerSecret:loadToolBrokerSecret});
         const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
           ? "Current FloAssist read capability: use floassist_source_read for connected email, files and calendar content. Latest Gmail draft: {app_id: gmail, kind: draft}. Existing task source: {task_id: exact task number}. Do not replay invented action names or failed calls from older conversation history. If a current tool result is non-retryable, stop that attempt and provide one concise final explanation, not another equivalent call." : "";
-        const personalContext = [recoveryHint, scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
+        const personalContext = [physicalDiscoveryTurnHint(physicalHint), recoveryHint, scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const result = await correlateInboundCampaign(api, event, ctx);
         if (!result?.matched) return personalContext || physicalHint ? { ...(personalContext ? {prependContext: personalContext} : {}), ...(physicalHint ? {appendSystemContext: physicalHint} : {}) } : undefined;
         const campaign = result.campaign || {};
@@ -835,7 +845,7 @@ export default definePluginEntry({
           // context. Keep the descriptor visible then; execute() still
           // enforces the owner/agent grant through the backend lease.
           if (callerAgentId && !isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey)) return null;
-          if (!visibleContentTools(callerAgentId,toolCtx?.sessionKey||safeApiSessionKey(api),tools,loadAllowlists(),loadOpenClawAllowByAgent(),loadSessionAllowlists()).has(name)) return null;
+          if (!visibleContentTools(callerAgentId,toolCtx?.sessionKey||safeApiSessionKey(api),tools,loadAllowlists(),loadOpenClawAllowByAgent(),loadSessionAllowlists(),Date.now(),api.config).has(name)) return null;
           return {
             name,
             description:

@@ -80,12 +80,22 @@ export function safeApiSessionKey(api) {
 // Leave room for gateway-native tools under providers' 128-tool schema limit.
 // This changes discovery only; invocation still uses the complete grant check.
 export const MAX_UNSCOPED_CONTENT_TOOLS=96;
-export function visibleContentTools(agentId,sessionKey,descriptors,allowlists,configAllowByAgent,sessionScopes,at=Date.now()){
+export function usesNativeToolSearch(config){
+ const search=config?.tools?.toolSearch;
+ return search?.enabled===true && search?.mode==='tools';
+}
+export function visibleContentTools(agentId,sessionKey,descriptors,allowlists,configAllowByAgent,sessionScopes,at=Date.now(),config){
  const scope=sessionScopes?.[String(sessionKey||'')];
  const active=scope&&Array.isArray(scope.tools)&&Date.parse(scope.expires_at||'')>at;
  const names=[...new Set(descriptors.map(t=>t.name).filter(n=>n&&!OPENCLAW_NATIVE_TOOL_NAMES.has(n)))].filter(n=>!agentId||isToolGrantedForSession(agentId,n,sessionKey,allowlists,configAllowByAgent,sessionScopes,at));
- if(active||names.length<=MAX_UNSCOPED_CONTENT_TOOLS)return new Set(names);
- const priority=n=>['content_tools_enquire','scheduled_goal_list','scheduled_goal_run_now'].includes(n)?0:/^(floassist_|connector_|ceo_profile|kanban_|intent_classify_and_delegate|agent_delegate|agent_goal_|agent_workflow_|agent_work_history|learnings_)/.test(n)?1:2;
+ // The native search catalog compacts schemas AFTER grant filtering. Register
+ // every permitted tool there so search/describe/call can reach the full catalog.
+ // Keep the legacy budget only when native compaction is not configured.
+ if(usesNativeToolSearch(config)||active||names.length<=MAX_UNSCOPED_CONTENT_TOOLS)return new Set(names);
+ // Keep the generic device control plane visible even for large agent catalogs.
+ // Device/action names and schemas are discovered at runtime, never selected here.
+ // Filtering by grants and active session restrictions above remains authoritative.
+ const priority=n=>['content_tools_enquire','scheduled_goal_list','scheduled_goal_run_now','physical_entities_list','physical_invoke','physical_operation_get','physical_cancel'].includes(n)?0:/^(floassist_|connector_|ceo_profile|kanban_|intent_classify_and_delegate|agent_delegate|agent_goal_|agent_workflow_|agent_work_history|learnings_)/.test(n)?1:2;
  return new Set(names.sort((a,b)=>priority(a)-priority(b)||a.localeCompare(b)).slice(0,MAX_UNSCOPED_CONTENT_TOOLS));
 }
 

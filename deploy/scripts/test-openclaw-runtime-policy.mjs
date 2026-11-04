@@ -49,6 +49,7 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
         LITELLM_BASE_URL: 'http://litellm:4000/v1',
         LITELLM_MASTER_KEY: routing ? 'test-litellm-key-not-secret' : '',
         OPENCLAW_ENABLE_DEEPSEEK_PLUGIN: '0',
+        AGENT_OS_NATIVE_TOOL_SEARCH: '1',
         OPENCLAW_TRUSTED_PROXIES: '127.0.0.1,::1,172.18.0.1',
         OPENCLAW_GATEWAY_TOKEN: 'stale-bootstrap-token',
         MARKETING_INBOUND_ATTRIBUTION_ENABLED: marketingInboundAttribution ? '1' : '0',
@@ -80,6 +81,7 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
     assert.equal(configured.gateway.trustedProxies.includes('172.16.0.0/12'), false);
     assert.equal(configured.gateway.trustedProxies.includes('10.0.0.0/8'), false);
     assert.equal(configured.tools.fs.workspaceOnly, true);
+    assert.deepEqual(configured.tools.toolSearch,{enabled:true,mode:'tools',searchDefaultLimit:8,maxSearchLimit:20});
     assert.ok(configured.agents.list.some((agent) => agent.id === originalAgent.id));
     const configuredAgent = configured.agents.list.find((agent) => agent.id === originalAgent.id);
     assert.equal(configuredAgent.workspace, originalAgent.workspace);

@@ -216,6 +216,11 @@ config.gateway.trustedProxies = resolveTrustedProxies();
 console.log('Set narrow gateway.trustedProxies=%j', config.gateway.trustedProxies);
 
 if (!config.tools) config.tools = {};
+// Native structured discovery keeps all granted tools reachable without sending
+// the entire catalog as function schemas to the provider. Explicit rollout flag.
+if (process.env.AGENT_OS_NATIVE_TOOL_SEARCH === '1') {
+  config.tools.toolSearch = {enabled:true,mode:'tools',searchDefaultLimit:8,maxSearchLimit:20};
+}
 config.tools.fs = { ...(config.tools.fs || {}), workspaceOnly: true };
 if (!config.tools.sessions) config.tools.sessions = {};
 config.tools.sessions.visibility = SESSION_VISIBILITY;

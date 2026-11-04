@@ -1,4 +1,7 @@
 // Fresh, tenant-scoped context; no cross-session cache or model-supplied owner.
+export function physicalDiscoveryTurnHint(context) {
+ return context ? 'For this turn, if the request concerns a registered physical device, first read its authorized inventory with physical_entities_list (or tool_call id="physical_entities_list", args={} when native search controls are exposed). A tool-search result or a prior assistant answer is not a device inventory result. Ground device/action selection in fresh discovery, ask for clarification if ambiguous, and do not execute when the user requests explanation only.' : '';
+}
 export async function physicalContextHint({allowed,sessionKey,baseUrl,brokerSecret,fetchImpl=fetch}) {
  if(!allowed||!sessionKey||!baseUrl)return '';
  try {

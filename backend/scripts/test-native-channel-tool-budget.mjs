@@ -26,3 +26,26 @@ assert.match(scheduledGoalRoutingHint(true),/scheduled_goal_run_now/);
 assert.match(scheduledGoalRoutingHint(true),/only once/);
 assert.ok(!visibleContentTools('restricted','native',crowded.map(name=>({name})),{restricted:['agent_goal_fixture_1']},{},{}).has(scheduler[0]));
 console.log('SCHEDULED_GOAL_ROUTING_OK: scheduler visibility, no grant escalation, one-run guidance');
+
+const physical=['physical_entities_list','physical_invoke','physical_operation_get','physical_cancel'];
+const deviceCatalog=[...crowded,...physical,'content_tools_enquire'];
+const deviceDescriptors=deviceCatalog.map(name=>({name}));
+const deviceGrants={operator:deviceCatalog,viewer:['physical_entities_list'],outsider:['agent_goal_fixture_1']};
+const normal=visibleContentTools('operator','ordinary-session',deviceDescriptors,deviceGrants,{},{});
+assert.equal(normal.size,96);
+for(const name of [...physical,...scheduler,'content_tools_enquire'])assert.ok(normal.has(name),`${name} must survive the normal unscoped catalog limit`);
+assert.deepEqual([...visibleContentTools('viewer','ordinary-session',deviceDescriptors,deviceGrants,{},{})],['physical_entities_list']);
+assert.ok(!visibleContentTools('outsider','ordinary-session',deviceDescriptors,deviceGrants,{},{}).has('physical_entities_list'));
+const deviceScope={'restricted-session':{tools:['physical_entities_list'],expires_at:new Date(Date.now()+60000).toISOString()}};
+assert.deepEqual([...visibleContentTools('operator','restricted-session',deviceDescriptors,deviceGrants,{},deviceScope)],['physical_entities_list']);
+assert.deepEqual([...visibleContentTools('operator','ordinary-session',[...deviceDescriptors].reverse(),deviceGrants,{},{} )],[...normal]);
+console.log('PHYSICAL_DISCOVERY_BUDGET_OK: ordinary channel catalog, deterministic cap, grant isolation and restricted scopes');
+
+const searchConfig={tools:{toolSearch:{enabled:true,mode:'tools'}}};
+const full=visibleContentTools('operator','ordinary-session',deviceDescriptors,deviceGrants,{},{},Date.now(),searchConfig);
+assert.equal(full.size,new Set(deviceCatalog.filter(n=>n!=='sessions_spawn')).size);
+assert.ok(full.has('agent_goal_fixture_139'),'Tail of catalog must remain reachable');
+assert.deepEqual([...visibleContentTools('viewer','ordinary-session',deviceDescriptors,deviceGrants,{},{},Date.now(),searchConfig)],['physical_entities_list']);
+assert.deepEqual([...visibleContentTools('operator','restricted-session',deviceDescriptors,deviceGrants,{},deviceScope,Date.now(),searchConfig)],['physical_entities_list']);
+assert.equal(visibleContentTools('operator','ordinary-session',deviceDescriptors,deviceGrants,{},{},Date.now(),{tools:{toolSearch:{enabled:false,mode:'tools'}}}).size,96);
+console.log('FULL_NATIVE_CATALOG_OK: all granted tools retained for native compaction; no grant or scope widening');

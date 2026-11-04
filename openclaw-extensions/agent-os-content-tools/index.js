@@ -1,4 +1,4 @@
-import {physicalContextHint} from './physical-context.js';
+import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {profileTimezoneHint} from './profile-timezone.js';
@@ -1098,6 +1098,16 @@ export default definePluginEntry({
       // llm_input carries the trusted turn runId even when prompt-build context does not.
       api.on("llm_input", (event, ctx) => {
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
+        if (isToolAllowedForAgent(resolveCallerAgentId(api, {}, ctx), 'physical_entities_list', ctx?.sessionKey)) {
+          const system = typeof event?.systemPrompt === 'string' ? event.systemPrompt : '';
+          api.logger?.info?.('[agent-os-content-tools] prompt-evidence ' + JSON.stringify({
+            runId:event?.runId,systemChars:system.length,
+            turnPhysicalContext:JSON.stringify(event?.prompt || '').includes('[Registered physical device capabilities'),
+            physicalContext:system.includes('[Registered physical device capabilities'),
+            inventoryFirst:system.includes('first inspect the current authorized inventory'),
+            nativeDiscovery:system.includes('call tool_call with id="physical_entities_list"'),
+          }));
+        }
       });
       api.on("before_tool_call", (event, ctx) => {
         rememberRuntimeChannel({ ...ctx, runId: event?.runId || ctx?.runId });
@@ -1126,7 +1136,7 @@ export default definePluginEntry({
           return profileTimezoneHint({enabled:true,timezone_available:false});
         };
         const [timezoneHint,result] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx)]);
-        const personalContext=[recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
+        const personalContext=[physicalDiscoveryTurnHint(physicalHint),recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const systemContext=[timezoneHint,physicalHint].filter(Boolean).join('\n');
         const clockContext=systemContext?{appendSystemContext:systemContext}:{};
         if (!result?.matched) return systemContext||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
@@ -1185,7 +1195,7 @@ export default definePluginEntry({
             api.logger?.info?.(`[agent-os-content-tools] tool-discovery name=${name} agent=${callerAgentId} allowed=${allowed}`);
           }
           if (!allowed) return null;
-          if (!visibleContentTools(callerAgentId,toolCtx?.sessionKey||safeApiSessionKey(api),tools,loadAllowlists(),loadOpenClawAllowByAgent(),loadSessionAllowlists()).has(name)) return null;
+          if (!visibleContentTools(callerAgentId,toolCtx?.sessionKey||safeApiSessionKey(api),tools,loadAllowlists(),loadOpenClawAllowByAgent(),loadSessionAllowlists(),Date.now(),api.config).has(name)) return null;
           return {
             name,
             description:

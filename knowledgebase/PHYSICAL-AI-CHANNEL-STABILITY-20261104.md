@@ -47,3 +47,31 @@ Three new sessions were restricted to physical discovery/status tools, with chan
 - aa310802-8d1b-49cd-bd90-9c280a7d9e0d: ambiguous device request listed authorized devices/actions/policies and explicitly asked which device and operation, 6.5 seconds, one successful discovery call.
 
 No physical invocation occurred. These validate native routing/clarification, not real power execution or WhatsApp delivery. A fresh test from the user's actual WhatsApp conversation remains requested. Sustained production stability requires observing real traffic; the synthetic index timing reduction does not eliminate all synchronous work.
+
+## Actual WhatsApp failure and catalog correction
+
+The user's real retest at 22:00 SGT still failed with hypothetical hub advice. The saved model-input report for conversation hash `914c098bc164` contained 106 tools, but no physical tools. Runtime inspection found 174 COO grants, including physical_entities_list, physical_invoke and physical_operation_get, while the plugin's 96-content-tool cutoff selected none of them. The earlier tests used explicit physical-only session scopes and therefore did not reproduce the failure. They are not acceptance evidence for the normal channel.
+
+The first narrow correction prioritized generic physical control-plane tools under the legacy budget. The user then required every granted tool to remain available within provider limits. The revised implementation uses the installed OpenClaw structured Tool Search catalog: tool_search, tool_describe and tool_call. When this native compaction mode is enabled, the plugin registers all grant/session-filtered descriptors rather than discarding the tail. Native compaction handles the model-facing schema surface. The legacy cap remains only for deployments without this rollout setting.
+
+The rollout uses AGENT_OS_NATIVE_TOOL_SEARCH=1 and structured controls, not JavaScript execution. No device names, command mappings, agent names or company-specific identifiers are embedded in the selection implementation. Existing backend tool leases, device permissions, policy checks and session restrictions remain authoritative. Installed-runtime and real-conversation acceptance results follow when completed; enabling the configuration alone is not a test pass.
+
+### Native full-catalog evidence
+
+Installed runtime test `backend/scripts/test-native-tool-search-installed.mjs` passed: 174 synthetic granted tools were cataloged behind three structured schemas; the final catalog entry was searchable, describable and callable; unknown tools and invalid input were rejected before the fixture executor ran. Grant isolation and active session restrictions passed separately. Existing prompt hooks and device policy tests also passed.
+
+Production run `95c5ed67-cc98-4c86-9981-b983a632da29` used the original conversation with no session tool override. The runtime cataloged 171 available tools and exposed five schemas (`read`, `sessions_yield`, `tool_search`, `tool_describe`, `tool_call`). This verified removal of the 96-tool cutoff, but the response still failed grounding: a broad lexical search returned physical_invoke without inventory discovery, and the model repeated hypothetical advice. This run is explicitly a failed behavioral test.
+
+With the same normal-policy catalog, `08098b6b-cb97-49e3-a4ab-84e79be950f3` called physical_entities_list through tool_call and correctly found the Fire TV launch_app / app=netflix schema (32.4 seconds). `2f763799-51a7-4d31-97be-ee187eec169c` performed discovery and asked which device and operation to control (6.7 seconds). Neither invoked a device. The ambiguity reply's state wording did not consistently label cached observations, so it is not evidence of current device state.
+
+The shared guidance was then tightened to read the known physical_entities_list tool directly through native tool_call rather than treating a broad tool search as inventory discovery, and to disregard unsupported prior assistant claims. No device-specific names or operations were introduced. Retest of the original conversation is pending below.
+
+### Prompt-submission handoff defect
+
+Content-free llm_input diagnostics for `1975e7f2-7e02-4f90-b143-b50198c2c4ce` showed the bounded inventory in current-turn context but absent from the reported system prompt. That turn still did not perform authoritative discovery and described a toggle as an off command; it is not accepted as a behavior pass. Merely adding current-turn context was insufficient.
+
+The installed native runtime constructs `runEmbeddedAttemptPromptPhase` options before assembly. Its context object captured `sessionRuntimeState.systemPromptText` by value. Assembly then called `setActiveSessionSystemPrompt` with plugin system guidance, updating shared state, but prepareEmbeddedAttemptPromptContext read the old captured string. That stale string flowed into preflight, llm_input and submitEmbeddedAttemptPrompt. The narrow installer changes this one context property to a getter, so post-assembly context preparation reads the current shared system prompt. No model, channel, company, agent, device or command names are encoded in the patch. The installer refuses an unknown or ambiguous runtime call-site shape.
+
+The installed regression evaluates the actual runtime context-object construction, changes shared state as prompt assembly does, and verifies the post-hook value reaches context preparation. It also reconstructs the former by-value property and confirms that the same assertion detects the old stale snapshot. The temporary duplicated full current-turn inventory was removed; bounded system guidance and a short generic discovery reminder remain.
+
+The installed native prompt regression passed before cutover: `NATIVE_PROMPT_CONTEXT_REGRESSION_OK`, with the previous snapshot explicitly shown to fail. Existing profile/physical prompt-hook tests also passed. Final gateway image: `agent-os-openclaw:native-prompt-context-20261104`; backend: `agent-os-backend:discovery-grounding-20261104`. Rollback references are retained in their release directories. Real original-conversation acceptance is still pending the post-cutover test; repeated cold-start and configuration-reload stalls remain a measured stability limitation, not a resolved issue.
