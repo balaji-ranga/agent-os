@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 
-export function attachPhysicalHubServer(server,plane,{path='/api/physical/hub',authorizeConnection=()=>{},subscribePolicyChanges}={}) {
+export function attachPhysicalHubServer(server,plane,{path='/api/physical/hub',authorizeConnection=()=>{},subscribePolicyChanges,heartbeatMs=15000}={}) {
   const wss=new WebSocketServer({noServer:true,maxPayload:512*1024,perMessageDeflate:false});
   const upgrade=(req,socket,head)=>{
     if(req.url!==path)return;
@@ -10,6 +10,7 @@ export function attachPhysicalHubServer(server,plane,{path='/api/physical/hub',a
       authorizeConnection(hub,req);
       wss.handleUpgrade(req,socket,head,ws=>{
         ws.hubId=hub.id;ws.ipRequest=req;let ready=false,count=0,windowStart=Date.now();
+        ws.lastPongAt=Date.now();ws.on('pong',()=>{ws.lastPongAt=Date.now();});
         plane.connect(hub.id,ws);
         ws.on('error',()=>{});
         ws.on('message',raw=>{
@@ -38,7 +39,12 @@ export function attachPhysicalHubServer(server,plane,{path='/api/physical/hub',a
   const unsubscribe=subscribePolicyChanges?.(checkConnections);
   const timer=setInterval(()=>{
     checkConnections();plane.expire();
-    for(const ws of wss.clients){const h=plane.state.hubs[ws.hubId];if(!h||h.revoked)ws.close(4003,'Hub revoked');else plane.sendConfig(h.id);}
-  },15000);timer.unref();
+    for(const ws of wss.clients){
+      const h=plane.state.hubs[ws.hubId];
+      if(Date.now()-ws.lastPongAt>heartbeatMs*3){plane.disconnect(ws.hubId,ws);ws.terminate();continue;}
+      if(!h||h.revoked)ws.close(4003,'Hub revoked');
+      else {ws.ping();plane.sendConfig(h.id);}
+    }
+  },heartbeatMs);timer.unref();
   return {async close(){unsubscribe?.();clearInterval(timer);server.off('upgrade',upgrade);for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));}};
 }

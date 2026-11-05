@@ -237,7 +237,7 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
         status: 'duplicate_blocked', reason_code: 'duplicate_no_progress', progress: false,
         retryable: false, evidence: [],
         suggested_capabilities: behaviour.fallback_capabilities,
-        message: 'Equivalent action already ran in this execution. Do not change tenant/owner parameter names or repeat it; choose a different capability or use the existing observation.',
+        message: 'An equivalent action was already attempted in this execution. This does not imply it was dispatched or succeeded. Inspect the previous observation, explain its failure if any, and do not change tenant/owner parameter names to bypass duplicate protection.',
         previous_action_id: duplicate.id,
       };
       const id = `tea-${randomUUID()}`;

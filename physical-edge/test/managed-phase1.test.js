@@ -25,6 +25,30 @@ test('managed validation rejects code, secret fields, schema mismatch and unobse
  for(const mutate of [d=>d.code='run',d=>d.mappings[0].token='secret',d=>d.mappings[0].mapping.actionBindings.activate={transport:'shell',command:'anything'},d=>d.mappings[0].mapping.observationBindings=[],d=>d.mappings.push(d.mappings[0])]){const d=document();mutate(d);assert.throws(()=>validateManagedDocument(d));}
 });
 
+test('offline hub and unavailable device have distinct no-dispatch diagnostics',()=>{
+ const p=new PhysicalControlPlane(store(null));const h=p.enroll('owner',{siteId:'test-site',name:'Test hub'});
+ p.discover(h.hubId,[profile('lamp','switch')]);
+ const e=p.register('owner',{hubId:h.hubId,candidateId:'lamp',actions:{set_state:'autonomous'}});
+ p.hubReport(h.hubId,{adapters:[],entities:[{id:'lamp',available:true}]});
+ const request={entityId:e.id,action:'set_state',input:{on:true},idempotencyKey:'not-sent'};
+ assert.throws(()=>p.operation('owner',request),/Edge hub is offline.*No command was queued or sent/);
+ p.connect(h.hubId,{send(){},close(){}});
+ p.hubReport(h.hubId,{adapters:[],entities:[{id:'lamp',available:false}]});
+ assert.throws(()=>p.operation('owner',request),/Edge hub is connected.*No command was queued or sent/);
+ assert.equal(Object.keys(p.state.operations).length,0);
+ assert.deepEqual(p.state.audit.filter(a=>a.type==='operation_not_queued').map(a=>a.reason),['hub_offline','unavailable']);
+});
+
+test('silent hub is disconnected by heartbeat, without queuing actions',{timeout:5000},async()=>{
+ const {default:WebSocket}=await import('ws');const p=new PhysicalControlPlane(store(null));
+ const h=p.enroll('owner',{siteId:'test-site',name:'Sleeping hub'});
+ const http=createServer(),server=attachPhysicalHubServer(http,p,{heartbeatMs:25});
+ await new Promise(r=>http.listen(0,'127.0.0.1',r));
+ const ws=new WebSocket('ws://127.0.0.1:'+http.address().port+'/api/physical/hub',{autoPong:false,headers:{Authorization:'Bearer '+h.token,'X-Flolah-Hub':h.hubId}});
+ try{await until(()=>p.connections.has(h.hubId));await until(()=>!p.connections.has(h.hubId));assert.equal(Object.keys(p.state.operations).length,0);}
+ finally{ws.terminate();await server.close();await new Promise(r=>http.close(r));}
+});
+
 test('versioned rollout scopes hub, rejects mismatches, preserves last good and supports rollback',()=>{
  let now=1000;const p=new PhysicalControlPlane(store(null),{now:()=>now});const a=p.enroll('owner',{siteId:'same-site',name:'A'}),b=p.enroll('owner',{siteId:'same-site',name:'B'});
  const report={adapters:[{id:'ha',type:'home-assistant',version:2,managedVersion:1,connected:true}],entities:[]};p.hubReport(a.hubId,report);p.hubReport(b.hubId,report);

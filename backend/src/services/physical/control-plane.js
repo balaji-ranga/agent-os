@@ -107,7 +107,15 @@ export class PhysicalControlPlane {
     const e=this.assertResource(owner,entityId,accessPrincipal,action);id(action);id(idempotencyKey);
     if(!e.enabled||this.state.hubs[e.hubId].revoked)throw fault('Asset unavailable',403);
     if(this.state.hubs[e.hubId].managedPending)throw fault('Configuration activation pending',409);
-    const readiness=this.deviceReadiness(e);if(['unavailable','hub_offline'].includes(readiness.status)&&this.state.hubs[e.hubId].readiness)throw fault('Device unavailable; no command queued',409);
+    const readiness=this.deviceReadiness(e);
+    if(['unavailable','hub_offline'].includes(readiness.status)&&this.state.hubs[e.hubId].readiness){
+      const hub=this.state.hubs[e.hubId];
+      this.audit(owner,'operation_not_queued',{entityId:e.id,hubId:e.hubId,action,reason:readiness.status,lastSeen:hub.lastSeen||null});
+      const reason=readiness.status==='hub_offline'
+        ? `Edge hub is offline (site ${hub.siteId}; last contact ${hub.lastSeen?new Date(hub.lastSeen).toISOString():'unknown'}). Wake or reconnect the edge host and wait for fresh device readiness.`
+        : 'Edge hub is connected, but the device adapter reports this device unavailable. Check the local integration and device connection.';
+      throw fault(`${reason} No command was queued or sent. After recovery, confirm readiness with physical_entities_list; do not assume execution or replay a power toggle automatically.`,409);
+    }
     const spec=e.description.actions[action];if(!spec)throw fault('Unsupported action');validateInput(spec.input,input);
     if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>300000)throw fault('Invalid timeout');
     const digest=fingerprint({entityId,action,input,timeoutMs});
