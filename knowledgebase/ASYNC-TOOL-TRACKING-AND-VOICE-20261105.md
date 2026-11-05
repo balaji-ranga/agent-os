@@ -42,3 +42,7 @@ Final deployed images: backend and gateway `async-status-final-20261105`; fronte
 - The production web payload resolver plus STT service successfully transcribed synthetic WebM/Opus in the same JSON/base64 format used by the microphone component. This validates payload decoding and the engine, not microphone permissions or capture in the user's browser.
 
 Real user WhatsApp voice-note reception and browser microphone UI interaction still require confirmation; do not equate synthetic/native-runner tests with those end-to-end checks.
+
+## User confirmation and voice follow-up
+
+The user confirmed receiving the WhatsApp completion for `track-48be3622-c45b-4e46-ac09-48295a0da9fd` exactly once. The reported audio failure was a WhatsApp microphone voice note, not a web microphone test. Inspection of the current COO main conversation found audio-refusal turns at 20:08–20:10 SGT on November 5, before the final gateway deployment was ready at 21:05 SGT; no newer voice-note turn was present in that inspected conversation. A fresh user-originated voice note is still required for acceptance.
