@@ -67,5 +67,15 @@ await withFloAssistScope({owner:'budget-owner',run:'budget-schedule',origin:'flo
 });
 await withFloAssistScope({owner:'budget-owner',run:'new-schedule',origin:'floassist:deadlines'},async()=>assert.equal(governor.beginToolExecution({ownerUserId:'budget-owner',agentId:'fixture-agent',sessionKey:'budget-chat',runId:'new',toolName:'master_data_list_rows',params:{table_name:'new'}}).ok,true));
 console.log('FLOASSIST_TOOL_CALL_BUDGET_OK: hard bound, native-retry aggregation, single refusal, trusted run trace and new-run reset');
+const physical={ownerUserId:'ceo-test',agentId:'agent-a',sessionKey:'physical-session',runId:'physical-turn',toolName:'physical_invoke',params:{entityId:'device',action:'actuate',input:{},idempotencyKey:'first'}};
+const admitted=governor.beginToolExecution(physical);assert.equal(admitted.ok,true);
+const pending=governor.completeToolExecution(admitted,{httpStatus:200,data:{id:'operation-one',status:'dispatched'}});assert.equal(pending.status,'in_progress');assert.equal(pending.retryable,false);
+for(const key of ['second','third','final']){
+ const blocked=governor.beginToolExecution({...physical,params:{...physical.params,idempotencyKey:key,timeoutMs:60000}});
+ assert.equal(blocked.duplicate,true);assert.equal(blocked.observation.operationId,'operation-one');
+}
+assert.equal(governor.beginToolExecution({...physical,runId:'new-explicit-turn'}).ok,true,'new user turn is separate');
+assert.equal(governor.classifyToolObservation({toolName:'physical_invoke',httpStatus:200,data:{id:'op',status:'uncertain'},behaviour:admitted.behaviour}).retryable,false);
+console.log('PHYSICAL_SINGLE_DISPATCH_OK: changed retry keys/timeouts blocked; operation ID retained; new turn allowed');
 db.close();
 rmSync(dir, { recursive: true, force: true });

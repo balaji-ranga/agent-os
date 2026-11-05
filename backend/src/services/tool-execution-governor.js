@@ -193,6 +193,8 @@ function executionKey({ runId, sessionKey, traceId, ownerUserId, agentId }) {
 }
 
 function fingerprint(toolName, params) {
+  // Transport retry keys/timeouts do not define a different physical action.
+  if(toolName==='physical_invoke')params={entityId:params.entityId,action:params.action,input:params.input||{}};
   return createHash('sha256').update(`${toolName}:${json(canonicalToolParams(params), '{}')}`).digest('hex');
 }
 
@@ -220,16 +222,16 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
     }
   }
   const floAssistGuide=toolName==='connector_get_action_guide'&&currentFloAssistScope()?.run;
-  if (!floAssistGuide && !behaviour.repeat_allowed && behaviour.duplicate_window_sec > 0) {
+  if (toolName==='physical_invoke'||(!floAssistGuide && !behaviour.repeat_allowed && behaviour.duplicate_window_sec > 0)) {
     const prior = getDb().prepare(
-      `SELECT id, observation_status, reason_code, created_at FROM tool_execution_actions
+      `SELECT id, observation_status, reason_code, created_at, response_summary FROM tool_execution_actions
         WHERE owner_user_id = ? AND execution_key = ? AND action_fingerprint = ?
           AND created_at >= datetime('now', ?)
         ORDER BY created_at DESC`
-    ).all(ownerUserId, key, fp, `-${behaviour.duplicate_window_sec} seconds`);
+    ).all(ownerUserId, key, fp, `-${toolName==='physical_invoke'?86400:behaviour.duplicate_window_sec} seconds`);
     const duplicate = toolName==='floassist_tracking_observe'
       ? prior.find(p=>p.observation_status!=='duplicate_blocked')||prior[0] : prior[0];
-    const allowedTransientRetry =
+    const allowedTransientRetry = toolName!=='physical_invoke'&&
       duplicate?.observation_status === 'transient_error' && prior.length <= behaviour.retry_limit;
     const evidenceRetry=toolName==='floassist_tracking_observe'&&canRetryTrackingObservation(getDb(),ownerUserId,canonicalParams,duplicate);
     if (duplicate && !allowedTransientRetry && !evidenceRetry) {
@@ -240,6 +242,15 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
         message: 'An equivalent action was already attempted in this execution. This does not imply it was dispatched or succeeded. Inspect the previous observation, explain its failure if any, and do not change tenant/owner parameter names to bypass duplicate protection.',
         previous_action_id: duplicate.id,
       };
+      if(toolName==='physical_invoke'){
+        const original=prior.find(p=>p.observation_status!=='duplicate_blocked');
+        const result=parseJson(original?.response_summary,{});
+        observation.operationId=result.id||result.operationId||null;
+        observation.suggested_capabilities=['physical_operation_get'];
+        observation.message=observation.operationId
+          ? `No second physical action was sent. Read physical_operation_get with operationId ${observation.operationId} and report that operation's status/evidence. Do not invoke again or change the idempotency key.`
+          : 'No second physical action was sent. Inspect the original attempt; an operation ID is not yet available. Do not invoke again or invent an operation ID.';
+      }
       const id = `tea-${randomUUID()}`;
       getDb().prepare(
         `INSERT INTO tool_execution_actions
@@ -277,6 +288,9 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
   let progress = true;
   if(['floassist_tracking_observe','floassist_tracking_update'].includes(toolName)&&data?.needs_reassessment===true&&data?.task_update_applied===false){
     status='blocked_prerequisite';reason_code=data.recovery_code||'FLOASSIST_THREAD_READ_REQUIRED';retryable=true;progress=false;
+  } else if(toolName==='physical_invoke'&&httpStatus<400&&data?.id){
+    status=data.status==='completed'?'success':data.status==='awaiting_approval'?'awaiting_approval':['failed','uncertain','cancelled','timed_out','denied'].includes(data.status)?'permanent_error':'in_progress';
+    reason_code='physical_'+data.status;progress=data.status==='completed';retryable=false;
   } else if (httpStatus === 202 || /approval required|awaiting approval/.test(text)) {
     status = 'awaiting_approval'; reason_code = 'approval_required'; progress = false;
   } else if (httpStatus === 402 || /quota|billing|payment required/.test(text)) {

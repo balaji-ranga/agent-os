@@ -4274,11 +4274,26 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
         })
       : null;
     if (governed?.duplicate || governed?.blocked) {
+      if(toolName==='physical_invoke'&&governed.duplicate&&governed.observation.operationId){
+        const {getPhysicalControlPlane}=await import('../services/physical/runtime.js');
+        const {physicalOperationResponse}=await import('../services/physical/operation-response.js');
+        const plane=getPhysicalControlPlane(),op=plane.owned('operations',ownerUserId,governed.observation.operationId);
+        plane.assertResource(ownerUserId,op.entityId,'agent:'+(parseTenantOpenClawAgentId(source)?.baseOpenClawId||source),op.action);
+        const out={...await physicalOperationResponse(plane,ownerUserId,op.id),duplicate:true,additionalActionSent:false};
+        logTool(req,toolName,params,out,'ok',source);
+        return res.json(out);
+      }
       const out = { ok: false, error: governed.observation.message, _execution: governed.observation };
       logTool(req, toolName, params, out, 'error', source);
       return res.status(409).json(out);
     }
     if (governed?.id) {
+      if(toolName==='physical_invoke'){
+        const {hash}=await import('../services/physical/contracts.js');
+        // A new trusted execution gets a new key; model-authored retry keys
+        // cannot manufacture another actuation within the same execution.
+        params.idempotencyKey='exec-'+hash(governed.execution_key+JSON.stringify({entityId:params.entityId,action:params.action,input:governed.canonicalParams.input||{}}));
+      }
       const { validateRetrievedWrite } = await import('../services/retrieval-write-guard.js');
       const evidence = await validateRetrievedWrite(ownerUserId, governed);
       if (!evidence.ok) {

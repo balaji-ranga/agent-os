@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {physicalOperationResponse} from '../src/services/physical/operation-response.js';
+let op={id:'one',status:'dispatched'},reads=0;
+const plane={expire(){},owned(collection,owner,id){assert.equal(id,'one');reads++;return op;}};
+const timer=setTimeout(()=>{op={...op,status:'completed',evidence:{kind:'delivery_receipt'}};},20);
+const done=await physicalOperationResponse(plane,'owner','one',{waitMs:200,pollMs:5});clearTimeout(timer);
+assert.equal(done.status,'completed');assert.equal(done.operationId,'one');assert.match(done.instruction,/does not prove the physical state/);assert(reads>1);
+op={id:'one',status:'running'};
+const pending=await physicalOperationResponse(plane,'owner','one',{waitMs:10,pollMs:2});assert.equal(pending.nextAction,'read_operation_status');assert.match(pending.instruction,/Do not invoke/);
+op={id:'one',status:'awaiting_approval'};assert.equal((await physicalOperationResponse(plane,'owner','one')).nextAction,'request_approval');
+op={id:'one',status:'uncertain'};assert.match((await physicalOperationResponse(plane,'owner','one')).instruction,/Do not repeat/);
+console.log('PHYSICAL_OPERATION_RESPONSE_OK: waits for same operation; bounded pending result; approval and uncertain do not retry');
