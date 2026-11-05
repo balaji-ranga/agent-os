@@ -46,3 +46,19 @@ Real user WhatsApp voice-note reception and browser microphone UI interaction st
 ## User confirmation and voice follow-up
 
 The user confirmed receiving the WhatsApp completion for `track-48be3622-c45b-4e46-ac09-48295a0da9fd` exactly once. The reported audio failure was a WhatsApp microphone voice note, not a web microphone test. Inspection of the current COO main conversation found audio-refusal turns at 20:08–20:10 SGT on November 5, before the final gateway deployment was ready at 21:05 SGT; no newer voice-note turn was present in that inspected conversation. A fresh user-originated voice note is still required for acceptance.
+
+
+## Actual voice-note failure and result recovery
+
+The fresh WhatsApp test at 22:46 SGT did reach Whisper successfully. Action `tea-04375402-ea84-44b9-bf5b-6df70967e6cb` returned the transcript "Please transcribe this message only. A blue notebook is on the desk." The model ignored that result, tried incompatible media_ref arguments, and repeatedly encountered duplicate suppression. The plugin replaced the useful prior observation with a generic thrown error, which the final reply misrepresented as inability to process audio.
+
+The shared governor now includes the bounded, redacted original observation in duplicate responses within the existing owner/execution scope. The plugin returns that observation without dispatching again, distinguishing original success from failure. Speech guidance tells the agent to use a successful transcript immediately and stop for transcription-only requests. The speech schema accepts string and object media_ref values and advertises the existing media filename argument. Physical duplicate guards remain enabled.
+
+Restricted native replay of the exact recording passed: run `b9968b5b-f89c-4fce-873d-a40c92aded83`, one speech_stt invocation plus its tool_call wrapper, zero failures, matching transcript, about 11 seconds. The runner had only speech/discovery tools, no outbound delivery and no physical actions.
+
+The first real browser upload test failed: the status-intent guard matched dashboard routing prose about workflow status rather than the transcription request. The correction excludes known dashboard routing/attachment envelopes before classification. Tests cover this exact prompt structure, a genuine status question inside that structure, and clearing a previous status restriction for a fresh audio request. Web acceptance after correction is pending.
+
+Regression tests passed: execution governor (original success/error recovery and physical single dispatch), speech routing, status-turn envelope classification, async HTTP route, and durable async tracking.
+
+
+Final deployed correction: gateway `voice-web-envelope-20261105`, backend `voice-result-20261105`, frontend unchanged `async-voice-20261105`; all healthy. A browser upload was performed through the normal authenticated UI. After the first failed web reply and correction, browser input submission stopped taking effect even though DOM reads/fills worked. The follow-up referencing the same uploaded recording is prepared in the web composer; user-assisted Send was requested. The post-correction web reply is not yet verified, and browser microphone capture remains untested. Do not describe this as a passed web end-to-end test.

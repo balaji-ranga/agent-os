@@ -248,6 +248,7 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
         suggested_capabilities: behaviour.fallback_capabilities,
         message: 'An equivalent action was already attempted in this execution. This does not imply it was dispatched or succeeded. Inspect the previous observation, explain its failure if any, and do not change tenant/owner parameter names to bypass duplicate protection.',
         previous_action_id: prior.find(p=>p.observation_status!=='duplicate_blocked')?.id||duplicate.id,
+        previous_observation: (() => { const original=prior.find(p=>p.observation_status!=='duplicate_blocked'); return original ? {status:original.observation_status,reason_code:original.reason_code,result:parseJson(original.response_summary,{})} : null; })(),
       };
       if(toolName==='physical_invoke'){
         const original=prior.find(p=>p.observation_status!=='duplicate_blocked');

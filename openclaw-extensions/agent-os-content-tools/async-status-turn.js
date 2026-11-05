@@ -2,7 +2,14 @@
 // the model misreads old conversation context or invents an operation identifier.
 const turns=new Map();
 export function isTrackingStatusQuestion(prompt){
- const text=String(prompt||'').trim();
+ // Dashboard routing metadata describes status tools even for non-status asks.
+ // Classify the user text, never those capability/instruction envelopes.
+ const text=String(prompt||'')
+  .split('\n\n[System — Dashboard chat]')[0]
+  .replace(/^\[(?:ceo_user_id|owner_user_id|profile_id):[^\n]*\]\s*$/gm,'')
+  .replace(/^Important: You are assisting CEO user id [^\n]*\n/gm,'')
+  .replace(/\[chat_attachments\][\s\S]*?\[\/chat_attachments\]/g,'')
+  .trim();
  if(/^\s*(?:(?:what(?:'s| is)?(?: the)?|check|any)\s+)?(?:status|progress|update|result)[?!. ]*$/i.test(text))return true;
  if(/^\s*(?:has|is|did)\s+(?:it|that)\s+(?:completed?|finished|done|work(?:ed)?)[?!. ]*$/i.test(text))return true;
  return (/\b(?:what(?:'s| is| was)?|check|show|tell me|any|give me|report|has|have|did|is)\b[\s\S]{0,80}\b(?:status|progress|update|result|completed|finished)\b|\bwhat happened\b|\b(?:status|progress|result)\s+(?:of|for|on)\b/i.test(text))&&

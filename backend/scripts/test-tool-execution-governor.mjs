@@ -29,6 +29,8 @@ assert.deepEqual(wrong.suggested_capabilities, ['master_data_list_documents', 'm
 
 const duplicate = governor.beginToolExecution({ ownerUserId: 'ceo-test', agentId: 'agent-a', sessionKey: 'sess-a', toolName: 'master_data_list_rows', params: { owner_user_id: 'another', table_name: 'missing' } });
 assert.equal(duplicate.duplicate, true, 'equivalent call blocked despite owner alias variation');
+assert.equal(duplicate.observation.previous_observation.status,'wrong_source');
+assert.equal(duplicate.observation.previous_observation.result.error,'Table not found: missing');
 
 const otherSession = governor.beginToolExecution({ ownerUserId: 'ceo-test', agentId: 'agent-a', sessionKey: 'sess-b', toolName: 'master_data_list_rows', params: { table_name: 'missing' } });
 assert.equal(otherSession.ok, true, 'isolated session is not cross-blocked');
@@ -51,7 +53,11 @@ assert.throws(() => governor.putExecutionBehaviours('ceo-test', [{ tool_name: 'u
 const turnArgs={ownerUserId:'ceo-test',agentId:'agent-a',sessionKey:'persistent-chat',toolName:'master_data_list_rows',params:{table_name:'turn-test'}};
 const turnOne=governor.beginToolExecution({...turnArgs,runId:'one'});assert.equal(turnOne.ok,true);
 governor.completeToolExecution(turnOne,{httpStatus:200,data:{rows:[]}});
-assert.equal(governor.beginToolExecution({...turnArgs,runId:'one'}).duplicate,true,'same turn still deduplicates');
+const repeated=governor.beginToolExecution({...turnArgs,runId:'one'});
+assert.equal(repeated.duplicate,true,'same turn still deduplicates');
+assert.deepEqual(repeated.observation.previous_observation.result,{rows:[]});
+assert.equal(repeated.observation.previous_observation.status,'empty');
+assert.deepEqual(governor.beginToolExecution({...turnArgs,runId:'one'}).observation.previous_observation,repeated.observation.previous_observation,'third attempt retains original result');
 assert.equal(governor.beginToolExecution({...turnArgs,runId:'two'}).ok,true,'next request in the same chat may read again');
 assert.equal(governor.beginToolExecution({...turnArgs,ownerUserId:'other-owner',runId:'one'}).ok,true,'run IDs cannot collide across owners');
 console.log('PASS tool execution governor: scope, classification, duplicate guard, isolation, overrides, negative validation');
@@ -76,6 +82,9 @@ for(const key of ['second','third','final']){
 }
 assert.equal(governor.beginToolExecution({...physical,runId:'new-explicit-turn'}).ok,true,'new user turn is separate');
 assert.equal(governor.classifyToolObservation({toolName:'physical_invoke',httpStatus:200,data:{id:'op',status:'uncertain'},behaviour:admitted.behaviour}).retryable,false);
+const speechArgs={ownerUserId:'ceo-test',agentId:'agent-a',sessionKey:'voice-session',runId:'voice-turn',toolName:'speech_stt',params:{media:'recording.ogg'}};
+const speech=governor.beginToolExecution(speechArgs);governor.completeToolExecution(speech,{httpStatus:200,data:{ok:true,text:'A blue notebook is on the desk.'}});
+const speechRepeat=governor.beginToolExecution(speechArgs);assert.equal(speechRepeat.duplicate,true);assert.equal(speechRepeat.observation.previous_observation.status,'success');assert.equal(speechRepeat.observation.previous_observation.result.text,'A blue notebook is on the desk.');
 console.log('PHYSICAL_SINGLE_DISPATCH_OK: changed retry keys/timeouts blocked; operation ID retained; new turn allowed');
 db.close();
 rmSync(dir, { recursive: true, force: true });

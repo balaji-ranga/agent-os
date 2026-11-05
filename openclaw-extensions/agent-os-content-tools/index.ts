@@ -863,7 +863,7 @@ export default definePluginEntry({
               // adapters discard an isError field on a normally returned result.
               if (result.data?._execution?.status === "budget_exhausted") throw new Error("FLOASSIST_TOOL_BUDGET_EXHAUSTED: The request limit was reached. Stop tool calls and report verified progress plus remaining work. Start a new request to continue; no provider call was made by this blocked attempt.");
               if (result.data?._execution?.status === "duplicate_blocked") {
-                throw new Error("DUPLICATE_NO_PROGRESS: This exact action already ran. Do not repeat it or vary arguments to evade the guard. Use the earlier successful observation to answer. If it is unavailable, report that precise blocker and end this turn. No provider request was made by this blocked call.");
+                return { content: [{ type: "text", text: JSON.stringify({ ...result.data, agent_reply_instructions: "No new execution occurred. Read _execution.previous_observation: if successful, use its recorded result to answer; if failed, report that actual failure. A duplicate block does not mean the original action failed or succeeded. Do not call again or vary arguments." }) }] };
               }
               const text = result.ok ? JSON.stringify(result.data) : JSON.stringify(result.data || { error: result.error });
               return { ...(!result.ok || result.data?.ok === false ? { isError: true } : {}), content: [{ type: "text" as const, text }] };

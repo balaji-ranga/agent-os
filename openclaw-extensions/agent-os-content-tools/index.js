@@ -711,7 +711,8 @@ const PARAM_SCHEMAS = {
     type: "object",
     properties: {
       artifact_id: { type: "string", description: "CEO media artifact id (e.g. from speech_tts)." },
-      media_ref: { type: "object", description: "Media ref object with artifactId/url." },
+      media_ref: { anyOf: [{ type: "string" }, { type: "object" }], description: "Exact audio path/reference string, or media object with artifactId/url." },
+      media: { type: "string", description: "Exact attached audio filename or reference; do not invent directories." },
       audio: { type: "string", description: "Alias for artifact id or media ref." },
       content_base64: { type: "string", description: "Raw audio bytes as base64 (alternative to artifact)." },
       filename: { type: "string", description: "Filename when using content_base64." },
@@ -1223,7 +1224,7 @@ export default definePluginEntry({
               // adapters discard an isError field on a normally returned result.
               if (result.data?._execution?.status === "budget_exhausted") throw new Error("FLOASSIST_TOOL_BUDGET_EXHAUSTED: The request limit was reached. Stop tool calls and report verified progress plus remaining work. Start a new request to continue; no provider call was made by this blocked attempt.");
               if (result.data?._execution?.status === "duplicate_blocked") {
-                throw new Error("DUPLICATE_NO_PROGRESS: This exact action already ran. Do not repeat it or vary arguments to evade the guard. Use the earlier successful observation to answer. If it is unavailable, report that precise blocker and end this turn. No provider request was made by this blocked call.");
+                return { content: [{ type: "text", text: JSON.stringify({ ...result.data, agent_reply_instructions: "No new execution occurred. Read _execution.previous_observation: if successful, use its recorded result to answer; if failed, report that actual failure. A duplicate block does not mean the original action failed or succeeded. Do not call again or vary arguments." }) }] };
               }
               if (!result.ok) {
                 return { isError: true, content: [{ type: "text", text: JSON.stringify(result.data || { error: result.error }) }] };

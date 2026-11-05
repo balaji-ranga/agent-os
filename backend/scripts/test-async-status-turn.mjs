@@ -14,3 +14,12 @@ assert.equal(statusTurnBlock('other','physical_invoke',{},101),null);
 rememberStatusTurn('session','Send the authorized message now',102);
 assert.equal(statusTurnBlock('session','email_send',{},103),null,'fresh explicit action clears observational restriction');
 console.log('ASYNC_STATUS_TURN_OK: observational turns block new actions across tools; status/discovery allowed; session isolation and fresh-action reset');
+
+const webPrefix='[ceo_user_id: fixture]\n[owner_user_id: fixture]\nImportant: You are assisting CEO user id fixture only. Use agent_workflow_runs for workflow run status.\n[chat_attachments]\nFor A/V use speech_stt.\n[/chat_attachments]\n\n';
+const webSuffix='\n\n[System \u2014 Dashboard chat] First decide whether this request is in your specialty. Never mark completed without doing the work.';
+assert.equal(isTrackingStatusQuestion(webPrefix+'Please transcribe this audio only. Return the words spoken; do not operate devices or send messages.'+webSuffix),false);
+assert.equal(isTrackingStatusQuestion(webPrefix+'What is the status of my previous request?'+webSuffix),true);
+rememberStatusTurn('web',webPrefix+'What is the status of my previous request?'+webSuffix,200);
+rememberStatusTurn('web',webPrefix+'Please transcribe this audio only.'+webSuffix,201);
+assert.equal(statusTurnBlock('web','speech_stt',{},202),null);
+console.log('WEB_PROMPT_ENVELOPE_OK: routing instructions do not classify audio as status; real status requests remain protected');
