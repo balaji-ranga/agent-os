@@ -70,10 +70,13 @@ export function adjudicatorInput(input, candidate, raw, errors) {
   // parsing failed and it is the sole diagnostic artifact.
   return {
     ...input,
+    candidate_capability_owners: Object.fromEntries((candidate?.executor_evidence?.capability_names || []).map(name => [name,
+      [input.agent, ...(input.organization || [])].filter(agent => (agent?.capabilities || []).some(capability => (typeof capability === 'string' ? capability : capability.name) === name)).map(agent => agent.id),
+    ])),
     candidate_decision: candidate,
     previous_response: candidate ? null : raw || null,
     validation_errors: errors,
   };
 }
 
-export const ADJUDICATOR_INSTRUCTION = `Adjudicate the rejected router decision using the original request, agent capabilities, organization and candidate turns below. Return the SAME complete route contract, including your own confidence. You may choose chat, direct_tool, delegate or goal_plan. Diagnose the supplied validation errors and candidate decision; do not merely remove a target ID to make a contradictory decision syntactically valid. Re-evaluate capability ownership. Preserve relevant follow-up/correction context and restart intent instead of resetting the request to new_work. If evidence is insufficient, report confidence below 0.75 rather than inventing certainty.`;
+export const ADJUDICATOR_INSTRUCTION = `Adjudicate the rejected router decision using the original request, agent capabilities, organization and candidate turns below. Return the SAME complete route contract, including your own confidence. You may choose chat, direct_tool, delegate or goal_plan. Diagnose the supplied validation errors and candidate decision; do not merely remove a target ID to make a contradictory decision syntactically valid. Re-evaluate capability ownership. candidate_capability_owners lists exact eligible executors for each candidate capability. Never delegate a capability to an agent absent from its owner list because of a promising role title. An orchestrator may directly use its own granted utility capability for a bounded request; orchestrator status alone is not a reason to delegate. If changing capabilities, independently verify the new capability against the selected executor's catalog. Preserve relevant follow-up/correction context and restart intent instead of resetting the request to new_work. If evidence is insufficient, report confidence below 0.75 rather than inventing certainty.`;

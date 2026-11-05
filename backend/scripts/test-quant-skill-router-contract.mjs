@@ -51,4 +51,5 @@ const routerInput = compactRouterInput({
 });
 assert.ok(JSON.stringify(routerInput).length <= 60000, 'router context must stay within compaction budget');
 assert.equal(routerInput._context_compaction.compacted, true);
+assert.ok(routerInput.capability_catalog.every(item=>item.description.length>0),'strong compaction must retain modality descriptions');
 console.log('quant skill contract and router context compaction tests passed');

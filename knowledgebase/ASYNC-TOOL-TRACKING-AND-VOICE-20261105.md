@@ -62,3 +62,25 @@ Regression tests passed: execution governor (original success/error recovery and
 
 
 Final deployed correction: gateway `voice-web-envelope-20261105`, backend `voice-result-20261105`, frontend unchanged `async-voice-20261105`; all healthy. A browser upload was performed through the normal authenticated UI. After the first failed web reply and correction, browser input submission stopped taking effect even though DOM reads/fills worked. The follow-up referencing the same uploaded recording is prepared in the web composer; user-assisted Send was requested. The post-correction web reply is not yet verified, and browser microphone capture remains untested. Do not describe this as a passed web end-to-end test.
+
+
+## November 6 web follow-up
+
+The user submitted the prepared web follow-up at 00:20 SGT. It failed: native `read` looked for the recording in the agent workspace, then the model searched/listed physical devices instead of using speech_stt. No transcription tool was invoked. This demonstrates that an isolated speech-only acceptance runner did not validate normal full-catalog web routing.
+
+Correction: capability-scoped current-turn speech guidance uses the qualified speech_stt identifier and the supplied media filename/relative path, explains that uploads resolve through the media API rather than the native filesystem, and suppresses unrelated physical inventory prompt context for audio turns. Device permissions and the ability to discover devices after interpreting a spoken device request remain intact. Tests cover audio/file detection, no speech grant, and normal non-audio device prompts. Direct browser re-upload acceptance is pending deployment readiness.
+
+
+The next web submission was rejected twice before agent execution by capability-ownership validation. Investigation with the actual active conversation showed router compaction reduced the 96,051-character input to 49,185 characters by removing all capability descriptions. speech_stt was present only as a name. Isolated routing without history chose speech_stt; routing with the failed conversation history chose image-analysis/help capabilities. The fix retains 40-character capability descriptions at the strongest compaction tier. The existing 60,000-character budget test and all 41 focused routing/adjudication checks pass. Ownership validation remains enforced; rejected attempts dispatched no selected tool.
+
+
+Exact-envelope reproduction then showed the first router correctly selecting speech_stt, followed by the adjudicator assigning it to Platform Help, which does not own it. Thus retaining descriptions alone did not close acceptance. The adjudicator input now includes exact candidate capability-to-executor ownership derived from the supplied catalogs, and its instruction explicitly prohibits role-title-based delegation to non-owners while permitting bounded use of an orchestrator's own utility tools. Ownership validation is unchanged. The new owner-map regression, all 41 router checks, and async route regression pass. This is recorded as a separate correction, not a claim that the earlier compaction change alone passed the web test.
+
+
+## Web acceptance passed: November 6, 00:44 SGT
+
+The same recording was uploaded through the authenticated web UI and submitted to COO with its normal tool catalog (no temporary speech-only allowlist). The final reply displayed: "Please transcribe this message only. A blue notebook is on the desk."
+
+Native trace: tool call `call_1X8FPXAexHoP6utCwFTV1mQ1` at 00:44:07 SGT invoked only `openclaw:agent-os-content-tools:speech_stt` with the exact uploaded relative path. Its result at 00:44:10 contained the transcript, no error and no duplicate marker. The final assistant reply followed at 00:44:12. No other agent tool invocation appeared in this run, including no device inventory or physical action. The UI showed two speech_stt log badges, but the native trace contains one invocation; do not interpret the two log records as two executions.
+
+Screenshot evidence is stored locally at `.local/broadlink-workflow/web-voice-pass-20261106.jpg`. Final images: backend `voice-owner-review-20261106`, gateway `voice-routing-20261106`, frontend unchanged `async-voice-20261105`. This acceptance covers web audio upload and the returned agent answer. It does not cover live browser microphone capture. Earlier failed attempts remain documented above.

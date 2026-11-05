@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {adjudicatorInput,validateExecutorEvidence} from '../src/services/agent-route-contract.js';
+const input={agent:{id:'coordinator',capabilities:['convert_media']},organization:[{id:'specialist',capabilities:['read_document']},{id:'other',capabilities:[{name:'convert_media'}]}]};
+const candidate={execution_mode:'direct_tool',executor_evidence:{capability_names:['convert_media'],reason:'Convert the supplied media'}};
+const review=adjudicatorInput(input,candidate,null,[]);
+assert.deepEqual(review.candidate_capability_owners,{convert_media:['coordinator','other']});
+assert.deepEqual(validateExecutorEvidence(candidate,input),[]);
+assert.equal(validateExecutorEvidence({...candidate,execution_mode:'delegate',target_agent_id:'specialist'},input).length,1);
+assert.deepEqual(adjudicatorInput(input,null,'invalid',[]).candidate_capability_owners,{});
+console.log('ROUTE_CAPABILITY_OWNERS_OK: exact eligible owners, object/string catalogs, no role-based grant expansion');

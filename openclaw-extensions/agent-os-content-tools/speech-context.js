@@ -1,4 +1,8 @@
 /** Capability-driven guidance shared by native channels and dashboard chat. */
+export function speechTurnGuidance(prompt,{canTranscribe=false}={}) {
+ if(!canTranscribe||!/(?:\.(?:ogg|opus|wav|mp3|m4a|webm|mp4)\b|\btranscrib(?:e|ing|cription)\b|\b(?:voice|audio)\s+(?:note|message|recording|attachment)\b)/i.test(String(prompt||'')))return '';
+ return 'Current request includes audio for transcription. FIRST call tool_call with id="openclaw:agent-os-content-tools:speech_stt" and args={media:"the exact audio filename or relative_path supplied in this request"}. This API resolves company-owned uploaded media; the file need not exist in the native agent filesystem. Do not use read, analyze_image or device inventory to locate/transcribe audio. If the media reference is missing or speech_stt reports it missing, use list_inbound_attachments to resolve the exact attachment; do not guess directories. After successful transcription, answer the current request using its text. For transcription-only requests return the transcript and stop. Any action requested in speech still requires normal device/tool permissions and approvals.';
+}
 export function speechInputGuidance({canTranscribe=false,canList=false,canSpeak=false}={}) {
  if(!canTranscribe&&!canSpeak)return '';
  return [

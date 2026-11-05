@@ -145,7 +145,9 @@ export function compactRouterInput(input, maxChars = 60000) {
   if (size() > maxChars) value.organization = value.organization.map((agent) => ({ ...agent, skills: agent.skills.slice(0, 4), capabilities: agent.capabilities.slice(0, 40) }));
   if (size() > maxChars) value.candidate_turns = value.candidate_turns.slice(-4).map((turn) => ({ ...turn, content: turn.content.slice(0, 350) }));
   if (size() > maxChars) value.organization = value.organization.map((agent) => ({ ...agent, skills: agent.skills.map(({ id, name, version, version_id, ready }) => ({ id, name, version, version_id, ready })) }));
-  if (size() > maxChars) value.capability_catalog = value.capability_catalog.map(({ name }) => ({ name }));
+  // Names alone hide modality/intent (e.g. transcription vs image analysis).
+  // Retain a short description even under the strongest compaction tier.
+  if (size() > maxChars) value.capability_catalog = value.capability_catalog.map(({ name, description }) => ({ name, description: String(description || '').slice(0, 40) }));
   if (size() > maxChars) {
     value.current_message = value.current_message.slice(0, 6000);
     value.organization = value.organization.slice(0, 40).map((agent) => ({
