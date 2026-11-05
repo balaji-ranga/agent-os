@@ -58,10 +58,13 @@ export function baseOcIdFromAgent(agent) {
 }
 
 function grantsForAgentId(agentId) {
-  return getDb()
+  const db=getDb();
+  const grants=db
     .prepare('SELECT tool_name FROM agent_tool_grants WHERE agent_id = ? ORDER BY tool_name')
     .all(agentId)
     .map((r) => r.tool_name);
+  if(grants.length&&!grants.includes('tool_execution_status')&&db.prepare("SELECT 1 FROM content_tools_meta WHERE name='tool_execution_status' AND enabled=1").get())grants.push('tool_execution_status');
+  return grants;
 }
 
 function tenantGrantsForAgent(ownerUserId, agentId) {

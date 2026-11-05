@@ -128,6 +128,7 @@ import thisWeekDigestRoutes from './routes/this-week-digest.js';
 import operationalEffectivenessRoutes from './routes/operational-effectiveness.js';
 import { ensureCompanyBusinessProfileSchema } from './services/company-business-profile.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
+import {seedAsyncStatusTool,startToolAsyncWorker} from './services/tool-async-tracking.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
 import { seedBraveSearchToolIfMissing, grantBraveSearchToolToDefaultAgents } from './db/seed-brave-search-tool.js';
@@ -427,6 +428,8 @@ seedMarketDataToolsIfMissing();
 seedEventProductivityToolsIfMissing();
 seedMarketingWorkspaceToolsIfMissing();
 seedAgentMcpBridgeToolsIfMissing();
+seedAsyncStatusTool();
+startToolAsyncWorker();
 try {
   const refreshedMcpGrants = refreshAgentMcpGrantClassifications();
   if (refreshedMcpGrants) console.log('[startup] refreshed MCP grant classifications (%s grant(s))', refreshedMcpGrants);

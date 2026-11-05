@@ -88,14 +88,14 @@ export function selectSessionContentTools({ agentId, ownerUserId = null, message
   if (selectedMcpCapabilities.length && bridgeGrants.length) {
     return {
       scoped: true,
-      tools: [...bridgeGrants],
+      tools: [...bridgeGrants,...grants.filter(name=>name==='tool_execution_status')],
       grants_count: grants.length,
       selected_count: bridgeGrants.length,
       selected_mcp_capabilities: selectedMcpCapabilities,
     };
   }
   if(routeNames.length&&routeNames.every(name=>name.startsWith('physical_'))){
-    const requested=new Set([...routeNames,'physical_entities_list','physical_operation_get']);
+    const requested=new Set([...routeNames,'physical_entities_list','physical_operation_get','tool_execution_status']);
     const tools=grants.filter(name=>requested.has(name));
     return {scoped:true,tools,grants_count:grants.length,selected_count:tools.length};
   }
@@ -108,6 +108,10 @@ export function selectSessionContentTools({ agentId, ownerUserId = null, message
     if (value && granted.has(value) && !selected.includes(value) && selected.length < limit) selected.push(value);
   };
 
+  add('tool_execution_status');
+  if(/\.(?:ogg|opus|mp3|wav|m4a|webm|aac|flac)\b|\b(?:audio|voice|transcrib)/i.test(message)){
+    add('speech_stt');add('list_inbound_attachments');
+  }
   for (const name of routeNames) add(name);
   if(routeNames.some(name=>name.startsWith('physical_')))for(const name of ['physical_entities_list','physical_invoke','physical_operation_get'])add(name);
   if (/\b(download|attach|pdf|spreadsheet|file)\b/i.test(message)) add('download_file');

@@ -4270,10 +4270,21 @@
           "label": "Register/manage physical devices"
         }
       ],
-      "headings": [],
+      "headings": [
+        "Device-defined outputs"
+      ],
       "controls": [
         {
-          "id": "components/workflow/PhysicalDeviceFields.jsx:10:33",
+          "id": "components/workflow/PhysicalDeviceFields.jsx:13:40",
+          "label": "Find device",
+          "type": "text",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/PhysicalDeviceFields.jsx:14:33",
           "label": "Site",
           "type": "select",
           "required": false,
@@ -4290,7 +4301,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/PhysicalDeviceFields.jsx:11:32",
+          "id": "components/workflow/PhysicalDeviceFields.jsx:15:32",
           "label": "Hub",
           "type": "select",
           "required": false,
@@ -4307,7 +4318,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/PhysicalDeviceFields.jsx:12:45",
+          "id": "components/workflow/PhysicalDeviceFields.jsx:16:45",
           "label": "Registered asset",
           "type": "select",
           "required": false,
@@ -4324,7 +4335,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/PhysicalDeviceFields.jsx:14:38",
+          "id": "components/workflow/PhysicalDeviceFields.jsx:18:38",
           "label": "Operation",
           "type": "select",
           "required": false,
@@ -4345,7 +4356,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/PhysicalDeviceFields.jsx:15:76",
+          "id": "components/workflow/PhysicalDeviceFields.jsx:19:76",
           "label": "Property",
           "type": "select",
           "required": false,
@@ -4362,7 +4373,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/PhysicalDeviceFields.jsx:15:325",
+          "id": "components/workflow/PhysicalDeviceFields.jsx:19:330",
           "label": "Declared action",
           "type": "select",
           "required": false,
@@ -4379,7 +4390,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/PhysicalDeviceFields.jsx:15:612",
+          "id": "components/workflow/PhysicalDeviceFields.jsx:19:622",
           "label": "Arguments JSON",
           "type": "textarea",
           "required": false,
@@ -9379,7 +9390,7 @@
       ],
       "controls": [
         {
-          "id": "pages/ContentToolsLogs.jsx:514:10",
+          "id": "pages/ContentToolsLogs.jsx:515:10",
           "label": "Search tools registry",
           "type": "search",
           "required": false,
@@ -9388,7 +9399,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:639:12",
+          "id": "pages/ContentToolsLogs.jsx:640:12",
           "label": "Unlabelled or dynamically labelled control",
           "type": "textarea",
           "required": false,
@@ -9397,7 +9408,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:712:12",
+          "id": "pages/ContentToolsLogs.jsx:713:12",
           "label": "Filter tools or capabilities…",
           "type": "search",
           "required": false,
@@ -9406,7 +9417,28 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:742:51",
+          "id": "pages/ContentToolsLogs.jsx:744:51",
+          "label": "Unlabelled or dynamically labelled control",
+          "type": "select",
+          "required": false,
+          "conditional": true,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [
+            {
+              "value": "sync",
+              "label": "Sync (default)"
+            },
+            {
+              "value": "async",
+              "label": "Async — tracking ID + notification"
+            }
+          ],
+          "options_authority": "live_options_required"
+        },
+        {
+          "id": "pages/ContentToolsLogs.jsx:745:51",
           "label": "Unlabelled or dynamically labelled control",
           "type": "number",
           "required": false,
@@ -9417,7 +9449,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:743:51",
+          "id": "pages/ContentToolsLogs.jsx:746:51",
           "label": "Unlabelled or dynamically labelled control",
           "type": "number",
           "required": false,
@@ -9429,7 +9461,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:744:51",
+          "id": "pages/ContentToolsLogs.jsx:747:51",
           "label": "Unlabelled or dynamically labelled control",
           "type": "number",
           "required": false,
@@ -9440,7 +9472,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:745:51",
+          "id": "pages/ContentToolsLogs.jsx:748:51",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -9465,7 +9497,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:839:28",
+          "id": "pages/ContentToolsLogs.jsx:842:28",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -9486,7 +9518,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:875:30",
+          "id": "pages/ContentToolsLogs.jsx:878:30",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": false,
@@ -9495,7 +9527,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:986:18",
+          "id": "pages/ContentToolsLogs.jsx:989:18",
           "label": "Filter tools…",
           "type": "search",
           "required": false,
@@ -9504,7 +9536,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:1000:18",
+          "id": "pages/ContentToolsLogs.jsx:1003:18",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -9521,7 +9553,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:1060:34",
+          "id": "pages/ContentToolsLogs.jsx:1063:34",
           "label": "∞",
           "type": "number",
           "required": false,
@@ -9531,7 +9563,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:1082:34",
+          "id": "pages/ContentToolsLogs.jsx:1085:34",
           "label": "∞",
           "type": "number",
           "required": false,
@@ -9541,7 +9573,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:1303:16",
+          "id": "pages/ContentToolsLogs.jsx:1306:16",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": false,
@@ -9550,7 +9582,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/ContentToolsLogs.jsx:1366:12",
+          "id": "pages/ContentToolsLogs.jsx:1369:12",
           "label": "Tool",
           "type": "select",
           "required": false,
@@ -10387,16 +10419,16 @@
       ],
       "controls": [
         {
-          "id": "pages/IpWhitelists.jsx:200:16",
-          "label": "IP or CIDR",
-          "type": "text",
+          "id": "pages/IpWhitelists.jsx:204:16",
+          "label": "IP, CIDR or IP list",
+          "type": "textarea",
           "required": false,
           "conditional": true,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/IpWhitelists.jsx:209:16",
+          "id": "pages/IpWhitelists.jsx:213:16",
           "label": "Label (optional)",
           "type": "text",
           "required": false,
@@ -10405,7 +10437,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/IpWhitelists.jsx:223:20",
+          "id": "pages/IpWhitelists.jsx:227:20",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -10414,7 +10446,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/IpWhitelists.jsx:244:20",
+          "id": "pages/IpWhitelists.jsx:248:20",
           "label": "Workflow definition id (desktop only; leave empty = all workflows)",
           "type": "text",
           "required": false,
@@ -10423,7 +10455,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/IpWhitelists.jsx:253:20",
+          "id": "pages/IpWhitelists.jsx:257:20",
           "label": "A2A publish id (leave empty = all your A2A agents on whitelist policy)",
           "type": "text",
           "required": false,
@@ -12988,6 +13020,7 @@
       "forms": [],
       "links": [],
       "headings": [
+        "Operation contract:",
         "Physical AI",
         "· ·"
       ],
@@ -13014,7 +13047,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/PhysicalAI.jsx:44:94",
+          "id": "pages/PhysicalAI.jsx:45:94",
           "label": "Site",
           "type": "select",
           "required": false,
@@ -13031,7 +13064,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/PhysicalAI.jsx:44:291",
+          "id": "pages/PhysicalAI.jsx:45:291",
           "label": "Edge hub",
           "type": "select",
           "required": false,
@@ -13048,7 +13081,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/PhysicalAI.jsx:44:526",
+          "id": "pages/PhysicalAI.jsx:45:526",
           "label": "Search",
           "type": "text",
           "required": false,
@@ -13058,7 +13091,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/PhysicalAI.jsx:48:142",
+          "id": "pages/PhysicalAI.jsx:49:142",
           "label": "Rows per page",
           "type": "select",
           "required": false,

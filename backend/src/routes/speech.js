@@ -23,7 +23,7 @@ function ownerOr403(req, res) {
   return ownerUserId;
 }
 
-function parseMultipartFile(rawBody, contentType) {
+export function parseMultipartFile(rawBody, contentType) {
   const boundaryMatch = /boundary=([^;\s]+)/i.exec(contentType || '');
   let boundary = boundaryMatch?.[1] || '';
   boundary = boundary.replace(/^"|"$/g, '');
@@ -77,10 +77,10 @@ function parseMultipartFile(rawBody, contentType) {
   throw Object.assign(new Error('No audio file in multipart body'), { status: 400 });
 }
 
-async function resolveSttAudio(owner, req) {
-  const ct = String(req.headers['content-type'] || '').toLowerCase();
+export async function resolveSttAudio(owner, req) {
+  const ct = String(req.headers['content-type'] || '');
 
-  if (ct.includes('multipart/form-data')) {
+  if (ct.toLowerCase().includes('multipart/form-data')) {
     const file = parseMultipartFile(req.body, ct);
     return { buffer: file.buffer, filename: file.filename, mimeType: file.mimeType };
   }

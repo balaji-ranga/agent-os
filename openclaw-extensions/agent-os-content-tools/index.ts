@@ -260,6 +260,7 @@ type PromptBuildContext = {
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
   ...physicalSchemas,
+  tool_execution_status:{type:'object',properties:{trackingId:{type:'string',description:'Tracking ID from the earlier async response. Omit to find recent requests in this conversation.'}},additionalProperties:false},
   ...floassistSchemas,
   'multi-format-content-tool': multiFormatSchema,
   download_file: {

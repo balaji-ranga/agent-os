@@ -8,6 +8,9 @@ import { renderWorkflowTemplates } from './agent-workflow-io.js';
 import { extractSpokenAvatarReply } from './avatar-speak-text.js';
 import { persistGeneratedOpenClawMedia } from './media-url.js';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
+import { getDb } from '../db/schema.js';
+import { ensureInboundOpenclawSyncSchema,normalizeOpenclawBasename } from './inbound-media-sync-ledger.js';
+import { getInboundAttachmentsDir } from './inbound-attachments.js';
 import { resolveWorkflowFsRoots } from '../lib/workflow-fs-roots.js';
 import {
   convertAudioBuffer,
@@ -294,6 +297,23 @@ export function resolveOwnerMediaBuffer(ownerUserId, mediaRaw, opts = {}) {
     throw Object.assign(new Error('Media resolve requires owner user id'), { status: 403 });
   }
   const kindLabel = String(opts.kindLabel || 'Media').trim() || 'Media';
+  if(typeof mediaRaw==='string'){
+    mediaRaw=mediaRaw.trim().replace(/^MEDIA:\s*/i,'').replace(/^artifact:/i,'');
+    // The channel staging file may already have been moved to Content Explorer.
+    // Recover only its exact, owner-scoped ledger mapping; never a recent-file guess.
+    const raw=mediaRaw,name=basename(raw);
+    const stagingRoot=resolve(getOpenClawDir(),'media','inbound');
+    const stagingRef=raw===name||resolve(raw)===resolve(stagingRoot,name);
+    if(stagingRef){
+      ensureInboundOpenclawSyncSchema();
+      const row=getDb().prepare('SELECT status,mirrored_filename FROM inbound_openclaw_sync WHERE owner_user_id=? AND openclaw_basename=?').get(owner,normalizeOpenclawBasename(name));
+      if(row?.status==='suppressed')throw Object.assign(new Error(`${kindLabel} attachment was deleted`),{status:404});
+      if(row?.status==='mirrored'&&row.mirrored_filename&&basename(row.mirrored_filename)===row.mirrored_filename){
+        const mirror=resolve(getInboundAttachmentsDir(owner),row.mirrored_filename);
+        if(existsSync(mirror))return {buffer:readFileSync(mirror),filename:row.mirrored_filename,mimeType:mimeFromExt(extname(mirror)),source:'filesystem',absPath:mirror};
+      }
+    }
+  }
   let buffer = null;
   let filename = String(opts.defaultFilename || 'file.bin').trim() || 'file.bin';
   let mimeType = String(opts.defaultMime || 'application/octet-stream').trim() || 'application/octet-stream';

@@ -1,6 +1,8 @@
 import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
 import {registerNativeRetentionService} from './native-retention-service.js';
-import {rememberRuntimeChannel,runtimeChannel,runtimeRunId} from './runtime-channel.js';
+import {rememberRuntimeChannel,runtimeChannel,runtimeRunId,runtimeRecipient} from './runtime-channel.js';
+import {speechInputGuidance} from './speech-context.js';
+import {rememberStatusTurn,isStatusTurn,statusTurnBlock} from './async-status-turn.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {profileTimezoneHint} from './profile-timezone.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
@@ -228,6 +230,7 @@ function ownerUserIdFromSessionKey(sessionKey) {
 
 const PARAM_SCHEMAS = {
   ...physicalSchemas,
+  tool_execution_status:{type:'object',properties:{trackingId:{type:'string',description:'Tracking ID from the earlier async response. Omit to find recent requests in this conversation.'}},additionalProperties:false},
   ...floassistSchemas,
   'multi-format-content-tool': multiFormatSchema,
   download_file: {
@@ -971,12 +974,14 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
   const nativeRunId = runtimeRunId(toolCtx, api.context);
   if (nativeRunId) headers["x-openclaw-run-id"] = String(nativeRunId);
   if (toolCtx?.agentAccountId) headers["x-openclaw-account-id"] = String(toolCtx.agentAccountId);
-  if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
+  const recipient=runtimeRecipient(toolCtx,api.context);
+  if (recipient) headers["x-openclaw-requester-sender-id"] = recipient;
   const sessionKey =
     toolCtx?.sessionKey || safeApiSessionKey(api);
   let ownerUserId = null;
   if (sessionKey) {
     headers["x-openclaw-session-key"] = sessionKey;
+    if(isStatusTurn(sessionKey))headers['x-flolah-status-only']='1';
     ownerUserId = ownerUserIdFromSessionKey(sessionKey);
   }
   if (!ownerUserId && callerAgentId) {
@@ -1113,12 +1118,16 @@ export default definePluginEntry({
       });
       api.on("before_tool_call", (event, ctx) => {
         rememberRuntimeChannel({ ...ctx, runId: event?.runId || ctx?.runId });
+        const statusBlock=statusTurnBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
+        if(statusBlock)return {block:true,blockReason:statusBlock};
         const scope = loadSessionAllowlists()[ctx?.sessionKey || safeApiSessionKey(api)];
         const reason = steeringToolBlock(scope, event?.toolName || ctx?.toolName, event?.params);
         if (reason) return { block: true, blockReason: reason };
       }, { priority: 100 });
       api.on("before_prompt_build", async (event, ctx) => {
         rememberRuntimeChannel(ctx);
+        const statusSession=ctx?.sessionKey||safeApiSessionKey(api);
+        rememberStatusTurn(statusSession,event?.prompt);
         const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
         const physicalHint = await physicalContextHint({allowed:isToolAllowedForAgent(recoveryAgent,'physical_entities_list',ctx?.sessionKey),sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:String(resolvePluginConfig(api).baseUrl||'').trim(),brokerSecret:loadToolBrokerSecret});
         const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
@@ -1133,13 +1142,15 @@ export default definePluginEntry({
           const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
           try{
             const response=await fetch(base+'/api/tools/native-model-budget/profile-context',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify({session_key:sessionKey}),signal:AbortSignal.timeout(3000)});
-            if(response.ok)return profileTimezoneHint(await response.json());
+            if(response.ok){const context=await response.json();return [profileTimezoneHint(context),context.tool_tracking_context||''].filter(Boolean).join('\n');}
           }catch{}
           return profileTimezoneHint({enabled:true,timezone_available:false});
         };
         const [timezoneHint,result] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx)]);
-        const personalContext=[physicalDiscoveryTurnHint(physicalHint),recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
-        const systemContext=[timezoneHint,physicalHint].filter(Boolean).join('\n');
+        const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
+        const personalContext=statusHint?[statusHint,timezoneHint].filter(Boolean).join('\n'):[physicalDiscoveryTurnHint(physicalHint),recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
+        const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
+        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint].filter(Boolean).join('\n');
         const clockContext=systemContext?{appendSystemContext:systemContext}:{};
         if (!result?.matched) return systemContext||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};

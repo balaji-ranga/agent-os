@@ -281,6 +281,7 @@ export default function ContentToolsLogs() {
     setModelMapError(null);
     const mappings = modelMapData.tools.map((t) => ({
       tool_name: t.name,
+      execution_mode: t.execution_mode || 'sync',
       llm_model: modelMapDraft[t.name] != null ? String(modelMapDraft[t.name]) : '',
     }));
     api
@@ -723,6 +724,7 @@ export default function ContentToolsLogs() {
                   <thead><tr style={{ borderBottom: '1px solid var(--border)' }}>
                     <th style={{ textAlign: 'left', padding: 8 }}>Tool / capability</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Access</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Response mode</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Retry</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Timeout</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Duplicate guard</th>
@@ -739,6 +741,7 @@ export default function ContentToolsLogs() {
                       return <tr key={t.name} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: 8, minWidth: 190 }}><strong>{t.display_name || t.name}</strong><div style={{ color: 'var(--muted)' }}>{t.name}</div><div style={{ color: 'var(--accent)' }}>{t.capability}</div></td>
                         <td style={{ padding: 8 }}>{t.access === 'mutating' ? 'Mutating' : 'Read-only'}</td>
+                        <td style={{ padding: 8 }}><select aria-label={`${t.name} response mode`} value={t.execution_mode || 'sync'} disabled={t.name === 'tool_execution_status'} onChange={(e) => update('execution_mode', e.target.value)}><option value="sync">Sync (default)</option><option value="async">Async — tracking ID + notification</option></select></td>
                         <td style={{ padding: 8 }}><input aria-label={`${t.name} retry limit`} type="number" min="0" max="3" value={t.retry_limit} onChange={(e) => update('retry_limit', e.target.value)} style={{ width: 54, padding: 4 }} /></td>
                         <td style={{ padding: 8 }}><input aria-label={`${t.name} timeout milliseconds`} type="number" min="1000" max="600000" step="1000" value={t.timeout_ms} onChange={(e) => update('timeout_ms', e.target.value)} style={{ width: 92, padding: 4 }} /></td>
                         <td style={{ padding: 8 }}><input aria-label={`${t.name} duplicate window seconds`} type="number" min="0" max="86400" value={t.duplicate_window_sec} onChange={(e) => update('duplicate_window_sec', e.target.value)} style={{ width: 78, padding: 4 }} /> sec</td>

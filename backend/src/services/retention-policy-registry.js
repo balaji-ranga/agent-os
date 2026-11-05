@@ -20,6 +20,7 @@ add('ibkrnew_position_snapshots', { time: 'captured_at' });
 add('ibkr_equity_marks', { time: 'mark_date' });
 add('knowledge_feedback knowledge_retrieval_metrics', { owner: 'owner' });
 add('data_retention_runs', { time: 'finished_at' });
+add('tool_async_jobs', {time:'updated_at',state:'notification_state',states:['sent','web_fallback']});
 add('agent_workflow_audit', {parent:{table:'agent_workflow_definitions',key:'id',fk:'definition_id',owner:'owner_user_id'}});
 add('activities', {parent:{table:'agents',key:'id',fk:'agent_id',owner:'owner_user_id'}});
 add('platform_skill_audit', {parent:{table:'agent_skills',key:'id',fk:'skill_id',owner:'owner_user_id'}});

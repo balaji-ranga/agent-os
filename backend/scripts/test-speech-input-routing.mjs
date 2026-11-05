@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {speechInputGuidance} from '../../openclaw-extensions/agent-os-content-tools/speech-context.js';
+import {rememberRuntimeChannel,runtimeRecipient} from '../../openclaw-extensions/agent-os-content-tools/runtime-channel.js';
+const root=mkdtempSync(join(tmpdir(),'speech-input-'));
+process.env.AGENT_OS_DATA_DIR=join(root,'data');process.env.OPENCLAW_DIR=join(root,'openclaw');process.env.WORKFLOW_FS_ROOTS=join(root,'workflow');
+const {getDb}=await import('../src/db/schema.js');const db=getDb();
+const {saveInboundAttachment}=await import('../src/services/inbound-attachments.js');
+const {recordInboundOpenclawMirrored,suppressInboundOpenclawMirror}=await import('../src/services/inbound-media-sync-ledger.js');
+const {resolveOwnerMediaBuffer}=await import('../src/services/agent-workflow-speech.js');
+const {parseMultipartFile,resolveSttAudio}=await import('../src/routes/speech.js');
+try{
+ const bytes=Buffer.from('fixture audio payload');
+ const boundary='----BrowserBoundaryMixedCASE';
+ const upload=Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="voice.ogg"\r\nContent-Type: audio/ogg\r\n\r\nfixture audio payload\r\n--${boundary}--\r\n`);
+ assert.deepEqual(parseMultipartFile(upload,`multipart/form-data; boundary=${boundary}`).buffer,bytes,'multipart boundaries are case-sensitive');
+ assert.deepEqual((await resolveSttAudio('company-a',{headers:{'content-type':`multipart/form-data; boundary=${boundary}`},body:upload})).buffer,bytes,'web upload routing preserves the original boundary case');
+ const saved=saveInboundAttachment('company-a',{buffer:bytes,filename:'wa-recording-fixture.ogg'});
+ recordInboundOpenclawMirrored('company-a','recording-fixture.ogg',{mirroredFilename:saved.filename,size:bytes.length});
+ for(const ref of ['recording-fixture.ogg','MEDIA:'+join(process.env.OPENCLAW_DIR,'media','inbound','recording-fixture.ogg'),saved.relative_path])assert.deepEqual(resolveOwnerMediaBuffer('company-a',ref).buffer,bytes);
+ assert.throws(()=>resolveOwnerMediaBuffer('company-b','recording-fixture.ogg'),/not found/);
+ suppressInboundOpenclawMirror('company-a','recording-fixture.ogg');
+ assert.throws(()=>resolveOwnerMediaBuffer('company-a','recording-fixture.ogg'),/deleted/);
+ assert.equal(speechInputGuidance({}), '');
+ assert.match(speechInputGuidance({canTranscribe:true,canList:true}),/speech_stt/);
+ assert.match(speechInputGuidance({canTranscribe:true,canList:true}),/Never substitute/);
+ rememberRuntimeChannel({sessionKey:'main',runId:'one',channel:'whatsapp',requesterSenderId:'+6500000000'},100);
+ assert.equal(runtimeRecipient({sessionKey:'main',runId:'one'},null,101),'+6500000000');
+ rememberRuntimeChannel({sessionKey:'main',runId:'two',channel:'whatsapp'},102);
+ assert.equal(runtimeRecipient({sessionKey:'main',runId:'two'},null,103),null,'recipient cannot leak across runs');
+ console.log('SPEECH_INPUT_ROUTING_OK: MEDIA reference normalization, deleted staging exact mirror recovery, cross-company denial, suppressed files, capability guidance, recipient isolation');
+}finally{db.close();rmSync(root,{recursive:true,force:true});}

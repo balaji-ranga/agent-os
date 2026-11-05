@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {isTrackingStatusQuestion,rememberStatusTurn,statusTurnBlock} from '../../openclaw-extensions/agent-os-content-tools/async-status-turn.js';
+for(const text of ['What is the status of my latest tracked tool request?','Has the previous operation completed?','Any update on the pending task?','Check progress for track-abc123','What is the status?','Any update?','Did it work?'])assert.equal(isTrackingStatusQuestion(text),true,text);
+for(const text of ['Update the task status to done','Open the app','Send this message','Read this audio recording'])assert.equal(isTrackingStatusQuestion(text),false,text);
+rememberStatusTurn('session','What is the status of my latest tracked tool request?',100);
+assert(statusTurnBlock('session','tool_call',{id:'physical_invoke'},101));
+assert(statusTurnBlock('session','email_send',{},101));
+assert(statusTurnBlock('session','exec',{},101));
+assert.equal(statusTurnBlock('session','tool_call',{id:'tool_execution_status'},101),null);
+assert.equal(statusTurnBlock('session','tool_call',{id:'openclaw:agent-os-content-tools:tool_execution_status'},101),null);
+assert(statusTurnBlock('session','tool_call',{id:'openclaw:agent-os-content-tools:physical_invoke'},101));
+assert.equal(statusTurnBlock('session','tool_search',{},101),null);
+assert.equal(statusTurnBlock('other','physical_invoke',{},101),null);
+rememberStatusTurn('session','Send the authorized message now',102);
+assert.equal(statusTurnBlock('session','email_send',{},103),null,'fresh explicit action clears observational restriction');
+console.log('ASYNC_STATUS_TURN_OK: observational turns block new actions across tools; status/discovery allowed; session isolation and fresh-action reset');

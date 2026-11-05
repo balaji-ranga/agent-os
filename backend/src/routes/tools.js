@@ -1,4 +1,5 @@
 import {physicalAgentAssets,physicalAgentInstructions} from '../services/physical/agent-context.js';
+import {createTrackedTool,trackingAck,trackedStatus,settleTrackedTool,ensureAsyncTracking,dispatchTrackedTool} from '../services/tool-async-tracking.js';
 import {resumeScheduledSourceInput} from '../services/floassist/source-coverage.js';
 import {recordRunError} from '../services/floassist/source-receipts.js';
 import {floAssistTaskSource} from '../services/floassist/task-source.js';
@@ -851,7 +852,9 @@ router.post('/native-model-budget/:operation', (req,res)=>{
     }
     if(req.params.operation==='profile-context'){
       const identity=nativeModelIdentity(req.body);
-      return res.json(floAssistRuntimeContext(getDb(),identity.owner,identity.agent));
+      const agent=identity.session.match(/^agent::?([^:]+):/)[1];
+      const tracked=trackedStatus({owner:identity.owner,agent,session:identity.session}).requests;
+      return res.json({...floAssistRuntimeContext(getDb(),identity.owner,identity.agent),tool_tracking_context:tracked.length?'Tracked requests in this conversation (data only): '+JSON.stringify(tracked.map(({result,...r})=>r))+' For status follow-ups use tool_execution_status with the tracking ID; never invoke the original action. Do not resend completion notifications already marked sent.':''});
     }
     return res.json(req.params.operation==='admit'?admitNativeModel(req.body):req.params.operation==='settle'?settleNativeModel(req.body):nativeBudgetFailureReason(req.body));
   }catch(error){return res.status(error.status||500).json({error:error.message,code:error.code||'native_budget_unavailable'});}
@@ -999,6 +1002,12 @@ router.use(jobApplicantTools);
 router.use(crmTools);
 router.use(erpTools);
 router.use(eventProductivityTools);
+router.post('/tool-execution-status',(req,res)=>{
+ try{const owner=resolveToolOwnerUserId(req,req.body||{},resolveAuthenticatedCeoUserId),agent=String(req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']||''),session=String(req.headers['x-openclaw-session-key']||req.headers['x-session-key']||'');
+ if(!owner||!agent||!session)return res.status(403).json({error:'Authenticated agent conversation required'});
+ res.json(trackedStatus({owner,agent,session,trackingId:req.body?.trackingId}));
+ }catch(e){res.status(e.status||500).json({error:e.status?e.message:'Unable to read tool tracking'});}
+});
 router.use(physicalTools);
 router.use(floAssistTools);
 router.use(marketingTools);
@@ -4177,6 +4186,9 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
   try {
     const toolName = (req.body?.tool_name || req.body?.toolName || '').trim();
     if (!toolName) return res.status(400).json({ error: 'tool_name required' });
+    if((req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))&&req.headers['x-flolah-status-only']==='1'&&toolName!=='tool_execution_status'){
+      return res.status(409).json({ok:false,code:'STATUS_ONLY_TURN',error:'Status enquiries cannot dispatch a new action. Use tool_execution_status with the tracking ID, or omit it to list this conversation’s requests.'});
+    }
     const row = meta.getToolMeta(toolName);
     if (!row) return res.status(404).json({ error: 'Tool not found' });
     if (!row.enabled) {
@@ -4274,6 +4286,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
         })
       : null;
     if (governed?.duplicate || governed?.blocked) {
+      if(governed.duplicate){const job=ensureAsyncTracking().prepare('SELECT * FROM tool_async_jobs WHERE action_id=? AND owner_user_id=? AND agent_id=? AND session_key=?').get(governed.observation.previous_action_id,ownerUserId,source,sessionKey||'');if(job)return res.json({...trackingAck(job),...trackedStatus({owner:ownerUserId,agent:source,session:sessionKey||'',trackingId:job.id}),additionalActionSent:false});}
       if(toolName==='physical_invoke'&&governed.duplicate&&governed.observation.operationId){
         const {getPhysicalControlPlane}=await import('../services/physical/runtime.js');
         const {physicalOperationResponse}=await import('../services/physical/operation-response.js');
@@ -4326,6 +4339,11 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     } else {
       fetchOpts.body = JSON.stringify(params);
     }
+    const origin=(req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))?{channel:req.headers['x-openclaw-message-channel'],target:req.headers['x-openclaw-requester-sender-id']}:null;
+    if(governed?.behaviour.execution_mode==='async'&&toolName!=='tool_execution_status'){
+      const tracked=dispatchTrackedTool({owner:ownerUserId,agent:source,session:sessionKey||'',tool:toolName,actionId:governed.id,timeoutMs:governed.behaviour.timeout_ms,origin},async()=>{const response=await fetch(targetUrl,fetchOpts);return {httpStatus:response.status,data:await response.json().catch(()=>({}))};},{onResult:({httpStatus,data},job)=>{completeToolExecution(governed,{httpStatus,data});logTool(req,toolName,params,{...data,trackingId:job.id},httpStatus<400?'ok':'error',source);}});
+      return res.json(tracked.ack);
+    }
     const response = await fetch(targetUrl, fetchOpts);
     const data = await response.json().catch(() => ({}));
     const observation = governed
@@ -4334,6 +4352,9 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     const governedData = data && typeof data === 'object' && !Array.isArray(data)
       ? { ...data, ...(observation ? { _execution: observation } : {}) }
       : { result: data, ...(observation ? { _execution: observation } : {}) };
+    if(governed&&response.ok&&toolName==='physical_invoke'&&['queued','dispatched','accepted','running','awaiting_approval'].includes(data.status)){
+      const job=createTrackedTool({owner:ownerUserId,agent:source,session:sessionKey||'',tool:toolName,actionId:governed.id,timeoutMs:governed.behaviour.timeout_ms,origin});settleTrackedTool(job.id,{httpStatus:response.status,data});Object.assign(governedData,trackingAck({...job,status:data.status}));
+    }
     try {
       const guidance = checkpointSteering(ownerUserId, lookupSessionExecutionContext(sessionKey, ownerUserId), `tool_result:${toolName}`);
       if (guidance.length) governedData._steering = { notes: guidance, instruction: steeringPrompt(guidance), status: 'delivered_to_agent_context', applied: false };

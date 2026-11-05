@@ -64,7 +64,7 @@ function stable(value) {
   );
 }
 
-function redactForStorage(value, depth = 0) {
+export function redactForStorage(value, depth = 0) {
   if (depth > 8) return '[truncated]';
   if (Array.isArray(value)) return value.slice(0, 100).map((v) => redactForStorage(v, depth + 1));
   if (!value || typeof value !== 'object') {
@@ -102,6 +102,7 @@ export function defaultExecutionBehaviour(toolName) {
   const mutating = name==='multi-format-content-tool'||MUTATING.test(name);
   return {
     tool_name: name,
+    execution_mode: 'sync',
     capability,
     access: mutating ? 'mutating' : 'read_only',
     retry_limit: 1,
@@ -114,8 +115,11 @@ export function defaultExecutionBehaviour(toolName) {
   };
 }
 
+const modeStores=new WeakSet();
+function ensureExecutionMode(){const db=getDb();if(modeStores.has(db))return;if(!db.prepare('PRAGMA table_info(tool_execution_behaviour)').all().some(c=>c.name==='execution_mode'))db.exec("ALTER TABLE tool_execution_behaviour ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'sync'");modeStores.add(db);}
 function ownerOverrides(ownerUserId) {
   if (!ownerUserId) return new Map();
+  ensureExecutionMode();
   const rows = getDb().prepare(
     `SELECT * FROM tool_execution_behaviour WHERE owner_user_id = ?`
   ).all(ownerUserId);
@@ -128,6 +132,7 @@ export function getExecutionBehaviour(ownerUserId, toolName) {
   if (!row) return base;
   return {
     ...base,
+    execution_mode: row.execution_mode==='async'?'async':'sync',
     retry_limit: row.retry_limit ?? base.retry_limit,
     timeout_ms: row.timeout_ms ?? base.timeout_ms,
     duplicate_window_sec: row.duplicate_window_sec ?? base.duplicate_window_sec,
@@ -153,13 +158,14 @@ export function listExecutionBehaviours(ownerUserId) {
 }
 
 export function putExecutionBehaviours(ownerUserId, mappings = []) {
+  ensureExecutionMode();
   const db = getDb();
   const save = db.prepare(
     `INSERT INTO tool_execution_behaviour
-       (owner_user_id, tool_name, retry_limit, timeout_ms, duplicate_window_sec, verification_mode, fallback_capabilities, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       (owner_user_id, tool_name, retry_limit, timeout_ms, duplicate_window_sec, verification_mode, fallback_capabilities, execution_mode, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(owner_user_id, tool_name) DO UPDATE SET
-       retry_limit=excluded.retry_limit, timeout_ms=excluded.timeout_ms,
+       retry_limit=excluded.retry_limit, timeout_ms=excluded.timeout_ms, execution_mode=excluded.execution_mode,
        duplicate_window_sec=excluded.duplicate_window_sec,
        verification_mode=excluded.verification_mode,
        fallback_capabilities=excluded.fallback_capabilities, updated_at=datetime('now')`
@@ -168,6 +174,7 @@ export function putExecutionBehaviours(ownerUserId, mappings = []) {
     for (const item of items) {
       const name = String(item.tool_name || '').trim();
       if (!name) throw Object.assign(new Error('tool_name required'), { status: 400 });
+      const mode=item.execution_mode||'sync';if(!['sync','async'].includes(mode)||name==='tool_execution_status'&&mode!=='sync')throw Object.assign(Error('Invalid execution mode'),{status:400});
       const exists = db.prepare(`SELECT 1 FROM content_tools_meta WHERE name = ?`).get(name);
       if (!exists) throw Object.assign(new Error(`Unknown tool: ${name}`), { status: 400 });
       const retry = Math.max(0, Math.min(3, Number(item.retry_limit ?? 1)));
@@ -180,7 +187,7 @@ export function putExecutionBehaviours(ownerUserId, mappings = []) {
       const fallbacks = Array.isArray(item.fallback_capabilities)
         ? item.fallback_capabilities.map(String).map((s) => s.trim()).filter(Boolean).slice(0, 8)
         : defaultExecutionBehaviour(name).fallback_capabilities;
-      save.run(ownerUserId, name, retry, timeout, duplicate, verification, json(fallbacks, '[]'));
+      save.run(ownerUserId, name, retry, timeout, duplicate, verification, json(fallbacks, '[]'),mode);
     }
   });
   tx(Array.isArray(mappings) ? mappings : []);
@@ -240,10 +247,11 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
         retryable: false, evidence: [],
         suggested_capabilities: behaviour.fallback_capabilities,
         message: 'An equivalent action was already attempted in this execution. This does not imply it was dispatched or succeeded. Inspect the previous observation, explain its failure if any, and do not change tenant/owner parameter names to bypass duplicate protection.',
-        previous_action_id: duplicate.id,
+        previous_action_id: prior.find(p=>p.observation_status!=='duplicate_blocked')?.id||duplicate.id,
       };
       if(toolName==='physical_invoke'){
         const original=prior.find(p=>p.observation_status!=='duplicate_blocked');
+        observation.previous_action_id=original?.id||duplicate.id;
         const result=parseJson(original?.response_summary,{});
         observation.operationId=result.id||result.operationId||null;
         observation.suggested_capabilities=['physical_operation_get'];
@@ -330,6 +338,10 @@ export function completeToolExecution(action, { httpStatus, data }) {
     `UPDATE tool_execution_actions SET observation_status = ?, reason_code = ?, progress = ?,
        response_summary = ?, completed_at = datetime('now') WHERE id = ?`
   ).run(observation.status, observation.reason_code, observation.progress ? 1 : 0, stored, action.id);
-  try{notifyActionOutcome(action.id);}catch(e){console.warn('[floassist-history] notification unavailable');}
+  try{
+    const db=getDb();
+    const tracked=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='tool_async_jobs'").get()&&db.prepare('SELECT 1 FROM tool_async_jobs WHERE action_id=?').get(action.id);
+    if(!tracked)notifyActionOutcome(action.id);
+  }catch(e){console.warn('[floassist-history] notification unavailable');}
   return { ...observation, action_id: action.id, execution_key: action.execution_key, verification_mode: action.behaviour.verification_mode };
 }

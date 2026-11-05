@@ -444,10 +444,11 @@ async function sendViaMessageTool({ channel, to, accountId, message, mediaFile, 
   return { ok: true, method: 'tools.invoke:message', result: data?.result || data };
 }
 
-async function sendViaOpenClaw({ channel, to, accountId, message, mediaFile, idempotencyKey }) {
+async function sendViaOpenClaw({ channel, to, accountId, message, mediaFile, idempotencyKey, singleAttempt=false }) {
   try {
     return await sendViaMessageTool({ channel, to, accountId, message, mediaFile, idempotencyKey });
   } catch (e) {
+    if(singleAttempt)throw e;
     console.warn('[channel-announce] message tool failed: %s', e?.message || e);
   }
   const params = {
@@ -491,6 +492,8 @@ export async function announceOnAgentChannel({
   idempotencyKey,
   mediaFiles: suppliedMediaFiles = [],
   authorizedTo = null,
+  includeRecentMedia = true,
+  singleAttempt = false,
 } = {}) {
   const ch = String(channel || '').toLowerCase();
   try {
@@ -518,7 +521,7 @@ export async function announceOnAgentChannel({
     const split = splitMediaLines(prefixed);
     let mediaLines = split.mediaLines;
     const body = split.body;
-    if (ch === 'whatsapp' && !mediaLines.length && !suppliedMediaFiles.length) {
+    if (includeRecentMedia && ch === 'whatsapp' && !mediaLines.length && !suppliedMediaFiles.length) {
       const recent = recentOwnerGeneratedAudioLines(ownerUserId);
       if (recent.length) {
         mediaLines = recent;
@@ -556,6 +559,7 @@ export async function announceOnAgentChannel({
       accountId: resolved.accountId,
       message: body,
       idempotencyKey,
+      singleAttempt,
     });
     let mediaSent = 0;
     const mediaResults = [];

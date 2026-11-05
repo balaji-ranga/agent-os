@@ -39,13 +39,20 @@ try {
   assert.equal(selection.grants_count, 140);
   assert.ok(selection.tools.length <= MAX_SESSION_CONTENT_TOOLS);
   assert.ok(selection.tools.includes('calendar_list_events'), 'router-selected capability must survive bounding');
+  (await import('../src/services/tool-async-tracking.js')).seedAsyncStatusTool();
+  handle.prepare("INSERT INTO platform_users(id,email,password_hash,name,role) VALUES('scope-owner','scope@invalid.test','fixture','Fixture','ceo')").run();
+  handle.prepare("INSERT INTO user_agents(user_id,agent_id,enabled) VALUES('scope-owner','scope-agent',1)").run();
+  const tenants=await import('../src/services/openclaw-tenant.js'),tenantScopes=tenants.syncTenantAllowlists();
+  const tenantKey=tenants.tenantOpenClawAgentId('scope-owner',tenants.baseOcIdFromAgent(handle.prepare("SELECT * FROM agents WHERE id='scope-agent'").get()));
+  assert(tenantScopes[tenantKey].includes('tool_execution_status'),'tenant runtime catalog must include the same status capability as the base agent');
   for(const name of ['physical_entities_list','physical_invoke','physical_operation_get']){
     insertMeta.run(name,name,`/fixture/${name}`,'Registered physical device capability');insertGrant.run('scope-agent',name);
   }
   const physical=selectSessionContentTools({agentId:'scope-agent',message:'Operate a registered device',route:{executor_evidence:{capability_names:['physical_invoke']}}});
   for(const name of ['physical_entities_list','physical_invoke','physical_operation_get'])assert.ok(physical.tools.includes(name),'physical request must retain discovery/invoke/verification tools');
   assert.ok(!physical.tools.includes('physical_evidence_get'),'protocol family must not grant unassigned tools');
-  assert.ok(physical.tools.every(name=>name.startsWith('physical_')),'a single physical-device route cannot fall back to desktop browser or unrelated tools');
+  assert.ok(physical.tools.includes('tool_execution_status'),'physical routes retain generic tracking');
+  assert.ok(physical.tools.every(name=>name.startsWith('physical_')||name==='tool_execution_status'),'a single physical-device route cannot fall back to desktop browser or unrelated tools');
   const physicalRead=selectSessionContentTools({agentId:'scope-agent',message:'Inspect registered capabilities',route:{executor_evidence:{capability_names:['physical_entities_list']}}});
   assert.ok(!physicalRead.tools.includes('physical_invoke'),'a read-only device route does not gain an action tool');
   const key = 'agent:t-fixture--scope-agent:request-1';

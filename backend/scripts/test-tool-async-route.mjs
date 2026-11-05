@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {setTimeout as delay} from 'node:timers/promises';
+import express from 'express';
+const root=mkdtempSync(join(tmpdir(),'async-route-'));
+process.env.AGENT_OS_DATA_DIR=join(root,'data');process.env.OPENCLAW_DIR=join(root,'openclaw');
+process.env.AGENT_OS_INTERNAL_TOKEN='isolated-fixture-only';
+const {getDb}=await import('../src/db/schema.js');const db=getDb();
+const tracking=await import('../src/services/tool-async-tracking.js');
+const governor=await import('../src/services/tool-execution-governor.js');
+const {listTables}=await import('../src/services/master-data.js');
+const {default:router}=await import('../src/routes/tools.js');
+const owner='route-fixture',agent='fixture-agent',session='fixture-conversation';
+let server,calls=0;
+try{
+ tracking.seedAsyncStatusTool();
+ db.prepare("INSERT INTO platform_users(id,email,password_hash,name,role) VALUES(?,?,'fixture','Fixture','ceo')").run(owner,'route@invalid.test');
+ db.prepare("INSERT INTO agents(id,name,role) VALUES(?,'Fixture','Test')").run(agent);
+ db.prepare("INSERT INTO content_tools_meta(name,display_name,endpoint,method,enabled) VALUES('master_data_list_tables','List tables','/fixture-read','POST',1)").run();
+ db.prepare("INSERT INTO agent_tool_grants(agent_id,tool_name) VALUES(?,'master_data_list_tables')").run(agent);
+ const app=express();app.use(express.json());
+ // Isolated authentication boundary; execute the real /invoke handler below.
+ app.use((req,res,next)=>{req.authUser={id:owner,role:'ceo'};req.actionPolicy={ok:true};req.isInternalService=true;next();});
+ app.post('/fixture-read',async(req,res)=>{calls++;await delay(40);res.json({tables:listTables(owner)});});
+ for(const path of ['/invoke','/tool-execution-status'])app.post([path,'/api/tools'+path],router.stack.find(layer=>layer.route?.path===path&&layer.route.methods.post).route.stack.at(-1).handle);
+ server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+ const base='http://127.0.0.1:'+server.address().port;process.env.TOOLS_BASE_URL=base;
+ const call=async(body,path='/invoke',sess=session)=>{const r=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json','x-openclaw-agent-id':agent,'x-openclaw-session-key':sess},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};};
+ const sync=await call({tool_name:'master_data_list_tables'},'/invoke','sync-conversation');
+ assert.equal(sync.status,200,JSON.stringify(sync.data));assert.deepEqual(sync.data.tables,[]);assert.equal(sync.data.async,undefined);
+ governor.putExecutionBehaviours(owner,[{tool_name:'master_data_list_tables',execution_mode:'async'}]);
+ const first=await call({tool_name:'master_data_list_tables'});assert.equal(first.status,200,JSON.stringify(first.data));assert.match(first.data.trackingId,/^track-/);
+ const duplicate=await call({tool_name:'master_data_list_tables'});assert.equal(duplicate.data.trackingId,first.data.trackingId);
+ const third=await call({tool_name:'master_data_list_tables'});assert.equal(third.data.trackingId,first.data.trackingId);
+ await delay(90);
+ const result=await call({tool_name:'tool_execution_status',trackingId:first.data.trackingId});
+ assert.equal(result.status,200,JSON.stringify(result.data));assert.equal(result.data.requests[0].status,'completed');assert.deepEqual(result.data.requests[0].result.tables,sync.data.tables);assert.equal(calls,2,'one sync dispatch and one async dispatch only');
+ await tracking.advanceTrackedTools({db});await tracking.advanceTrackedTools({db});
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM platform_user_notifications WHERE source_key=?').get(first.data.trackingId).n,1);
+ const blocked=await fetch(base+'/invoke',{method:'POST',headers:{'Content-Type':'application/json','x-flolah-status-only':'1','x-openclaw-agent-id':agent,'x-openclaw-session-key':session},body:JSON.stringify({tool_name:'master_data_list_tables'})});
+ assert.equal(blocked.status,409);assert.equal((await blocked.json()).code,'STATUS_ONLY_TURN');assert.equal(calls,2,'status-only turns cannot dispatch a new tool');
+ console.log('ASYNC_ROUTE_OK: real invoke handler sync/async parity, duplicate tracking ID, status tool dispatch, one callback, two total reads');
+}finally{server?.closeAllConnections();await new Promise(resolve=>server?server.close(resolve):resolve());(await import('../src/db/ceo-db.js')).closeCeoDb(owner);db.close();rmSync(root,{recursive:true,force:true});}
