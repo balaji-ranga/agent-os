@@ -5,5 +5,5 @@ lightgbm==4.6.0
 xgboost==2.0.3
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.6.0+cpu
-transformers==4.56.0
+transformers==5.10.1
 granite-tsfm==0.3.3
