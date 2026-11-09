@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {isSourceReview,rememberSourceReview,sourceReviewBlock} from '../../openclaw-extensions/agent-os-content-tools/source-review-turn.js';
+for(const p of ['Look at the real.email and calendars and generate a week focus areas for me. I don’t need generic advice','Summarize my Outlook inbox','Review my calendar agenda'])assert.equal(isSourceReview(p),true,p);
+for(const p of ['Run my morning briefing','Pause scheduled goals for email review','Configure calendar automation','Is Gmail connected?','Open YouTube'])assert.equal(isSourceReview(p),false,p);
+rememberSourceReview('a','Summarize my inbox',100);
+assert(sourceReviewBlock('a','tool_call',{id:'scheduled_goal_list'},101));
+assert(sourceReviewBlock('a','scheduled_goal_run_now',{},101));
+assert.equal(sourceReviewBlock('a','floassist_source_read',{},101),null);
+assert.equal(sourceReviewBlock('a','connector_execute_action',{},101),null);
+assert.equal(sourceReviewBlock('b','scheduled_goal_list',{},101),null);
+assert.equal(sourceReviewBlock('a','scheduled_goal_list',{},900101),null);
+rememberSourceReview('a','Run my morning briefing',102);
+assert.equal(sourceReviewBlock('a','scheduled_goal_list',{},103),null);
+console.log('SOURCE_REVIEW_TURN_OK: direct review, scheduler intent exclusions, normal source tools, isolation, expiry and reset');

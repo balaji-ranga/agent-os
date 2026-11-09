@@ -3,6 +3,7 @@ import {registerNativeRetentionService} from './native-retention-service.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId,runtimeRecipient} from './runtime-channel.js';
 import {speechInputGuidance,speechTurnGuidance} from './speech-context.js';
 import {rememberStatusTurn,isStatusTurn,statusTurnBlock} from './async-status-turn.js';
+import {rememberSourceReview,sourceReviewBlock} from './source-review-turn.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {connectorRoutingGuidance} from './connector-context.js';
 import {profileTimezoneHint} from './profile-timezone.js';
@@ -1122,6 +1123,8 @@ export default definePluginEntry({
         rememberRuntimeChannel({ ...ctx, runId: event?.runId || ctx?.runId });
         const statusBlock=statusTurnBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
         if(statusBlock)return {block:true,blockReason:statusBlock};
+        const reviewBlock=sourceReviewBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
+        if(reviewBlock)return {block:true,blockReason:reviewBlock};
         const scope = loadSessionAllowlists()[ctx?.sessionKey || safeApiSessionKey(api)];
         const reason = steeringToolBlock(scope, event?.toolName || ctx?.toolName, event?.params);
         if (reason) return { block: true, blockReason: reason };
@@ -1130,6 +1133,7 @@ export default definePluginEntry({
         rememberRuntimeChannel(ctx);
         const statusSession=ctx?.sessionKey||safeApiSessionKey(api);
         rememberStatusTurn(statusSession,event?.prompt);
+        rememberSourceReview(statusSession,event?.prompt);
         const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
         const speechTurn=speechTurnGuidance(event?.prompt,{canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey)});
         const physicalHint = await physicalContextHint({allowed:!speechTurn&&isToolAllowedForAgent(recoveryAgent,'physical_entities_list',ctx?.sessionKey),sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:String(resolvePluginConfig(api).baseUrl||'').trim(),brokerSecret:loadToolBrokerSecret});

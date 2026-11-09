@@ -40,6 +40,11 @@ try{
  profileEnabled=true;profileUnavailable=true;
  const unavailable=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{agentId:id,sessionKey:sparseSession});
  assert.match(unavailable.appendSystemContext,/Do not assume UTC/);profileUnavailable=false;
+ await hooks.get('before_prompt_build')({prompt:'Review my email and calendar for weekly focus areas'},ctx);
+ assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_list',args:{}}},ctx)).block,true);
+ assert.equal(await hooks.get('before_tool_call')({toolName:'floassist_source_read',params:{app_id:'gmail'}},ctx),undefined);
+ await hooks.get('before_prompt_build')({prompt:'Run my morning briefing'},ctx);
+ assert.equal(await hooks.get('before_tool_call')({toolName:'scheduled_goal_list',params:{}},ctx),undefined);
  const event={sessionKey:session,runId:'fixture-run',kind:'final',payload:{isError:true,text:'No reply was generated for this message. This is usually a temporary model failure - please try again.'}};
  const reply=await hooks.get('reply_payload_sending')(event,ctx);assert.match(reply.payload.text,/monthly token allowance/);assert.equal(reply.payload.isError,true);
  for(const request of requests.filter(r=>r.path.includes('native-model-budget')))assert.ok(!('prompt'in request.body)&&!('content'in request.body));

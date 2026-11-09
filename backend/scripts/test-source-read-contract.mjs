@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {sourceReadContract} from '../src/services/floassist/source-read-contract.js';
+const page={content:'fixture body',coverage_complete:false,next_request:{cursor:'opaque-owner-scoped-reference'}};
+const output=sourceReadContract(page);
+assert.deepEqual(output.next_call,{tool:'tool_call',arguments:{id:'floassist_source_read',args:page.next_request}});
+assert.equal(output.content,page.content);assert.equal(output.coverage_complete,false);assert.equal(page.next_call,undefined);
+const discovery={discovery_only:true,source_candidates:[{app_id:'google_drive',source_id:'verified-source'}]};
+assert.deepEqual(sourceReadContract(discovery).source_candidates[0].read_call.arguments.args,discovery.source_candidates[0]);
+assert.equal(discovery.source_candidates[0].read_call,undefined);
+const window={time_min:'2026-11-09T00:00:00+08:00',time_max:'2026-11-16T00:00:00+08:00'};
+assert.equal(sourceReadContract(discovery,window).source_candidates[0].read_call.arguments.args.time_min,window.time_min);
+assert.equal(sourceReadContract({coverage_complete:true}).next_call,undefined);
+assert.equal(sourceReadContract({empty:true}).empty,true);
+assert.match(output.review_guidance,/not every message or account/);
+console.log('SOURCE_READ_CONTRACT_OK: opaque continuations, verified candidates, unchanged evidence and no execution');
