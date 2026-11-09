@@ -85,6 +85,11 @@ for(const kind of ['session','delegation','goal','workflow']){
 assert.equal(resolveFloAssistScope(db,'a','coo',{},'web'),null);
 assert.throws(()=>assertFloAssistConnector('a','gmail.get_profile',db,resolveFloAssistScope(db,'a','coo',{},'unknown')),e=>e.code==='FLOASSIST_CONTEXT_REQUIRED');
 assert.doesNotThrow(()=>assertFloAssistMcpRoute(null));
+for(const status of ['paused','stopped']){
+ db.prepare('UPDATE floassist_profiles SET status=? WHERE owner_id=?').run(status,'a');
+ assert.throws(()=>assertFloAssistConnector('a','gmail.get_profile',db,{owner:'a',origin:'whatsapp'}),e=>e.code==='FLOASSIST_INACTIVE'&&e.message.includes(status),'Lifecycle restriction must not masquerade as disconnected/unselected Gmail');
+}
+db.prepare("UPDATE floassist_profiles SET status='active' WHERE owner_id='a'").run();
 rememberRuntimeChannel({sessionKey:'one',channel:'whatsapp'},100);assert.equal(runtimeChannel({sessionKey:'one'},null,101),'whatsapp');assert.equal(runtimeChannel({sessionKey:'two'},null,101),null);assert.equal(runtimeChannel({sessionKey:'one'},null,3600101),null);
 // Date precision, source timezone, ambiguous dates, and old confirmation.
 for(const [quote,due,precision]of [['Please send by 27/10/2026 at 3 PM SGT.','2026-10-27T15:00:00+08:00','minute'],['Please send by 27 October 2026.','2026-10-27T15:00:00+08:00','day'],['Please send by tomorrow at 3 PM IST.','2026-10-27T15:00:00+05:30','minute']]){

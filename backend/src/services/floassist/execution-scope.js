@@ -43,7 +43,9 @@ export function assertFloAssistConnector(owner,action,db=getDb(),context=current
   const p=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=?').get(owner);
   const provider=String(action).split('.')[0];
   const app=product.connectors.find(a=>(a.provider_id||a.id)===provider);
-  if(!p||p.status!=='active'||!app||!JSON.parse(p.preferences_json).connectors?.includes(app.id))
+  if(p&&p.status!=='active')
+    throw Object.assign(new Error(`FloAssist is ${p.status}. This request did not access the source. The connected account may still be valid; the FloAssist lifecycle setting blocked execution.`),{status:403,code:'FLOASSIST_INACTIVE'});
+  if(!p||!app||!JSON.parse(p.preferences_json).connectors?.includes(app.id))
     throw Object.assign(new Error('This app is not enabled for this FloAssist execution. Manage apps before retrying.'),{status:403,code:'FLOASSIST_CONNECTOR_NOT_SELECTED'});
   if(context.run&&!responsibilitySources(JSON.parse(p.preferences_json),context.origin?.split(':')[1]).includes(app.id))
     throw Object.assign(new Error('This source belongs to another FloAssist responsibility. Use only the sources assigned to the current check.'),{status:403,code:'FLOASSIST_RESPONSIBILITY_MISMATCH'});
