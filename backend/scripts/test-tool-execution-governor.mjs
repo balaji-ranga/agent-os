@@ -26,6 +26,15 @@ const wrong = governor.completeToolExecution(first, { httpStatus: 404, data: { e
 assert.equal(wrong.status, 'wrong_source');
 assert.equal(wrong.retryable, false);
 assert.deepEqual(wrong.suggested_capabilities, ['master_data_list_documents', 'master_data_rag']);
+const routeBehaviour=governor.defaultExecutionBehaviour('email_list_messages');
+const originalFallback=[...routeBehaviour.fallback_capabilities];
+const route=governor.classifyToolObservation({toolName:'email_list_messages',httpStatus:409,data:{code:'FLOASSIST_CONNECTOR_ROUTE_REQUIRED'},behaviour:routeBehaviour});
+assert.equal(route.status,'wrong_source');
+assert.equal(route.retryable,false,'Do not replay the original wrong-route call');
+assert.deepEqual(route.suggested_capabilities,['connector_search_actions','connector_get_action_guide','connector_execute_action']);
+assert.deepEqual(routeBehaviour.fallback_capabilities,originalFallback,'Classification must not mutate configured fallback policy');
+const denied=governor.classifyToolObservation({toolName:'email_list_messages',httpStatus:403,data:{code:'FLOASSIST_CONNECTOR_NOT_SELECTED'},behaviour:routeBehaviour});
+assert.equal(denied.status,'permanent_error','Authorization denial must not become alternate routing');
 
 const duplicate = governor.beginToolExecution({ ownerUserId: 'ceo-test', agentId: 'agent-a', sessionKey: 'sess-a', toolName: 'master_data_list_rows', params: { owner_user_id: 'another', table_name: 'missing' } });
 assert.equal(duplicate.duplicate, true, 'equivalent call blocked despite owner alias variation');

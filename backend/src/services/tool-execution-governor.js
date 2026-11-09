@@ -300,6 +300,8 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
   } else if(toolName==='physical_invoke'&&httpStatus<400&&data?.id){
     status=data.status==='completed'?'success':data.status==='awaiting_approval'?'awaiting_approval':['failed','uncertain','cancelled','timed_out','denied'].includes(data.status)?'permanent_error':'in_progress';
     reason_code='physical_'+data.status;progress=data.status==='completed';retryable=false;
+  } else if (httpStatus >= 400 && data?.code === 'FLOASSIST_CONNECTOR_ROUTE_REQUIRED') {
+    status = 'wrong_source'; reason_code = data.code; progress = false;
   } else if (httpStatus === 202 || /approval required|awaiting approval/.test(text)) {
     status = 'awaiting_approval'; reason_code = 'approval_required'; progress = false;
   } else if (httpStatus === 402 || /quota|billing|payment required/.test(text)) {
@@ -315,7 +317,10 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
   } else if (hasEmptyPayload(data)) {
     status = 'empty'; reason_code = 'no_evidence'; progress = false;
   }
-  const suggested = status === 'success' ? [] : behaviour.fallback_capabilities;
+  const suggested = status === 'success' ? [] : [...(behaviour.fallback_capabilities||[])];
+  if (status === 'wrong_source' && reason_code === 'FLOASSIST_CONNECTOR_ROUTE_REQUIRED') {
+    suggested.splice(0,suggested.length,'connector_search_actions','connector_get_action_guide','connector_execute_action');
+  }
   if (status === 'wrong_source' && toolName === 'master_data_list_rows') {
     suggested.splice(0, suggested.length, 'master_data_list_documents', 'master_data_rag');
   }

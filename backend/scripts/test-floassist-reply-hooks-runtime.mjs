@@ -21,6 +21,8 @@ try{
  plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler)=>hooks.set(name,handler),registerTool(){},registerCommand(){}});
  const ctx={agentId:id,sessionKey:session,channelId:'whatsapp'};
  const first=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(first.appendSystemContext,/Asia\/Singapore/);assert.match(first.appendSystemContext,/Fixture authorized physical device context/);assert.match(first.prependContext,/A tool-search result or a prior assistant answer is not a device inventory result/);
+ assert.match(first.appendSystemContext,/floassist_source_read/);
+ const web=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{...ctx,channelId:'web'});assert.match(web.appendSystemContext,/Connected-service routing/);
  zone='Asia/Kolkata';const second=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(second.appendSystemContext,/Asia\/Kolkata/);assert.ok(!second.appendSystemContext.includes('Asia/Singapore'));
  // Resumed/compacted native turns can omit the channel, and calendar/reminder
  // tools do not require floassist_source_read to obtain profile metadata.

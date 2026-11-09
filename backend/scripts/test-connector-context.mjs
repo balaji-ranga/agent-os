@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {connectorRoutingGuidance} from '../../openclaw-extensions/agent-os-content-tools/connector-context.js';
+assert.equal(connectorRoutingGuidance(), '');
+assert.equal(connectorRoutingGuidance({canSearch:true}), '');
+const read=connectorRoutingGuidance({canRead:true});
+assert.match(read,/floassist_source_read/);
+assert.ok(!read.includes('connector_execute_action'));
+const discover=connectorRoutingGuidance({canList:true,canSearch:true,canGuide:true,canExecute:true});
+assert.match(discover,/connector_list_apps/);assert.match(discover,/exact returned action_id/);
+assert.match(discover,/does not forbid an explicitly offered alternative route/);
+assert.match(discover,/Never bypass an authorization\/approval denial/);
+assert.ok(!discover.includes('floassist_source_read'));
+assert.ok(!discover.includes('whatsapp'),'Guidance applies independently of channel');
+console.log('CONNECTOR_CONTEXT_OK: grant-aware discovery, explicit alternative route, no denied-source bypass, channel independent');

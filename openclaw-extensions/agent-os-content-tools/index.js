@@ -4,6 +4,7 @@ import {rememberRuntimeChannel,runtimeChannel,runtimeRunId,runtimeRecipient} fro
 import {speechInputGuidance,speechTurnGuidance} from './speech-context.js';
 import {rememberStatusTurn,isStatusTurn,statusTurnBlock} from './async-status-turn.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
+import {connectorRoutingGuidance} from './connector-context.js';
 import {profileTimezoneHint} from './profile-timezone.js';
 import {floassistSchemas,scopedFloAssistSchema} from './floassist-schemas.js';
 import {physicalSchemas} from './physical-schemas.js';
@@ -1132,8 +1133,13 @@ export default definePluginEntry({
         const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
         const speechTurn=speechTurnGuidance(event?.prompt,{canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey)});
         const physicalHint = await physicalContextHint({allowed:!speechTurn&&isToolAllowedForAgent(recoveryAgent,'physical_entities_list',ctx?.sessionKey),sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:String(resolvePluginConfig(api).baseUrl||'').trim(),brokerSecret:loadToolBrokerSecret});
-        const recoveryHint = runtimeChannel(ctx, api.context) === "whatsapp" && isToolAllowedForAgent(recoveryAgent, "floassist_source_read", ctx?.sessionKey)
-          ? "Current FloAssist read capability: use floassist_source_read for connected email, files and calendar content. Latest Gmail draft: {app_id: gmail, kind: draft}. Existing task source: {task_id: exact task number}. Do not replay invented action names or failed calls from older conversation history. If a current tool result is non-retryable, stop that attempt and provide one concise final explanation, not another equivalent call." : "";
+        const recoveryHint = connectorRoutingGuidance({
+          canList:isToolAllowedForAgent(recoveryAgent,'connector_list_apps',ctx?.sessionKey),
+          canSearch:isToolAllowedForAgent(recoveryAgent,'connector_search_actions',ctx?.sessionKey),
+          canGuide:isToolAllowedForAgent(recoveryAgent,'connector_get_action_guide',ctx?.sessionKey),
+          canExecute:isToolAllowedForAgent(recoveryAgent,'connector_execute_action',ctx?.sessionKey),
+          canRead:isToolAllowedForAgent(recoveryAgent,'floassist_source_read',ctx?.sessionKey)
+        });
         const timezoneContext=async()=>{
           // Profile metadata is not a source-read capability. Native resumed,
           // compacted and cron turns need it even without channel/tool metadata.
@@ -1152,7 +1158,7 @@ export default definePluginEntry({
         const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
         const personalContext=speechTurn?speechTurn:statusHint?[statusHint,timezoneHint].filter(Boolean).join('\n'):[physicalDiscoveryTurnHint(physicalHint),recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
-        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint].filter(Boolean).join('\n');
+        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint,speechTurn||statusHint?'':recoveryHint].filter(Boolean).join('\n');
         const clockContext=systemContext?{appendSystemContext:systemContext}:{};
         if (!result?.matched) return systemContext||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};
