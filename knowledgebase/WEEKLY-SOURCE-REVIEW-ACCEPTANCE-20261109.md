@@ -23,3 +23,13 @@ Run 713f2abf-4e43-4164-806b-18ffdc17afd0 after the guard used source reads inste
 Diagnostic run e5c12f95-7fcc-4558-9d10-c271041c2965 requested the already-configured primary model but its terminal receipt reported responseModel=flolah-platform-secondary and rerouted=true. It is not an independent primary-model test. A subsequent synthetic, no-user-data request to the configured primary model deepseek-v4-flash returned HTTP 402 with errorType=insufficient_balance_error. Secondary configuration is gpt-4o-mini. Restoring a funded primary is necessary for that comparison, but is not proof that task quality will pass. No permanent model setting was changed and no external test reply was sent. User input is pending on restoring primary balance or selecting a funded configured model.
 
 Current deployed images: backend and gateway source-review-guard-20261109. Installed-plugin hook test verifies actual review blocking, source-tool allowance, and reset for an explicit morning-briefing run. Async status regression remains passing. The feature remains NOT accepted end-to-end.
+
+## Funded-model comparison — 10 November 2026 SGT
+
+The user authorized another already-configured funded model. The native catalog included openai/gpt-5.4-mini and openai/gpt-5.5. No permanent model configuration was changed.
+
+Run d0db58eb-9d5f-4819-a161-78508a30983b requested gpt-5.4-mini and received gpt-5.4-mini-2026-03-17 (the receipt flags the canonical model-version difference as rerouted). It successfully called sources and correctly rejected the promotion as a work obligation, but stopped at partial Gmail coverage and asked permission to continue. This FAILS full task completion, though it establishes that this configured model can respond without the primary's balance error.
+
+The gpt-5.5 exact-prompt runner ended at its timeout with exit 143 and no final response/terminal receipt. Its effective model and task outcome are unverified; do not count it as a successful comparison or infer an authorization failure. Timestamp-based live transcript progress counts were discarded because they could include concurrent sessions and re-recorded history. No such counts are acceptance evidence. No WhatsApp delivery was requested by either runner.
+
+The weekly-focus acceptance remains FAILED/INCOMPLETE. Funding availability is not sufficient to establish correct source review. Further work must establish broad-source retrieval, pagination completion, relevant evidence-backed synthesis and reliable runtime completion.
