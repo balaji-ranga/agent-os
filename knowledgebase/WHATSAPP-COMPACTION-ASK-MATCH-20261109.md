@@ -46,4 +46,14 @@ Verified locally against copies of both installed runtime bundles: alias resolut
 
 Gateway-only release `agent-os-openclaw:tool-alias-20261109` passed native alias and compaction tests in the actual image build, then deployed with rollback metadata in `/opt/agent-os-releases/tool-alias-20261109`. Production read-only verification after deployment: FloAssist profile remains `stopped`; five FloAssist schedules are `paused`, three `completed`, none active. Laptop edge remains cloud-connected with HA/simulator connected, and HA returns HTTP 200. No real device command was issued during these checks.
 
+## Live connector retests after alias deployment
+
+All used normal COO grants in the existing WhatsApp-context session, with delivery disabled and no mailbox writes or device operations.
+
+- Gmail run `05efa752-14e0-4ea7-a05b-5353a1e8e931`: recovered from the wrong productivity route and reached `gmail.fetch_emails`. The actual tool result contained “expired or revoked”; COO accurately reported authentication failure. Mailbox acceptance is blocked pending owner reconnection.
+- Outlook run `ca4d421e-cb77-45bc-8313-f93422be5a8c`: `functions.connector_list_apps`, discovery and `functions.connector_execute_action` resolved; `outlook.list_messages` returned messages. Transport/read access passed. Full task-quality acceptance did not: the answer treated older unread items as important today and relied on previews without a separate body-read call. Do not equate this with a verified today-specific mailbox review.
+- Calendar run `5cbe3546-2585-4344-aae4-a6fcd71e3f34`: recovered from schema/wrong-route errors and reached `googlecalendar.list_events` with explicit bounds. The actual tool result contained “expired or revoked”; calendar acceptance is blocked pending owner reconnection.
+
+Redacted native trace inspection returned only timestamps, tool/action names, input field names and fixed error markers. It confirmed namespace aliases resolve across mail and calendar while validation errors remain enforced. Initial Gmail and calendar runner attempts timed out at the opening handshake before dispatch; no writes were retried. Intermittent gateway handshake readiness and unnecessary initial wrong-route/schema attempts remain unresolved. The owner was asked to reconnect Gmail and Google Calendar. No final end-to-end/no-regression guarantee is claimed.
+
 A separate operational limitation was observed: backend startup synchronizes agent tool catalogs and causes expensive gateway configuration reloads, with connection-handshake timeouts and a WhatsApp 408/reconnect during those reloads. The initial gateway restart also took several minutes. This task did not fix that reload latency; container health alone was insufficient readiness evidence. No failed handshake dispatched the replay task. Overall gateway stability and end-to-end mailbox acceptance must not be described as fully resolved.
