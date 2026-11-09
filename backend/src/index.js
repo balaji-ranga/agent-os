@@ -1014,6 +1014,14 @@ registerPlatformCron({
   },
 });
 
+registerPlatformCron({
+  id: 'floassist_connector_health',
+  name: 'FloAssist connector health',
+  description: 'Read-only selected-connector checks, independently enabled per owner. Healthy checks are silent; failures use deduplicated alerts. Pausing this job also pauses connector-health alerts.',
+  schedule: '* * * * *',
+  handler: async () => (await import('./services/floassist/connector-monitor.js')).tickConnectorMonitor(),
+});
+
 const scheduledGoalsCron = process.env.SCHEDULED_GOALS_CRON || '* * * * *';
 registerPlatformCron({
   id: 'floassist_reminders',

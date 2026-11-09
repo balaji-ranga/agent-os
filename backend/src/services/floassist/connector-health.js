@@ -4,13 +4,16 @@ import {getDb} from '../../db/schema.js';
 import {getPublicBaseUrl} from '../../config/public-url.js';
 import {ensureFloAssistRuntime} from './runtime.js';
 
+import {connectorHealthEnabled,CONNECTOR_HEALTH_JOB} from './health-settings.js';
+import {isPlatformCronActive} from '../platform-cron-registry.js';
+
 const product=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
 function profile(db,owner){
   if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get())return null;
-  const p=db.prepare('SELECT p.* FROM floassist_profiles p JOIN platform_users u ON u.id=p.owner_id WHERE p.owner_id=? AND p.status=\'active\' AND u.enabled=1').get(owner);
+  const p=db.prepare('SELECT p.* FROM floassist_profiles p JOIN platform_users u ON u.id=p.owner_id WHERE p.owner_id=? AND u.enabled=1').get(owner);
   if(!p)return null;
   p.preferences=JSON.parse(p.preferences_json);
-  return p.preferences.responsibilities?.includes('priority')?p:null;
+  return connectorHealthEnabled(p)&&isPlatformCronActive(CONNECTOR_HEALTH_JOB)?p:null;
 }
 function ensure(db){
   ensureFloAssistRuntime(db);
@@ -30,13 +33,13 @@ export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),
     const old=db.prepare('SELECT * FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(owner,app.id);
     const bad=state!=='available',wasBad=old&&old.state!=='available';
     let key=old?.notification_key||null,episode=old?.episode||null,queued=false;
-    if(bad&&(!wasBad||old.state!==state)){
+    if(bad&&!wasBad){
       if(old?.notification_key)db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(old.notification_key);
       episode=randomUUID();key=`${owner}:connector-health:${app.id}:${episode}`;
       const configuredBase=String(getPublicBaseUrl()||'').replace(/\/$/,'');
       const base=/^https:\/\//i.test(configuredBase)?configuredBase:'';
       const reason=state==='missing'?'is no longer connected':state==='authorization'?'needs reconnection because authorization failed':state==='permission'?'could not be accessed with its current permissions':state==='unsupported'?'has no supported connection check installed':state==='restricted'?'cannot be checked under the current agent permissions or policy':state==='unknown'?'connection health could not be verified':'is temporarily unavailable';
-      const action=['temporary','unsupported','restricted','unknown'].includes(state)?'FloAssist will check again during the next enabled priority check.':`Open FloAssist → Your apps to reconnect or review permissions${base?`: ${base}/free-tools/floassist/`:'.'}`;
+      const action=['temporary','unsupported','restricted','unknown'].includes(state)?'FloAssist will check again during the next enabled connector-health check.':`Open FloAssist → Your apps to reconnect or review permissions${base?`: ${base}/free-tools/floassist/`:'.'}`;
       const text=`*FloAssist · Priority Alerts*\nConnection health\n\nFloAssist connection alert: ${app.label} ${reason}. Checks depending on this app may be incomplete. ${action}`;
       db.prepare('INSERT INTO floassist_notifications(source_key,owner_id,agent_id,text,created_at,updated_at,expires_at) VALUES (?,?,?,?,?,?,?)').run(key,owner,p.agent_id,text,now,now,now+86400000);queued=true;
     }else if(!bad&&wasBad){

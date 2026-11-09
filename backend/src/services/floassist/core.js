@@ -55,7 +55,7 @@ export function createFloAssist({ db, product, adapters:a, now=Date.now }) {
     if(!row)fail(401,'session_expired','Verify your email again to continue setup.');return profile(row.owner_id);
   }
   function preferences(input={},previous={}){
-    const p={...ALERT_DEFAULTS,task_realert_hours:24,notification_batch_minutes:5,followup_wait_hours:48,connectors:[],responsibilities:product.responsibilities.map(r=>r.id),timezone:'Asia/Singapore',briefing_time:'09:00',quiet_start:'22:00',quiet_end:'08:00',...previous};
+    const p={...ALERT_DEFAULTS,connector_health_enabled:Object.keys(previous).length===0?true:undefined,connector_health_interval_minutes:60,task_realert_hours:24,notification_batch_minutes:5,followup_wait_hours:48,connectors:[],responsibilities:product.responsibilities.map(r=>r.id),timezone:'Asia/Singapore',briefing_time:'09:00',quiet_start:'22:00',quiet_end:'08:00',...previous};
     for(const k of Object.keys(p))if(input[k]!==undefined)p[k]=input[k];
     for(const key of ['connectors','responsibilities']){
       if(!Array.isArray(p[key])||p[key].some(id=>!product[key].some(r=>r.id===id)))fail(400,'selection','Choose an available option.');
@@ -64,6 +64,8 @@ export function createFloAssist({ db, product, adapters:a, now=Date.now }) {
     if(!Number.isInteger(p.task_realert_hours)||p.task_realert_hours<0||p.task_realert_hours>720)fail(400,'realert','Task reminder interval must be between 0 and 720 hours.');
     if(!Number.isInteger(p.notification_batch_minutes)||p.notification_batch_minutes<0||p.notification_batch_minutes>60)fail(400,'batch','Notification grouping must be between 0 and 60 minutes.');
     if(!Number.isInteger(p.followup_wait_hours)||p.followup_wait_hours<1||p.followup_wait_hours>720)fail(400,'followup','Follow-up wait must be between 1 and 720 hours.');
+    if(p.connector_health_enabled!==undefined&&typeof p.connector_health_enabled!=='boolean')fail(400,'health','Choose whether connector monitoring is enabled.');
+    if(!Number.isInteger(p.connector_health_interval_minutes)||p.connector_health_interval_minutes<15||p.connector_health_interval_minutes>1440)fail(400,'health_interval','Connector checks must be between 15 and 1440 minutes.');
     validateAlertPreferences(p,product.connectors.map(a=>a.id));
     if(typeof p.timezone!=='string')fail(400,'timezone','Choose a valid timezone.');
     try{new Intl.DateTimeFormat('en',{timeZone:p.timezone}).format();}catch{fail(400,'timezone','Choose a valid timezone.');}

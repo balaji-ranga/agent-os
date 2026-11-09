@@ -9957,7 +9957,29 @@
           "mode": "guided"
         },
         {
-          "id": "pages/FloAssist.jsx:48:394",
+          "id": "pages/FloAssist.jsx:48:195",
+          "label": "Monitor connector health independently of task goals",
+          "type": "checkbox",
+          "required": false,
+          "form_id": "pages/FloAssist.jsx:48:44",
+          "conditional": true,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/FloAssist.jsx:48:722",
+          "label": "Connector check interval (minutes)",
+          "type": "number",
+          "required": true,
+          "min": "15",
+          "max": "1440",
+          "form_id": "pages/FloAssist.jsx:48:44",
+          "conditional": true,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/FloAssist.jsx:48:1178",
           "label": "Unlabelled or dynamically labelled control",
           "type": "number",
           "required": true,
@@ -9967,7 +9989,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/FloAssist.jsx:48:582",
+          "id": "pages/FloAssist.jsx:48:1366",
           "label": "Timezone",
           "type": "text",
           "required": true,
@@ -9977,7 +9999,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/FloAssist.jsx:48:860",
+          "id": "pages/FloAssist.jsx:48:1644",
           "label": "Unlabelled or dynamically labelled control",
           "type": "time",
           "required": true,
@@ -9987,7 +10009,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/FloAssist.jsx:48:1226",
+          "id": "pages/FloAssist.jsx:48:2010",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,

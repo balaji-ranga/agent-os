@@ -29,8 +29,8 @@ try{
  await check('a',{db,probe:async()=>{throw {provider_status:401};},getInventory:async()=>({connected:['gmail']})});eq(total(),4);
  await check('a',{db,probe:async()=>{throw {provider_status:401};},getInventory:async()=>({connected:['gmail','googlecalendar']})});
  eq(db.prepare("SELECT state FROM floassist_connector_health WHERE owner_id='a' AND app_id='gmail'").get().state,'authorization');
- eq(record('a','googlecalendar','available',{db}).queued,false);eq(total(),5);
- eq(db.prepare("SELECT count(*) n FROM floassist_notifications WHERE status='cancelled'").get().n,2);
+ eq(record('a','googlecalendar','available',{db}).queued,false);eq(total(),4);
+ eq(db.prepare("SELECT count(*) n FROM floassist_notifications WHERE status='cancelled'").get().n,1);
  eq(connectorFailureState({provider_status:401}),'authorization');eq(connectorFailureState({provider_status:403}),'permission');eq(connectorFailureState({provider_status:429}),'temporary');eq(connectorFailureState({message:'invalid_grant secret must not persist'}),'authorization');eq(connectorFailureState({status:400}),'unknown');
  const every={...prefs,connectors:['gmail','outlook','google_calendar','google_drive','onedrive','outlook_calendar']};
  db.prepare("UPDATE floassist_profiles SET preferences_json=? WHERE owner_id='a'").run(JSON.stringify(every));
@@ -38,8 +38,8 @@ try{
  eq(probes.sort(),['gmail.get_profile','outlook.get_profile','googlecalendar.list_calendars','googledrive.about.get','one_drive.get_drive'].sort());
  eq(db.prepare("SELECT state FROM floassist_connector_health WHERE owner_id='a' AND app_id='outlook_calendar'").get().state,'unsupported');
  const healthyCount=total();await check('a',{db,getInventory:async()=>({connected:['gmail','outlook','googlecalendar','googledrive','one_drive','outlook_calendar']}),probe:async()=>{}});eq(total(),healthyCount);
- eq(record('b','gmail','temporary',{db}).queued,true);
- eq(record('b','gmail','authorization',{db}).queued,true); // Changed failure now needs user action.
+ eq(record('b','gmail','temporary',{db}).queued,false);
+ eq(record('b','gmail','authorization',{db}).queued,false); // Same failure episode stays silent even if classification changes.
  eq(record('b','gmail','authorization',{db}).queued,false);
  const beforeRecovery=total();eq(record('b','gmail','available',{db}).queued,false);eq(total(),beforeRecovery);
  eq(record('b','gmail','unknown',{db}).queued,true);eq(record('b','gmail','unknown',{db}).queued,false);

@@ -1,9 +1,13 @@
+import {isIdleHeartbeatReply} from '../../../../openclaw-extensions/agent-os-content-tools/heartbeat-silence.js';
+import {connectorHealthEnabled,CONNECTOR_HEALTH_JOB} from './health-settings.js';
+import {isPlatformCronActive} from '../platform-cron-registry.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { getDb } from '../../db/schema.js';
 import { fail } from './core.js';
 import { readFileSync } from 'node:fs';
 import {tickTracking,trackingNotificationAllowed,recordTrackingDelivery} from './tracking.js';
 import {summarizeFloAssistNotification} from './local-assistance.js';
+const idleUpdate=text=>isIdleHeartbeatReply({text:String(text||'').replace(/\bno new (tasks?|items?|updates?|alerts?)\b/gi,'no $1')});
 const product=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
 
 export function floAssistResponsibilityEnabled(preferences,responsibility){
@@ -110,7 +114,7 @@ export function floAssistDeliveryGate({ownerUserId,scheduledGoalId,sourceKey,tex
   const r=db.prepare("SELECT 1 FROM floassist_resources WHERE owner_id=? AND kind='schedule' AND resource_id=?").get(ownerUserId,scheduledGoalId);
   if(!r)return {managed:false};
   if(p.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(ownerUserId))return {managed:true,skip:true,reason:'floassist_paused'};
-  if(!String(text||'').trim()||/\bFLOASSIST_NO_UPDATE\b/.test(String(text)))return {managed:true,skip:true,reason:'no_update'};
+  if(!String(text||'').trim()||/\bFLOASSIST_NO_UPDATE\b/.test(String(text))||idleUpdate(text))return {managed:true,skip:true,reason:'no_update'};
   // Old plan-mode runs may finish after upgrading. Their internal progress reports
   // are retained in Flolah but are never personal-assistant notifications.
   if(/^agr:.*:terminal$/.test(String(sourceKey||'')))return {managed:true,skip:true,reason:'internal_goal_report'};
@@ -136,7 +140,7 @@ export function floAssistDeliveryGate({ownerUserId,scheduledGoalId,sourceKey,tex
 }
 
 /** Proactive output waits through quiet hours instead of being lost at completion time. */
-export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now(),summarize=summarizeFloAssistNotification}={}){
+export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now(),summarize=summarizeFloAssistNotification,healthMonitoringActive=()=>isPlatformCronActive(CONNECTOR_HEALTH_JOB)}={}){
   ensureFloAssistRuntime(db);let sent=0;
   if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_task_tracking'").get())tickTracking(db,now);
   db.prepare("UPDATE floassist_notifications SET text=NULL,status='expired' WHERE expires_at<=? AND status='pending'").run(now);
@@ -144,8 +148,11 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
   const handled=new Set();
   for(const row of rows){
     if(handled.has(row.source_key))continue;
+    if(idleUpdate(row.text)){db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;}
     const p=enrolled(db,row.owner_id);
-    if(!p||p.status!=='active'||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id))continue;
+    const healthAlert=row.source_key.startsWith(`${row.owner_id}:connector-health:`);
+    if(!p||!db.prepare('SELECT 1 FROM platform_users WHERE id=? AND enabled=1').get(row.owner_id))continue;
+    if(healthAlert?(!connectorHealthEnabled(p)||!healthMonitoringActive()):p.status!=='active')continue;
     if(row.source_key.startsWith(`${row.owner_id}:action-outcome:`)&&db.prepare("SELECT 1 FROM sqlite_master WHERE name='tool_execution_actions'").get()){
       const action=db.prepare('SELECT request_payload FROM tool_execution_actions WHERE owner_user_id=? AND id=?').get(row.owner_id,row.source_key.slice(`${row.owner_id}:action-outcome:`.length));
       let request;try{request=JSON.parse(action?.request_payload||'{}');}catch{request={};}
@@ -167,7 +174,7 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
       const appId=row.source_key.slice(healthPrefix.length).split(':')[0];
       const prefs=JSON.parse(p.preferences_json);
       const current=db.prepare('SELECT state FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(row.owner_id,appId);
-      if(!prefs.responsibilities?.includes('priority')||!prefs.connectors?.includes(appId)||row.source_key.endsWith(':recovered')||current?.state==='available'){
+      if(!connectorHealthEnabled(p)||!prefs.connectors?.includes(appId)||row.source_key.endsWith(':recovered')||current?.state==='available'){
         db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
       }
     }

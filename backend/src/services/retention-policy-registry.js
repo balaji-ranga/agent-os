@@ -28,7 +28,7 @@ add('native_retention_requests', { time:'finished_at',state:'status',states:['co
 add('agent_learnings_cache tool_summary_cache', { time: 'updated_at' });
 add('ibkrnew_instrument_profiles ibkrnew_component_health ibkrnew_profile_refresh_state', { time: 'updated_at' });
 add('floassist_run_errors', { owner: 'owner_id', time: 'resolved_at', unit: 'ms' });
-add('floassist_account_receipts floassist_connector_health floassist_storage_health', { owner: 'owner_id', time: 'checked_at', unit: 'ms' });
+add('floassist_account_receipts floassist_connector_health floassist_storage_health floassist_connector_monitor', { owner: 'owner_id', time: 'checked_at', unit: 'ms' });
 add('floassist_task_alert_days', { owner: 'owner_id', time: 'first_sent_at', unit: 'ms' });
 add('floassist_source_assessments', { owner: 'owner_id', time: 'completed_at', unit: 'ms' });
 add('floassist_coverage_audit floassist_tracking_audit floassist_run_assessment_context floassist_run_source_versions floassist_source_references', { owner: 'owner_id', unit: 'ms' });
