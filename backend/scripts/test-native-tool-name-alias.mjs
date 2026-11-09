@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';import {readFileSync,readdirSync} from 'node:fs';import vm from 'node:vm';
+const root=process.argv[2]||'/usr/local/lib/node_modules/openclaw/dist';
+for(const path of [root+'/'+readdirSync(root).find(n=>/^local-model-lean-.*\.js$/.test(n)),root+'/worker/worker.mjs']){
+ const source=readFileSync(path,'utf8');const end=source.indexOf('function findEntryByExactId('),start=source.lastIndexOf('function findEntry(',end);
+ assert.ok(start>=0&&end>start);
+ const context={ToolInputError:Error,formatUnknownToolIdError:n=>'Unknown '+n,visibleCatalogEntries:(c,o)=>c.entries.filter(e=>(o?.includeMcp!==false||e.source!=='mcp')&&(!o?.allowedIds||o.allowedIds.has(e.id)))};
+ vm.createContext(context);vm.runInContext(source.slice(start,end)+';globalThis.resolve=findEntry;',context);
+ const entries=[{id:'openclaw:p:read_fixture',name:'read_fixture',source:'openclaw'},{id:'mcp:s:other',name:'other',source:'mcp'}],catalog={entries};
+ assert.equal(context.resolve(catalog,'functions.read_fixture'),entries[0]);
+ assert.equal(context.resolve(catalog,entries[0].id),entries[0]);
+ assert.throws(()=>context.resolve(catalog,'functions.read_fixture',{allowedIds:new Set()}),/Unknown/);
+ assert.throws(()=>context.resolve(catalog,'functions.other',{includeMcp:false}),/Unknown/);
+ assert.throws(()=>context.resolve(catalog,'functions.functions.read_fixture'),/Unknown/);
+ assert.throws(()=>context.resolve(catalog,'provider.read_fixture'),/Unknown/);
+ assert.throws(()=>context.resolve(catalog,'functions.read_fixtur'),/Unknown/);
+ assert.throws(()=>context.resolve({entries:[...entries,{id:'openclaw:q:read_fixture',name:'read_fixture'}]},'functions.read_fixture'),/Ambiguous/);
+ const literal={id:'openclaw:q:literal',name:'functions.read_fixture'};
+ assert.equal(context.resolve({entries:[...entries,literal]},'functions.read_fixture'),literal);
+}
+console.log('NATIVE_TOOL_NAME_ALIAS_TEST_OK: runtime/worker, exact identity, visibility, MCP, ambiguity, literal precedence, no fuzzy aliases');

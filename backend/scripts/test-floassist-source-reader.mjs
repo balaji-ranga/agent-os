@@ -87,7 +87,14 @@ assert.throws(()=>assertFloAssistConnector('a','gmail.get_profile',db,resolveFlo
 assert.doesNotThrow(()=>assertFloAssistMcpRoute(null));
 for(const status of ['paused','stopped']){
  db.prepare('UPDATE floassist_profiles SET status=? WHERE owner_id=?').run(status,'a');
- assert.throws(()=>assertFloAssistConnector('a','gmail.get_profile',db,{owner:'a',origin:'whatsapp'}),e=>e.code==='FLOASSIST_INACTIVE'&&e.message.includes(status),'Lifecycle restriction must not masquerade as disconnected/unselected Gmail');
+ for(const origin of ['whatsapp','source_read'])assert.doesNotThrow(()=>assertFloAssistConnector('a','gmail.get_profile',db,{owner:'a',origin}));
+ for(const scope of [{owner:'a',origin:'floassist:briefing',run:'scheduled'},{owner:'a',origin:'whatsapp',run:'scheduled'},{owner:'a',origin:'unclassified'}])
+  assert.throws(()=>assertFloAssistConnector('a','gmail.get_profile',db,scope),e=>e.code==='FLOASSIST_INACTIVE'&&e.message.includes(status),'Stopped proactive work cannot become interactive');
+ assert.throws(()=>assertFloAssistConnector('a','github.get_issue',db,{owner:'a',origin:'whatsapp'}),e=>e.code==='FLOASSIST_CONNECTOR_NOT_SELECTED','Interactive requests retain selected-app restrictions');
+ assert.throws(()=>assertFloAssistConnector('a','gmail.get_profile',db,{owner:'b',origin:'whatsapp'}),e=>e.code==='FLOASSIST_OWNER_DENIED');
+ const direct=await readFloAssistSource('a',{app_id:'gmail'},{...options,context:{owner:'a',origin:'whatsapp'}});
+ assert.equal(direct.content_verified,true);
+ assert.equal(db.prepare('SELECT status FROM floassist_profiles WHERE owner_id=?').get('a').status,status,'An explicit read must not resume automation');
 }
 db.prepare("UPDATE floassist_profiles SET status='active' WHERE owner_id='a'").run();
 rememberRuntimeChannel({sessionKey:'one',channel:'whatsapp'},100);assert.equal(runtimeChannel({sessionKey:'one'},null,101),'whatsapp');assert.equal(runtimeChannel({sessionKey:'two'},null,101),null);assert.equal(runtimeChannel({sessionKey:'one'},null,3600101),null);

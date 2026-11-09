@@ -43,7 +43,12 @@ export function assertFloAssistConnector(owner,action,db=getDb(),context=current
   const p=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=?').get(owner);
   const provider=String(action).split('.')[0];
   const app=product.connectors.find(a=>(a.provider_id||a.id)===provider);
-  if(p&&p.status!=='active')
+  // Pause/stop controls proactive FloAssist work, not a new explicit request.
+  // These origins are assigned by the trusted channel/source-reader boundary;
+  // tool arguments cannot mark a scheduled run interactive. Bound work retains
+  // its original run and scope, so delayed/delegated schedules stay stopped.
+  const interactive=!context.run&&['whatsapp','source_read'].includes(context.origin);
+  if(p&&p.status!=='active'&&!interactive)
     throw Object.assign(new Error(`FloAssist is ${p.status}. This request did not access the source. The connected account may still be valid; the FloAssist lifecycle setting blocked execution.`),{status:403,code:'FLOASSIST_INACTIVE'});
   if(!p||!app||!JSON.parse(p.preferences_json).connectors?.includes(app.id))
     throw Object.assign(new Error('This app is not enabled for this FloAssist execution. Manage apps before retrying.'),{status:403,code:'FLOASSIST_CONNECTOR_NOT_SELECTED'});

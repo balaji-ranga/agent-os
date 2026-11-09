@@ -16,6 +16,9 @@ RUN node /opt/agent-os/deploy/scripts/install-native-model-budget.mjs
 COPY deploy/scripts/install-native-compaction-ask-match.mjs /opt/agent-os/deploy/scripts/install-native-compaction-ask-match.mjs
 COPY backend/scripts/test-native-compaction-ask-match.mjs /opt/agent-os/backend/scripts/test-native-compaction-ask-match.mjs
 RUN node /opt/agent-os/deploy/scripts/install-native-compaction-ask-match.mjs && node /opt/agent-os/backend/scripts/test-native-compaction-ask-match.mjs
+COPY deploy/scripts/install-native-tool-name-alias.mjs /opt/agent-os/deploy/scripts/install-native-tool-name-alias.mjs
+COPY backend/scripts/test-native-tool-name-alias.mjs /opt/agent-os/backend/scripts/test-native-tool-name-alias.mjs
+RUN node /opt/agent-os/deploy/scripts/install-native-tool-name-alias.mjs && node /opt/agent-os/backend/scripts/test-native-tool-name-alias.mjs
 COPY deploy/scripts/install-native-heartbeat-silence.mjs /opt/agent-os/deploy/scripts/install-native-heartbeat-silence.mjs
 RUN node /opt/agent-os/deploy/scripts/install-native-heartbeat-silence.mjs
 COPY deploy/scripts/install-native-sqlite-reopen.mjs deploy/scripts/install-native-memory-delta.mjs deploy/scripts/install-native-sqlite-diagnostics.mjs deploy/scripts/install-native-prompt-context.mjs /opt/agent-os/deploy/scripts/
