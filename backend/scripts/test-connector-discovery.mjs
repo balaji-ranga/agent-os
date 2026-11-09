@@ -2,7 +2,17 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { connectorDiscoveryResult } from '../src/services/connector-discovery.js';
+import { connectorDiscoveryResult, connectorInvocationContract } from '../src/services/connector-discovery.js';
+
+for(const action of ['gmail.get_message','googlecalendar.list_events','fixture_vendor.read_sensor']){
+ const contract=connectorInvocationContract(action,{limit:3});
+ assert.equal(contract.tool_call_example.id,'openclaw:agent-os-content-tools:connector_execute_action');
+ assert.deepEqual(contract.tool_call_example.args,{action_id:action,input:{limit:3}});
+ assert.equal(contract.example_only,true);
+ const row=connectorDiscoveryResult([{id:action}], '').actions[0];
+ assert.equal(row.guide_call.args.action_id,action);
+ assert.equal(row.execution_tool,'connector_execute_action');
+}
 
 assert.equal(connectorDiscoveryResult([{id:'tea-fixture',app_id:'gmail'}], 'news').actions.length, 0);
 assert.equal(connectorDiscoveryResult([{id:'gmail.get_message',app_id:'gmail',description:'Read email'}], 'AI').actions.length, 0, 'AI must not match the middle of email');

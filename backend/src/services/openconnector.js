@@ -24,7 +24,7 @@ import {
   withOpenConnectorOauthClientSeed,
 } from './openconnector-oauth-lease.js';
 import { classifyConnectorAction, assertCallerMayExecuteConnectorAction } from './connector-action-grants.js';
-import { connectorDiscoveryResult } from './connector-discovery.js';
+import { connectorDiscoveryResult, connectorInvocationContract } from './connector-discovery.js';
 import { connectorExecutionError, invokeConnectorTransport, readConnectorMessagePages, retryConnectorRead } from './connector-execution-policy.js';
 import { resolveToolRiskMapping } from './tool-risk-mappings.js';
 import {copilotConnector,copilotConfigured,COPILOT_ACTIONS} from './digital-adoption-connector.js';
@@ -690,7 +690,7 @@ export async function listConnectorActions(userId, appId, query = '') {
 }
 
 export async function getConnectorActionGuide(userId, actionId) {
-  if(String(actionId).startsWith('digital_adoption.')){const action=COPILOT_ACTIONS.find(a=>a.id===actionId);if(!action)throw new Error('Unknown Copilot connector action');return {...action,guide:'Link each copilot directly to a saved workflow target group in Flolah, then select websites and active instances. Peer pairing is optional and separately required only for copilot-to-copilot handoffs. Commands fail on disconnect; there is no future-visitor queue. Private results remain task handles. Existing Action Policies govern every execution.'};}
+  if(String(actionId).startsWith('digital_adoption.')){const action=COPILOT_ACTIONS.find(a=>a.id===actionId);if(!action)throw new Error('Unknown Copilot connector action');return {...action,invocation:connectorInvocationContract(actionId,action.example_input||{}),guide:'Link each copilot directly to a saved workflow target group in Flolah, then select websites and active instances. Peer pairing is optional and separately required only for copilot-to-copilot handoffs. Commands fail on disconnect; there is no future-visitor queue. Private results remain task handles. Existing Action Policies govern every execution.'};}
   const id = String(actionId || '').trim();
   if (!id) throw new Error('action_id required');
 
@@ -739,11 +739,12 @@ export async function getConnectorActionGuide(userId, actionId) {
 
   return {
     action_id: id,
+    invocation: connectorInvocationContract(id,exampleInput),
+    input_schema: inputSchema,
     task_guidance: /^hackernews\.(get_latest_posts|search_posts)$/.test(id)
       ? connectorDiscoveryResult([{id,app_id:'hackernews'}], 'news').task_guidance : [],
     guide: String(guide || ''),
     description,
-    input_schema: inputSchema,
     output_schema: outputSchema,
     example_input: exampleInput,
     raw: metaObj || null,

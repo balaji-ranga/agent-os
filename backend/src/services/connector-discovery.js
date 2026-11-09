@@ -1,5 +1,13 @@
 /** Rank catalog capabilities, not execution ledger IDs or untrusted result prose. */
 const STOP_WORDS = new Set('a an the me my on in of for to from and with find give get latest recent please use connector action execute'.split(' '));
+export function connectorInvocationContract(actionId,input={}) {
+  return {
+    execution_tool:'connector_execute_action',
+    instructions:'The provider action_id is a parameter, NOT a callable tool ID. Use the executor below. Fill input from the user request and the action input_schema; this example is not authorization or a request to execute. Do not pass the provider action_id as tool_call.id.',
+    tool_call_example:{id:'openclaw:agent-os-content-tools:connector_execute_action',args:{action_id:actionId,input}},
+    example_only:true,
+  };
+}
 export function rankConnectorActions(actions, query) {
   const text = String(query || '').toLowerCase().replace(/[_-]+/g, ' ');
   const terms = [...new Set(text.match(/[a-z0-9_]+/g) || [])].filter(t => !STOP_WORDS.has(t));
@@ -21,7 +29,10 @@ export function connectorDiscoveryResult(actions, query, { source = 'http', limi
   // Do not expose raw catalog objects, connection details, or ledger IDs as capabilities.
   const ranked = rankConnectorActions(actions.filter(a => /^[a-z0-9_-]+\.[a-z0-9_.-]+$/i.test(a.id)), query);
   const selected = ranked.slice(0, limit).map(action => /^hackernews\.(get_latest_posts|search_posts)$/.test(action.id)
-    ? {...action, example_input:{...action.example_input,page:0,size:20,tags:['story']}} : action);
+    ? {...action, example_input:{...action.example_input,page:0,size:20,tags:['story']}} : action).map(action=>({...action,
+      guide_call:{id:'openclaw:agent-os-content-tools:connector_get_action_guide',args:{action_id:action.action_id||action.id}},
+      execution_tool:'connector_execute_action',
+    }));
   return {
     query, source,
     task_guidance: selected.some(a => a.app_id === 'hackernews') ? [
@@ -31,7 +42,7 @@ export function connectorDiscoveryResult(actions, query, { source = 'http', limi
       'search_posts is relevance/popularity search, not newest-first. Never present its top matches as the latest news without independent recency validation.',
       'created_at is the Hacker News submission date; updated_at is an index update, not the story or article publication date. Label HN submission dates explicitly. Do not claim the linked article publication date is verified.',
     ] : [],
-    selection_guidance: 'Choose actions[].action_id matching the request with granted=true and available=true. Read connector_get_action_guide for inputs, then execute that exact action_id. _execution.action_id and tea-* IDs track platform executions; they are never connector actions. Do not invent IDs. Discovery does not grant permissions. If blocked, report the exact missing grant or connection.',
+    selection_guidance: 'Choose actions[].action_id matching the request with granted=true and available=true. Use its guide_call, then call tool_call with id="openclaw:agent-os-content-tools:connector_execute_action" and args={action_id:the selected action_id,input:the schema-correct inputs}. Provider action IDs are parameters, NOT callable tool IDs. _execution.action_id and tea-* IDs track platform executions; they are never connector actions. Do not invent IDs. Discovery does not grant permissions. If blocked, report the exact missing grant or connection.',
     actions: selected,
     apps: [...new Map(selected.map(a => [a.app_id, {id:a.app_id, name:a.app_name, available:a.available}])).values()],
     matched_count: ranked.length, truncated: ranked.length > limit,
