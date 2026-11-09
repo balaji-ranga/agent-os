@@ -8,6 +8,17 @@ for(const path of [root+'/'+readdirSync(root).find(n=>/^local-model-lean-.*\.js$
  const entries=[{id:'openclaw:p:read_fixture',name:'read_fixture',source:'openclaw'},{id:'mcp:s:other',name:'other',source:'mcp'}],catalog={entries};
  assert.equal(context.resolve(catalog,'functions.read_fixture'),entries[0]);
  assert.equal(context.resolve(catalog,entries[0].id),entries[0]);
+ assert.equal(context.resolve(catalog,'openclaw:p.read_fixture'),entries[0]);
+ assert.equal(context.resolve(catalog,'mcp:s.other'),entries[1]);
+ assert.throws(()=>context.resolve(catalog,'openclaw:p.read_fixture',{allowedIds:new Set()}),/Unknown/);
+ assert.throws(()=>context.resolve(catalog,'mcp:s.other',{includeMcp:false}),/Unknown/);
+ assert.throws(()=>context.resolve(catalog,'openclaw:wrong.read_fixture'),/Unknown/);
+ assert.throws(()=>context.resolve(catalog,'openclaw:p.read_fixtur'),/Unknown/);
+ assert.throws(()=>context.resolve({entries:[entries[0],{...entries[0]}]},'openclaw:p.read_fixture'),/Ambiguous/);
+ const exactAlias={id:'openclaw:p.read_fixture',name:'exact_alias'};
+ assert.equal(context.resolve({entries:[entries[0],exactAlias]},'openclaw:p.read_fixture'),exactAlias);
+ const literalQualified={id:'openclaw:q:literal_qualified',name:'openclaw:p.read_fixture'};
+ assert.equal(context.resolve({entries:[entries[0],literalQualified]},'openclaw:p.read_fixture'),literalQualified);
  assert.throws(()=>context.resolve(catalog,'functions.read_fixture',{allowedIds:new Set()}),/Unknown/);
  assert.throws(()=>context.resolve(catalog,'functions.other',{includeMcp:false}),/Unknown/);
  assert.throws(()=>context.resolve(catalog,'functions.functions.read_fixture'),/Unknown/);

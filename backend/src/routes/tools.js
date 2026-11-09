@@ -1,3 +1,4 @@
+import {liveConnectorHealthEvidence} from '../services/connector-health-evidence.js';
 import {physicalAgentAssets,physicalAgentInstructions} from '../services/physical/agent-context.js';
 import {createTrackedTool,trackingAck,trackedStatus,settleTrackedTool,ensureAsyncTracking,dispatchTrackedTool} from '../services/tool-async-tracking.js';
 import {resumeScheduledSourceInput} from '../services/floassist/source-coverage.js';
@@ -3169,7 +3170,10 @@ router.post('/connector-list-apps', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const ownerUserId = resolveConnectorOwner(req, requestPayload);
-    const out = { ok: true, ...(await getConnectedConnectorApps(ownerUserId)) };
+    const caller=getCallerAgent(req);
+    const canProbe=caller&&meta.getToolMeta('connector_execute_action')?.enabled&&assertCallerMayUseTool(source,'connector_execute_action').ok;
+    const {probeFloAssistConnector}=await import('../services/floassist/connector-health.js');
+    const out = { ok: true, ...await liveConnectorHealthEvidence(ownerUserId,await getConnectedConnectorApps(ownerUserId),{probe:canProbe?((owner,config)=>probeFloAssistConnector(owner,config,caller.id)):undefined}) };
     logTool(req, 'connector_list_apps', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {

@@ -7,6 +7,8 @@ assert.match(read,/floassist_source_read/);
 assert.ok(!read.includes('connector_execute_action'));
 const discover=connectorRoutingGuidance({canList:true,canSearch:true,canGuide:true,canExecute:true});
 assert.match(discover,/connector_list_apps/);assert.match(discover,/exact returned action_id/);
+assert.match(discover,/connection_evidence.current_check/);
+assert.match(discover,/never claim you checked without a fresh relevant tool result/);
 assert.match(discover,/does not forbid an explicitly offered alternative route/);
 assert.match(discover,/Never bypass an authorization\/approval denial/);
 assert.ok(!discover.includes('floassist_source_read'));
