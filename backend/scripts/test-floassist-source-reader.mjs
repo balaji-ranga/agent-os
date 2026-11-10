@@ -175,6 +175,16 @@ for(const [app,guessed]of [['gmail','invented-gmail-id'],['google_drive','invent
  assert.equal(pendingSourceCoverage(db,'a',discoveryContext.run).some(c=>c.app_id===app),false);
 }
 const calendarGuard={...guarded,context:{...discoveryContext,origin:'floassist:briefing'}};
+for(const context of [{owner:'a',origin:'whatsapp',session:'interactive-mail'},null]){
+ calls=[];
+ const found=await readFloAssistSource('a',{app_id:'gmail'},{...guarded,context});
+ assert.equal(found.discovery_only,true,'Interactive mail must discover candidates, not silently read one thread');
+ assert.equal(found.content_verified,false);
+ assert.ok(found.source_candidates.length);
+ assert.equal(calls.some(c=>c.action==='gmail.fetch_message_by_thread_id'),false);
+ const read=await readFloAssistSource('a',found.source_candidates[0],{...guarded,context});
+ assert.equal(read.content_verified,true,'Explicit candidate read remains available');
+}
 const discoveredCalendar=await readFloAssistSource('a',{app_id:'google_calendar',source_id:'invented-calendar-id'},calendarGuard);assert.equal(discoveredCalendar.content_verified,false);
 await readFloAssistSource('a',discoveredCalendar.source_candidates[0],calendarGuard);assert.equal(pendingSourceCoverage(db,'a',discoveryContext.run).length,0);
 await assert.rejects(readFloAssistSource('a',{app_id:'gmail',source_id:'another-guessed-id'},{...guarded,authorize:async()=>{throw Object.assign(Error('fixture denied'),{status:403});}}),e=>e.status===403,'discovery cannot bypass action authorization');

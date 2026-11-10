@@ -833,6 +833,19 @@ router.post('/native-retention/:operation',async(req,res)=>{
  }catch(error){return res.status(500).json({error:error.message});}
 });
 
+router.post('/native-skill-context', async (req,res)=>{
+  try{
+    if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});
+    if(!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker']))return res.status(401).json({error:'Skill context authentication failed'});
+    if(Object.keys(req.body||{}).some(key=>!['session_key','prompt'].includes(key))||typeof req.body?.prompt!=='string'||req.body.prompt.length>24000)return res.status(400).json({error:'A session and bounded task prompt are required'});
+    const identity=nativeModelIdentity({session_key:req.body.session_key});
+    const {buildAgentSkillRuntimeInstruction}=await import('../services/agent-skills.js');
+    const result=buildAgentSkillRuntimeInstruction(identity.owner,identity.agent,req.body.prompt);
+    res.setHeader('Cache-Control','no-store');
+    return res.json({instruction:result.instruction});
+  }catch(error){return res.status(error.status||500).json({error:'Assigned skill context unavailable'});}
+});
+
 router.post('/native-model-budget/:operation', (req,res)=>{
   try{
     if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});

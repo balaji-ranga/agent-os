@@ -1,4 +1,5 @@
 import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
+import {assignedSkillContextHint,stripNativeSkillMarker} from './skill-context.js';
 import {registerNativeRetentionService} from './native-retention-service.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId,runtimeRecipient} from './runtime-channel.js';
 import {speechInputGuidance,speechTurnGuidance} from './speech-context.js';
@@ -1098,13 +1099,13 @@ export default definePluginEntry({
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     registerNativeRetentionService(api,{baseUrl:resolvePluginConfig(api).baseUrl,brokerSecret:loadToolBrokerSecret,root:OPENCLAW_DIR});
     if (typeof api.on === "function") {
-      api.on('reply_payload_sending',event=>rewriteBudgetFailureReply(event,{lookup:async body=>{
+      api.on('reply_payload_sending',async event=>stripNativeSkillMarker(event,await rewriteBudgetFailureReply(event,{lookup:async body=>{
         const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
         if(!base)throw new Error('Budget lookup unavailable');
         const response=await fetch(base+'/api/tools/native-model-budget/failure-reason',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify(body),signal:AbortSignal.timeout(3000)});
         if(!response.ok)throw new Error('Budget lookup unavailable');
         return response.json();
-      }}),{priority:100});
+      }})),{priority:100});
       // llm_input carries the trusted turn runId even when prompt-build context does not.
       api.on("llm_input", (event, ctx) => {
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
@@ -1117,6 +1118,7 @@ export default definePluginEntry({
             inventoryFirst:system.includes('first inspect the current authorized inventory'),
             nativeDiscovery:system.includes('call tool_call with id="physical_entities_list"'),
             sourceReviewContract:system.includes('[Current source-review task contract]'),
+            assignedSkillContract:system.includes('[FLOLAH SKILL CONTRACT]'),
           }));
         }
       });
@@ -1160,11 +1162,12 @@ export default definePluginEntry({
           }catch{}
           return profileTimezoneHint({enabled:true,timezone_available:false});
         };
-        const [timezoneHint,result] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx)]);
+        const skillContext=()=>assignedSkillContextHint({prompt:event?.prompt,sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:resolvePluginConfig(api).baseUrl,brokerSecret:loadToolBrokerSecret});
+        const [timezoneHint,result,skillHint] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx),skillContext()]);
         const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
         const personalContext=speechTurn?speechTurn:statusHint?[statusHint,timezoneHint].filter(Boolean).join('\n'):[physicalDiscoveryTurnHint(physicalHint),recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
-        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint,speechTurn||statusHint?'':recoveryHint,reviewHint].filter(Boolean).join('\n');
+        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint,speechTurn||statusHint?'':recoveryHint,reviewHint,skillHint].filter(Boolean).join('\n');
         const clockContext=systemContext?{appendSystemContext:systemContext}:{};
         if (!result?.matched) return systemContext||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};

@@ -142,7 +142,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    return sourceData(connectorReferenceInput(db,owner,action,result,scope));
   };
   id=resolveSourceReference(db,owner,app,id,scope);
-  if(discoverUnknownSources&&!cursorContinuation&&scope.run&&!input.task_id&&input.kind!=='draft'&&(id||['gmail','outlook'].includes(app))&&!(app==='google_calendar'&&id==='primary')){
+  // Interactive mailbox reviews need the same bounded discovery as scheduled
+  // reviews. Without an ID, never silently substitute one latest thread.
+  const mailboxDiscovery=!id&&['gmail','outlook'].includes(app);
+  if(discoverUnknownSources&&!cursorContinuation&&!input.task_id&&input.kind!=='draft'&&(mailboxDiscovery||scope.run&&id)&&!(app==='google_calendar'&&id==='primary')){
    ensureSourceReceipts(db);
    const known=id&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
    const task=id&&db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
@@ -170,8 +173,8 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
      assertFloAssistConnector(owner,`${providers[app]}.source_discovery`,db,scope);
      return {app_id:app,requested_source_read:false,content_verified:false,needs_source_selection:true,guidance:'This identifier has not been verified in this run. Use provider discovery and copy its exact item ID, or read an existing task with task_id only. No guessed item was sent to the provider.'};
     }
-    for(const c of candidates)requireSourceReview(db,scope,c,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
-    if(more)requireSourceReview(db,scope,{app_id:app,source_id:'@discovery'},null);
+    if(scope.run)for(const c of candidates)requireSourceReview(db,scope,c,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
+    if(more&&scope.run)requireSourceReview(db,scope,{app_id:app,source_id:'@discovery'},null);
     if(!candidates.length&&!more)verifyEmptyAppCoverage(db,scope,app);
     return {app_id:app,...(account?{account_id:account}:{}),requested_source_read:false,content_verified:false,discovery_only:true,empty:!candidates.length&&!more,needs_source_selection:true,source_candidates:candidates,more_candidates:more,guidance:'These are current owner-scoped discovery results, not source content. Any unverified supplied ID was not sent to the provider. Choose exact returned source IDs and read complete bodies/pages. Do not retry guessed IDs. Extra candidates beyond this bounded list mean partial coverage.'};
    }
