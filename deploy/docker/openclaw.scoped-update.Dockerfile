@@ -29,5 +29,9 @@ COPY backend/scripts/test-native-harness-roster-snapshot.mjs /opt/agent-os/backe
 RUN node /opt/agent-os/deploy/scripts/install-native-harness-roster-snapshot.mjs && node /opt/agent-os/backend/scripts/test-native-harness-roster-snapshot.mjs
 COPY backend/scripts/test-connector-dynamic-input.mjs /opt/agent-os/backend/scripts/
 RUN node /opt/agent-os/backend/scripts/test-connector-dynamic-input.mjs
+COPY backend/scripts/test-native-reopen-schema-stamp.mjs backend/scripts/test-native-sqlite-reopen.mjs backend/scripts/test-native-recovery-context-window.mjs /opt/agent-os/backend/scripts/
+COPY deploy/scripts/install-native-recovery-context-window.mjs /opt/agent-os/deploy/scripts/
+RUN node /opt/agent-os/backend/scripts/test-native-reopen-schema-stamp.mjs && node /opt/agent-os/backend/scripts/test-native-sqlite-reopen.mjs
+RUN node /opt/agent-os/deploy/scripts/install-native-recovery-context-window.mjs && node /opt/agent-os/backend/scripts/test-native-recovery-context-window.mjs
 RUN chmod +x /entrypoint.sh && node /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type f -exec chmod 644 {} +

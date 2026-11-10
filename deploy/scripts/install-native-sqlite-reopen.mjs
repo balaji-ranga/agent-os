@@ -3,7 +3,7 @@ const root=process.argv[2]||'/usr/local/lib/node_modules/openclaw/dist';let call
 for(const file of readdirSync(root).filter(x=>/^openclaw-agent-db-.*\.js$/.test(x))){const p=join(root,file);let s=readFileSync(p,'utf8');
  const call='assertAgentDatabaseIntegrityBeforeMutation(db, agentId, pathname)';
  const patched='assertAgentDatabaseIntegrityBeforeMutation(db, agentId, pathname, isValidatedReopen)';
- if(s.includes(patched))callers++;else if(s.includes(call)&&s.includes('let isValidatedReopen = validatedAgentDatabasePaths.get(pathname) === agentId;')){s=s.replace(call,patched);
+ if(s.includes(patched)||s.includes('const flolahValidatedSchemaStamps = new Map();'))callers++;else if(s.includes(call)&&s.includes('let isValidatedReopen = validatedAgentDatabasePaths.get(pathname) === agentId;')){s=s.replace(call,patched);
  const cache='const validatedAgentDatabasePaths = /* @__PURE__ */ new Map();';
  const reopen='let isValidatedReopen = validatedAgentDatabasePaths.get(pathname) === agentId;';
  const record='validatedAgentDatabasePaths.set(pathname, agentId);';
@@ -20,4 +20,22 @@ for(const file of readdirSync(root).filter(x=>/^openclaw-agent-db-.*\.js$/.test(
   s=s.slice(0,start)+body+s.slice(end);maintenance++;
  }else if(s.includes(next))maintenance++;
  writeFileSync(p,s);
-}if(callers!==1||maintenance!==1)throw Error(`Unsupported agent DB ABI ${callers}/${maintenance}`);console.log('SQLITE_VALIDATED_REOPEN_INSTALLED');
+}if(callers!==1||maintenance!==1)throw Error(`Unsupported agent DB ABI ${callers}/${maintenance}`);
+// Reopened handles need owner/version checks, but a previously validated,
+// unchanged schema does not need every table/index contract rebuilt again.
+for(const file of readdirSync(root).filter(x=>/^openclaw-agent-db-.*\.js$/.test(x))){
+ const p=join(root,file);let s=readFileSync(p,'utf8');
+ if(!s.includes('const flolahValidatedFileIds = new Map();')||s.includes('const flolahValidatedSchemaStamps = new Map();'))continue;
+ const anchor='isValidatedReopen = isValidatedReopen && flolahValidatedFileIds.get(pathname) === flolahFileIdentity(pathname);';
+ const check='const requiresCurrentVersionConvergence = assertAgentDatabaseIntegrityBeforeMutation(db, agentId, pathname, isValidatedReopen);';
+ const record='flolahValidatedFileIds.set(pathname, flolahFileIdentity(pathname));';
+ for(const a of [anchor,check,record])if(s.split(a).length!==2)throw Error('Unsupported schema-stamp reopen ABI');
+ s=s.replace('const flolahValidatedFileIds = new Map();',`const flolahValidatedFileIds = new Map();
+const flolahValidatedSchemaStamps = new Map();
+const flolahSchemaStamp = db => JSON.stringify([db.prepare('PRAGMA schema_version').get(), db.prepare('PRAGMA user_version').get(), db.prepare("SELECT role, schema_version, agent_id FROM schema_meta WHERE meta_key='primary'").get()]);`)
+ .replace(anchor,anchor+'\n\t\tisValidatedReopen = isValidatedReopen && flolahValidatedSchemaStamps.get(pathname) === flolahSchemaStamp(db);')
+ .replace(check,'const requiresCurrentVersionConvergence = isValidatedReopen ? false : assertAgentDatabaseIntegrityBeforeMutation(db, agentId, pathname, false);')
+ .replace(record,record+'\n\t\t\tflolahValidatedSchemaStamps.set(pathname, flolahSchemaStamp(db));');
+ writeFileSync(p,s);
+}
+console.log('SQLITE_VALIDATED_REOPEN_INSTALLED');
