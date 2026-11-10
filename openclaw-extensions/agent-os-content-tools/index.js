@@ -3,7 +3,7 @@ import {registerNativeRetentionService} from './native-retention-service.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId,runtimeRecipient} from './runtime-channel.js';
 import {speechInputGuidance,speechTurnGuidance} from './speech-context.js';
 import {rememberStatusTurn,isStatusTurn,statusTurnBlock} from './async-status-turn.js';
-import {rememberSourceReview,sourceReviewBlock} from './source-review-turn.js';
+import {rememberSourceReview,sourceReviewBlock,sourceReviewGuidance} from './source-review-turn.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {connectorRoutingGuidance} from './connector-context.js';
 import {profileTimezoneHint} from './profile-timezone.js';
@@ -1116,6 +1116,7 @@ export default definePluginEntry({
             physicalContext:system.includes('[Registered physical device capabilities'),
             inventoryFirst:system.includes('first inspect the current authorized inventory'),
             nativeDiscovery:system.includes('call tool_call with id="physical_entities_list"'),
+            sourceReviewContract:system.includes('[Current source-review task contract]'),
           }));
         }
       });
@@ -1134,6 +1135,7 @@ export default definePluginEntry({
         const statusSession=ctx?.sessionKey||safeApiSessionKey(api);
         rememberStatusTurn(statusSession,event?.prompt);
         rememberSourceReview(statusSession,event?.prompt);
+        const reviewHint=sourceReviewGuidance(event?.prompt);
         const recoveryAgent = resolveCallerAgentId(api, {}, ctx);
         const speechTurn=speechTurnGuidance(event?.prompt,{canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey)});
         const physicalHint = await physicalContextHint({allowed:!speechTurn&&isToolAllowedForAgent(recoveryAgent,'physical_entities_list',ctx?.sessionKey),sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:String(resolvePluginConfig(api).baseUrl||'').trim(),brokerSecret:loadToolBrokerSecret});
@@ -1162,7 +1164,7 @@ export default definePluginEntry({
         const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
         const personalContext=speechTurn?speechTurn:statusHint?[statusHint,timezoneHint].filter(Boolean).join('\n'):[physicalDiscoveryTurnHint(physicalHint),recoveryHint,scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
-        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint,speechTurn||statusHint?'':recoveryHint].filter(Boolean).join('\n');
+        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint,speechTurn||statusHint?'':recoveryHint,reviewHint].filter(Boolean).join('\n');
         const clockContext=systemContext?{appendSystemContext:systemContext}:{};
         if (!result?.matched) return systemContext||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};

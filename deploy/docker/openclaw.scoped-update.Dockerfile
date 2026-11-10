@@ -36,5 +36,8 @@ RUN node /opt/agent-os/deploy/scripts/install-native-recovery-context-window.mjs
 COPY deploy/scripts/install-native-recovery-tail.mjs /opt/agent-os/deploy/scripts/
 COPY backend/scripts/test-native-recovery-tail.mjs /opt/agent-os/backend/scripts/
 RUN node /opt/agent-os/deploy/scripts/install-native-recovery-tail.mjs && node /opt/agent-os/backend/scripts/test-native-recovery-tail.mjs
+COPY deploy/scripts/install-native-memory-heap.mjs /opt/agent-os/deploy/scripts/
+COPY backend/scripts/test-memory-delta.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/deploy/scripts/install-native-memory-heap.mjs && node /opt/agent-os/backend/scripts/test-memory-delta.mjs
 RUN chmod +x /entrypoint.sh && node /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type f -exec chmod 644 {} +

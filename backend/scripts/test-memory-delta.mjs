@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import {prepareMemoryDelta,assertRetentionSnapshot} from '../../openclaw-extensions/agent-os-content-tools/memory-delta.js';
+import {prepareMemoryDelta,assertRetentionSnapshot,uniqueMemoryCacheEntries} from '../../openclaw-extensions/agent-os-content-tools/memory-delta.js';
 const db=new Database(':memory:');db.exec(`CREATE TABLE memory_index_chunks(id TEXT PRIMARY KEY,path TEXT,source TEXT,embedding TEXT);CREATE TABLE vectors(id TEXT PRIMARY KEY,embedding TEXT);CREATE VIRTUAL TABLE search USING fts5(text,id UNINDEXED,path UNINDEXED,source UNINDEXED,model UNINDEXED,start_line UNINDEXED,end_line UNINDEXED);`);
 for(const id of ['keep','change','remove','other','empty']){const path=id==='other'?'other':'room';db.prepare('INSERT INTO memory_index_chunks VALUES (?,?,?,?)').run(id,path,'sessions','[1,2]');db.prepare('INSERT INTO vectors VALUES (?,?)').run(id,'[1,2]');db.prepare('INSERT INTO search VALUES (?,?,?,?,?,?,?)').run('content',id,path,'sessions','model',1,2);}
 const entries=[{id:'keep',embedding:[1,2]},{id:'change',embedding:[3,4]},{id:'new',embedding:[1,2]},{id:'empty',embedding:[]}];
@@ -22,6 +22,17 @@ db.transaction(()=>{
 })();
 assert.ok(statements.includes('DELETE FROM search WHERE rowid=?'));
 assert.ok(!statements.includes('DELETE FROM search WHERE id=?'));
+assert.ok(!statements.some(sql=>/SELECT\s+id\s*,\s*embedding/i.test(sql)), 'Stored vectors must stay inside SQLite');
+db.prepare("DELETE FROM vectors WHERE id='keep'").run();
+db.transaction(()=>{
+ const delta=prepareMemoryDelta(args);
+ assert.equal(delta.embeddingUnchanged('keep',[1,2]),true);
+ assert.equal(delta.vectorUnchanged('keep',[1,2]),false,'Missing vector must be repaired');
+ assert.equal(delta.embeddingUnchanged('keep',[2,1]),false);
+ assert.equal(delta.embeddingUnchanged('new',[1,2]),false);
+})();
+const first={hash:'same',embedding:[1]},last={hash:'same',embedding:[2]},other={hash:'other',embedding:[3]};
+assert.deepEqual(uniqueMemoryCacheEntries([first,other,last]),[last,other]);
 assert.equal(prepareMemoryDelta({...args,vectorReady:false}),null);
 db.exec('CREATE TABLE flolah_retention_fences(session_id TEXT PRIMARY KEY,changed_at INTEGER); INSERT INTO flolah_retention_fences VALUES (\'session\',100)');
 assert.throws(()=>assertRetentionSnapshot(db,{sessionId:'session',mtimeMs:99}),/fresh transcript/);
