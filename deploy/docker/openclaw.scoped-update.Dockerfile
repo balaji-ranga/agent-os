@@ -24,5 +24,10 @@ RUN node /opt/agent-os/deploy/scripts/install-native-heartbeat-silence.mjs
 COPY deploy/scripts/install-native-sqlite-reopen.mjs deploy/scripts/install-native-memory-delta.mjs deploy/scripts/install-native-sqlite-diagnostics.mjs deploy/scripts/install-native-prompt-context.mjs /opt/agent-os/deploy/scripts/
 RUN node /opt/agent-os/deploy/scripts/install-native-sqlite-reopen.mjs && node /opt/agent-os/deploy/scripts/install-native-memory-delta.mjs && node /opt/agent-os/deploy/scripts/install-native-sqlite-diagnostics.mjs && node /opt/agent-os/deploy/scripts/install-native-prompt-context.mjs
 COPY backend/scripts/test-heartbeat-silence*.mjs /opt/agent-os/backend/scripts/
+COPY deploy/scripts/install-native-harness-roster-snapshot.mjs /opt/agent-os/deploy/scripts/
+COPY backend/scripts/test-native-harness-roster-snapshot.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/deploy/scripts/install-native-harness-roster-snapshot.mjs && node /opt/agent-os/backend/scripts/test-native-harness-roster-snapshot.mjs
+COPY backend/scripts/test-connector-dynamic-input.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/backend/scripts/test-connector-dynamic-input.mjs
 RUN chmod +x /entrypoint.sh && node /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type f -exec chmod 644 {} +

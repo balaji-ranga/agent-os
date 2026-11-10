@@ -265,7 +265,7 @@ const PARAM_SCHEMAS = {
     type: "object",
     properties: {
       action_id: { type: "string", description: "Exact connector action id that is granted to this agent." },
-      input: { type: "object", description: "Action input matching connector_get_action_guide." },
+      input: { type: "object", additionalProperties: true, description: "Action input matching connector_get_action_guide; validated against the selected action schema by the server." },
       connection_name: { type: "string", description: "Optional connected-account alias; normally omit to use the CEO default." },
     },
     required: ["action_id", "input"],

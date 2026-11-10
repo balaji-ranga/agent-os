@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+const Ajv=createRequire(process.argv[2]||'/usr/local/lib/node_modules/openclaw/package.json')('ajv');
+const source=readFileSync(new URL('../../openclaw-extensions/agent-os-content-tools/index.js',import.meta.url),'utf8');
+const begin=source.indexOf('const PARAM_SCHEMAS = '),end=source.indexOf('\nfunction resolvePluginConfig',begin);
+const schemas=new Function('physicalSchemas','floassistSchemas','multiFormatSchema',source.slice(begin,end)+'; return PARAM_SCHEMAS;')({},{},{});
+const schema=schemas.connector_execute_action;
+assert.equal(schema.additionalProperties,false);
+assert.equal(schema.properties.input.additionalProperties,true,'Explicitly preserve the dynamic action payload through native schema normalization');
+const validate=new Ajv({strict:false}).compile(schema);
+for(const input of [{query:'newer_than:7d',maxResults:20},{top:25,select:['id','subject'],filter:'receivedDateTime ge 2026-11-03T00:00:00Z'},{nested:{values:[1,true,'x']}}])assert.ok(validate({action_id:'fixture.read',input}),JSON.stringify(validate.errors));
+assert.equal(validate({action_id:'fixture.read',input:{},owner_user_id:'other'}),false);
+assert.equal(validate({action_id:'fixture.read',input:'wrong'}),false);
+console.log('CONNECTOR_DYNAMIC_INPUT_OK: dynamic action payloads accepted; envelope and input type remain constrained');

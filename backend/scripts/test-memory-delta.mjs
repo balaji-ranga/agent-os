@@ -7,6 +7,21 @@ const entries=[{id:'keep',embedding:[1,2]},{id:'change',embedding:[3,4]},{id:'ne
 const args={db,path:'room',source:'sessions',entries,vectorTable:'vectors',ftsTable:'search',vectorReady:true,ftsReady:true};
 db.transaction(()=>{const delta=prepareMemoryDelta(args);assert.equal(delta.vectorUnchanged('keep',[1,2]),true);assert.equal(delta.vectorUnchanged('change',[3,4]),false);assert.equal(delta.ftsUnchanged('keep',{text:'content',startLine:1,endLine:2},'model'),true);assert.equal(delta.ftsUnchanged('change',{text:'updated',startLine:1,endLine:2},'model'),false);assert.equal(db.prepare("SELECT count(*) n FROM vectors WHERE id IN ('remove','change','empty')").get().n,0);assert.equal(db.prepare("SELECT count(*) n FROM search WHERE id IN ('remove','change')").get().n,0);assert.ok(db.prepare("SELECT 1 FROM memory_index_chunks WHERE id='other'").get());})();
 const before=db.prepare('SELECT * FROM memory_index_chunks ORDER BY id').all();assert.throws(()=>db.transaction(()=>{prepareMemoryDelta({...args,entries:[]});throw Error('rollback')})(),/rollback/);assert.deepEqual(db.prepare('SELECT * FROM memory_index_chunks ORDER BY id').all(),before);
+// Duplicate FTS rows are repaired by exact rowid. A new chunk must not issue
+// an unindexed DELETE-by-id scan, or delete an identically named foreign row.
+db.prepare('INSERT INTO search VALUES (?,?,?,?,?,?,?)').run('content','keep','room','sessions','model',1,2);
+db.prepare('INSERT INTO search VALUES (?,?,?,?,?,?,?)').run('foreign','new','other','sessions','model',1,2);
+const statements=[];
+const observedDb={exec:sql=>db.exec(sql),prepare:sql=>{statements.push(sql);return db.prepare(sql);}};
+db.transaction(()=>{
+ const delta=prepareMemoryDelta({...args,db:observedDb});
+ assert.equal(delta.ftsUnchanged('keep',{text:'content',startLine:1,endLine:2},'model'),false);
+ assert.equal(db.prepare("SELECT count(*) n FROM search WHERE id='keep'").get().n,0);
+ assert.equal(delta.ftsUnchanged('new',{text:'new',startLine:1,endLine:2},'model'),false);
+ assert.equal(db.prepare("SELECT count(*) n FROM search WHERE id='new' AND path='other'").get().n,1);
+})();
+assert.ok(statements.includes('DELETE FROM search WHERE rowid=?'));
+assert.ok(!statements.includes('DELETE FROM search WHERE id=?'));
 assert.equal(prepareMemoryDelta({...args,vectorReady:false}),null);
 db.exec('CREATE TABLE flolah_retention_fences(session_id TEXT PRIMARY KEY,changed_at INTEGER); INSERT INTO flolah_retention_fences VALUES (\'session\',100)');
 assert.throws(()=>assertRetentionSnapshot(db,{sessionId:'session',mtimeMs:99}),/fresh transcript/);

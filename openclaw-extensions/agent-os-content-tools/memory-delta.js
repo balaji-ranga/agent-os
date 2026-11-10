@@ -29,11 +29,15 @@ export function prepareMemoryDelta({db,path,source,entries,vectorTable,ftsTable,
  // Scan IDs once, retaining only this source's existing IDs. Never load vectors.
  const vectorIds=new Set();
  for(const row of db.prepare(`SELECT id FROM ${vectorTable}`).iterate())if(previous.has(row.id))vectorIds.add(row.id);
- const ftsRows=new Map();if(ftsReady)for(const row of db.prepare(`SELECT id,text,model,start_line,end_line FROM ${ftsTable} WHERE path=? AND source=?`).all(path,source))ftsRows.set(row.id,ftsRows.has(row.id)?null:row);
- const ftsDelete=ftsReady?db.prepare(`DELETE FROM ${ftsTable} WHERE id=?`):null;
+ const ftsRows=new Map();if(ftsReady)for(const row of db.prepare(`SELECT rowid,id,text,model,start_line,end_line FROM ${ftsTable} WHERE path=? AND source=?`).all(path,source)){
+  const rows=ftsRows.get(row.id)||[];rows.push(row);ftsRows.set(row.id,rows);
+ }
+ // FTS text-column equality scans the whole index. The source snapshot already
+ // contains exact rowids, including duplicates; absent IDs need no deletion.
+ const ftsDelete=ftsReady?db.prepare(`DELETE FROM ${ftsTable} WHERE rowid=?`):null;
  return {
   embeddingJson,
   vectorUnchanged(id,embedding){return previous.get(id)===embeddingJson(embedding)&&vectorIds.has(id);},
-  ftsUnchanged(id,chunk,model){if(!ftsReady)return false;const row=ftsRows.get(id);if(row&&row.text===chunk.text&&row.model===model&&row.start_line===chunk.startLine&&row.end_line===chunk.endLine)return true;ftsDelete.run(id);return false;}
+  ftsUnchanged(id,chunk,model){if(!ftsReady)return false;const rows=ftsRows.get(id)||[];const row=rows.length===1?rows[0]:null;if(row&&row.text===chunk.text&&row.model===model&&row.start_line===chunk.startLine&&row.end_line===chunk.endLine)return true;for(const stale of rows)ftsDelete.run(stale.rowid);ftsRows.delete(id);return false;}
  };
 }
