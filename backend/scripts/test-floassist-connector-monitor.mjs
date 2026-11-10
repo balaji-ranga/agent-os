@@ -34,6 +34,12 @@ assert.equal(db.prepare("SELECT status FROM floassist_profiles WHERE owner_id='a
 db.prepare("UPDATE floassist_profiles SET status='active' WHERE owner_id='a'").run();
 db.prepare('INSERT INTO floassist_resources(owner_id,kind,resource_key,resource_id) VALUES (?,?,?,?)').run('a','schedule','briefing','fixture-goal');
 for(const text of ['No new tasks.','No tasks pending.','FLOASSIST_NO_UPDATE'])assert.equal(floAssistDeliveryGate({ownerUserId:'a',scheduledGoalId:'fixture-goal',text},db).skip,true);
+for(const text of ['*Calendar Conflicts Check*\n- No new conflicts found across your calendars\n- **When:** As of today\n- **Next action:** Monitor for updates 📅','No calendar overlaps detected.']){
+ const before=db.prepare('SELECT count(*) n FROM floassist_notifications').get().n;
+ assert.equal(floAssistDeliveryGate({ownerUserId:'a',scheduledGoalId:'fixture-goal',text},db).reason,'no_update');
+ assert.equal(db.prepare('SELECT count(*) n FROM floassist_notifications').get().n,before,'idle reply must not enter notification queue');
+}
+for(const text of ['No new conflicts found. Gmail authorization failed.','No conflicts found. Meeting A overlaps Meeting B at 14:00.','Calendar unavailable; no conflicts found.'])assert.notEqual(floAssistDeliveryGate({ownerUserId:'a',scheduledGoalId:'fixture-goal',text},db).reason,'no_update','mixed facts/errors are not idle');
 assert.notEqual(floAssistDeliveryGate({ownerUserId:'a',scheduledGoalId:'fixture-goal',text:'No new tasks. Gmail authorization failed.'},db).reason,'no_update','mixed failure text must remain visible');
 db.prepare('INSERT INTO floassist_notifications VALUES (?,?,?,?,?,?,?,?)').run('a:old-empty','a','fixture','No new tasks.','pending',now,now,now+60000);
 await tickFloAssistNotifications({db,now,send});

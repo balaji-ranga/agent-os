@@ -1,4 +1,4 @@
-import {isIdleHeartbeatReply} from '../../../../openclaw-extensions/agent-os-content-tools/heartbeat-silence.js';
+import {isIdleFloAssistNotification} from './idle-notification.js';
 import {connectorHealthEnabled,CONNECTOR_HEALTH_JOB} from './health-settings.js';
 import {isPlatformCronActive} from '../platform-cron-registry.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -7,7 +7,7 @@ import { fail } from './core.js';
 import { readFileSync } from 'node:fs';
 import {tickTracking,trackingNotificationAllowed,recordTrackingDelivery} from './tracking.js';
 import {summarizeFloAssistNotification} from './local-assistance.js';
-const idleUpdate=text=>isIdleHeartbeatReply({text:String(text||'').replace(/\bno new (tasks?|items?|updates?|alerts?)\b/gi,'no $1')});
+const idleUpdate=isIdleFloAssistNotification;
 const product=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
 
 export function floAssistResponsibilityEnabled(preferences,responsibility){

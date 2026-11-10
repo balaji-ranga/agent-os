@@ -33,5 +33,8 @@ COPY backend/scripts/test-native-reopen-schema-stamp.mjs backend/scripts/test-na
 COPY deploy/scripts/install-native-recovery-context-window.mjs /opt/agent-os/deploy/scripts/
 RUN node /opt/agent-os/backend/scripts/test-native-reopen-schema-stamp.mjs && node /opt/agent-os/backend/scripts/test-native-sqlite-reopen.mjs
 RUN node /opt/agent-os/deploy/scripts/install-native-recovery-context-window.mjs && node /opt/agent-os/backend/scripts/test-native-recovery-context-window.mjs
+COPY deploy/scripts/install-native-recovery-tail.mjs /opt/agent-os/deploy/scripts/
+COPY backend/scripts/test-native-recovery-tail.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/deploy/scripts/install-native-recovery-tail.mjs && node /opt/agent-os/backend/scripts/test-native-recovery-tail.mjs
 RUN chmod +x /entrypoint.sh && node /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type f -exec chmod 644 {} +
