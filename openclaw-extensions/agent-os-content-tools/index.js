@@ -1,5 +1,6 @@
 import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
 import {resolveTurnTaskPrompt} from './turn-task-context.js';
+import {composeTaskGuidance} from './task-context-guidance.js';
 import {projectDiscoveryResult} from './discovery-projection.js';
 import {incrementalContextGuidance} from './context-budget-guidance.js';
 import {assignedSkillContextHint,stripNativeSkillMarker} from './skill-context.js';
@@ -1169,9 +1170,8 @@ export default definePluginEntry({
         const skillContext=()=>assignedSkillContextHint({prompt:taskPrompt,sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:resolvePluginConfig(api).baseUrl,brokerSecret:loadToolBrokerSecret});
         const [timezoneHint,result,skillHint] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx),skillContext()]);
         const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
-        const personalContext=speechTurn?speechTurn:statusHint?[statusHint,timezoneHint].filter(Boolean).join('\n'):[physicalDiscoveryTurnHint(physicalHint),scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_list', ctx?.sessionKey) && isToolAllowedForAgent(recoveryAgent, 'scheduled_goal_run_now', ctx?.sessionKey))].filter(Boolean).join('\n');
         const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
-        const systemContext=[timezoneHint,statusHint?'':physicalHint,speechHint,speechTurn||statusHint?'':recoveryHint,reviewHint,skillHint,incrementalContextGuidance].filter(Boolean).join('\n');
+        const {personalContext,systemContext}=composeTaskGuidance({speechTurn,statusHint,timezoneHint,physicalHint,physicalDiscoveryHint:physicalDiscoveryTurnHint(physicalHint),scheduledHint:scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent,'scheduled_goal_list',ctx?.sessionKey)&&isToolAllowedForAgent(recoveryAgent,'scheduled_goal_run_now',ctx?.sessionKey)),speechHint,recoveryHint,reviewHint,skillHint,budgetHint:incrementalContextGuidance});
         const clockContext=systemContext?{appendSystemContext:systemContext}:{};
         if (!result?.matched) return systemContext||personalContext ? { ...clockContext, ...(personalContext?{prependContext:personalContext}:{}) } : undefined;
         const campaign = result.campaign || {};

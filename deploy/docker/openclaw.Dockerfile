@@ -46,6 +46,7 @@ RUN node deploy/scripts/install-native-recovery-context-window.mjs && node backe
 RUN node deploy/scripts/install-native-recovery-tail.mjs && node backend/scripts/test-native-recovery-tail.mjs
 RUN node deploy/scripts/install-native-memory-heap.mjs && node backend/scripts/test-memory-delta.mjs
 RUN node deploy/scripts/install-native-discovery-projection.mjs && node backend/scripts/test-discovery-projection.mjs && node backend/scripts/test-native-incremental-context.mjs && node backend/scripts/test-turn-task-context.mjs
+RUN node backend/scripts/test-task-context-guidance.mjs
 RUN node scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +
 
