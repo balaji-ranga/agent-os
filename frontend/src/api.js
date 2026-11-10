@@ -261,6 +261,8 @@ export const api = {
   /** Rebuild ORG.md + COO AGENTS.md from DB for the signed-in CEO (admin: owner_user_id). */
   orgSyncAgentDocs: (body) => post('/agents/org/sync', body || {}),
   agentGet: (id) => get(`/agents/${id}`),
+  agentModelGet: (id) => get(`/agents/${id}/model`),
+  agentModelSet: (id, model) => put(`/agents/${id}/model`, {model}),
   agentCreate: (body) => post('/agents', body),
   agentHireTemplates: () => get('/agents/hire-templates'),
   agentUpdate: (id, body) => patch(`/agents/${id}`, body),

@@ -282,6 +282,34 @@
       ]
     },
     {
+      "source": "components/AgentModelPreference.jsx",
+      "form_count": 0,
+      "forms": [],
+      "links": [],
+      "headings": [
+        "AI model"
+      ],
+      "controls": [
+        {
+          "id": "components/AgentModelPreference.jsx:13:2",
+          "label": "Employee model",
+          "type": "select",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [
+            {
+              "value": "",
+              "label": "Use active platform default"
+            }
+          ],
+          "options_authority": "live_options_required"
+        }
+      ]
+    },
+    {
       "source": "components/AgentSlashCommands.jsx",
       "form_count": 0,
       "forms": [],
@@ -7898,7 +7926,7 @@
       ],
       "controls": [
         {
-          "id": "pages/AgentWorkspace.jsx:32:6",
+          "id": "pages/AgentWorkspace.jsx:33:6",
           "label": "Search and select…",
           "type": "text",
           "required": false,
@@ -7907,7 +7935,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:36:12",
+          "id": "pages/AgentWorkspace.jsx:37:12",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -7916,7 +7944,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:602:10",
+          "id": "pages/AgentWorkspace.jsx:604:10",
           "label": "Reports to",
           "type": "select",
           "required": false,
@@ -7933,7 +7961,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:637:12",
+          "id": "pages/AgentWorkspace.jsx:639:12",
           "label": "Orchestrator",
           "type": "checkbox",
           "required": false,
@@ -7942,7 +7970,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:698:10",
+          "id": "pages/AgentWorkspace.jsx:700:10",
           "label": "Workspace template",
           "type": "select",
           "required": false,
@@ -7959,7 +7987,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:735:10",
+          "id": "pages/AgentWorkspace.jsx:737:10",
           "label": "New template name (optional)",
           "type": "text",
           "required": false,
@@ -7968,7 +7996,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:842:20",
+          "id": "pages/AgentWorkspace.jsx:844:20",
           "label": "Name",
           "type": "text",
           "required": false,
@@ -7977,7 +8005,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:846:20",
+          "id": "pages/AgentWorkspace.jsx:848:20",
           "label": "When to recommend it",
           "type": "text",
           "required": false,
@@ -7986,7 +8014,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:856:18",
+          "id": "pages/AgentWorkspace.jsx:858:18",
           "label": "Description",
           "type": "text",
           "required": false,
@@ -7995,7 +8023,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:860:18",
+          "id": "pages/AgentWorkspace.jsx:862:18",
           "label": "SKILL.md",
           "type": "textarea",
           "required": false,
@@ -8004,7 +8032,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:870:82",
+          "id": "pages/AgentWorkspace.jsx:872:82",
           "label": "Search published skills",
           "type": "text",
           "required": false,
@@ -8013,7 +8041,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:878:20",
+          "id": "pages/AgentWorkspace.jsx:880:20",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -8022,7 +8050,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:941:22",
+          "id": "pages/AgentWorkspace.jsx:943:22",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -8031,7 +8059,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:992:22",
+          "id": "pages/AgentWorkspace.jsx:994:22",
           "label": "Connector app",
           "type": "select",
           "required": false,
@@ -8043,7 +8071,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:1002:22",
+          "id": "pages/AgentWorkspace.jsx:1004:22",
           "label": "Search connector actions",
           "type": "search",
           "required": false,
@@ -8052,7 +8080,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:1027:32",
+          "id": "pages/AgentWorkspace.jsx:1029:32",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -8061,7 +8089,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:1069:20",
+          "id": "pages/AgentWorkspace.jsx:1071:20",
           "label": "MCP server",
           "type": "select",
           "required": false,
@@ -8073,7 +8101,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:1086:28",
+          "id": "pages/AgentWorkspace.jsx:1088:28",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -8082,7 +8110,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkspace.jsx:1150:12",
+          "id": "pages/AgentWorkspace.jsx:1152:12",
           "label": "Unlabelled or dynamically labelled control",
           "type": "textarea",
           "required": false,
@@ -15076,6 +15104,7 @@
       "modules": [
         "components/AgentAvatarPicker.jsx",
         "components/AgentKnowledgeAccess.jsx",
+        "components/AgentModelPreference.jsx",
         "components/DepartmentPicker.jsx",
         "components/PublishAgentToExchangeModal.jsx",
         "pages/AgentWorkspace.jsx"

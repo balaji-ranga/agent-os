@@ -2,6 +2,7 @@
 import { join } from 'path';
 import { existsSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { getDb } from '../db/schema.js';
+import {getAgentModelPreference,setAgentModelPreference} from '../services/agent-model-preferences.js';
 import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId, resolveCeoDataUserIdFromRequest } from '../middleware/auth.js';
 import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { listAgentsForUser } from '../services/users.js';
@@ -360,6 +361,26 @@ router.get('/:id', requireAuth, (req, res) => {
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
+});
+
+router.get('/:id/model', requireAuth, (req,res)=>{
+  try {
+    assertUserAgentAccess(req.authUser,req.params.id);
+    const owner=resolveAuthenticatedCeoUserId(req,req.query||{});
+    res.json(getAgentModelPreference(owner,req.params.id));
+  } catch(e){res.status(e.status||500).json({error:e.message});}
+});
+router.put('/:id/model', requireAuth, requireCeoOrAdmin, requireTenantFullAccess, (req,res)=>{
+  try {
+    assertUserAgentAccess(req.authUser,req.params.id);
+    const owner=resolveAuthenticatedCeoUserId(req,req.body||{});
+    const agent=db().prepare('SELECT * FROM agents WHERE id=?').get(req.params.id);
+    if(!agent)return res.status(404).json({error:'Agent not found'});
+    const runtime=ensureTenantOpenClawAgent(agent,owner);
+    const result=setAgentModelPreference(owner,agent.id,runtime.openclawAgentId,req.body?.model);
+    ensureTenantOpenClawAgent(agent,owner);
+    res.json(result);
+  } catch(e){res.status(e.status||500).json({error:e.message});}
 });
 
 router.get('/:id/skills', requireAuth, requireTenantFullAccess, (req, res) => {

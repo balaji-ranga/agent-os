@@ -6,6 +6,7 @@ import AgentAvatarPicker from '../components/AgentAvatarPicker.jsx';
 import PublishAgentToExchangeModal from '../components/PublishAgentToExchangeModal.jsx';
 import RobotAvatar from '../components/RobotAvatar.jsx';
 import AgentKnowledgeAccess from '../components/AgentKnowledgeAccess.jsx';
+import AgentModelPreference from '../components/AgentModelPreference.jsx';
 
 const FILE_NAMES = ['soul', 'agents', 'memory', 'tools', 'ops', 'identity'];
 const TOOLS_TAB = '__tool_access__';
@@ -567,6 +568,7 @@ export default function AgentWorkspace() {
       </p>
 
       {error && <div style={{ padding: '0.5rem 1rem', background: 'rgba(248,113,113,0.15)', borderRadius: 8, marginBottom: '1rem', color: '#f87171' }}>{error}</div>}
+      <AgentModelPreference key={agentId} agentId={agentId}/>
 
       <section
         style={{

@@ -38,6 +38,7 @@ import { applyIdentityNameToAgentEntry } from '../../../scripts/lib/openclaw-wha
 import { getAgentMcpBridgeGrants, MCP_AGENT_BRIDGE_TOOLS } from './agent-mcp-tool-grants.js';
 import { syncAgentSkillsToWorkspace } from './agent-skills.js';
 import {assertOpenClawAgentId} from '../../../scripts/lib/openclaw-config-contract.js';
+import {applyAgentModelPreference} from './agent-model-preferences.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -400,6 +401,7 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
     overwrite: Boolean(explicitDisplayName),
   });
   applyByokModelToAgentEntry(entry, ceoUserId);
+  applyAgentModelPreference(entry, ceoUserId);
   writeOpenClawConfig(config);
 
   try {

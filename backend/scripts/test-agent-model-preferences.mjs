@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
+import {configuredAgentModels,getAgentModelPreference,setAgentModelPreference,applyAgentModelPreference} from '../src/services/agent-model-preferences.js';
+const db=new Database(':memory:');
+const config={agents:{defaults:{model:{primary:'shared/first'}}},models:{providers:{shared:{apiKey:'never-return',models:[{id:'first',name:'First'},{id:'second',name:'Second'}]},'byok-other':{models:[{id:'private'}]}}}};
+const opts={db,config};
+assert.equal(JSON.stringify(configuredAgentModels(config)).includes('never-return'),false);
+assert.equal(configuredAgentModels(config).length,2);
+assert.equal(getAgentModelPreference('owner-a','employee',opts).default_model,'shared/first');
+const legacy={id:'runtime-a',model:{primary:'company/legacy'}};applyAgentModelPreference(legacy,'owner-a',opts);assert.equal(legacy.model.primary,'company/legacy');
+setAgentModelPreference('owner-a','employee','runtime-a','shared/second',opts);
+const selected={id:'runtime-a'};applyAgentModelPreference(selected,'owner-a',opts);assert.equal(selected.model.primary,'shared/second');
+const other={id:'runtime-a',model:{primary:'unchanged'}};applyAgentModelPreference(other,'owner-b',opts);assert.equal(other.model.primary,'unchanged');
+const otherAgent={id:'runtime-b'};applyAgentModelPreference(otherAgent,'owner-a',opts);assert.equal(otherAgent.model,undefined);
+assert.throws(()=>setAgentModelPreference('owner-a','employee','runtime-a','byok-other/private',opts),/not available/);
+assert.equal(getAgentModelPreference('owner-a','employee',opts).model,'shared/second');
+setAgentModelPreference('owner-a','employee','runtime-a','',opts);applyAgentModelPreference(selected,'owner-a',opts);assert.equal(selected.model,undefined);
+config.agents.defaults.model.primary='shared/second';assert.equal(getAgentModelPreference('owner-a','employee',opts).default_model,'shared/second');assert.equal(getAgentModelPreference('owner-a','employee',opts).model,'');
+// A later provisioning/BYOK sync must reapply the stored choice, including blank.
+selected.model={primary:'company/legacy'};applyAgentModelPreference(selected,'owner-a',opts);assert.equal(selected.model,undefined);
+assert.throws(()=>setAgentModelPreference('owner-a','employee','runtime-a',{},opts),/configured model/);
+db.close();console.log('AGENT_MODEL_PREFERENCES_OK: tenant and agent isolation, private-provider exclusion, validation, active-slot inheritance, provisioning persistence, legacy BYOK preservation');

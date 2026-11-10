@@ -4,6 +4,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { getDb } from '../db/schema.js';
+import {applyAgentModelPreference} from './agent-model-preferences.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
 import {
   syncByokAuthProfiles,
@@ -476,6 +477,7 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
     for (const entry of config.agents.list) {
       if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
       if (entry.model) delete entry.model;
+      applyAgentModelPreference(entry, id);
     }
     const authSync = syncByokAuthProfiles(id, { config, clear: true });
     scrubOpenClawAuthProfileMetadata(config, secondaryProviderKey);
@@ -542,6 +544,7 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   for (const entry of config.agents.list) {
     if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
     assignByokModelOnEntry(entry, modelSlug, config, secondaryModelSlug);
+    applyAgentModelPreference(entry, id);
   }
 
   const authSync = syncByokAuthProfiles(id, {
