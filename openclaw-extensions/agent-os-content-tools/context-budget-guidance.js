@@ -1,0 +1,12 @@
+// Shared across channels, models and data sources; it does not authorize any tool.
+export const incrementalContextGuidance = [
+ '[Bounded evidence processing]',
+ 'For large or paginated reads, work in bounded batches using the tool-supported page size and continuation contract. Analyse each batch before requesting the next. Do not fetch all pages in parallel or paste complete bodies into notes.',
+ 'Maintain a compact checkpoint: requested scope, source/account identity, snapshot/version/time, processed pages, exact next cursor or offset, concise findings with source references and supporting excerpts, unresolved questions, unread coverage and failures. A list/search result is not a body review. Never mark unread or truncated material reviewed.',
+ 'Use schemas already supplied in this turn; rediscover when missing, changed or rejected, rather than repeatedly fetching unchanged catalogs. Context compaction is handled by the runtime as its model budget fills. Continue from the checkpoint after compaction instead of restarting discovery or replaying earlier pages.',
+ 'Preserve pending operation/tracking IDs, idempotency keys and confirmed execution outcomes. A compaction or context retry is not permission to re-execute a mutation. Enquire about an accepted operation by its tracking ID. If a cursor expires, follow the tool’s restart contract and label any resulting coverage gap.',
+ 'Finish with the verified findings and actual coverage, or an explicit partial-result/blocker response. Do not silently stop or claim full coverage when the request budget is exhausted.',
+ '[/Bounded evidence processing]',
+].join('\n');
+
+export const incrementalCompactionInstruction = 'For paginated or large-source work, preserve a compact continuation checkpoint: original scope and filters; exact source/account IDs; snapshot/version/timestamp; processed page ranges; next cursor/offset; verified findings with source references and exact supporting excerpts; unresolved questions, unread coverage and errors. Retain pending tracking IDs, idempotency keys and completed mutation receipts. Never infer that unread pages were reviewed or that a completed action needs replay. Remove duplicate raw bodies and discovery schemas only after preserving these facts; keep retrieval references so evidence can be reread.';

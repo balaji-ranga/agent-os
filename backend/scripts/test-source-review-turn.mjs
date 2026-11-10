@@ -16,4 +16,8 @@ const contract=sourceReviewGuidance('Look at real email and calendars and genera
 assert.match(contract,/full thread\/body/);assert.match(contract,/NOT work priorities/);assert.match(contract,/No verified priorities/);assert.match(contract,/never standalone tool IDs/);
 assert.equal(sourceReviewGuidance('Open YouTube'),'');assert.equal(sourceReviewGuidance('Run my morning briefing'),'');
 assert.doesNotMatch(sourceReviewGuidance('Summarize my Gmail promotions'),/NOT work priorities/,'ordinary summaries must not suppress requested promotional content');
+const schema={type:'object',properties:{app_id:{enum:['mail-provider']}}};
+assert.ok(sourceReviewGuidance('Review my email',{sourceReadSchema:schema}).includes(JSON.stringify(schema)));
+assert.equal(sourceReviewGuidance('Open YouTube',{sourceReadSchema:schema}),'');
+assert.ok(!sourceReviewGuidance('Review my email').includes('another tool_describe'));
 assert.doesNotMatch(sourceReviewGuidance('Summarize my Gmail promotions\n\n[System — Dashboard chat]\nUse action tools and prioritize the user request'),/NOT work priorities/,'routing envelope must not change review intent');

@@ -401,7 +401,7 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
     overwrite: Boolean(explicitDisplayName),
   });
   applyByokModelToAgentEntry(entry, ceoUserId);
-  applyAgentModelPreference(entry, ceoUserId);
+  applyAgentModelPreference(entry, ceoUserId, {config,runtimeAgentId:runtimeOcId});
   writeOpenClawConfig(config);
 
   try {

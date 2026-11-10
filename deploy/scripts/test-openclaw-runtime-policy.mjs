@@ -60,6 +60,8 @@ function runCase({ name, baseUrl, model, marker = null, routing = false, marketi
     const configured = JSON.parse(readFileSync(configPath, 'utf8'));
     assert.equal(configured.agents.defaults.compaction.midTurnPrecheck.enabled,compaction?.midTurnPrecheck?.enabled??true);
     assert.equal(configured.agents.defaults.compaction.mode,compaction?.mode||'safeguard');
+    assert.equal(configured.agents.defaults.compaction.keepRecentTokens,compaction?.keepRecentTokens??8192);
+    assert.equal(configured.agents.defaults.compaction.recentTurnsPreserve,compaction?.recentTurnsPreserve??1);
     const expectedProvider = routing ? 'litellm-secondary' : 'openai';
     assert.equal(configured.models.providers[expectedProvider].agentRuntime?.id, 'openclaw');
     if (routing) {
@@ -98,7 +100,7 @@ runCase({
   name: 'preserve-explicit-compaction-policy',
   baseUrl: 'https://api.openai.com/v1',
   model: 'openai/gpt-4o-mini',
-  compaction: {mode:'default',midTurnPrecheck:{enabled:false}},
+  compaction: {mode:'default',midTurnPrecheck:{enabled:false},keepRecentTokens:16000,recentTurnsPreserve:4},
 });
 runCase({
   name: 'official-openai',

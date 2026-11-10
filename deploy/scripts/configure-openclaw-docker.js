@@ -754,6 +754,11 @@ if (!config.agents.defaults.compaction) {
 // Tool-heavy checks can overflow inside one turn, before turn-end compaction.
 // Use the installed gateway's pressure guard; preserve explicit operator policy.
 config.agents.defaults.compaction.midTurnPrecheck ??= { enabled: true };
+// Keep recent conversational continuity without carrying several tool-heavy
+// turns verbatim through every model call. Older evidence remains in the
+// native checkpoint and durable transcript; explicit operator values win.
+config.agents.defaults.compaction.keepRecentTokens ??= 8192;
+config.agents.defaults.compaction.recentTurnsPreserve ??= 1;
 if (primaryIsOllama) {
   const ocTimeoutSec = resolveLocalOllamaTimeoutSeconds(
     process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS

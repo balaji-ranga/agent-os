@@ -291,21 +291,14 @@
       ],
       "controls": [
         {
-          "id": "components/AgentModelPreference.jsx:13:2",
-          "label": "Employee model",
-          "type": "select",
+          "id": "components/AgentModelPreference.jsx:12:2",
+          "label": "Employee model ID",
+          "type": "text",
           "required": false,
+          "maxLength": 300,
           "conditional": false,
           "readonly": false,
-          "mode": "guided",
-          "options": "Use the live authorized options shown on this screen.",
-          "source_options": [
-            {
-              "value": "",
-              "label": "Use active platform default"
-            }
-          ],
-          "options_authority": "live_options_required"
+          "mode": "guided"
         }
       ]
     },

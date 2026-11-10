@@ -5,6 +5,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { getDb } from '../db/schema.js';
 import {applyAgentModelPreference} from './agent-model-preferences.js';
+import {byokProviderId,secondaryByokProviderId} from './byok-provider-id.js';
+export {byokProviderId,secondaryByokProviderId} from './byok-provider-id.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
 import {
   syncByokAuthProfiles,
@@ -147,14 +149,6 @@ export function normalizeLlmProvider(value) {
 export function providerNeedsApiKey(provider) {
   const p = normalizeLlmProvider(provider);
   return p === 'openai' || p === 'openrouter' || p === 'deepseek_cloud';
-}
-
-export function byokProviderId(userId) {
-  return `byok-${sanitizeIdPart(userId)}`;
-}
-
-export function secondaryByokProviderId(userId) {
-  return `${byokProviderId(userId)}-secondary`;
 }
 
 function normalizeBaseUrl(url) {
@@ -465,7 +459,10 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   if (!config.models.providers || typeof config.models.providers !== 'object') {
     config.models.providers = {};
   }
-  if (!Array.isArray(config.agents?.list)) config.agents = { list: [] };
+  config.agents ||= { list: [] };
+  const agentEntries = config.agents.entries
+    ? Object.entries(config.agents.entries)
+    : (config.agents.list || []).map(entry => [entry.id,entry]);
 
   const providerKey = byokProviderId(id);
   const secondaryProviderKey = secondaryByokProviderId(id);
@@ -474,10 +471,10 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   if (!resolved.using_byok || resolved.provider === 'platform_decided') {
     delete config.models.providers[providerKey];
     delete config.models.providers[secondaryProviderKey];
-    for (const entry of config.agents.list) {
-      if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
+    for (const [runtimeAgentId,entry] of agentEntries) {
+      if (!String(runtimeAgentId || '').toLowerCase().startsWith(tenantPrefix)) continue;
       if (entry.model) delete entry.model;
-      applyAgentModelPreference(entry, id);
+      applyAgentModelPreference(entry, id, {config,runtimeAgentId});
     }
     const authSync = syncByokAuthProfiles(id, { config, clear: true });
     scrubOpenClawAuthProfileMetadata(config, secondaryProviderKey);
@@ -541,10 +538,10 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   const secondaryModelSlug = distinctSecondary
     ? openClawModelSlug(secondaryProviderKey, secondary.model)
     : '';
-  for (const entry of config.agents.list) {
-    if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
+  for (const [runtimeAgentId,entry] of agentEntries) {
+    if (!String(runtimeAgentId || '').toLowerCase().startsWith(tenantPrefix)) continue;
     assignByokModelOnEntry(entry, modelSlug, config, secondaryModelSlug);
-    applyAgentModelPreference(entry, id);
+    applyAgentModelPreference(entry, id, {config,runtimeAgentId});
   }
 
   const authSync = syncByokAuthProfiles(id, {
@@ -554,9 +551,9 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   });
   if (distinctSecondary) {
     config.auth.profiles[`${secondaryProviderKey}:manual`] = { provider: secondaryProviderKey, mode: 'api_key' };
-    for (const entry of config.agents.list) {
-      if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
-      upsertAgentByokAuthProfile(entry.id, secondaryProviderKey, secondary.apiKey);
+    for (const [runtimeAgentId] of agentEntries) {
+      if (!String(runtimeAgentId || '').toLowerCase().startsWith(tenantPrefix)) continue;
+      upsertAgentByokAuthProfile(runtimeAgentId, secondaryProviderKey, secondary.apiKey);
     }
   }
   writeOpenClawConfig(config);

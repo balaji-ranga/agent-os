@@ -18,5 +18,42 @@ setAgentModelPreference('owner-a','employee','runtime-a','',opts);applyAgentMode
 config.agents.defaults.model.primary='shared/second';assert.equal(getAgentModelPreference('owner-a','employee',opts).default_model,'shared/second');assert.equal(getAgentModelPreference('owner-a','employee',opts).model,'');
 // A later provisioning/BYOK sync must reapply the stored choice, including blank.
 selected.model={primary:'company/legacy'};applyAgentModelPreference(selected,'owner-a',opts);assert.equal(selected.model,undefined);
-assert.throws(()=>setAgentModelPreference('owner-a','employee','runtime-a',{},opts),/configured model/);
+assert.throws(()=>setAgentModelPreference('owner-a','employee','runtime-a',{},opts),/model ID/);
+config.models.providers['byok-owner-a']={apiKey:'private-never-return',models:[{id:'existing'}]};
+const publicChoice=getAgentModelPreference('owner-a','employee',opts);
+assert.ok(publicChoice.models.some(m=>m.provider==='byok-owner-a'));
+assert.equal(JSON.stringify(publicChoice).includes('private-never-return'),false);
+assert.equal(publicChoice.models.some(m=>m.provider==='byok-other'),false);
+setAgentModelPreference('owner-a','employee','runtime-a','custom-model',opts);
+applyAgentModelPreference(selected,'owner-a',opts);
+assert.deepEqual(selected.model,{primary:'byok-owner-a/custom-model',fallbacks:[]});
+assert.ok(config.models.providers['byok-owner-a'].models.some(m=>m.id==='custom-model'));
+assert.equal(config.models.providers['byok-owner-a'].apiKey,'private-never-return');
+assert.throws(()=>setAgentModelPreference('owner-b','employee','runtime-b','byok-owner-a/custom-model',opts),/not available/);
+assert.equal(getAgentModelPreference('owner-a','employee',opts).routing.credential_source,'byok');
+assert.throws(()=>setAgentModelPreference('owner-a','employee','runtime-a','byok-owner-a/invalid model',opts),/model ID/);
+assert.throws(()=>setAgentModelPreference('owner-a','employee','runtime-a','byok-owner-a/',opts),/model ID/);
+setAgentModelPreference('owner-a','employee','runtime-a','byok-owner-a/custom-model',opts);
+delete config.models.providers['byok-owner-a'];
+applyAgentModelPreference(selected,'owner-a',opts);
+assert.deepEqual(selected.model,{primary:'byok-owner-a/custom-model',fallbacks:[]});
+setAgentModelPreference('owner-a','employee','runtime-a','new-provider-model',opts);
+applyAgentModelPreference(selected,'owner-a',opts);
+assert.deepEqual(selected.model,{primary:'shared/new-provider-model',fallbacks:[]});
+assert.ok(config.models.providers.shared.models.some(m=>m.id==='new-provider-model'));
+
+// Current native rosters store the ID as the map key, not inside the entry.
+// The compatibility list is a cloned view and must not be the mutation target.
+config.agents.entries={'runtime-a':{name:'Employee',tools:{allow:['existing']}},'runtime-b':{name:'Other'}};
+config.agents.list=Object.entries(config.agents.entries).map(([id,e])=>({id,...e}));
+const canonical=config.agents.entries['runtime-a'];
+applyAgentModelPreference(canonical,'owner-a',{...opts,runtimeAgentId:'runtime-a'});
+assert.equal(canonical.model.primary,'shared/new-provider-model');
+assert.equal(canonical.id,undefined,'do not add a legacy ID to the canonical entry');
+assert.equal(config.agents.list[0].model,undefined,'test must not accidentally mutate compatibility copies');
+assert.equal(config.agents.entries['runtime-b'].model,undefined);
+assert.deepEqual(canonical.tools,{allow:['existing']});
+setAgentModelPreference('owner-a','employee','runtime-a','',opts);
+applyAgentModelPreference(canonical,'owner-a',{...opts,runtimeAgentId:'runtime-a'});
+assert.equal(canonical.model,undefined,'blank removes canonical override');
 db.close();console.log('AGENT_MODEL_PREFERENCES_OK: tenant and agent isolation, private-provider exclusion, validation, active-slot inheritance, provisioning persistence, legacy BYOK preservation');
