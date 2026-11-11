@@ -22,8 +22,8 @@ import {
   addUsage,
   estimateTokens,
   normalizeProviderUsage,
-  recordTokenUsage,
 } from './token-usage.js';
+import {fetchBrainModel as fetch,withBrainMetering} from './workflow-brain-metering.js';
 
 function isLocalOllama(baseUrl) {
   if (!baseUrl) return false;
@@ -445,22 +445,20 @@ function meterBrainUsage({ ownerId, context, result, model, systemPrompt, userMe
         : null;
     })();
   if (!usage) return null;
-  const memberKey = resolveBrainMemberKey(context);
-  recordTokenUsage(ownerId, {
-    memberKey,
-    agentId: context?.agent_id || null,
-    source: 'workflow_brain',
-    modelId: result?.model_used || model || null,
-    inputTokens: usage.input_tokens,
-    outputTokens: usage.output_tokens,
-    estimated: !provided,
-    runId: context?.run_id ?? null,
-    traceId: context?.trace_id || (context?.goal_run_id ? String(context.goal_run_id) : null),
-  });
+  // Individual HTTP attempts are metered by fetchBrainModel, including failures.
+  // Return the aggregate to the node without recording it a second time.
   return { ...usage, estimated: !provided };
 }
 
 export async function executeBrainTask(taskConfig = {}, resolved = {}, context = {}, graph = {}, options = {}) {
+  return withBrainMetering({
+    ownerId:String(options.authUser?.id || context.owner_user_id || context.ceo_user_id || '').trim(),
+    memberKey:resolveBrainMemberKey(context),agentId:context.agent_id || null,
+    runId:context.run_id ?? null,nodeId:context.node_id ?? null,
+  },()=>executeBrainTaskInternal(taskConfig,resolved,context,graph,options));
+}
+
+async function executeBrainTaskInternal(taskConfig = {}, resolved = {}, context = {}, graph = {}, options = {}) {
   const cfg = taskConfig || {};
   const { authUser } = options;
   const scriptMode = String(cfg.customScriptMode || 'off').toLowerCase();

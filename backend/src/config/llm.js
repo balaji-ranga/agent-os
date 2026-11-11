@@ -19,6 +19,7 @@ import { effectiveEfficiencyPlan, getEfficiencyPolicy, localEfficiencyModel } fr
 import { executeEfficiency } from '../services/efficiency-execution.js';
 import { fetchEfficiencyOllama,fetchLocalCheckerOllama } from '../services/efficiency-ollama-transport.js';
 import { getLlmopsContext } from '../services/llmops-context.js';
+import { fetchModelViaGateway } from '../../../scripts/lib/model-egress.js';
 
 export function isLocalOllama(baseUrl) {
   if (!baseUrl || typeof baseUrl !== 'string') return false;
@@ -342,7 +343,7 @@ async function performChatCompletions({
       tool: toolName || null,
     });
     const chatUrl = `${ep.baseUrl.replace(/\/$/, '')}/chat/completions`;
-    const fetchCompletion = localCheckerTransport && isLocalOllama(ep.baseUrl) ? fetchLocalCheckerOllama : _config?.utilityTransport === true && isLocalOllama(ep.baseUrl) ? fetchEfficiencyOllama : fetch;
+    const fetchCompletion = localCheckerTransport && isLocalOllama(ep.baseUrl) ? fetchLocalCheckerOllama : _config?.utilityTransport === true && isLocalOllama(ep.baseUrl) ? fetchEfficiencyOllama : fetchModelViaGateway;
     const headers = { 'Content-Type': 'application/json' };
     if (ep.apiKey) headers.Authorization = `Bearer ${ep.apiKey}`;
     try {

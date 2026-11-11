@@ -10,6 +10,7 @@ const originalFetch=globalThis.fetch;
 let denied=false,providerCalls=0;
 try{
  process.env.OPENCLAW_DIR=root;process.env.OPENCLAW_CONFIG_PATH=join(root,'openclaw.json');process.env.PLATFORM_RUNTIME_SECRETS_PATH=join(root,'runtime-secrets.json');
+ process.env.LITELLM_BASE_URL='http://proxy-fixture.invalid/v1';process.env.LITELLM_MASTER_KEY='proxy-fixture';
  mkdirSync(root,{recursive:true});writeFileSync(process.env.OPENCLAW_CONFIG_PATH,JSON.stringify({plugins:{entries:{'agent-os-content-tools':{config:{baseUrl:'https://budget-fixture.invalid'}}}}}));writeFileSync(process.env.PLATFORM_RUNTIME_SECRETS_PATH,JSON.stringify({secrets:{tool_broker:{value:'fixture-only'}}}));
  const requests=[];globalThis.fetch=async(url,options)=>{
   assert.ok(String(url).startsWith('https://budget-fixture.invalid/api/tools/native-model-budget/'));
@@ -22,9 +23,14 @@ try{
  const message={role:'assistant',content:[{type:'text',text:'fixture response'}],usage:{input:20,output:5,cacheRead:10,totalTokens:35},stopReason:'stop'};
  const upstream=async(_model,_context,options)=>{providerCalls++;assert.equal(options.maxTokens,100);return {[Symbol.asyncIterator]:async function*(){yield {type:'text_delta',delta:'fixture response'};yield {type:'done',message};},result:async()=>message};};
  const ctx={runId:'fixture-turn',sessionKey:'agent:t-fixture-owner--fixture-agent:whatsapp:fixture',provider:'fixture',model:'fixture',nextCallId:()=> 'fixture-model-call',trace:{traceId:'a'.repeat(32),spanId:'b'.repeat(16)}};
- const wrapped=runtime.t(upstream,ctx),stream=await wrapped({maxTokens:1000},{systemPrompt:'fixture',messages:[],tools:[]},{});
+ const wrapped=runtime.t(upstream,ctx),modelFixture={maxTokens:1000,baseUrl:process.env.LITELLM_BASE_URL},stream=await wrapped(modelFixture,{systemPrompt:'fixture',messages:[],tools:[]},{});
  const emitted=[];for await(const event of stream)emitted.push(event);assert.equal(emitted[1].message,message);assert.equal(await stream.result(),message);
  assert.equal(requests.filter(r=>String(r.url).endsWith('/admit')).length,1);assert.equal(requests.filter(r=>String(r.url).endsWith('/settle')).length,1);assert.equal(requests.at(-1).body.input_tokens,30);
- denied=true;await assert.rejects(wrapped({maxTokens:1000},{messages:[]},{}),/budget exhausted/);assert.equal(providerCalls,1);
+ const sessionsFile=readdirSync(dist).find(name=>/^sessions-.*\.js$/.test(name)&&readFileSync(join(dist,name),'utf8').includes('async function generateSummary(currentMessages'));
+ assert.ok(sessionsFile,'installed compaction submission module');
+ const sessions=await import(join(dist,sessionsFile));assert.equal(typeof sessions.ft,'function','pinned summary export');
+ const summary=await sessions.ft([{role:'user',content:'Summarize this offline fixture.',timestamp:Date.now()}],{...modelFixture,id:'fixture',name:'fixture',api:'openai-completions',provider:'fixture',contextWindow:8192},512,'fixture-only',{},new AbortController().signal,undefined,undefined,undefined,wrapped);
+ assert.equal(summary,'fixture response');assert.equal(providerCalls,2,'compaction uses the same admitted stream');
+ denied=true;await assert.rejects(wrapped(modelFixture,{messages:[]},{}),/budget exhausted/);assert.equal(providerCalls,2);
  console.log('NATIVE_MODEL_BUDGET_RUNTIME_OK: installed stream ABI, unchanged content/result, usage, and refusal before provider submission; zero network');
 }finally{globalThis.fetch=originalFetch;rmSync(root,{recursive:true,force:true});}

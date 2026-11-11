@@ -38,6 +38,14 @@ try{
  db.prepare('UPDATE floassist_profiles SET preferences_json=? WHERE owner_id=?').run(JSON.stringify({model_call_budget:2,model_token_budget:2000000}),'budget-owner');
  for(let i=0;i<2;i++){const c=call('budget-owner','limited');admitNativeModel(c);finish(c);}
  assert.throws(()=>admitNativeModel(call('budget-owner','limited:compaction:fixture')),e=>e.code==='native_model_call_budget','compaction shares the parent turn budget');
+ db.prepare("UPDATE floassist_profiles SET status='stopped' WHERE owner_id=?").run('budget-owner');
+ assert.throws(()=>admitNativeModel({...call('budget-owner','limited'),provider:'secondary-provider',model:'secondary-model'}),e=>e.code==='native_model_call_budget','stopping automation or changing provider cannot reset the turn allowance');
+ db.prepare("UPDATE floassist_profiles SET status='active' WHERE owner_id=?").run('budget-owner');
+ const profile=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=? AND agent_id=?').get('budget-owner',agent);
+ db.prepare('DELETE FROM floassist_profiles WHERE owner_id=? AND agent_id=?').run('budget-owner',agent);
+ assert.throws(()=>admitNativeModel({...call('budget-owner','without-profile'),input_tokens:2000000}),e=>e.code==='native_model_token_budget','agents without FloAssist retain a finite request token budget before any provider call');
+ const profileColumns=Object.keys(profile);
+ db.prepare(`INSERT INTO floassist_profiles (${profileColumns.join(',')}) VALUES (${profileColumns.map(()=>'?').join(',')})`).run(...Object.values(profile));
  const scheduled=call('budget-owner','native-one');registerOpenClawSessionOwner(scheduled.session_key,'budget-owner',null,'schedule',{scheduled_goal_run_id:'scheduled-fixture'});
  admitNativeModel(scheduled);finish(scheduled);const fallback={...call('budget-owner','native-fallback')};admitNativeModel(fallback);finish(fallback);
  assert.throws(()=>admitNativeModel(call('budget-owner','native-three')),e=>e.code==='native_model_call_budget','scheduled continuations and fallbacks share one budget');

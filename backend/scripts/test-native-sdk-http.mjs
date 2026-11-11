@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';import {createRequire} from 'node:module';import http from 'node:http';
+import {wrapFlolahModelEgress} from '/opt/agent-os/openclaw-extensions/agent-os-content-tools/model-egress-transport.js';
+const require=createRequire('/usr/local/lib/node_modules/openclaw/package.json');
+const {createOpenAICompletionsTransportStreamFn}=await import(require.resolve('@openclaw/ai/transports'));
+const seen=[];const server=http.createServer(async(req,res)=>{let raw='';for await(const c of req)raw+=c;seen.push({path:req.url,auth:req.headers.authorization,body:JSON.parse(raw)});res.writeHead(200,{'Content-Type':'text/event-stream'});const chunk={id:'fixture',object:'chat.completion.chunk',created:1,model:'fixture-model',choices:[{index:0,delta:{role:'assistant',content:'verified'},finish_reason:null}]};res.write('data: '+JSON.stringify(chunk)+'\n\n');res.write('data: '+JSON.stringify({...chunk,choices:[{index:0,delta:{},finish_reason:'stop'}],usage:{prompt_tokens:11,completion_tokens:3,total_tokens:14}})+'\n\n');res.end('data: [DONE]\n\n');});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+try{const model={id:'fixture-model',name:'Fixture',api:'openai-completions',provider:'openai',baseUrl:'https://provider.invalid/v1',reasoning:false,input:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0},contextWindow:32000,maxTokens:100,compat:{supportsUsageInStreaming:true}};
+ const native=createOpenAICompletionsTransportStreamFn();
+ const stream=wrapFlolahModelEgress(native,{settings:{baseUrl:'http://127.0.0.1:'+server.address().port+'/v1',apiKey:'proxy-fixture',localBases:[]}})(model,{messages:[{role:'user',content:'fixture',timestamp:Date.now()}]},{apiKey:'byok-fixture',maxTokens:20});
+ const result=await stream.result();assert.notEqual(result.stopReason,'error',JSON.stringify(result));assert.equal(seen.length,1);assert.equal(seen[0].auth,'Bearer proxy-fixture');assert.equal(seen[0].body.user_config.model_list[0].litellm_params.api_key,'byok-fixture');assert.equal(seen[0].body.model,'fixture-model');assert.equal(result.usage.input,11);console.log('NATIVE_SDK_HTTP_OK: actual native SDK streamed through loopback proxy, scoped BYOK/model and usage preserved; one request');
+}finally{server.closeAllConnections();await new Promise(r=>server.close(r));}

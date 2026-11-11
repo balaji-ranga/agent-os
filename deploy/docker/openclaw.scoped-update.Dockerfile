@@ -12,6 +12,7 @@ COPY openclaw-extensions/agent-os-content-tools /opt/agent-os/openclaw-extension
 COPY deploy/docker/openclaw-entrypoint.sh /entrypoint.sh
 COPY deploy/scripts/configure-openclaw-docker.js /opt/agent-os/deploy/scripts/configure-openclaw-docker.js
 COPY deploy/scripts/install-native-model-budget.mjs /opt/agent-os/deploy/scripts/install-native-model-budget.mjs
+COPY scripts/lib/model-egress.js /opt/agent-os/scripts/lib/model-egress.js
 RUN node /opt/agent-os/deploy/scripts/install-native-model-budget.mjs
 COPY deploy/scripts/install-native-compaction-ask-match.mjs /opt/agent-os/deploy/scripts/install-native-compaction-ask-match.mjs
 COPY backend/scripts/test-native-compaction-ask-match.mjs /opt/agent-os/backend/scripts/test-native-compaction-ask-match.mjs

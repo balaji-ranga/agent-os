@@ -5,6 +5,7 @@ import {getMonthlyTokens,monthPeriod,recordTokenUsage} from './token-usage.js';
 import {parseTenantOpenClawAgentId,resolveAgentFromOpenClawCallerId} from './openclaw-tenant.js';
 import {lookupSessionExecutionContext} from './tool-owner-scope.js';
 import {resolveFloAssistScope} from './floassist/execution-scope.js';
+import {ALERT_DEFAULTS} from './floassist/alert-policy.js';
 import {randomUUID} from 'node:crypto';
 const ensured=new WeakSet();
 export function ensureNativeModelBudget(db=getDb()){
@@ -64,11 +65,14 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
   if(prior){if(prior.owner_id!==identity.owner||prior.agent_id!==identity.agent||prior.session_key!==identity.session)fail(403,'native_call_conflict','Call identity belongs to another owner/session.');if(prior.status!=='started')fail(409,'native_call_settled','This model call has already settled.');return {allowed:true,id:prior.id,output_limit:prior.reserved_tokens-prior.input_tokens};}
   const budget=enforceBudget(identity.owner,identity.agent,{action:'native_model'});
   if(budget.error)fail(503,'native_budget_unavailable','Native budget status is unavailable; no model request was started.');
-  const prefsRow=db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get()?db.prepare("SELECT preferences_json FROM floassist_profiles WHERE owner_id=? AND agent_id=? AND status='active'").get(identity.owner,identity.agent):null;
+  // Automation state must not disable spending limits for explicit requests.
+  // Agents without FloAssist also retain the platform's bounded defaults.
+  const prefsRow=db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get()?db.prepare("SELECT preferences_json FROM floassist_profiles WHERE owner_id=? AND agent_id=?").get(identity.owner,identity.agent):null;
   const prefs=JSON.parse(prefsRow?.preferences_json||'{}');
   // Include compaction/fallback requests in the scheduled run, not a new allowance.
   const sums=db.prepare("SELECT count(*) calls,COALESCE(sum(CASE WHEN status='started' THEN reserved_tokens ELSE input_tokens+output_tokens END),0) tokens FROM native_model_calls WHERE owner_id=? AND agent_id=? AND run_key=?").get(identity.owner,identity.agent,runKey);
-  const callLimit=prefsRow?(prefs.model_call_budget??80):null,tokenLimit=prefsRow?(prefs.model_token_budget??2000000):null;
+  const boundedPreference=(name,max)=>Number.isInteger(prefs[name])&&prefs[name]>0&&prefs[name]<=max?prefs[name]:ALERT_DEFAULTS[name];
+  const callLimit=boundedPreference('model_call_budget',256),tokenLimit=boundedPreference('model_token_budget',10000000);
   if(callLimit&&sums.calls>=callLimit)fail(429,'native_model_call_budget','Model-call limit reached for this request; remaining source coverage is incomplete.');
   let remaining=tokenLimit?tokenLimit-sums.tokens:Infinity;
   const testBudget=db.prepare('SELECT b.* FROM native_model_test_budgets b JOIN native_model_test_sessions s ON s.budget_id=b.id WHERE s.session_key=? AND b.owner_id=? AND b.agent_id=?').get(identity.session,identity.owner,identity.agent);

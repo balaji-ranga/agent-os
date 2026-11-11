@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './model-gateway-fixture.mjs';
 import assert from 'node:assert/strict';
 import {goalResponseSchema,parseGoalResponse} from '../src/goal-contract.mjs';
 import {completeProvider} from '../integrations/provider-completion.mjs';

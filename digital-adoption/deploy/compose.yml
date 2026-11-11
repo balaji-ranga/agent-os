@@ -39,6 +39,8 @@ services:
     networks: [workers]
   adoption-model-gateway:
     environment:
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?shared model gateway credential required}
       ADOPTION_MODEL_CONTEXT_BYTES: ${ADOPTION_MODEL_CONTEXT_BYTES:-60000}
     image: flolah-digital-adoption:${ADOPTION_RELEASE:?release required}
     command: [node, integrations/model-gateway-server.mjs]

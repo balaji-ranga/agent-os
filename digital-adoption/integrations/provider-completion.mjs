@@ -33,7 +33,15 @@ export async function completeProvider({config:ep,messages,maxTokens,signal,outp
   if(!ep.nativeOllama&&base.hostname==='api.deepseek.com'&&ep.compactVerdict===true&&outputSchema)body.thinking={type:'disabled'};
   if(ep.thinking===true&&ep.nativeOllama&&!capabilities.includes('thinking'))throw providerFailure('MODEL_THINKING_UNSUPPORTED');
   if(Buffer.byteLength(JSON.stringify(body))>98_304)throw providerFailure('MODEL_CONTEXT_BUDGET');
-  const response=await fetchImpl(url,{method:'POST',redirect:'error',signal,headers:{Authorization:`Bearer ${ep.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  let target=url,key=ep.apiKey;
+  if(!ep.nativeOllama){
+   const gateway=String(process.env.LITELLM_BASE_URL||'').replace(/\/+$/,'');
+   const gatewayKey=String(process.env.LITELLM_MASTER_KEY||'');
+   if(!gateway||!gatewayKey)throw providerFailure('MODEL_GATEWAY_REQUIRED');
+   target=new URL(gateway+'/chat/completions');key=gatewayKey;
+   if(base.origin!==target.origin)body.user_config={model_list:[{model_name:ep.model,litellm_params:{model:`openai/${ep.model}`,api_base:ep.baseUrl,api_key:ep.apiKey}}],num_retries:0,max_fallbacks:0,fallbacks:[]};
+  }
+  const response=await fetchImpl(target,{method:'POST',redirect:'error',signal,headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!response.ok)throw providerFailure('PROVIDER_HTTP',{providerStatus:response.status});
   const data=await response.json(),content=ep.nativeOllama?data.message?.content:data.choices?.[0]?.message?.content;
   const diagnostics={model:ep.model,latencyMs:Date.now()-started,loadMs:ep.nativeOllama?Math.round((data.load_duration||0)/1e6):undefined,promptTokens:data.prompt_eval_count??data.usage?.prompt_tokens,outputTokens:data.eval_count??data.usage?.completion_tokens};

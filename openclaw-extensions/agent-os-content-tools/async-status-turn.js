@@ -12,7 +12,9 @@ export function isTrackingStatusQuestion(prompt){
   .trim();
  if(/^\s*(?:(?:what(?:'s| is)?(?: the)?|check|any)\s+)?(?:status|progress|update|result)[?!. ]*$/i.test(text))return true;
  if(/^\s*(?:has|is|did)\s+(?:it|that)\s+(?:completed?|finished|done|work(?:ed)?)[?!. ]*$/i.test(text))return true;
- return (/\b(?:what(?:'s| is| was)?|check|show|tell me|any|give me|report|has|have|did|is)\b[\s\S]{0,80}\b(?:status|progress|update|result|completed|finished)\b|\bwhat happened\b|\b(?:status|progress|result)\s+(?:of|for|on)\b/i.test(text))&&
+ // Only classify the leading request. Instructions, source records and recovery
+ // envelopes can mention status later without making the whole turn read-only.
+ return (/^(?:please\s+)?(?:(?:what(?:'s| is| was)?|check|show|tell me|any|give me|report|has|have|did|is)\b[\s\S]{0,80}\b(?:status|progress|update|result|completed|finished)\b|what happened\b|(?:status|progress|result)\s+(?:of|for|on)\b)/i.test(text))&&
   (/\btrack-[a-f0-9-]+\b/i.test(text)||/\b(?:request|operation|command|task|tool|previous|last|earlier|pending)\b/i.test(text));
 }
 export function rememberStatusTurn(session,prompt,now=Date.now()){

@@ -1,4 +1,5 @@
 import {MODEL_CONTEXT_BYTES} from '../src/model-context-budget.mjs';
+import './model-gateway-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';

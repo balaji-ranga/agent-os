@@ -11,7 +11,7 @@ let loggedConfig = false;
 /**
  * Prefer dedicated embedding service env; never fall back to OpenAI chat cloud keys.
  */
-function embeddingConfig() {
+export function embeddingConfig() {
   const baseUrl = String(
     process.env.OPENSEARCH_EMBEDDING_BASE_URL ||
       process.env.EMBEDDINGS_BASE_URL ||

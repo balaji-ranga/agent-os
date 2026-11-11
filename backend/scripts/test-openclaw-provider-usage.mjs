@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {applyManagedProxyUsage} from '../src/services/openclaw-provider-usage.js';
+const endpoint='http://model-proxy-fixture:4000/v1';
+const config={models:{providers:{primary:{api:'openai-completions',baseUrl:endpoint,models:[{id:'first',compat:{supportsStore:false}}]},secondary:{api:'openai-completions',baseUrl:endpoint+'/',models:[{id:'second'}]},private:{api:'openai-completions',baseUrl:'https://private-provider.invalid/v1',models:[{id:'third'}]}}}};
+applyManagedProxyUsage(config,endpoint);
+assert.deepEqual(config.models.providers.primary.models[0].compat,{supportsStore:false,supportsUsageInStreaming:true});
+assert.equal(config.models.providers.secondary.models[0].compat.supportsUsageInStreaming,true);
+assert.equal(config.models.providers.private.models[0].compat,undefined);
+const once=JSON.stringify(config);applyManagedProxyUsage(config,endpoint);assert.equal(JSON.stringify(config),once);
+applyManagedProxyUsage(config,undefined);assert.equal(JSON.stringify(config),once);
+console.log('PROXY_STREAM_USAGE_OK: configured proxy origin, both slots, existing compatibility preserved, unrelated/BYOK provider unchanged');

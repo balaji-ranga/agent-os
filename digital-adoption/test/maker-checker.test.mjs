@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './model-gateway-fixture.mjs';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { createPlatformGateway } from '../integrations/platform-gateway.mjs';

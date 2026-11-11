@@ -1,0 +1,18 @@
+---
+description: Regression quality and cumulative model-spend controls for all Flolah changes
+alwaysApply: true
+---
+
+# Model cost and regression quality
+
+- Treat correctness, channel delivery, regression safety and token economics as acceptance criteria together.
+- Reproduce orchestration, retries, fallbacks, compaction and accounting with fake providers/network-disabled tests before paid tests.
+- Do not use repeated paid end-to-end runs to debug deterministic code defects.
+- Before live model tests, establish one cumulative test allowance across the entire test batch, not a fresh allowance per retry. Use the persisted native test budget where applicable; verify refusal before provider submission. Preserve ordinary user-session permissions and remove temporary test bindings afterward.
+- Record every live test run ID, actual model/provider, calls, input/cache/output tokens, whether usage is estimated, and cumulative batch usage. Stop when the allowance is exhausted; never reset usage to bypass a test budget.
+- Report cumulative testing cost/usage as well as the final successful run. A smaller final run does not prove the overall retest was economical.
+- Do not silently substitute providers/models or use chat credentials for embeddings. Native memory and knowledge embeddings must follow the configured embedding service, without an implicit cloud fallback.
+- Include unsuccessful calls, retries, compaction and fallback attempts in spending controls. Pause/resume of automation must not remove limits on explicit requests.
+- Investigate provider exports against all users, scheduled goals, workflows, background workers and native sessions. Completed proxy access logs are not a complete count of started upstream requests.
+- Do not label a suspected cause, protective guard, mocked test or service health check as a confirmed RCA or completed user acceptance test.
+- During a spending incident, do not resume paid tests while unexplained provider usage remains. Preserve logs and source data; never commit credentials or raw billing exports.

@@ -40,3 +40,6 @@ litellm_settings:
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
+  # Internal-only proxy: trusted Flolah/OpenClaw transports construct scoped
+  # provider credentials. No browser/client receives the proxy master key.
+  allow_client_side_credentials: true

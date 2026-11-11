@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {prepareModelEgress,fetchModelViaGateway} from '../../scripts/lib/model-egress.js';
+const settings={baseUrl:'http://proxy.invalid:4000/v1',apiKey:'proxy-fixture',localBases:['http://local-model-fixture:11434']};
+const endpoint={baseUrl:'https://provider.invalid/v1',apiKey:'owner-a-fixture',model:'arbitrary-model'};
+const route=prepareModelEgress(endpoint,settings);
+assert.equal(route.userConfig.model_list[0].litellm_params.api_key,endpoint.apiKey);
+assert.equal(route.userConfig.model_list[0].litellm_params.model,'openai/arbitrary-model');
+assert.equal(route.userConfig.num_retries,0);assert.deepEqual(route.userConfig.fallbacks,[]);
+assert.notEqual(prepareModelEgress({...endpoint,apiKey:'owner-b-fixture'},settings).userConfig.model_list[0].litellm_params.api_key,endpoint.apiKey);
+assert.equal(prepareModelEgress({...endpoint,baseUrl:settings.baseUrl},settings),null);
+assert.equal(prepareModelEgress({...endpoint,baseUrl:settings.localBases[0]},settings),null);
+assert.ok(prepareModelEgress(endpoint,{...settings,localBases:[endpoint.baseUrl]}),'a public provider mislabelled as a local endpoint still uses the proxy');
+assert.throws(()=>prepareModelEgress(endpoint,{...settings,apiKey:''}),/prohibited/);
+assert.throws(()=>prepareModelEgress({...endpoint,api:'unknown'},settings),/prohibited/);
+const signal=new AbortController().signal;
+let calls=0;
+const response=new Response('fixture');
+assert.equal(await fetchModelViaGateway(endpoint.baseUrl+'/chat/completions',{method:'POST',headers:{Authorization:'Bearer '+endpoint.apiKey},body:JSON.stringify({model:endpoint.model,messages:[],tools:[{type:'function'}],stream:true}),signal},{settings,fetchImpl:async(url,init)=>{
+ calls++;assert.equal(url,settings.baseUrl+'/chat/completions');assert.equal(init.signal,signal);
+ assert.equal(init.headers.get('authorization'),'Bearer '+settings.apiKey);
+ const body=JSON.parse(init.body);assert.equal(body.stream,true);assert.equal(body.tools.length,1);
+ assert.equal(body.user_config.model_list[0].litellm_params.api_key,endpoint.apiKey);return response;
+}}),response);
+assert.equal(calls,1);
+await assert.rejects(fetchModelViaGateway(endpoint.baseUrl+'/chat/completions',{headers:{Authorization:'Bearer '+endpoint.apiKey},body:JSON.stringify({model:endpoint.model})},{settings,fetchImpl:async()=>{throw Error('proxy unavailable');}}),/proxy unavailable/);
+console.log('MODEL_EGRESS_OK: proxy-only JSON transport, BYOK isolation, original model, streaming/tools/signal preserved, no direct fallback');

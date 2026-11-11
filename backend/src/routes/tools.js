@@ -1,4 +1,5 @@
 import {liveConnectorHealthEvidence} from '../services/connector-health-evidence.js';
+import {fetchModelViaGateway} from '../../../scripts/lib/model-egress.js';
 import {physicalAgentAssets,physicalAgentInstructions} from '../services/physical/agent-context.js';
 import {createTrackedTool,trackingAck,trackedStatus,settleTrackedTool,ensureAsyncTracking,dispatchTrackedTool} from '../services/tool-async-tracking.js';
 import {resumeScheduledSourceInput} from '../services/floassist/source-coverage.js';
@@ -1375,7 +1376,7 @@ router.post('/generate-image', optionalAuth, async (req, res) => {
       const cappedPrompt = fullPrompt.slice(0, img.maxPromptChars);
       const body = buildImageApiBody(img, cappedPrompt);
       try {
-        const imgRes = await fetch(`${img.apiUrl.replace(/\/$/, '')}/images/generations`, {
+        const imgRes = await fetchModelViaGateway(`${img.apiUrl.replace(/\/$/, '')}/images/generations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

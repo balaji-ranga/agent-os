@@ -3,6 +3,7 @@
  * Uses a vision-capable OpenAI-compatible chat model (see getVisionConfig).
  */
 import { extname } from 'path';
+import {fetchModelViaGateway} from '../../../scripts/lib/model-egress.js';
 import { getVisionConfig } from '../config/tools.js';
 import { parseMediaRef, readMediaArtifactBuffer } from './ceo-media-artifacts.js';
 import { resolveOwnerMediaBuffer } from './agent-workflow-speech.js';
@@ -201,7 +202,7 @@ export async function executeAnalyzeImageTool(body = {}, ownerUserId) {
 
   let res;
   try {
-    res = await fetch(chatUrl, {
+    res = await fetchModelViaGateway(chatUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),

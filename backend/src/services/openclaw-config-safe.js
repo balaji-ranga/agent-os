@@ -5,9 +5,12 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.js';
 import {assertOpenClawConfigContract,pinFlolahAgentRuntime,writeValidatedOpenClawConfig} from '../../../scripts/lib/openclaw-config-contract.js';
+import {embeddingConfig} from './opensearch/embeddings.js';
+import {applyPlatformMemoryEmbeddings} from './openclaw-memory-embeddings.js';
+import {applyManagedProxyUsage} from './openclaw-provider-usage.js';
 
 /** Sections that must not disappear when Agent OS rewrites openclaw.json. */
-const CRITICAL_SECTIONS = ['gateway', 'tools', 'plugins', 'browser'];
+const CRITICAL_SECTIONS = ['gateway', 'tools', 'plugins', 'browser', 'memory'];
 let configBatchDepth = 0;
 let pendingOpenClawConfig = null;
 let configBatchFailed = false;
@@ -172,6 +175,8 @@ export function writeOpenClawConfigSafe(config) {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const prev = readDiskConfig();
   const merged = preserveOpenClawCriticalSections(config);
+  applyPlatformMemoryEmbeddings(merged, embeddingConfig());
+  applyManagedProxyUsage(merged, process.env.LITELLM_BASE_URL);
   const agents = merged?.agents;
   const hasAgents =
     agents &&

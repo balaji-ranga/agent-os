@@ -23,3 +23,10 @@ rememberStatusTurn('web',webPrefix+'What is the status of my previous request?'+
 rememberStatusTurn('web',webPrefix+'Please transcribe this audio only.'+webSuffix,201);
 assert.equal(statusTurnBlock('web','speech_stt',{},202),null);
 console.log('WEB_PROMPT_ENVELOPE_OK: routing instructions do not classify audio as status; real status requests remain protected');
+for(const text of [
+ 'Execute this goal run now. Do not create a generic scan-progress task. Check the status of previous requests only when needed.',
+ 'Coverage is incomplete: source pages below remain unread. Continue this same bounded check. Report the status of pending tasks only after reading sources.',
+ 'Read my mail and generate a briefing. Check progress for the previous task in the source content.'
+])assert.equal(isTrackingStatusQuestion(text),false,text);
+assert.equal(isTrackingStatusQuestion('Please check the status of my previous request'),true);
+console.log('SCHEDULE_RECOVERY_STATUS_OK: executable tasks and coverage continuations are not status-only turns');
