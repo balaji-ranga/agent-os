@@ -1,3 +1,4 @@
+import {fetchOllamaViaGateway} from '../../../scripts/lib/model-egress.js';
 /** Private, text-only utility transport. Native Ollama options bound CPU threads per request. */
 export async function fetchEfficiencyOllama(chatUrl, init, localOptions = {}) {
   const url = new URL(chatUrl);
@@ -17,7 +18,7 @@ export async function fetchEfficiencyOllama(chatUrl, init, localOptions = {}) {
     options: { num_thread: threads, num_predict: body.max_tokens, ...(context!==undefined?{num_ctx:context}:{}), ...(body.temperature !== undefined ? { temperature: body.temperature } : {}) },
     ...(body.response_format?.type === 'json_object' ? { format: 'json' } : {}),
     ...(localOptions.checker?{think:body.thinking?.type==='enabled'}:body.thinking?.type === 'disabled' ? { think: false } : {}) };
-  const response = await fetch(new URL('/api/chat', url), { ...init, body: JSON.stringify(native) });
+  const response = await fetchOllamaViaGateway(new URL('/api/chat', url), { ...init, body: JSON.stringify(native) });
   if (!response.ok) return response;
   const result = await response.json();
   // Never substitute private reasoning for a missing final answer. Keep accounting

@@ -1,12 +1,15 @@
+import {chatCompletions as reviewCompletion} from '../config/llm.js';
+import {ensureBriefingEvidence,renderBriefingResult,reviewBriefingPriorities} from './floassist/briefing-result.js';
+import {extractSkillUsageMarker} from './agent-skills.js';
 import {resolvePartialGoal} from './goal-failure-mode.js';
 import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from './floassist/source-coverage.js';
 import {commitRunSourceAssessments,setRunAssessmentContext} from './floassist/assessment-cache.js';
-import {bindNativeTestBudget} from './native-model-budget.js';
+import {bindNativeTestBudget,nativeBudgetFailureReason} from './native-model-budget.js';
 import {briefingCalendarWindow} from './floassist/source-reader.js';
-import {trackingReferenceResult} from './floassist/source-references.js';
+import {resolveSourceReference,trackingReferenceResult} from './floassist/source-references.js';
 import {claimScheduledRun} from './scheduled-run-claim.js';
 import {runEvidenceSummary} from './floassist/source-receipts.js';
-import {responsibilitySources,sourceReadInstructions,reconciliationCandidates} from './floassist/responsibilities.js';
+import {responsibilitySources,sourceReadInstructions,responsibilityResultInstructions,reconciliationCandidates,refreshResponsibilitySourceList} from './floassist/responsibilities.js';
 /**
  * CEO scheduled goals — durable schedules for agent prompts.
  * Pause/delete are status/row only; platform tick ignores non-active; survives restarts.
@@ -37,6 +40,7 @@ import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { floAssistScheduleGate } from './floassist/runtime.js';
 import {TRACKING_RUN_INSTRUCTIONS,DEADLINE_TRACKING_RUN_INSTRUCTIONS,trackingHistorySummary,listTracking} from './floassist/tracking.js';
 import {selectSessionContentTools,installSessionToolScope,removeSessionToolScope} from './openclaw-session-tool-scope.js';
+import {goalRunUsage} from './goal-run-usage.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
@@ -716,7 +720,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         `Steps: ${stepsPreview}\n` +
         (firstWf ? `First workflow run_id: ${firstWf} (async). Platform advances the plan on each workflow terminal.\n` : '') +
         `You do not need to re-trigger phase 1 unless the plan is agent_continue.`;
-      try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
+      if(!opts.validationOnly)try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
       const durableStatus=g?.status==='completed'?'ok':g?.status==='partial_success'?'partial':['failed','cancelled'].includes(g?.status)?'error':'running';
       const durableError=durableStatus==='error'?String(g?.error_message||g?.status||'Goal failed'):null;
       db().prepare(
@@ -746,7 +750,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   }
   if (planningGoal) discardGoalPlanningRun(planningGoal.id, ownerUserId);
 
-  let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
+  let prompt = buildRunMessage(floAssistRun?{...row,prompt:refreshResponsibilitySourceList(row.prompt,floAssistPrefs,row.source.split(':')[1])}:row, ownerUserId, { runKey, force });
   // FloAssist's authoritative contract is supplied once in checkContract below.
   // Repeating its source snapshot and tracking rules in the user prompt wastes
   // context on every content-heavy run and makes compaction less reliable.
@@ -754,6 +758,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   try {
     prompt = getPromptForFreshGoalRun(prompt);
   } catch (_) {}
+  if(floAssistRun)prompt+='\n'+responsibilityResultInstructions(floAssistPrefs,row.source.split(':')[1]);
   prompt = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\n${prompt}`;
 
   const scheduledSessionKey = openclaw.sessionKeyFor(openclawId, sessionUser);
@@ -765,6 +770,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const selection=selectSessionContentTools({agentId:agent.id,ownerUserId,message:prompt,
       route:{executor_evidence:{capability_names:required}}});
     if(floAssistRun){
+      selection.context_mode='fresh_sources';
       selection.floassist_module=row.source.split(':')[1];
       selection.floassist_sources=responsibilitySources(floAssistPrefs,selection.floassist_module);
       // The initial snapshot is owner scoped. Restrict reconciliation to its
@@ -808,20 +814,42 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       const budgetStopped=hasActionContext&&db().prepare("SELECT 1 FROM tool_execution_actions a JOIN floassist_action_context c ON c.action_id=a.id WHERE a.owner_user_id=? AND json_extract(c.context_json,'$.scheduled_goal_run_id')=? AND a.reason_code='floassist_tool_budget_exhausted'").get(ownerUserId,runId);
       if(budgetStopped)break;
       const requests=trackingReferenceResult(db(),ownerUserId,pending,{owner:ownerUserId,run:runId,origin:row.source});
-      const continuation=`Coverage is incomplete: source pages below remain unread. Continue this same bounded check. Call floassist_source_read with each exact next_request and follow its returned next_request until coverage_complete is true. Do not relist sources, re-read completed sources, repeat queued alerts or change task tracking preferences. Newly supported findings and corrected earlier rejected observations may be submitted only after their source is complete. Use returned deadline_evidence references instead of rewriting passages. If a provider is incomplete without a next_request, report that blocker. Return the final outcome only after this review or an explicit tool/time budget stop. Remaining sources: ${JSON.stringify(requests)}`;
+      const continuation=`Coverage is incomplete: source pages below remain unread. Continue this same bounded check. Call floassist_source_read with each exact next_request and follow its returned next_request until coverage_complete is true. Do not relist sources, re-read completed sources, repeat queued alerts or change task tracking preferences. Newly supported findings and corrected earlier rejected observations may be submitted only after their source is complete. Use returned deadline_evidence references instead of rewriting passages. If a provider is incomplete without a next_request, report that blocker. Return the final outcome only after this review or an explicit tool/time budget stop. Remaining sources: ${JSON.stringify(requests)}\n${responsibilityResultInstructions(floAssistPrefs,row.source.split(':')[1])}`;
       const next=await openclaw.chatCompletions(openclawId,[...(checkContract?[checkContract]:[]),{role:'user',content:continuation}],sessionUser,false,{injectLearningsInstruction:false,injectKanbanInstruction:false,injectSessionHistoryInstruction:false,timeoutMs:remaining,retries:1});
       content=next.content;
     }
-    const reply = String(content || '').trim() || '(no response)';
+    let reply = extractSkillUsageMarker(String(content || '')).reply.trim() || '(no response)';
     const evidence=floAssistRun?runEvidenceSummary(db(),ownerUserId,runId):null;
     const incomplete=evidence&&(evidence.errors>0||evidence.incomplete_sources>0||evidence.budget_exhausted||reply==='(no response)');
     const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) or app(s) with incomplete verification.${evidence.budget_exhausted?' Execution budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
+    let structuredResult=null;
+    if(row.source==='floassist:briefing'&&!incomplete){
+      ensureBriefingEvidence(db());
+      reply=await reviewBriefingPriorities(reply,async messages=>{
+        const out=await reviewCompletion({ownerUserId,memberKey:agent.id,runId,source:'scheduled_goal',toolName:'briefing_action_review',messages,maxTokens:500,temperature:0,responseFormat:'json_object',thinkingMode:'disabled',timeoutMs:20000});
+        return out.content;
+      },(app,reference)=>{
+        const source=resolveSourceReference(db(),ownerUserId,app,reference,{owner:ownerUserId,run:runId});
+        return db().prepare('SELECT excerpt FROM floassist_briefing_evidence WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(ownerUserId,runId,app,source)?.excerpt;
+      });
+      structuredResult=JSON.parse(reply);
+      reply=renderBriefingResult(reply,{
+        timeZone:floAssistPrefs.timezone||'UTC',
+        today:new Intl.DateTimeFormat('en-CA',{timeZone:floAssistPrefs.timezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
+        resolveSource:(app,reference)=>{
+          if(['google_calendar','outlook_calendar'].includes(app))return !!db().prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(ownerUserId,runId,app,reference);
+          if(!['gmail','outlook'].includes(app))return false;
+          const source=resolveSourceReference(db(),ownerUserId,app,reference,{owner:ownerUserId,run:runId});
+          return !!db().prepare('SELECT 1 FROM floassist_source_coverage WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=? AND complete=1').get(ownerUserId,runId,app,source);
+        },
+      });
+    }
     if(floAssistRun&&!incomplete)commitRunSourceAssessments(db(),ownerUserId,runId);
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
       ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);
-    try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
-    if(!incomplete)void deliverScheduledGoalOutcome({
+    if(!opts.validationOnly)try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
+    if(!incomplete&&!opts.validationOnly)void deliverScheduledGoalOutcome({
       ownerUserId,
       agentId: agent.id,
       deliverTo: row.deliver_to,
@@ -833,7 +861,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       `UPDATE scheduled_goals SET last_run_status='ok', last_run_error=NULL, run_count=COALESCE(run_count,0)+1, updated_at=datetime('now')
        WHERE id=? AND owner_user_id=?`
     ).run(id, ownerUserId);
-    db().prepare(`UPDATE scheduled_goal_runs SET status='ok', reply_preview=? WHERE id=?`).run(preview, runId);
+    db().prepare(`UPDATE scheduled_goal_runs SET status='ok', reply_preview=?,result_json=? WHERE id=?`).run(preview,JSON.stringify({reply,structured:structuredResult,coverage:evidence,validation_only:!!opts.validationOnly}),runId);
     if(incomplete){
       db().prepare("UPDATE scheduled_goal_runs SET status='error',error=? WHERE id=?").run(evidenceError,runId);
       db().prepare("UPDATE scheduled_goals SET last_run_status='error',last_run_error=? WHERE id=? AND owner_user_id=?").run(evidenceError,id,ownerUserId);
@@ -841,7 +869,11 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     if (isExpired(row.ends_at)) updateScheduledGoal(ownerUserId, id, { status: 'completed' });
     return { ok: !incomplete, ...(evidenceError?{error:evidenceError}:{}), goal_id: id, run_id: runId, run_key: runKey, agent_id: agent.id, reply_preview: preview.slice(0, 500), mode: 'chat' };
   } catch (err) {
-    const msg = err?.message || String(err);
+    let msg = err?.message || String(err);
+    try {
+      const budget=nativeBudgetFailureReason({session_key:scheduledSessionKey,run_id:runId});
+      if(budget.blocked)msg=`Model execution stopped: ${budget.reason}. Source coverage is incomplete; inspect this run's token usage and collected results before retrying.`;
+    } catch (_) { /* Preserve original failure if diagnostic lookup is unavailable. */ }
     console.error(`[scheduled-goals] fail id=${id}:`, msg);
     closeWorkSteering(ownerUserId, 'schedule_run', runId);
     db().prepare(
@@ -984,9 +1016,10 @@ export function findGoalForOwner(ownerUserId, query) {
 
 export function listRecentRuns(ownerUserId, goalId, limit = 20) {
   const runs=db().prepare(
-    `SELECT * FROM scheduled_goal_runs WHERE owner_user_id=? AND (? IS NULL OR goal_id=?)
+    `SELECT id,goal_id,owner_user_id,run_key,status,agent_id,reply_preview,error,triggered_by,created_at FROM scheduled_goal_runs WHERE owner_user_id=? AND (? IS NULL OR goal_id=?)
      ORDER BY datetime(created_at) DESC,rowid DESC LIMIT ?`
   ).all(ownerUserId, goalId || null, goalId || null, Math.min(Math.max(limit, 1), 100));
+  const usage=goalRunUsage(db(),ownerUserId,runs.map(run=>run.id));
   const hasNotifications=db().prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_notifications'").get();
-  return runs.map(run=>({...run,notification_items:hasNotifications?db().prepare("SELECT status,count(*) count FROM floassist_notifications WHERE owner_id=? AND (source_key LIKE ? OR source_key LIKE ?) GROUP BY status").all(ownerUserId,`%:finding:${run.id}`,`%:sg:${run.goal_id}:${run.id}`):[]}));
+  return runs.map(run=>({...run,token_usage:usage.get(run.id)||null,notification_items:hasNotifications?db().prepare("SELECT status,count(*) count FROM floassist_notifications WHERE owner_id=? AND (source_key LIKE ? OR source_key LIKE ?) GROUP BY status").all(ownerUserId,`%:finding:${run.id}`,`%:sg:${run.goal_id}:${run.id}`):[]}));
 }

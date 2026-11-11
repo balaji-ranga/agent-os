@@ -7,6 +7,7 @@ import {recordRunError} from '../services/floassist/source-receipts.js';
 import {floAssistTaskSource} from '../services/floassist/task-source.js';
 import {registerWhatsAppTask} from '../services/floassist/tracking.js';
 import {withFloAssistScope,resolveFloAssistScope,currentFloAssistScope,bindFloAssistWork} from '../services/floassist/execution-scope.js';
+import {withExecutionFetchBudget} from '../services/execution-fetch-budget.js';
 /**
  * Content tools API: summarize-url (Phase 1). Image and video endpoints in later phases.
  * Kanban tools: move-status, reassign-to-coo, assign-task, intent-classify-and-delegate.
@@ -1007,7 +1008,7 @@ router.use((req, res, next) => {
       clientTurnId: efficiencyExecutionContext?.client_turn_id || null,
       delegationTaskId: efficiencyExecutionContext?.delegation_task_id || null,
     },
-    () => withFloAssistScope(floScope,next)
+    () => withExecutionFetchBudget(efficiencyExecutionContext?.fetch_deadline_at?efficiencyExecutionContext:floScope,()=>withFloAssistScope(floScope,next))
   );
 });
 router.use(actionPolicyMiddleware);

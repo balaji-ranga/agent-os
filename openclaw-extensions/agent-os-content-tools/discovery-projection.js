@@ -26,12 +26,31 @@ export function projectDiscoveryResult(name, data) {
 
 // Replay uses the same projection for previously recorded catalog results.
 // No transcript writes: raw audit, source bodies, media and call correlations survive.
+export function compactExecutionEnvelope(block) {
+  if(block?.type!=='text')return block;
+  try {
+    const wrapper=JSON.parse(block.text);
+    if(wrapper.tool?.sourceName!=='agent-os-content-tools'||!Array.isArray(wrapper.result?.content))return block;
+    if(['connector_search_actions','connector_get_action_guide'].includes(wrapper.tool.name))return block;
+    // The catalogue already describes the invoked tool. Repeating that schema,
+    // then JSON-escaping its JSON result inside another JSON string, adds no facts.
+    const {description,input,...tool}=wrapper.tool;
+    const content=wrapper.result.content.map(item=>{
+      if(item?.type!=='text')return item;
+      try {return {type:'json',data:JSON.parse(item.text)};}catch{return item;}
+    });
+    const text=JSON.stringify({...wrapper,tool,result:{...wrapper.result,content}});
+    return text.length<block.text.length?{...block,text}:block;
+  }catch{return block;}
+}
 export function projectDiscoveryMessages(messages) {
   if (!Array.isArray(messages)) return messages;
   return messages.map(message => {
     if (message?.role !== 'toolResult' || message.isError || !Array.isArray(message.content)) return message;
     let changed=false;
-    const content=message.content.map(block => {
+    const content=message.content.map(originalBlock => {
+      const block=compactExecutionEnvelope(originalBlock);
+      if(block!==originalBlock)changed=true;
       if(block?.type!=='text')return block;
       try {
         const wrapper=JSON.parse(block.text);

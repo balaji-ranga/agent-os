@@ -161,6 +161,7 @@ export default function AgentVoiceCall({
           body: offer.sdp,
           headers: {
             Authorization: `Bearer ${secret}`,
+            'X-Flolah-Voice-Session': sessionRef.current?.session_token,
             'Content-Type': 'application/sdp',
           },
         });

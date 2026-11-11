@@ -28,3 +28,11 @@ assert.ok(JSON.stringify(messages[0]).length<frozen.length);
 assert.equal(projectDiscoveryMessages([{...message,isError:true}])[0].content,message.content);
 assert.deepEqual(projectDiscoveryMessages(messages),messages);
 console.log('Discovery projection: schemas on demand, all capabilities and permissions retained; source/execution results unchanged.');
+
+// Generic execution projection removes serialization overhead, never source data.
+const {compactExecutionEnvelope}=await import('../../openclaw-extensions/agent-os-content-tools/discovery-projection.js');
+const payload={content:'Quoted source "evidence"\n'.repeat(500),next_request:{cursor:'page-2'},coverage_complete:false,trackingId:'track-fixture',error:null};
+const raw={type:'text',text:JSON.stringify({tool:{id:'tool-fixture',name:'source_read',sourceName:'agent-os-content-tools',description:'Schema already in catalogue '.repeat(100),input:'{...}'},result:{content:[{type:'text',text:JSON.stringify(payload)}],isError:false}})};
+const compact=compactExecutionEnvelope(raw);assert(compact.text.length<raw.text.length);assert.deepEqual(JSON.parse(compact.text).result.content[0].data,payload);assert(raw.text.includes('Schema already'),'Audit input remains untouched');
+const image={type:'image',data:'fixture',mimeType:'image/png'};assert.equal(compactExecutionEnvelope(image),image);
+console.log('EXECUTION_ENVELOPE_OK: source text, cursor, tracking and coverage retained; no transcript mutation');

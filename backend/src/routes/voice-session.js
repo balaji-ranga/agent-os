@@ -2,8 +2,8 @@
  * Session-token Voice tool bridge and hangup (CEO Call + public widget).
  * Auth is the short-lived session token — never trust body ceo_user_id.
  */
-import { Router } from 'express';
-import { invokeVoiceSessionTool, endVoiceSession } from '../services/agent-voice-sessions.js';
+import { Router, text } from 'express';
+import { connectVoiceRealtime, invokeVoiceSessionTool, endVoiceSession } from '../services/agent-voice-sessions.js';
 
 const router = Router();
 
@@ -19,6 +19,14 @@ function rateLimitOk(key, limit = 60, windowMs = 60_000) {
   hits.set(key, row);
   return row.n <= limit;
 }
+
+router.post('/realtime/calls',text({type:'application/sdp',limit:'64kb'}),async(req,res)=>{
+  try{
+    if(!rateLimitOk(`sdp:${req.ip}`,10))return res.status(429).json({error:'Too many voice connection attempts'});
+    const response=await connectVoiceRealtime({sessionToken:req.headers['x-flolah-voice-session'],authorization:req.headers.authorization,sdp:req.body});
+    res.status(response.status).type(response.headers.get('content-type')||'application/sdp').send(await response.text());
+  }catch(error){res.status(error.status||502).json({error:error.status?error.message:'Voice gateway connection failed'});}
+});
 
 router.post('/tools', async (req, res) => {
   try {

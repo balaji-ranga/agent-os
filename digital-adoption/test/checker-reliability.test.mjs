@@ -58,9 +58,9 @@ test('compact review retains checkbox action semantics and explicit requested se
 });
 test('native transport detects capabilities, omits unsupported thinking and respects exact output budget/schema',async()=>{
  let sent;const r=await completeProvider({config:{baseUrl:'http://ollama:11434/v1',model:'registered-local-model',nativeOllama:true,apiKey:'synthetic',threads:4},messages:[],maxTokens:700,outputSchema:verdictSchema},async(url,init)=>{
-  if(url.pathname==='/api/show')return {ok:true,json:async()=>({capabilities:['completion']})};sent=JSON.parse(init.body);return {ok:true,json:async()=>({done:true,done_reason:'stop',message:{content:'{}',thinking:'PRIVATE_THINKING_CANARY'},eval_count:2})};
+  if(url.pathname==='/api/show')return {ok:true,json:async()=>({capabilities:['completion']})};sent=JSON.parse(init.body);return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'{}',reasoning_content:'PRIVATE_THINKING_CANARY'}}],usage:{completion_tokens:2}})};
  });
- assert.equal(sent.think,undefined);assert.equal(sent.options.num_predict,700);assert.equal(sent.options.num_thread,4);assert.deepEqual(sent.format,verdictSchema);assert.equal(JSON.stringify(r).includes('CANARY'),false);
+ assert.equal(sent.think,undefined);assert.equal(sent.max_tokens,700);assert.equal(sent.num_thread,4);assert.deepEqual(sent.response_format.json_schema.schema,verdictSchema);assert.equal(JSON.stringify(r).includes('CANARY'),false);
  await assert.rejects(()=>completeProvider({config:{baseUrl:'http://ollama:11434/v1',model:'non-thinking',nativeOllama:true,thinking:true},messages:[],maxTokens:700},async()=>({ok:true,json:async()=>({capabilities:['completion']})})),e=>e.diagnosticCode==='MODEL_THINKING_UNSUPPORTED');
 });
 test('provider HTTP, incomplete output and caller cancellation remain distinguishable without exposing raw errors',async()=>{

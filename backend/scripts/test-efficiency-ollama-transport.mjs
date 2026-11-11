@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { fetchEfficiencyOllama } from '../src/services/efficiency-ollama-transport.js';
 
+process.env.LITELLM_BASE_URL='http://gateway-fixture:4000/v1';process.env.LITELLM_MASTER_KEY='fixture';process.env.OLLAMA_BASE_URL='http://ollama:11434';
 const originalFetch = globalThis.fetch;
 const originalThreads = process.env.OLLAMA_EFFICIENCY_THREADS;
 const signal = new AbortController().signal;
@@ -9,16 +10,16 @@ const request = (override={}) => ({method:'POST',headers:{'content-type':'applic
 try {
   process.env.OLLAMA_EFFICIENCY_THREADS='2';
   globalThis.fetch = async (url, init) => {
-    assert.equal(String(url),'http://ollama:11434/api/chat');
+    assert.equal(String(url),'http://gateway-fixture:4000/v1/chat/completions');
     assert.equal(init.signal,signal);
     const native=JSON.parse(init.body);
-    assert.deepEqual(native.options,{num_thread:2,num_predict:100,temperature:0});
-    assert.equal(native.format,'json');
+    assert.equal(native.num_thread,2);assert.equal(native.max_tokens,100);assert.equal(native.user_config.model_list[0].litellm_params.model,'ollama_chat/llama3.2');
+    assert.equal(native.response_format.type,'json_object');
     assert.equal(native.truncate,false);
     assert.equal(native.stream,false);
-    assert.equal(native.think,false);
+    assert.equal(native.reasoning_effort,'none');
     assert.deepEqual(native.messages,body.messages);
-    return new Response(JSON.stringify({model:'llama3.2:latest',message:{content:'{"query":"synthetic"}'},done:true,done_reason:'stop',prompt_eval_count:5,eval_count:7}));
+    return new Response(JSON.stringify({model:'llama3.2:latest',choices:[{message:{content:'{"query":"synthetic"}'},finish_reason:'stop'}],usage:{prompt_tokens:5,completion_tokens:7}}));
   };
   const converted=await (await fetchEfficiencyOllama('http://ollama:11434/v1/chat/completions',request())).json();
   assert.equal(converted.model,'llama3.2:latest');
@@ -27,9 +28,9 @@ try {
   assert.deepEqual(converted.usage,{prompt_tokens:5,completion_tokens:7});
   process.env.OLLAMA_EFFICIENCY_THREADS='4';
   globalThis.fetch=async(_url,init)=>{
-    assert.equal(JSON.parse(init.body).options.num_thread,4);
+    assert.equal(JSON.parse(init.body).num_thread,4);
     assert.equal(init.signal,signal);
-    return new Response(JSON.stringify({message:{content:'{}'},done:true,done_reason:'stop'}));
+    return new Response(JSON.stringify({choices:[{message:{content:'{}'},finish_reason:'stop'}]}));
   };
   await fetchEfficiencyOllama('http://ollama:11434/v1/chat/completions',request());
   for(const result of [
@@ -37,7 +38,7 @@ try {
     {done:true,done_reason:'length',message:{content:'truncated'}},
     {done:true,message:{thinking:'private reasoning only'}},
   ]) {
-    globalThis.fetch=async()=>new Response(JSON.stringify(result));
+    globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:result.message.content,reasoning_content:result.message.thinking},finish_reason:result.done===false?'length':result.done_reason||'stop'}]}));
     const out=await (await fetchEfficiencyOllama('http://ollama:11434/v1/chat/completions',request())).json();
     if(result.done===false||result.done_reason==='length') assert.equal(out.choices[0].finish_reason,'length');
     else assert.equal(out.choices[0].message.content,'');

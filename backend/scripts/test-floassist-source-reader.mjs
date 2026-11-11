@@ -232,7 +232,7 @@ const adHoc=await readFloAssistSource('a',{app_id:'gmail',source_id:'cache-threa
 await assert.rejects(readFloAssistSource('b',{app_id:'gmail',source_id:'cache-thread'},{...cacheOptions,context:againScope}),e=>e.status===403);
 const versionRows=db.prepare('SELECT signature FROM floassist_source_assessments').all();assert.ok(versionRows.every(r=>/^[0-9a-f]{64}$/.test(r.signature)));assert.ok(!JSON.stringify(versionRows).includes(passage));
 console.log('FLOASSIST_ASSESSMENT_CACHE_OK: fresh authorized fetch, complete-review prerequisite, changed content/instructions/module isolation, explicit refresh and full ad hoc bodies');
-const resumeScope={owner:'a',run:'resume-run',origin:'floassist:briefing'};
+const resumeScope={owner:'a',run:'resume-run',origin:'floassist:deadlines'};
 const resumeOptions={...options,context:resumeScope,extract:async()=>('Verified document content. '.repeat(1500))};
 const selector={app_id:'google_drive',source_id:'resume-doc'};
 let resumedPage=await readFloAssistSource('a',selector,resumeOptions);

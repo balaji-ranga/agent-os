@@ -1,5 +1,7 @@
 import {normalizeDriveReadInput,normalizeDriveReadError} from './floassist/drive-read-input.js';
 import {currentFloAssistScope} from './floassist/execution-scope.js';
+import {remainingFetchTime,assertFetchDelayFits,currentExecutionFetchBudget,withExecutionFetchBudget,goalWorkFetchBudget} from './execution-fetch-budget.js';
+import {getPlatformTimeoutMs} from './platform-timeout-settings.js';
 import {recordSourceReceipt,resolveConnectorSchemaError,canonicalThreadInput} from './floassist/source-receipts.js';
 import {connectorReferenceInput,connectorReferenceResult} from './floassist/source-references.js';
 import {projectFloAssistMailResult} from './floassist/mail-result.js';
@@ -328,9 +330,12 @@ async function openConnectorFetch(path, { method = 'GET', headers = {}, body, au
     method,
     headers: finalHeaders,
     body: body != null ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(120000),
+    signal: AbortSignal.timeout(remainingFetchTime(getPlatformTimeoutMs('connector_fetch'))),
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(error => {
+    if(error?.name==='AbortError'||error?.name==='TimeoutError')throw error;
+    return {};
+  });
   if (!res.ok || data.success === false || data.ok === false) {
     throw connectorExecutionError(res.status, data, res.headers.get('retry-after'));
   }
@@ -364,7 +369,7 @@ async function callOpenConnectorMcpTool(userId, toolName, args = {}, connectionN
 export async function readConnectorTransitFile(userId,fileId,{fetchImpl=fetch}={}){
   if(!/^[A-Za-z0-9_-]{16,128}(?:\.[A-Za-z0-9]{1,10})?$/.test(String(fileId||'')))throw Object.assign(new Error('Invalid exported transit file identifier'),{status:422,code:'FLOASSIST_SOURCE_READ_FAILED'});
   const config=getOpenConnectorEnvConfig(),runtime=getRuntimeTokenForUser(userId);
-  const response=await fetchImpl(`${config.url.replace(/\/$/,'')}/api/files/${encodeURIComponent(fileId)}`,{redirect:'error',headers:{Authorization:`Bearer ${runtime.token}`,'x-oo-connector-alias':runtime.connectionName},signal:AbortSignal.timeout(30000)});
+  const response=await fetchImpl(`${config.url.replace(/\/$/,'')}/api/files/${encodeURIComponent(fileId)}`,{redirect:'error',headers:{Authorization:`Bearer ${runtime.token}`,'x-oo-connector-alias':runtime.connectionName},signal:AbortSignal.timeout(remainingFetchTime(30000))});
   if(!response.ok)throw connectorExecutionError(response.status,{message:'Exported document content could not be read'});
   const limit=5*1024*1024,chunks=[];let length=0;
   if(Number(response.headers.get('content-length'))>limit){await response.body?.cancel();throw Object.assign(new Error('Export exceeds the 5 MiB review limit'),{status:422,code:'FLOASSIST_SOURCE_SIZE_LIMIT'});}
@@ -776,6 +781,12 @@ export async function executeConnectorAction(
   input = {},
   { connectionName = '', authorizationRetryDelaysMs = null, ...executionContext } = {}
 ) {
+  if(!currentExecutionFetchBudget()){
+    const inherited=currentFloAssistScope();
+    const budget=inherited?.fetch_deadline_at?inherited:goalWorkFetchBudget(db(),userId,{workflow_run_id:executionContext.runId},getPlatformTimeoutMs('goal_fetch_window'));
+    if(budget)return withExecutionFetchBudget(budget,()=>executeConnectorAction(userId,actionId,input,{connectionName,authorizationRetryDelaysMs,...executionContext}));
+  }
+  remainingFetchTime(getPlatformTimeoutMs('connector_fetch'));
   const id = String(actionId || '').trim();
   assertFloAssistConnector(userId,id);
   input=connectorReferenceInput(db(),userId,id,input);
@@ -882,6 +893,7 @@ export async function executeConnectorAction(
       let connected = false;
       while (!connected && retryIndex < configuredDelays.length) {
         const delayMs = configuredDelays[retryIndex];
+        assertFetchDelayFits(delayMs);
         retryIndex += 1;
         if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
         const connections = await getConnectorConnectionsForUser(userId).catch(() => null);

@@ -93,8 +93,8 @@ test('global policy and inactive roles resolve fresh from persisted settings; lo
  }finally{db.close();}
 });
 test('Ollama reasoning transport requests native thinking/JSON and discards reasoning traces',async()=>{
- let sent;const signal=AbortSignal.timeout(1000),r=await completeProvider({config:{baseUrl:'http://ollama:11434/v1',model:'configured-reasoner',apiKey:'private',nativeOllama:true,thinking:true,threads:2},messages:[{role:'user',content:'Synthetic check'}],maxTokens:700,signal},async(url,init)=>{if(url.pathname==='/api/show')return {ok:true,json:async()=>({capabilities:['completion','thinking']})};sent={url:String(url),...init,body:JSON.parse(init.body)};return {ok:true,json:async()=>({message:{content:'{"decision":"accept","feedback":"ok"}',thinking:'PRIVATE_REASONING_CANARY'},done:true,done_reason:'stop'})};});
- assert.equal(sent.url,'http://ollama:11434/api/chat');assert.equal(sent.body.think,true);assert.equal(sent.body.format,'json');assert.equal(sent.body.truncate,false);assert.equal(sent.signal,signal);assert.equal(JSON.stringify(r).includes('PRIVATE_REASONING_CANARY'),false);
+ let sent;const signal=AbortSignal.timeout(1000),r=await completeProvider({config:{baseUrl:'http://ollama:11434/v1',model:'configured-reasoner',apiKey:'private',nativeOllama:true,thinking:true,threads:2},messages:[{role:'user',content:'Synthetic check'}],maxTokens:700,signal},async(url,init)=>{if(url.pathname==='/api/show')return {ok:true,json:async()=>({capabilities:['completion','thinking']})};sent={url:String(url),...init,body:JSON.parse(init.body)};return {ok:true,json:async()=>({choices:[{message:{content:'{"decision":"accept","feedback":"ok"}',reasoning_content:'PRIVATE_REASONING_CANARY'},finish_reason:'stop'}]})};});
+ assert.equal(sent.url,'http://gateway-fixture:4000/v1/chat/completions');assert.equal(sent.body.reasoning_effort,'medium');assert.equal(sent.body.response_format.type,'json_object');assert.equal(sent.body.truncate,false);assert.equal(sent.signal,signal);assert.equal(JSON.stringify(r).includes('PRIVATE_REASONING_CANARY'),false);
 });
 
 test('knowledge answers also require checker review and rejected claims become insufficient',async()=>{
@@ -105,7 +105,7 @@ test('checker failures surface a specific no-change message to the planner',asyn
  const planner=createPlatformPlanner({gatewayUrl:'https://platform.example/complete',serviceToken,fetchImpl:async()=>({ok:false,json:async()=>({code:'COPILOT_CHECKER_UNAVAILABLE'})})});await assert.rejects(()=>planner({text:'Set Shipping method to Express',snapshot}),e=>e.publicCode==='COPILOT_CHECKER_UNAVAILABLE');
 });
 test('local reasoning admission is bounded and releases its slot on completion',async()=>{
- let finish;const complete=createProviderCompletion({localConcurrency:1,fetchImpl:url=>url.pathname==='/api/show'?Promise.resolve({ok:true,json:async()=>({capabilities:['completion']})}):new Promise(resolve=>{finish=()=>resolve({ok:true,json:async()=>({done:true,message:{content:'{}'}})});})});
+ let finish;const complete=createProviderCompletion({localConcurrency:1,fetchImpl:url=>url.pathname==='/api/show'?Promise.resolve({ok:true,json:async()=>({capabilities:['completion']})}):new Promise(resolve=>{finish=()=>resolve({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'{}'}}]})});})});
  const request={config:{baseUrl:'http://ollama:11434/v1',model:'configured',apiKey:'local',nativeOllama:true},messages:[],maxTokens:700};
  const first=complete(request);await assert.rejects(()=>complete(request),e=>e.diagnosticCode==='LOCAL_CAPACITY');await new Promise(setImmediate);finish();await first;const next=complete(request);await new Promise(setImmediate);finish();await next;
 });

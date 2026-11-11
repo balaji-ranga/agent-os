@@ -1,4 +1,4 @@
-/** Shared paid-model transport. Workflow Brain is an explicit direct-provider exception.
+/** Shared model transport. Workflow Brain is an explicit direct-provider exception.
  * No provider request is retried here; callers retain their bounded retry policy. */
 export function modelEgressSettings(env = process.env) {
   return {
@@ -24,10 +24,11 @@ export function isLocalModelEndpoint(baseUrl, settings) {
 }
 
 export function prepareModelEgress({ baseUrl, apiKey, model, api = 'openai-completions' }, settings = modelEgressSettings()) {
-  if (isManagedModelEndpoint(baseUrl, settings) || isLocalModelEndpoint(baseUrl, settings)) return null;
+  if (isManagedModelEndpoint(baseUrl, settings)) return null;
+  const local=isLocalModelEndpoint(baseUrl,settings);
   if (!settings.baseUrl || !settings.apiKey) throw new Error('Paid model gateway is not configured; direct provider submission is prohibited.');
   const upstream = new URL(baseUrl);
-  if (upstream.protocol !== 'https:' || upstream.username || upstream.password || upstream.search || upstream.hash) {
+  if ((upstream.protocol !== 'https:' && !(local&&upstream.protocol==='http:')) || upstream.username || upstream.password || upstream.search || upstream.hash) {
     throw new Error('Paid model endpoint must be a credential-free HTTPS base URL.');
   }
   if (!apiKey || !model) throw new Error('Paid model credentials and model are required.');
@@ -64,4 +65,21 @@ export async function fetchModelViaGateway(url, init, {settings = modelEgressSet
   headers.delete('x-api-key');
   headers.set('authorization', `Bearer ${route.apiKey}`);
   return fetchImpl(`${route.baseUrl}/${match[1]}`, {...init, headers, body: JSON.stringify(body)});
+}
+/** Native Ollama callers keep their contract while inference traverses LiteLLM. */
+export async function fetchOllamaViaGateway(url,init,{settings=modelEgressSettings(),fetchImpl=globalThis.fetch}={}){
+  const target=new URL(url);
+  if(target.pathname!=='/api/chat'||!isLocalModelEndpoint(target.origin,settings))throw new Error('Native Ollama destination is not configured');
+  if(!settings.baseUrl||!settings.apiKey)throw new Error('Model gateway is required; direct inference is prohibited');
+  const native=JSON.parse(init.body);
+  if(native.stream)throw new Error('Native Ollama streaming requires the managed OpenAI-compatible route');
+  const {num_predict,temperature,...options}=native.options||{};
+  const body={model:native.model,messages:native.messages,stream:false,max_tokens:num_predict,temperature,
+    ...options,...(native.format?{response_format:native.format==='json'?{type:'json_object'}:{type:'json_schema',json_schema:{name:'result',schema:native.format}}}:{}),
+    ...(native.think!==undefined?{reasoning_effort:native.think?'medium':'none'}:{}),truncate:native.truncate!==true?false:true,
+    user_config:{model_list:[{model_name:native.model,litellm_params:{model:`ollama_chat/${native.model}`,api_base:target.origin,api_key:'ollama-local'}}],num_retries:0,max_fallbacks:0,fallbacks:[]}};
+  const response=await fetchImpl(new URL(`${settings.baseUrl}/chat/completions`),{...init,headers:{'Content-Type':'application/json',Authorization:`Bearer ${settings.apiKey}`},body:JSON.stringify(body)});
+  if(!response.ok)return response;
+  const result=await response.json(),choice=result.choices?.[0];
+  return new Response(JSON.stringify({model:result.model,message:{content:choice?.message?.content,thinking:choice?.message?.reasoning_content},done:!!choice&&choice.finish_reason!=='length',done_reason:choice?.finish_reason,prompt_eval_count:result.usage?.prompt_tokens,eval_count:result.usage?.completion_tokens}),{status:200,headers:{'Content-Type':'application/json'}});
 }

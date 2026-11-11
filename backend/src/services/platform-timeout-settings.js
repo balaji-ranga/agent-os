@@ -1,6 +1,8 @@
 import { getPlatformSetting, setPlatformSetting } from './platform-llm-settings.js';
 
 const DEFINITIONS = Object.freeze({
+  goal_fetch_window: { label: 'Goal execution fetch window', category: 'Goals', env: 'GOAL_FETCH_WINDOW_MS', defaultMs: 240000, minMs: 10000, maxMs: 1800000 },
+  connector_fetch: { label: 'Single connector HTTP fetch', category: 'Connectors', env: 'CONNECTOR_FETCH_TIMEOUT_MS', defaultMs: 60000, minMs: 1000, maxMs: 120000 },
   llm_chat: { label: 'General model call', category: 'Models', env: 'LLM_CHAT_TIMEOUT_MS', defaultMs: 120000, minMs: 5000, maxMs: 900000 },
   semantic_router: { label: 'Semantic intent router', category: 'Models', env: 'AGENT_TURN_ROUTER_TIMEOUT_MS', defaultMs: 60000, minMs: 5000, maxMs: 180000 },
   goal_adjudicator: { label: 'Goal adjudicator', category: 'Models', env: 'AGENT_TURN_ADJUDICATOR_TIMEOUT_MS', defaultMs: 45000, minMs: 5000, maxMs: 180000 },

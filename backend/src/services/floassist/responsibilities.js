@@ -1,8 +1,16 @@
+import {BRIEFING_RESULT_CONTRACT} from './briefing-result.js';
 import {readFileSync} from 'node:fs';
 const sourceProduct=JSON.parse(readFileSync(new URL('./product.json',import.meta.url),'utf8'));
-const sources={priority:['gmail','outlook'],followups:['gmail','outlook'],deadlines:['gmail','outlook','google_drive','onedrive'],conflicts:['google_calendar','outlook_calendar']};
+// Briefing synthesizes the agenda, mail and already-tracked obligations. Bulk
+// document discovery belongs to deadline tracking, not every morning digest.
+const sources={briefing:['gmail','outlook','google_calendar','outlook_calendar'],priority:['gmail','outlook'],followups:['gmail','outlook'],deadlines:['gmail','outlook','google_drive','onedrive'],conflicts:['google_calendar','outlook_calendar']};
 export function responsibilitySources(preferences,id){
   return (preferences.connectors||[]).filter(app=>!sources[id]||sources[id].includes(app));
+}
+export function refreshResponsibilitySourceList(prompt,preferences,id){
+ const selected=responsibilitySources(preferences,id);
+ return String(prompt||'').replace(/Use only these selected sources for this responsibility: [^\n]*?\. Other selected apps belong to other checks\./,
+  `Use only these selected sources for this responsibility: ${selected.join(', ')||'none'}. Other selected apps belong to other checks.`);
 }
 export function responsibilityPrompt(product,preferences,responsibility){
   const apps=responsibilitySources(preferences,responsibility.id).map(id=>{const app=product.connectors.find(c=>c.id===id);return `${app?.label||id} (app_id: ${id})`;});
@@ -11,6 +19,7 @@ export function responsibilityPrompt(product,preferences,responsibility){
 
 export function sourceReadInstructions(preferences,id){
  const selected=responsibilitySources(preferences,id);
+
  return `Discovery lookback: ${preferences.discovery_lookback_days??7} days. Keep new mail discovery within this lookback. Gmail generic searches use newer_than:${preferences.discovery_lookback_days??7}d; Outlook conversation discovery uses floassist_source_read and its provider date filter. Inspect the latest complete conversation. Older quoted messages are history, not a fresh unanswered obligation. Rechecking a tracked source is separate from discovery. Open tasks due this owner-local month are eligible when include_due_this_month is enabled; maintain each module's purpose. Five successful local alert days quiet a task by default; do not reproduce quieted task alerts in generated summaries. Briefing task alerts are queued by the platform; do not duplicate them in prose.\n`+(id==='deadlines'?'For deadline tracking call floassist_tracking_observe using deadline_evidence.track_request (deadline_candidate) plus why_now and thread_summary after complete source review. The server supplies the source/account/date/evidence; never rebuild those opaque fields or reuse another source label. Select only still-outstanding obligations from the latest thread. New Drive candidate discovery is limited to files modified in the configured discovery lookback, newest first, at most 40 per page. Recheck existing tracked sources directly by ID. A file list is metadata only: read document content before extracting an obligation. Use floassist_source_read with app_id and the exact source_id for each candidate, following all content pages; skip unsupported media without inventing content. Every selected deadline_candidate must state the actual outstanding action and date in current content; the backend supplies due_at and deadline_excerpt. If document text cannot be retrieved, report that coverage gap; do not create a deadline from a filename or timestamp. ':'')+'Required source coverage (account/profile, settings and calendar-list health calls do NOT satisfy it): '+selected.map(key=>{
   const app=sourceProduct.connectors.find(a=>a.id===key);
   return ['gmail','outlook','google_drive','onedrive'].includes(key)?`${key}: use floassist_source_read with app_id for discovery, then exact candidate IDs and next_request pages; no separate connector search, guide, profile or fetch is needed for this supported read`:`${key}: read actual content using ${app?.content_read_actions?.join(' or ')||'the provider content-list action from discovery'}; read the exact action guide first`;
@@ -19,4 +28,8 @@ export function sourceReadInstructions(preferences,id){
 
 export function reconciliationCandidates(tasks,module){
  return tasks.filter(t=>!t.closed&&t.state!=='stopped'&&(t.categories||[]).includes(module));
+}
+
+export function responsibilityResultInstructions(preferences,id){
+ return id==='briefing'?BRIEFING_RESULT_CONTRACT+'\n'+`Briefing result contract: Today is ${new Intl.DateTimeFormat('en-CA',{timeZone:preferences.timezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())} in ${preferences.timezone||'UTC'}. Base the final answer on current bodies read in THIS run, not discovery snippets or old memory. Separate future deadlines from overdue obligations and expired opportunities. Never present a past signup/application closing date as an upcoming deadline or a task to do now; report it as expired only if relevant. An unread flag does not establish importance or an unanswered request. Anchor relative deadlines and login-code expiry to the supplied message timestamp, not today. Expired login codes, advertising, discounts and generic terms updates are not priority actions unless the source or explicit owner preferences establish a current obligation or security concern. Include a concrete source subject/reference and actual requested action for each priority or follow-up. If the reviewed sources contain no current actionable request, say so; do not manufacture tasks. Do not tell the user to review messages that you have already reviewed. State unreviewed coverage only when the server says coverage is incomplete.\n`:'';
 }

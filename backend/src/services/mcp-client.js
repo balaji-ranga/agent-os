@@ -3,6 +3,7 @@
  * Auth is passed per request (test playground) or from workflow node config — never from .env.
  */
 import { parseMcpAuth } from './mcp-auth.js';
+import {remainingFetchTime} from './execution-fetch-budget.js';
 
 function parseSseJson(text) {
   const lines = String(text || '').split(/\r?\n/);
@@ -31,7 +32,7 @@ async function postMcp(url, body, headers, timeoutMs = 120000) {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: AbortSignal.timeout(remainingFetchTime(timeoutMs)),
   });
   const sessionId = res.headers.get('mcp-session-id');
   const ct = res.headers.get('content-type') || '';

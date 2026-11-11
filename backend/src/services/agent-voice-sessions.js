@@ -1,3 +1,4 @@
+import {prepareModelEgress,modelEgressSettings} from '../../../scripts/lib/model-egress.js';
 /**
  * Generic Voice channel sessions: mint owner-BYOK OpenAI Realtime ephemeral keys,
  * tool-invoke bridge (existing content tools), hangup wrap-up via OpenClaw chat.
@@ -386,7 +387,8 @@ export function getPublishedVoiceBySlug(slug) {
 }
 
 async function mintOpenAiRealtimeSession({ realtime, instructions, tools, voice, ownerUserId }) {
-  const url = `${realtime.baseUrl}/v1/realtime/client_secrets`;
+  const route=prepareModelEgress({baseUrl:`${realtime.baseUrl}/v1`,apiKey:realtime.apiKey,model:realtime.model});
+  const url = `${route?.baseUrl||realtime.baseUrl+'/v1'}/realtime/client_secrets`;
   const session = {
     type: 'realtime',
     model: realtime.model,
@@ -399,7 +401,7 @@ async function mintOpenAiRealtimeSession({ realtime, instructions, tools, voice,
     },
   };
   const headers = {
-    Authorization: `Bearer ${realtime.apiKey}`,
+    Authorization: `Bearer ${route?.apiKey||realtime.apiKey}`,
     'Content-Type': 'application/json',
   };
   if (ownerUserId) {
@@ -410,7 +412,7 @@ async function mintOpenAiRealtimeSession({ realtime, instructions, tools, voice,
   const res = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ session }),
+    body: JSON.stringify({ session,...(route?{user_config:route.userConfig}:{}) }),
     signal: AbortSignal.timeout(20000),
   });
   const data = await res.json().catch(() => ({}));
@@ -533,7 +535,7 @@ export async function createVoiceSession({ ownerUserId, agentId, channelId = nul
     agent: { id: agent.id, name: agent.name, role: agent.role },
     realtime: {
       model: realtime.model,
-      webrtc_url: `${realtime.baseUrl}/v1/realtime/calls`,
+      webrtc_url: `${getPublicBaseUrl()}/api/voice/realtime/calls`,
       client_secret: minted.client_secret,
       expires_at: minted.expires_at,
     },
@@ -770,4 +772,14 @@ export function voiceInvitePagePayload(token) {
 export function voicePublicUrl(slug) {
   const base = getPublicBaseUrl().replace(/\/api$/i, '');
   return `${base}/p/voice/${encodeURIComponent(slug)}`;
+}
+
+/** SDP signaling uses the same encrypted proxy session; no durable key reaches clients. */
+export async function connectVoiceRealtime({sessionToken,authorization,sdp}){
+  if(!loadOpenSession(sessionToken))throw Object.assign(new Error('Voice session expired or invalid'),{status:401});
+  if(typeof authorization!=='string'||!authorization.startsWith('Bearer ')||authorization.length>8192)throw Object.assign(new Error('Missing ephemeral voice authorization'),{status:401});
+  if(typeof sdp!=='string'||!sdp.startsWith('v=0')||Buffer.byteLength(sdp)>65536)throw Object.assign(new Error('Invalid SDP offer'),{status:400});
+  const gateway=modelEgressSettings();
+  if(!gateway.baseUrl)throw Object.assign(new Error('Model gateway unavailable'),{status:503});
+  return fetch(`${gateway.baseUrl}/realtime/calls`,{method:'POST',headers:{Authorization:authorization,'Content-Type':'application/sdp'},body:sdp,signal:AbortSignal.timeout(20000)});
 }

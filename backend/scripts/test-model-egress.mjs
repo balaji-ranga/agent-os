@@ -8,7 +8,7 @@ assert.equal(route.userConfig.model_list[0].litellm_params.model,'openai/arbitra
 assert.equal(route.userConfig.num_retries,0);assert.deepEqual(route.userConfig.fallbacks,[]);
 assert.notEqual(prepareModelEgress({...endpoint,apiKey:'owner-b-fixture'},settings).userConfig.model_list[0].litellm_params.api_key,endpoint.apiKey);
 assert.equal(prepareModelEgress({...endpoint,baseUrl:settings.baseUrl},settings),null);
-assert.equal(prepareModelEgress({...endpoint,baseUrl:settings.localBases[0]},settings),null);
+assert.equal(prepareModelEgress({...endpoint,baseUrl:settings.localBases[0]},settings).baseUrl,settings.baseUrl,'configured local network models also route through LiteLLM');
 assert.ok(prepareModelEgress(endpoint,{...settings,localBases:[endpoint.baseUrl]}),'a public provider mislabelled as a local endpoint still uses the proxy');
 assert.throws(()=>prepareModelEgress(endpoint,{...settings,apiKey:''}),/prohibited/);
 assert.throws(()=>prepareModelEgress({...endpoint,api:'unknown'},settings),/prohibited/);

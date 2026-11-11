@@ -889,6 +889,7 @@ function ScheduledGoalsPanel() {
                   {!history[g.id] ? <p>Loading runs…</p> : history[g.id].error ? <p role="alert">{history[g.id].error}</p> : history[g.id].length === 0 ? <p>No runs yet.</p> : history[g.id].map(run => <div key={run.id} style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:8}}>
                     <div>{new Date(run.created_at.endsWith('Z') ? run.created_at : run.created_at.replace(' ', 'T')+'Z').toLocaleString(undefined,{timeZone:g.timezone})} · {g.timezone} · {run.status} · {run.triggered_by === 'run_now' ? 'Run now' : 'Scheduled'}</div>
                     {!!run.notification_items?.length&&<p>Notification items (may share one WhatsApp summary): {run.notification_items.map(n=>`${n.count} ${n.status}`).join(' · ')}</p>}
+                    <p>{run.token_usage ? `Tokens: ${run.token_usage.input_tokens.toLocaleString()} input · ${run.token_usage.output_tokens.toLocaleString()} output · ${run.token_usage.total_tokens.toLocaleString()} total${run.token_usage.estimated_records ? ' (includes estimates)' : ''}${run.status === 'running' ? ' — recorded so far' : ''}` : 'Token usage: no correlated records available.'}</p>
                     <div style={{whiteSpace:'pre-wrap'}}>{run.error || (run.reply_preview?.trim() === 'FLOASSIST_NO_UPDATE' ? 'Check completed with no additional summary. Task-backed alerts are delivered separately; check WhatsApp and Kanban.' : run.reply_preview) || 'No output recorded yet.'}</div>
                   </div>)}
                 </td></tr>}

@@ -806,7 +806,12 @@ services:
   # Internal model gateway. It fronts existing remote OpenAI/DeepSeek and local
   # Ollama deployments; no host port is published.
   litellm:
-    image: ${LITELLM_IMAGE:-docker.litellm.ai/berriai/litellm:main-latest}
+    image: ${LITELLM_IMAGE:-agent-os-litellm:local}
+    build:
+      context: ..
+      dockerfile: deploy/litellm/Dockerfile
+      args:
+        LITELLM_BASE_IMAGE: ${LITELLM_BASE_IMAGE:-docker.litellm.ai/berriai/litellm:main-latest}
     restart: unless-stopped
     command: ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
     environment:
@@ -820,6 +825,9 @@ services:
       LITELLM_SECONDARY_MODEL_SPEC: ${LITELLM_SECONDARY_MODEL_SPEC:-openai/gpt-4o-mini}
       LITELLM_OLLAMA_MODEL_SPEC: ${LITELLM_OLLAMA_MODEL_SPEC:-ollama_chat/llama3.2}
       LITELLM_REASONING_MODEL_SPEC: ${LITELLM_REASONING_MODEL_SPEC:-ollama_chat/deepseek-r1:8b}
+      LITELLM_EMBEDDING_MODEL_SPEC: ${LITELLM_EMBEDDING_MODEL_SPEC:-openai/Qwen/Qwen3-Embedding-0.6B}
+      EMBEDDINGS_BASE_URL: ${EMBEDDINGS_BASE_URL:-http://embeddings:8080/v1}
+      EMBEDDINGS_API_KEY: ${EMBEDDINGS_API_KEY:-local}
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
     expose:

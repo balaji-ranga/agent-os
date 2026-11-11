@@ -1,4 +1,6 @@
+import {goalWorkFetchBudget} from './execution-fetch-budget.js';
 import {getDb} from '../db/schema.js';
+import {getPlatformTimeoutMs} from './platform-timeout-settings.js';
 import {resolveFloAssistScope,bindFloAssistWork} from './floassist/execution-scope.js';
 ﻿/**
  * Resolve CEO user id for content-tool invocations (OpenClaw plugin, COO tools, logs).
@@ -68,7 +70,10 @@ function pruneSessionOwners() {
 
 export function registerOpenClawSessionOwner(sessionKey, ownerUserId, actorUserId = null, channel = null, executionContext = null) {
   if (!sessionKey || !ownerUserId) return;
-  const scope=resolveFloAssistScope(getDb(),ownerUserId,null,executionContext||{},channel);
+  const fetchBudget=goalWorkFetchBudget(getDb(),ownerUserId,executionContext,getPlatformTimeoutMs('goal_fetch_window'));
+  if(fetchBudget)executionContext={...executionContext,...fetchBudget};
+  const resolvedScope=resolveFloAssistScope(getDb(),ownerUserId,null,executionContext||{},channel);
+  const scope=resolvedScope&&executionContext?.fetch_deadline_at?{...resolvedScope,fetch_deadline_at:executionContext.fetch_deadline_at}:resolvedScope;
   bindFloAssistWork(getDb(),ownerUserId,'session',sessionKey,scope);
   pruneSessionOwners();
   sessionOwnerRegistry.set(String(sessionKey), {

@@ -1,3 +1,4 @@
+import {assertFetchDelayFits} from './execution-fetch-budget.js';
 /** Preserve provider failures; a business error is not a transport negotiation. */
 export function connectorExecutionError(status, payload = {}, retryAfter = null) {
   const message = String(payload.message || payload.error?.message ||
@@ -39,6 +40,7 @@ export async function retryConnectorRead(invoke, { readOnly, sleep = (ms) => new
     const delay = Math.max(retryDelayMs, error.retry_after_ms || 0);
     // Don't ignore a longer provider deadline or loop for an unbounded duration.
     if (delay > 60000) throw error;
+    assertFetchDelayFits(delay);
     await sleep(delay);
     return invoke();
   }

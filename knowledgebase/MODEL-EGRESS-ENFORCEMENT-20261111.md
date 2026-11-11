@@ -1,4 +1,19 @@
-# Model egress enforcement — implementation in progress
+# Model egress enforcement — production release 2026-11-11
+
+## Current release evidence
+
+Deployed scoped `egress-current-20261111` images for the backend, OpenClaw gateway, frontend, LiteLLM and separate adoption model gateway. A subsequent backend-only `egress-deadline-20261111` release handles goal-level fetch work before a step is assigned. Existing provider/model settings and deployment configuration were preserved. Rollback images and private configuration backups remain on the VPS. The original gateway image had been pruned; its rollback uses the tested rebuilt pre-routing image, not the unavailable original layers.
+
+- Live backend Qwen request through LiteLLM: 1,024-dimensional vector. Live native-memory alias `flolah-local-embedding`: 1,024-dimensional vector. Persisted OpenClaw memory points to `http://litellm:4000/v1`, fallback `none`. No cloud embedding fallback.
+- Live local Ollama inference through LiteLLM: 28 input / 9 output tokens. An initial sanity fixture named an uninstalled model and returned 404; correcting the fixture to the installed `llama3.2:latest` passed without downloading or changing a model.
+- Exact deployed proxy image, network-disabled loopback provider tests: scoped BYOK realtime mint and encrypted ephemeral SDP forwarding passed; native Ollama model, context, thread/output limits, JSON, non-thinking and `truncate=false` passed. The proxy patches are version-checked and idempotent. Realtime WebRTC media itself remains provider DTLS; HTTP session mint/signaling uses the proxy.
+- Native SDK streaming, Chat/Responses request-scoped routing, cross-provider ownership/fallback, Brain per-attempt attribution, voice-session authorization, memory configuration and fetch deadlines passed candidate tests. Adoption suite passed 40 tests; frontend production build passed.
+- Production briefing `sgr-c3eb99bce5a64f82` completed through the new routing at 75,162 total tokens, including local utility and final review usage. See the briefing evidence document for quality/delivery boundaries.
+- Workflow Brain remains the direct-provider exception, with request IDs and measured/estimated input/output metrics per attempt. Local Whisper/Piper speech services and non-inference provider metadata probes are not LLM inference routes. Unsupported native LLM protocols fail closed rather than submitting directly.
+
+These tests do not reconcile the earlier DeepSeek hourly billing discrepancy or establish a real microphone test; browser/PC control was prohibited. The chronological notes below retain earlier failures and superseded deployment blockers.
+
+The optional incremental COO memory-index retry exceeded its 180-second test limit without a completion marker. Its exact `openclaw-memory` worker was stopped after process-identity checks; the production gateway remained healthy. Existing index data was retained. Full reindex completion remains unverified; successful live Qwen requests prove routing, not completion of that separate maintenance job.
 
 User contract: non-Brain paid model requests from Flolah and OpenClaw must traverse LiteLLM. Workflow Brain nodes may retain independently configured endpoints and credentials, but every HTTP attempt must be metered. No paid acceptance testing during the spend investigation.
 

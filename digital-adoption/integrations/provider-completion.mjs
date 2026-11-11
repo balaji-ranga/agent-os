@@ -1,3 +1,4 @@
+import {fetchOllamaViaGateway} from './native-model-proxy.mjs';
 const capabilityCache=new Map();
 export const providerFailure=(category,extra={})=>Object.assign(new Error('Model completion failed'),{diagnosticCode:category,...extra});
 export async function completeProvider({config:ep,messages,maxTokens,signal,outputSchema},fetchImpl=fetch){
@@ -41,7 +42,8 @@ export async function completeProvider({config:ep,messages,maxTokens,signal,outp
    target=new URL(gateway+'/chat/completions');key=gatewayKey;
    if(base.origin!==target.origin)body.user_config={model_list:[{model_name:ep.model,litellm_params:{model:`openai/${ep.model}`,api_base:ep.baseUrl,api_key:ep.apiKey}}],num_retries:0,max_fallbacks:0,fallbacks:[]};
   }
-  const response=await fetchImpl(target,{method:'POST',redirect:'error',signal,headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const inferenceFetch=ep.nativeOllama?(url,init)=>fetchOllamaViaGateway(url,init,{fetchImpl}):fetchImpl;
+  const response=await inferenceFetch(target,{method:'POST',redirect:'error',signal,headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!response.ok)throw providerFailure('PROVIDER_HTTP',{providerStatus:response.status});
   const data=await response.json(),content=ep.nativeOllama?data.message?.content:data.choices?.[0]?.message?.content;
   const diagnostics={model:ep.model,latencyMs:Date.now()-started,loadMs:ep.nativeOllama?Math.round((data.load_duration||0)/1e6):undefined,promptTokens:data.prompt_eval_count??data.usage?.prompt_tokens,outputTokens:data.eval_count??data.usage?.completion_tokens};

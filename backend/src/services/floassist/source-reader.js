@@ -1,3 +1,4 @@
+import {recordBriefingEvidence} from './briefing-result.js';
 import {discoverOutlookSources,readOutlookSource} from './outlook-source.js';
 import {sourceAssessmentVersion,markSourceAssessmentReviewed} from './assessment-cache.js';
 import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage} from './source-coverage.js';
@@ -10,6 +11,7 @@ import {recordVerifiedSourceText,deadlineEvidenceSuggestions} from './deadline-e
 import {extractTextFromBuffer} from '../master-data-extract.js';
 import {localAlertDay} from './alert-policy.js';
 import {assessFloAssistSource} from './local-assistance.js';
+import {mailMessageText} from '../source-text-projection.js';
 
 export function briefingCalendarWindow(now,zone){
  const day=localAlertDay(now,zone),next=new Date(Date.parse(day+'T12:00:00Z')+86400000).toISOString().slice(0,10);
@@ -22,7 +24,7 @@ const fail=(code,message,status=422)=>{throw Object.assign(new Error(message),{c
 const cursors=new Map();let cursorSequence=0;
 const snapshots=new Map(),MAX_SOURCE_CHARACTERS=1000000,SNAPSHOT_CHARACTERS=2000000;
 const snapshotKey=(owner,scope,app,id,input)=>JSON.stringify([owner,scope.run||scope.session||'',app,id,input.time_min||'',input.time_max||'']);
-function trimSnapshots(now){for(const [token,item]of cursors)if(item.until<=now)cursors.delete(token);for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length,0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length;}}
+function trimSnapshots(now){for(const [token,item]of cursors)if(item.until<=now)cursors.delete(token);for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0),0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0);}}
 function sourcePage(snapshot,offset){
  if(!Number.isInteger(offset)||offset<0||offset>snapshot.text.length)fail('FLOASSIST_SOURCE_OFFSET_INVALID','offset must be within the source text.');
  const end=Math.min(snapshot.text.length,offset+12000);
@@ -204,13 +206,13 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    id=canonicalThreadInput(db,owner,'gmail.fetch_message_by_thread_id',{threadId:id},scope).threadId;
    const data=await run('gmail.fetch_message_by_thread_id',{threadId:id});
    if(data.threadId!==id||!Array.isArray(data.messages)||data.messages.some(m=>typeof m.messageText!=='string'))fail('FLOASSIST_SOURCE_READ_FAILED','Complete matching Gmail thread content was not returned.');
-   messages=data.messages.map(m=>({text:`Subject: ${m.subject||''}\n${m.messageText}`,at:m.messageTimestamp}));
+   messages=data.messages.map(m=>({rawText:m.messageText,text:mailMessageText(m),at:m.messageTimestamp}));
    text=messages.map(m=>m.text).join('\n\n');
   }else if(app==='outlook'){
    const result=await readOutlookSource(id,{owner,run,db,context:scope,now});outlookAccountId=result.identity.account_id;
    if(!result.source_id){if(result.complete)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,account_id:outlookAccountId,content_verified:result.complete,empty:true,content:'',next_offset:null};}
    id=result.source_id;complete=result.complete;outlookMetadata={latest_message_id:result.latest_message_id,latest_message_at:result.latest_message_at,latest_message_sent:result.latest_message_sent,reply_direction_verified:result.reply_direction_verified};
-   messages=result.messages.map(m=>({text:`Subject: ${m.subject}\n${m.messageText}`,at:m.messageTimestamp}));
+   messages=result.messages.map(m=>({rawText:m.messageText,text:mailMessageText(m),at:m.messageTimestamp}));
    text=messages.map(m=>m.text).join('\n\n');
   }else if(app==='google_calendar'){
    if(!/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(input.time_min||'')||!/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(input.time_max||'')||!Number.isFinite(Date.parse(input.time_min))||!Number.isFinite(Date.parse(input.time_max))||Date.parse(input.time_max)<=Date.parse(input.time_min)||Date.parse(input.time_max)-Date.parse(input.time_min)>31*86400000)fail('FLOASSIST_SOURCE_WINDOW_REQUIRED','Supply an explicit time_min/time_max range of at most 31 days, with timezone offsets.');
@@ -249,6 +251,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   }
   if(text.length>MAX_SOURCE_CHARACTERS)fail('FLOASSIST_SOURCE_SIZE_LIMIT','Source exceeds the 1,000,000 character review bound; no partial source is accepted as complete.');
   if(messages.length)recordVerifiedSourceText(owner,scope,app,id,messages,now);
+  recordBriefingEvidence(db,scope,app,id,text,now);
   const metadata={app_id:app,source_id:id,...(outlookAccountId?{account_id:outlookAccountId,source_kind:'conversation',...outlookMetadata}:{}),...(input.task_id?{source_task_id:Number(input.task_id)}:{}),...(input.kind==='draft'?{source_kind:'draft',selection_basis:'latest provider messageTimestamp across the complete bounded draft list'}:{}),content_verified:true,provider_complete:complete,message_count:messages.length};
   // Fetch and authorize the full current source first. Reuse only this module's
   // successful assessment of identical bytes, direction, preferences and rules.
@@ -258,7 +261,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    markSourceAssessmentReviewed(db,scope,metadata);recordSourceCoverage(db,scope,metadata,'assessment-'+assessment.signature,true,null);
    return {...metadata,content:'',coverage_complete:true,assessment_reused:true,source_freshly_verified:true,prior_assessment_at:new Date(assessment.completed_at).toISOString(),next_offset:null,guidance:'The backend freshly fetched and authorized the complete source. Its bytes, latest reply direction, local day, preferences and classifier rules match this responsibility\u2019s prior successful assessment. Existing task lifecycle and alert filters remain authoritative. Do not invent new findings or re-observe unchanged obligations. Changed sources are returned in full. An explicit user request to reassess may set refresh_assessment:true.'};
   }
-  const snapshot={db,scope,zone:JSON.parse(profile.preferences_json||'{}').timezone||'UTC',id:'fs-'+randomBytes(8).toString('base64url'),text,permissions,metadata,at:new Date(now).toISOString(),until:now+5*60000,request:{app_id:app,source_id:id,...(input.kind?{kind:input.kind}:{}),...(input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})}};
+  const snapshot={db,scope,rawMessages:messages.filter(m=>m.rawText!==undefined).map(m=>m.rawText),zone:JSON.parse(profile.preferences_json||'{}').timezone||'UTC',id:'fs-'+randomBytes(8).toString('base64url'),text,permissions,metadata,at:new Date(now).toISOString(),until:now+5*60000,request:{app_id:app,source_id:id,...(input.kind?{kind:input.kind}:{}),...(input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})}};
   if(!input.task_id&&!input.kind){
    const account=db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_account_receipts'").get()?db.prepare('SELECT account_id FROM floassist_account_receipts WHERE owner_id=? AND app_id=?').get(owner,app):null;
    const direction=db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_thread_receipts'").get()?db.prepare('SELECT latest_message_id,latest_at,latest_sent FROM floassist_thread_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND thread_id=?').get(owner,scope.run||'',app,id):null;

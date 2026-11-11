@@ -24,6 +24,13 @@ model_list:
       api_key: ollama-local
       timeout: 300
 
+  - model_name: flolah-local-embedding
+    litellm_params:
+      model: os.environ/LITELLM_EMBEDDING_MODEL_SPEC
+      api_base: os.environ/EMBEDDINGS_BASE_URL
+      api_key: os.environ/EMBEDDINGS_API_KEY
+      timeout: 120
+
 router_settings:
   allowed_fails: 1
   cooldown_time: 30

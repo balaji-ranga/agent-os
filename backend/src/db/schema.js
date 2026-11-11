@@ -2071,6 +2071,7 @@ export function initDb() {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_token_usage_owner_created ON token_usage(owner_user_id, created_at DESC)`
     );
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_token_usage_owner_run ON token_usage(owner_user_id, run_id)`);
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_token_usage_member ON token_usage(owner_user_id, member_key, created_at DESC)`
     );
@@ -2593,6 +2594,7 @@ export function initDb() {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_scheduled_goal_runs_goal ON scheduled_goal_runs(goal_id, created_at DESC)`
     );
+    if (!_db.prepare('PRAGMA table_info(scheduled_goal_runs)').all().some(c=>c.name==='result_json')) _db.exec('ALTER TABLE scheduled_goal_runs ADD COLUMN result_json TEXT');
   } catch (_) {}
 
   try {

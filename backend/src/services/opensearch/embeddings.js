@@ -1,3 +1,4 @@
+import {fetchModelViaGateway} from '../../../../scripts/lib/model-egress.js';
 /**
  * Embeddings for OpenSearch knn_vector fields via local Qwen (OpenAI-compatible HTTP).
  * Default: http://embeddings:8080/v1 + Qwen/Qwen3-Embedding-0.6B — no OpenAI cloud.
@@ -86,7 +87,7 @@ export async function embedTexts(texts, { timeoutMs = 120_000 } = {}) {
   }
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchModelViaGateway(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, input: inputs }),

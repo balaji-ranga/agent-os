@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {sourceTextProjection,mailMessageText} from '../src/services/source-text-projection.js';
+const plain='Budget < 500; owner <person@example.test>. Due 2026-11-12.';
+assert.equal(sourceTextProjection(plain),plain);
+const mail=mailMessageText({subject:'Login code',messageTimestamp:'2026-11-04T10:00:00Z',labelIds:['INBOX'],messageText:'Valid for 20 minutes.'});
+assert.match(mail,/2026-11-04T10:00:00.000Z/);assert.match(mail,/INBOX/);assert.match(mail,/Valid for 20 minutes/);
+assert.match(mailMessageText({messageText:'Expires soon'}),/do not infer relative expiry/);
+const html=`<html><head><style>${'.layout{color:red}'.repeat(2000)}</style></head><body><h1>Decision required</h1><p>Pay &pound;50 by <strong>12 November</strong>.</p><p>Do NOT pay twice.</p><a href="https://example.test/invoice?id=123">Invoice</a><img alt="Signed by Alice" src="data:image/png;base64,${'A'.repeat(20000)}"><table><tr><td>Item</td><td>Amount</td></tr><tr><td>Service</td><td>50</td></tr></table><blockquote>Earlier reply: cancelled.</blockquote></body></html>`;
+const text=sourceTextProjection(html);
+for(const term of ['Decision required','£50','12 November','Do NOT pay twice.','https://example.test/invoice?id=123','Signed by Alice','Service','Earlier reply: cancelled.'])assert(text.toLowerCase().includes(term.toLowerCase()),term);
+assert(!text.includes('.layout'));assert(!text.includes('base64'));assert(text.length<html.length/10);
+const nested='<div>'.repeat(220)+'critical retained'+'</div>'.repeat(220);
+assert.equal(sourceTextProjection(nested),nested,'parser depth limits must fall back without silently dropping evidence');
+console.log('SOURCE_TEXT_PROJECTION_OK: amounts, negation, dates, links, image alt, tables and quoted history retained; presentation bytes omitted; incomplete traversal falls back');

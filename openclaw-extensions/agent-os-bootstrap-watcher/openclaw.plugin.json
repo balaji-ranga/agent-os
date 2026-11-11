@@ -3,6 +3,7 @@
   "name": "Agent OS Bootstrap Watcher",
   "description": "Reload SOUL.md, AGENTS.md, TOOLS.md, MEMORY.md from disk on every agent bootstrap so Workspace UI edits apply without gateway restart.",
   "version": "1.0.0",
+  "activation": { "onStartup": true },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
