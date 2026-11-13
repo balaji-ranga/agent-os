@@ -16,6 +16,7 @@ process.env.OPENAI_PRIMARY_BASE_URL='https://api.deepseek.com/v1';
 process.env.OPENAI_PRIMARY_MODEL='deepseek-chat';
 process.env.OPENAI_PRIMARY_API_KEY='fixture-secret-never-display';
 process.env.MODEL_ROUTING_ENABLED='1';
+process.env.LITELLM_BASE_URL='http://litellm:4000/v1';
 process.env.LITELLM_MASTER_KEY='fixture-gateway-secret';
 const realFetch=globalThis.fetch;
 let server,db;
@@ -31,16 +32,17 @@ try {
   const {executeEfficiency,validateEfficiencyOutput}=await import('../src/services/efficiency-execution.js');
   const {chatCompletions}=await import('../src/config/llm.js');
   const {runWithLlmopsContext}=await import('../src/services/llmops-context.js');
-  check(controls.getEfficiencyPolicy().workloads.length===14,'Utility scope includes bounded FloAssist source assessment and wording');
+  check(controls.getEfficiencyPolicy().workloads.length===15,'Utility scope includes bounded FloAssist source assessment and wording');
   const allUtilities=controls.getEfficiencyPolicy().workloads;
   db.prepare("DELETE FROM efficiency_control_settings WHERE id='floassist_local_assistance_v1'").run();
   db.prepare("INSERT INTO efficiency_control_settings(id,value_json) VALUES ('policy',?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json").run(JSON.stringify({workloads:allUtilities.filter(name=>!name.startsWith('floassist_'))}));
-  check(controls.getEfficiencyPolicy().workloads.length===14,'Prior all-utility policy receives the new workloads');
+  check(controls.getEfficiencyPolicy().workloads.length===15,'Prior all-utility policy receives the new workloads');
   db.prepare("DELETE FROM efficiency_control_settings WHERE id='floassist_local_assistance_v1'").run();
   db.prepare("UPDATE efficiency_control_settings SET value_json=? WHERE id='policy'").run(JSON.stringify({workloads:['summarize_url']}));
   check(controls.getEfficiencyPolicy().workloads.length===1,'Custom restricted workload policy is preserved');
   controls.saveEfficiencyPolicy({workloads:allUtilities});
-  for(const tool of ['floassist_source_assessment','floassist_notification_summary']){
+  check(!controls.effectiveEfficiencyPlan('ceo-a','source_review_synthesis'),'Final synthesis remains on the main model');
+  for(const tool of ['floassist_source_assessment','floassist_notification_summary','source_batch_digest']){
     check(!!controls.effectiveEfficiencyPlan('ceo-a',tool),'Enabled FloAssist utility is routed locally');
     check(!controls.effectiveEfficiencyPlan('disabled',tool),'Disabled profile preserves current FloAssist path');
   }
@@ -70,28 +72,28 @@ try {
   let requests=[];
   globalThis.fetch=async(url,init)=>{
     requests.push({url,body:JSON.parse(init.body)});
-    if(String(url).includes('ollama'))return new Response(JSON.stringify({model:'llama3.2:latest',message:{content:'not json'},done:true,done_reason:'stop',prompt_eval_count:5,eval_count:3}));
+    if(JSON.parse(init.body).user_config?.model_list?.[0]?.litellm_params?.model?.startsWith('ollama_chat/'))return new Response(JSON.stringify({model:'llama3.2:latest',choices:[{message:{content:'not json'},finish_reason:'stop'}],usage:{prompt_tokens:5,completion_tokens:3}}));
     return new Response(JSON.stringify({model:'deepseek-chat',choices:[{message:{content:'{"query":"AI regulation"}'},finish_reason:'stop'}],usage:{prompt_tokens:6,completion_tokens:4}}));
   };
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
-  check(requests.length===1&&String(requests[0].url).includes('ollama'),'No gateway or cloud call in local-only failure');
+  check(requests.length===1&&requests[0].body.user_config?.model_list?.[0]?.litellm_params?.model?.startsWith('ollama_chat/'),'Only local model through gateway in local-only failure');
   requests=[];
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-b',toolName:'floassist_source_assessment',efficiencyLocalOnly:true,responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
-  check(requests.length===1&&String(requests[0].url).includes('ollama'),'Optional local assistance cannot add paid fallback even when company allows it');
+  check(requests.length===1&&requests[0].body.user_config?.model_list?.[0]?.litellm_params?.model?.startsWith('ollama_chat/'),'Optional local assistance cannot add paid fallback even when company allows it');
   requests=[];
   await assert.rejects(()=>chatCompletions({ownerUserId:'disabled',toolName:'floassist_source_assessment',efficiencyLocalOnly:true,messages:[{role:'user',content:'fixture'}]}),/unavailable/);assertions++;
   check(requests.length===0,'Disabled local-only helper cannot silently run hosted');
   requests=[];
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);
-  check(String(requests[0].url).endsWith('/api/chat')&&requests[0].body.options.num_thread===2,'Private utility transport uses quota-aligned CPU threads');
-  check(requests[0].body.format==='json'&&requests[0].body.truncate===false,'Native JSON validation and no silent context truncation');
+  check(String(requests[0].url).includes('litellm')&&requests[0].body.num_thread===2,'Private utility transport uses quota-aligned CPU threads');
+  check(requests[0].body.response_format?.type==='json_object'&&requests[0].body.truncate===false,'Native JSON validation and no silent context truncation');
   requests=[];
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',endpointPreference:'primary',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
-  check(requests.length===1&&String(requests[0].url).includes('ollama'),'Explicit endpoint preference cannot bypass local-only utility restriction');
+  check(requests.length===1&&requests[0].body.user_config?.model_list?.[0]?.litellm_params?.model?.startsWith('ollama_chat/'),'Explicit endpoint preference cannot bypass local-only utility restriction');
   requests=[];
   const result=await runWithLlmopsContext({ownerUserId:'ceo-b',memberKey:'coo',sessionId:'session-b',clientTurnId:'turn-b-123456'},()=>chatCompletions({toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}));
   check(requests.length===2,'Invalid JSON escalates once to configured provider');
-  check(requests.every(r=>!String(r.url).includes('litellm')),'Hidden gateway fallback cannot bypass company policy');
+  check(requests.every(r=>String(r.url).includes('litellm')),'All model calls use the managed gateway');
   check(result.efficiency.fallbackReason==='local_output_invalid_json','Evidence has sanitized fallback reason');
   check(result.modelUsed==='deepseek-chat','Actual hosted model captured');
   check(controls.efficiencyReport('ceo-b',{traceId:'turn-b-123456'}).events[0].member_key==='coo','Turn and agent correlation carried by async context');

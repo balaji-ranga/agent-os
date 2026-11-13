@@ -56,7 +56,11 @@ export function settleTrackedTool(id,{httpStatus=200,data={}},db=getDb()){
  ensureAsyncTracking(db);const job=db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(id);if(!job||terminal.has(job.status))return;
  const providerPending=httpStatus===202||['queued','pending','dispatched','accepted','running','waiting','awaiting_approval'].includes(data.status);
  const state=httpStatus>=400?'failed':providerPending?'waiting':terminal.has(data.status)?data.status:(data.ok===false||data.error||data.status==='error')?'failed':'completed';
- const result=JSON.stringify(redactForStorage(data)); // Bound stored output; do not truncate JSON mid-value.
+ const stored=redactForStorage(data);
+ // A final human-facing reply is not a raw provider/tool dump. Keep it intact
+ // for notification delivery; the /invoke result paging still bounds LLM reads.
+ if(typeof data.reply==='string'&&data.reply.length<=64000)stored.reply=data.reply;
+ const result=JSON.stringify(stored); // Bound stored output; do not truncate JSON mid-value.
  db.prepare('UPDATE tool_async_jobs SET status=?,operation_id=COALESCE(operation_id,?),result_json=?,updated_at=? WHERE id=?').run(state,job.tool_name==='physical_invoke'?data.operationId||data.id||null:null,result.length<=100000?result:JSON.stringify({resultOmitted:true,reason:'Result exceeds notification storage limit; consult tool history'}),new Date().toISOString(),id);
 }
 export async function advanceTrackedTools({db=getDb(),physical,deliver}={}){
@@ -80,7 +84,7 @@ export async function advanceTrackedTools({db=getDb(),physical,deliver}={}){
   sendWeb(job);db.prepare("UPDATE tool_async_jobs SET notification_state='web_fallback' WHERE id=?").run(job.id);
  }
 }
-function notice(job){const r=job.result_json?JSON.parse(job.result_json):{};return `Tracking ID: ${job.id}\nTool: ${job.tool_name}\nStatus: ${job.status}\n${job.operation_id?'Operation: '+job.operation_id+'\n':''}${typeof r.reply==='string'?r.reply.slice(0,16000):r.error||r.notice||'Result available through tool_execution_status.'}`;}
+function notice(job){const r=job.result_json?JSON.parse(job.result_json):{};return `Tracking ID: ${job.id}\nTool: ${job.tool_name}\nStatus: ${job.status}\n${job.operation_id?'Operation: '+job.operation_id+'\n':''}${typeof r.reply==='string'?r.reply:r.error||r.notice||'Result available through tool_execution_status.'}`;}
 function sendWeb(job){if(getDb().prepare("SELECT 1 FROM platform_user_notifications WHERE user_id=? AND source='tool_async' AND source_key=?").get(job.actor_user_id,job.id))return;sendPlatformNotifications({userIds:[job.actor_user_id],createdBy:job.owner_user_id,title:`Tool update: ${job.status} (${job.id})`,body:notice(job),linkUrl:'/content-tools',source:'tool_async',sourceKey:job.id});}
 async function deliverTrackedNotification(job){
  sendWeb(job);

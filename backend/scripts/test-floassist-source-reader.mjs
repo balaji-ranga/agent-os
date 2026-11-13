@@ -282,4 +282,33 @@ const fullNext=await readFloAssistSource('a',full.next_request,{...linkOptions,c
 assert.ok((full.content+fullNext.content).includes(link),'ad hoc exact source reading retains original URLs');
 console.log('FLOASSIST_LINK_CONTEXT_OK: compact URL references, exact authorized recovery, no network follow, run isolation, unchanged ad hoc content');
 
+
+// Explicit ad hoc ranges override defaults and remain fixed across discovery pages.
+const monthScope={owner:'a',origin:'whatsapp',session:'month-review'},monthCalls=[];
+const monthOptions={...options,context:monthScope,discoverUnknownSources:true,execute:async(owner,action,input)=>{
+ monthCalls.push({action,input});
+ if(action==='gmail.get_profile')return {emailAddress:'fixture@example.test'};
+ assert.equal(action,'gmail.list_threads');return {threads:[{threadId:input.pageToken?'second':'first'}],...(input.pageToken?{}:{nextPageToken:'provider-next'})};
+}};
+const requestedMonth={app_id:'gmail',time_min:'2026-09-27T00:00:00+08:00',time_max:'2026-10-27T00:00:00+08:00'};
+const firstMonth=await readFloAssistSource('a',requestedMonth,monthOptions);
+assert.equal(firstMonth.effective_window.time_min,'2026-09-26T16:00:00.000Z');
+const secondMonth=await readFloAssistSource('a',firstMonth.next_request,{...monthOptions,now:now+10000});
+const lists=monthCalls.filter(c=>c.action==='gmail.list_threads');
+assert.equal(lists.length,2);assert.equal(lists[0].input.query,lists[1].input.query,'pagination keeps the original time window');
+assert.match(lists[0].input.query,/after:1790438400 before:1793030400/);
+assert.equal(lists[1].input.pageToken,'provider-next');assert.equal(secondMonth.more_candidates,false);assert.equal(secondMonth.next_request,null);
+assert.deepEqual(secondMonth.effective_window,firstMonth.effective_window);
+await assert.rejects(readFloAssistSource('b',firstMonth.next_request,{...monthOptions,context:{...monthScope,owner:'b'}}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED');
+const defaultRange=await readFloAssistSource('a',{app_id:'gmail'},monthOptions);
+assert.equal(Date.parse(defaultRange.effective_window.time_max)-Date.parse(defaultRange.effective_window.time_min),7*86400000);
+await assert.rejects(readFloAssistSource('a',{app_id:'gmail',time_min:requestedMonth.time_min},monthOptions),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED');
+console.log('MAIL_WINDOW_OK: explicit month, timezone preservation, seven-day default, fixed-query pagination, owner-bound cursors, invalid range rejected');
+
+const chatLinkScope={owner:'a',origin:'whatsapp',session:'link-review'};
+const chatLink=await readFloAssistSource('a',{app_id:'gmail',source_id:'link-thread'},{...linkOptions,context:chatLinkScope});
+assert.equal(chatLink.coverage_complete,true);const chatCursor=chatLink.content.match(/cursor (fa-page-\d+)/)[1];
+assert.equal((await readFloAssistSource('a',{cursor:chatCursor},{...linkOptions,context:chatLinkScope})).url,link);
+await assert.rejects(readFloAssistSource('a',{cursor:chatCursor},{...linkOptions,context:{...chatLinkScope,session:'other'}}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED');
+console.log('ADHOC_LINK_CONTEXT_OK: lossless compact URL references remain conversation scoped');
 db.close();

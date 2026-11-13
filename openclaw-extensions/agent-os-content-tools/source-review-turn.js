@@ -5,7 +5,9 @@ export function sourceReviewGuidance(prompt,{sourceReadSchema}={}){
  if(!isSourceReview(prompt))return '';
  const prioritizing=/\b(?:focus|priorit(?:y|ies|ize|ise)|important|respond|action)\b/i.test(sourceReviewText(prompt));
  return ['[Current source-review task contract]',
+ 'A request to summarize a mailbox over a period requires reviewing EVERY discovered thread in that period, not a top-ten sample. Track review_progress: execute next_reads in batches, then next_discovery; do not finalize until review_complete=true or a real budget/provider failure prevents continuation. If stopped, state reviewed/discovered/unread counts explicitly and label the answer partial. Never describe ten selected messages as a complete month.',
  ...(sourceReadSchema?['The authorized source-reader schema is supplied below. Use tool_call with id="floassist_source_read" and args matching this schema; another tool_describe for this unchanged schema is unnecessary.',JSON.stringify(sourceReadSchema)]:[]),
+ 'Honour the user-requested date range using time_min/time_max with the owner timezone. Only when no range is requested, use the seven-day default. Check effective_window in discovery results; never describe a different range as complete. Follow discovery next_request as well as content next_request and _retrieval.next_request. Unread pages must be reported as partial coverage.',
  'Use fresh authorized email/calendar evidence for this request. A successful list/search is discovery, not a completed review. Read the current full thread/body before recommending an action from a message; follow all returned content pages for each selected candidate.',
  'After context compaction, evidence already read in THIS request remains current. Use the preserved findings, source references and coverage checkpoint; do not restart the same source batch solely because raw bodies were compacted. Reread only a specific missing passage needed to support a finding, or a source explicitly marked changed/incomplete. Never infer that a discovery-only result was read.',
  'Prefer the normalized floassist_source_read contract for supported source reviews; inspect it once. Mailbox reads without source_id discover candidates; selected source_id reads supply bodies. For other capabilities, discover the connector action and its guide. Connector action IDs are arguments to connector_execute_action, never standalone tool IDs.',
@@ -28,7 +30,14 @@ export function rememberSourceReview(session,prompt,now=Date.now()){
  if(!session)return;
  for(const[k,v]of turns)if(v.until<=now)turns.delete(k);
  if(turns.size>=5000)turns.delete(turns.keys().next().value);
- turns.set(session,{active:isSourceReview(prompt),until:now+900000});
+ turns.set(session,{active:isSourceReview(prompt),wholePeriod:isSourceReview(prompt)&&/\bsummari[sz]e\b/i.test(sourceReviewText(prompt))&&!/\b(?:latest|most recent|this email|that email|single email)\b/i.test(sourceReviewText(prompt)),until:now+900000});
+}
+export function sourceReviewParams(session,toolName,params,now=Date.now()){
+ const state=turns.get(session);if(!state?.wholePeriod||state.until<=now)return null;
+ const wrapped=toolName==='tool_call',target=String(wrapped?params?.id:toolName).replace(/^openclaw:agent-os-content-tools[:.]/,'').replace(/^functions\./,'');
+ const args=wrapped?params?.args:params;
+ if(target!=='floassist_source_read'||!['gmail','outlook'].includes(args?.app_id)||args.source_id||args.task_id||args.kind||args.cursor||args.next_request)return null;
+ return wrapped?{...params,args:{...args,review_all:true}}:{...args,review_all:true};
 }
 export function sourceReviewBlock(session,toolName,params,now=Date.now()){
  const state=turns.get(session);if(!state?.active||state.until<=now)return null;

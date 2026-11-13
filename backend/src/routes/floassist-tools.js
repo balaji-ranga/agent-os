@@ -1,4 +1,5 @@
 import {currentFloAssistScope} from '../services/floassist/execution-scope.js';
+import {trackSourceReviewProgress} from '../services/source-review-progress.js';
 import {sourceReadContract} from '../services/floassist/source-read-contract.js';
 import {reconciliationCandidates} from '../services/floassist/responsibilities.js';
 import {recoverSourceReassessment,recoverOrphanReassessment} from '../services/floassist/read-reassessment.js';
@@ -18,7 +19,7 @@ const run=fn=>async(req,res)=>{try{
   const owner=resolveToolOwnerUserId(req,req.body||{},resolveAuthenticatedCeoUserId);
   const service=getFloAssist();service.profile(owner);
   const result=trackingReferenceResult(getDb(),owner,await fn(owner,req.body||{},service,req));
-  res.json({ok:true,...(req.path==='/floassist-source-read'?sourceReadContract(result,req.body||{}):result)});
+  res.json({ok:true,...(req.path==='/floassist-source-read'?sourceReadContract(trackSourceReviewProgress(currentFloAssistScope(),result,req.body||{}),req.body||{}):result)});
 }catch(e){recordRunError(e,{trackingInput:req.path==='/floassist-tracking-observe'?req.body:undefined,sourceInput:req.path==='/floassist-source-read'?req.body:undefined});res.status(e.status||500).json({ok:false,error:e.status?e.message:'FloAssist operation failed.',code:e.code,...(e.next_action?{next_action:e.next_action}:{})});}};
 router.post('/floassist-status',run((owner,_b,s)=>s.view(owner)));
 router.post('/floassist-source-read',run((owner,b,_s,req)=>readFloAssistSource(owner,b,{discoverUnknownSources:true,caller:req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']})));

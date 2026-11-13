@@ -35,7 +35,7 @@ export function getEfficiencyPolicy() {
   const migration='observer_workload_v1';
   if(!getDb().prepare('SELECT 1 FROM efficiency_control_settings WHERE id=?').get(migration)){
     getDb().transaction(()=>{
-      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>!['knowledge_mapping_advice','kanban_task_observer','floassist_source_assessment','floassist_notification_summary'].includes(t)).every(t=>saved.workloads.includes(t))){
+      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>!['knowledge_mapping_advice','kanban_task_observer','floassist_source_assessment','floassist_notification_summary','source_batch_digest'].includes(t)).every(t=>saved.workloads.includes(t))){
         for(const tool of ['knowledge_mapping_advice','kanban_task_observer'])if(!saved.workloads.includes(tool))saved.workloads.push(tool);
         getDb().prepare("UPDATE efficiency_control_settings SET value_json=? WHERE id='policy'").run(JSON.stringify(saved));
       }
@@ -46,11 +46,21 @@ export function getEfficiencyPolicy() {
   if(!getDb().prepare('SELECT 1 FROM efficiency_control_settings WHERE id=?').get(assistanceMigration)){
     getDb().transaction(()=>{
       const added=['floassist_source_assessment','floassist_notification_summary'];
-      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>!added.includes(t)).every(t=>saved.workloads.includes(t))){
+      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>t!=='source_batch_digest'&&!added.includes(t)).every(t=>saved.workloads.includes(t))){
         for(const tool of added)if(!saved.workloads.includes(tool))saved.workloads.push(tool);
         getDb().prepare("UPDATE efficiency_control_settings SET value_json=? WHERE id='policy'").run(JSON.stringify(saved));
       }
       getDb().prepare('INSERT OR IGNORE INTO efficiency_control_settings(id,value_json) VALUES (?,?)').run(assistanceMigration,'true');
+    })();
+  }
+  const digestMigration='source_batch_digest_v1';
+  if(!getDb().prepare('SELECT 1 FROM efficiency_control_settings WHERE id=?').get(digestMigration)){
+    getDb().transaction(()=>{
+      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>t!=='source_batch_digest').every(t=>saved.workloads.includes(t))){
+        if(!saved.workloads.includes('source_batch_digest'))saved.workloads.push('source_batch_digest');
+        getDb().prepare("UPDATE efficiency_control_settings SET value_json=? WHERE id='policy'").run(JSON.stringify(saved));
+      }
+      getDb().prepare('INSERT OR IGNORE INTO efficiency_control_settings(id,value_json) VALUES (?,?)').run(digestMigration,'true');
     })();
   }
   return { ...DEFAULT_POLICY, ...saved };

@@ -274,9 +274,19 @@ export function prefixFromAgentName(text, agentName) {
   const { body, mediaLines } = splitMediaLines(text);
   const first = (body.split('\n').find((l) => String(l).trim()) || '').trim();
   const prefixed = /^From:\s+/i.test(first) ? body : [header, '', body].join('\n').trim();
-  const clipped = prefixed.length > MAX_TEXT_CHARS ? `${prefixed.slice(0, MAX_TEXT_CHARS)}…` : prefixed;
   const media = mediaLines.length ? `\n\n${mediaLines.join('\n')}` : '';
-  return `${clipped}${media}`.trim();
+  return `${prefixed}${media}`.trim();
+}
+
+/** Deterministic delivery pages, not another LLM summary. Preserve every character. */
+export function channelTextParts(text){
+ const value=String(text||'');if(value.length<=MAX_TEXT_CHARS)return [{text:value,content:value,part:1,total:1}];
+ const chunks=[];let offset=0;
+ while(offset<value.length){let end=Math.min(value.length,offset+MAX_TEXT_CHARS-80);
+  if(end<value.length&&/[\uD800-\uDBFF]/.test(value[end-1]))end--;
+  chunks.push(value.slice(offset,end));offset=end;
+ }
+ return chunks.map((content,index)=>({content,part:index+1,total:chunks.length,text:`[Part ${index+1}/${chunks.length}]\n${content}`}));
 }
 
 function normalizeWhatsAppTarget(raw) {
@@ -553,12 +563,14 @@ export async function announceOnAgentChannel({
         ownerUserId
       );
     } catch (_) {}
-    const sent = await sendViaOpenClaw({
+    let sent;
+    const parts=channelTextParts(body);
+    for(const part of parts)sent = await sendViaOpenClaw({
       channel: ch,
       to: sendTo,
       accountId: resolved.accountId,
-      message: body,
-      idempotencyKey,
+      message: part.text,
+      idempotencyKey: idempotencyKey&&parts.length>1?`${idempotencyKey}:part:${part.part}`:idempotencyKey,
       singleAttempt,
     });
     let mediaSent = 0;

@@ -1,4 +1,5 @@
 import {recordBriefingEvidence} from './briefing-result.js';
+import {gmailWindowQuery} from './source-window.js';
 import {discoverOutlookSources,readOutlookSource} from './outlook-source.js';
 import {sourceAssessmentVersion,markSourceAssessmentReviewed} from './assessment-cache.js';
 import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage,withSourceProviderAttempt} from './source-coverage.js';
@@ -26,13 +27,13 @@ const snapshots=new Map(),MAX_SOURCE_CHARACTERS=1000000,SNAPSHOT_CHARACTERS=2000
 const snapshotKey=(owner,scope,app,id,input)=>JSON.stringify([owner,scope.run||scope.session||'',app,id,input.time_min||'',input.time_max||'']);
 function trimSnapshots(now){for(const [token,item]of cursors)if(item.until<=now)cursors.delete(token);for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length+(s.originalText?.length||0)+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0),0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length+(s.originalText?.length||0)+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0);}}
 function compactSnapshotLinks(snapshot){
- return snapshot.scope.run&&String(snapshot.scope.origin).startsWith('floassist:')?snapshot.text.replace(/https?:\/\/[^\s<>\[\]"]{200,}/g,url=>{
+ return (snapshot.scope.run||snapshot.scope.session)?snapshot.text.replace(/https?:\/\/[^\s<>\[\]"]{200,}/g,url=>{
   let host;try{host=new URL(url).host;}catch{return url;}
   snapshot.linkCursors??=new Map();let cursor=snapshot.linkCursors.get(url);
   if(!cursor||!cursors.has(cursor)){
    cursor='fa-page-'+(++cursorSequence);
    while(cursors.size>=2048)cursors.delete(cursors.keys().next().value);
-   cursors.set(cursor,{owner:snapshot.scope.owner,scope:snapshot.scope.run,until:snapshot.until,request:{...snapshot.request,snapshot_id:snapshot.id,source_link:url}});
+   cursors.set(cursor,{owner:snapshot.scope.owner,scope:snapshot.scope.run||snapshot.scope.session,until:snapshot.until,request:{...snapshot.request,snapshot_id:snapshot.id,source_link:url}});
    snapshot.linkCursors.set(url,cursor);
   }
   return `[link at ${host}; exact URL retained: floassist_source_read cursor ${cursor}]`;
@@ -109,6 +110,12 @@ export async function decodeDocument(bytes,mime,name,extract=extractTextFromBuff
 /** A bounded read orchestration; every inner operation uses the same owner,
  * caller grants, selected-app scope and action policy as connector execution. */
 export async function readFloAssistSource(owner,input,{db=getDb(),context=currentFloAssistScope(),execute,readTransit,extract=extractTextFromBuffer,authorize=authorizeSourceAction,assess=assessFloAssistSource,caller,now=Date.now(),discoverUnknownSources=false}={}){
+ if(input.review_all===true){
+  if(input.source_id||input.cursor||input.task_id||input.kind)fail('FLOASSIST_REVIEW_SCOPE','Whole-period review requires discovery filters, not a source or continuation.');
+  const {review_all,...request}=input;
+  const {reviewSourcePeriod}=await import('./period-review.js');
+  return reviewSourcePeriod(owner,request,part=>readFloAssistSource(owner,part,{db,context,execute,readTransit,extract,authorize,assess,caller,discoverUnknownSources:true}),{scope:context||{}});
+ }
  const profile=db.prepare('SELECT agent_id,status,preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner);
  if(!profile)fail('FLOASSIST_OWNER_DENIED','FloAssist profile is required.',403);
  if(context&&context.owner!==owner)fail('FLOASSIST_OWNER_DENIED','Source owner mismatch.',403);
@@ -162,18 +169,25 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   // Interactive mailbox reviews need the same bounded discovery as scheduled
   // reviews. Without an ID, never silently substitute one latest thread.
   const mailboxDiscovery=!id&&['gmail','outlook'].includes(app);
-  if(discoverUnknownSources&&!cursorContinuation&&!input.task_id&&input.kind!=='draft'&&(mailboxDiscovery||scope.run&&id)&&!(app==='google_calendar'&&id==='primary')){
+  if(discoverUnknownSources&&(!cursorContinuation||input.discovery_page_token)&&!input.task_id&&input.kind!=='draft'&&(mailboxDiscovery||scope.run&&id)&&!(app==='google_calendar'&&id==='primary')){
    ensureSourceReceipts(db);
    const known=id&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
    const task=id&&db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
    if(!known&&!task){
-    let candidates=[],more=false,account;
+    let candidates=[],more=false,account,nextDiscovery=null,effectiveWindow;
     const prefs=JSON.parse(profile.preferences_json||'{}'),days=prefs.discovery_lookback_days??7;
     if(app==='gmail'){
      const who=await run('gmail.get_profile',{});account=who.emailAddress;
-     const data=await run('gmail.list_threads',{query:`${scope.origin==='floassist:followups'?'in:sent ':''}newer_than:${days}d`,maxResults:40});
+     const requested=gmailWindowQuery(input,{now,defaultDays:scope.run?days:7});effectiveWindow=input.discovery_window||requested.window;
+     const data=await run('gmail.list_threads',{query:`${scope.origin==='floassist:followups'?'in:sent ':''}${requested.query}`,maxResults:40,...(input.discovery_page_token?{pageToken:input.discovery_page_token}:{})});
      recordSourceReceipt(owner,'gmail.list_threads',{data},{db,context:scope,now});
      candidates=(data.threads||[]).map(t=>({app_id:app,source_id:t.threadId||t.id})).filter(t=>t.source_id);more=!!data.nextPageToken;
+     if(more){
+      if(data.nextPageToken===input.discovery_page_token)fail('FLOASSIST_SOURCE_PAGINATION_STALLED','Provider returned the same discovery cursor. Remaining mailbox coverage is incomplete.');
+      const cursor='fa-page-'+(++cursorSequence);while(cursors.size>=2048)cursors.delete(cursors.keys().next().value);
+      cursors.set(cursor,{owner,scope:scope.run||scope.session||'',until:now+10*60000,request:{app_id:app,query:requested.query,discovery_window:effectiveWindow,discovery_page_token:data.nextPageToken}});
+      nextDiscovery={cursor};
+     }
     }else if(app==='outlook'){
      const found=await discoverOutlookSources({owner,run,db,context:scope,now,lookbackDays:days});
      candidates=found.candidates;account=found.identity.account_id;more=found.more;
@@ -191,9 +205,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
      return {app_id:app,requested_source_read:false,content_verified:false,needs_source_selection:true,guidance:'This identifier has not been verified in this run. Use provider discovery and copy its exact item ID, or read an existing task with task_id only. No guessed item was sent to the provider.'};
     }
     if(scope.run)for(const c of candidates)requireSourceReview(db,scope,c,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
-    if(more&&scope.run)requireSourceReview(db,scope,{app_id:app,source_id:'@discovery'},null);
+    if(more&&scope.run)recordSourceCoverage(db,scope,{app_id:app,source_id:'@discovery'},'discovery',false,nextDiscovery);
+    if(!more&&scope.run&&input.discovery_page_token)recordSourceCoverage(db,scope,{app_id:app,source_id:'@discovery'},'discovery',true,null);
     if(!candidates.length&&!more)verifyEmptyAppCoverage(db,scope,app);
-    return {app_id:app,...(account?{account_id:account}:{}),requested_source_read:false,content_verified:false,discovery_only:true,empty:!candidates.length&&!more,needs_source_selection:true,source_candidates:candidates,more_candidates:more,guidance:'These are current owner-scoped discovery results, not source content. Any unverified supplied ID was not sent to the provider. Choose exact returned source IDs and read complete bodies/pages. Do not retry guessed IDs. Extra candidates beyond this bounded list mean partial coverage.'};
+    return {app_id:app,...(account?{account_id:account}:{}),...(effectiveWindow?{effective_window:effectiveWindow}:{}),requested_source_read:false,content_verified:false,discovery_only:true,empty:!candidates.length&&!more,needs_source_selection:true,source_candidates:candidates,more_candidates:more,next_request:nextDiscovery,guidance:'These are discovery results, not source content. Read candidate bodies/pages, then follow next_request for the next discovery page until more_candidates is false. Report effective_window exactly; unread candidates/pages mean partial coverage. Do not retry guessed IDs.'};
    }
   }
   trimSnapshots(now);
@@ -221,7 +236,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    drafts.sort((a,b)=>b.at-a.at);const latest=drafts[0];id=latest.id;
    text=`Subject: ${latest.message.subject||''}\n${latest.message.messageText}`;
   }else if(app==='gmail'){
-   if(!id){const list=await run('gmail.list_threads',{query:input.query||'newer_than:7d',maxResults:1});id=list.threads?.[0]?.threadId;if(!id){if(!list.nextPageToken)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,content_verified:!list.nextPageToken,empty:true,content:'',next_offset:null};}}
+   if(!id){const list=await run('gmail.list_threads',{query:gmailWindowQuery(input,{now}).query,maxResults:1});id=list.threads?.[0]?.threadId;if(!id){if(!list.nextPageToken)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,content_verified:!list.nextPageToken,empty:true,content:'',next_offset:null};}}
    id=canonicalThreadInput(db,owner,'gmail.fetch_message_by_thread_id',{threadId:id},scope).threadId;
    const data=await run('gmail.fetch_message_by_thread_id',{threadId:id});
    if(data.threadId!==id||!Array.isArray(data.messages)||data.messages.some(m=>typeof m.messageText!=='string'))fail('FLOASSIST_SOURCE_READ_FAILED','Complete matching Gmail thread content was not returned.');

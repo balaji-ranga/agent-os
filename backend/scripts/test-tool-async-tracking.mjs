@@ -54,6 +54,12 @@ try{
  await tracking.advanceTrackedTools({db});
  assert.equal(db.prepare('SELECT COUNT(*) n FROM platform_user_notifications WHERE source_key=?').get(web.id).n,1);
  assert.equal(db.prepare('SELECT read_at FROM platform_user_notifications WHERE id=?').get(notification.id).read_at,'2026-01-01','completion must not become unread again');
+ const long=tracking.createTrackedTool({owner,agent,session:'web-fixture',tool:'summary',actionId:'long-reply'});
+ const longReply='Verified source findings. '.repeat(400)+'FINAL_SECTION_MARKER';
+ tracking.settleTrackedTool(long.id,{data:{reply:longReply}});
+ assert.equal(tracking.trackedStatus({owner,agent,session:'web-fixture',trackingId:long.id}).requests[0].result.reply,longReply);
+ await tracking.advanceTrackedTools({db});
+ assert(db.prepare('SELECT body FROM platform_user_notifications WHERE source_key=?').get(long.id).body.endsWith('FINAL_SECTION_MARKER'));
  const native=tracking.createTrackedTool({owner,agent,session:'agent:'+agent+':main',tool:'master_data_list_tables',actionId:'native-origin',origin:{channel:'whatsapp',target:'+6500000000'}});
  assert.equal(native.channel,'whatsapp');assert.equal(native.target,'+6500000000');
  const unknown=tracking.createTrackedTool({owner,agent,session:'agent:'+agent+':main',tool:'master_data_list_tables',actionId:'unknown-origin'});

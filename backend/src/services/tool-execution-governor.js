@@ -106,7 +106,7 @@ export function defaultExecutionBehaviour(toolName) {
     capability,
     access: mutating ? 'mutating' : 'read_only',
     retry_limit: 1,
-    timeout_ms: name==='multi-format-content-tool'?240000:['connector_execute_action', 'gmail_mailbox_review', 'gmail_mailbox_cleanup'].includes(name)
+    timeout_ms: name==='floassist_source_read'?getPlatformTimeoutMs('tool_fetch_window'):name==='multi-format-content-tool'?240000:['connector_execute_action', 'gmail_mailbox_review', 'gmail_mailbox_cleanup'].includes(name)
       ? getPlatformTimeoutMs('connector_operation') : /browse_|generate_video/.test(name) ? 90000 : 60000,
     duplicate_window_sec: POLL_OR_STATUS.test(name) ? 0 : 900,
     verification_mode: mutating ? 'read_back_or_receipt' : 'evidence_coverage',

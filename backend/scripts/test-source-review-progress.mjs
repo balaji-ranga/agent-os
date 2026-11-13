@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {sourceReviewProgress} from '../src/services/source-review-progress.js';
+let now=0;const track=sourceReviewProgress({clock:()=>now,ttl:100});
+const scope={owner:'owner-a',session:'conversation-a'};
+const discovery={app_id:'mail',discovery_only:true,source_candidates:[{app_id:'mail',source_id:'one'},{app_id:'mail',source_id:'two'}],more_candidates:true,next_request:{cursor:'next'}};
+assert.equal(track(scope,discovery).review_progress.unread,2);
+const read={app_id:'mail',source_id:'one',content_verified:true,coverage_complete:true};
+assert.equal(track({...scope,owner:'other'},read).review_progress,undefined);
+assert.equal(track(scope,read).review_progress.reviewed,1);
+assert.equal(track(scope,{...read,source_id:'two',coverage_complete:false,next_request:{cursor:'body'}}).review_progress.next_reads[0].cursor,'body');
+assert.equal(track(scope,{...read,source_id:'two'}).review_progress.review_complete,false);
+const final=track(scope,{...discovery,source_candidates:[{app_id:'mail',source_id:'three'}],more_candidates:false,next_request:null},{cursor:'next'});
+assert.equal(final.review_progress.discovered,3);assert.equal(final.review_progress.unread,1);
+assert.equal(track(scope,{...read,source_id:'three'}).review_progress.review_complete,true);
+now=101;assert.equal(track(scope,read).review_progress,undefined);
+console.log('SOURCE_REVIEW_PROGRESS_OK: full-page coverage, partial body, continuation, tenant isolation, expiry');

@@ -24,6 +24,7 @@ export const EFFICIENCY_MODE_TOOLS = Object.freeze([
   'kanban_task_observer',
   'floassist_source_assessment',
   'floassist_notification_summary',
+  'source_batch_digest',
 ]);
 
 const TOOL_SET = new Set(EFFICIENCY_MODE_TOOLS);

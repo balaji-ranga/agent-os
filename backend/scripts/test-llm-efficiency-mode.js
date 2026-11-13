@@ -44,7 +44,7 @@ for (const t of [
 ]) {
   assert(isEfficiencyModeTool(t), `wave-1 tool ${t}`);
 }
-assert(EFFICIENCY_MODE_TOOLS.length === 11, 'eleven efficiency utility tools');
+assert(EFFICIENCY_MODE_TOOLS.length === 15, 'fifteen efficiency utility tools');
 assert(isEfficiencyModeTool('knowledge_mapping_advice'), 'Knowledge relationship inference eligible');
 assert(!isEfficiencyModeTool('workflow_builder_chat'), 'builder chat stays on BYOK');
 assert(isEfficiencyModeTool('summarize_url'), 'URL summarization uses Ollama in efficiency mode');

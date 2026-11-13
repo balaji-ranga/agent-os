@@ -6,6 +6,8 @@ import {parseTenantOpenClawAgentId} from './openclaw-tenant.js';
 /** A transport timeout after sending must not cause another send. Read only
  * trusted runtime delivery mirrors, never user/LLM assertions of delivery. */
 export function hasTrackedDeliveryReceipt(job,{root=getOpenClawDir()}={}){
+ // A receipt for part one cannot prove delivery of a multi-part notification.
+ try{if(JSON.parse(job.result_json||'{}').reply?.length>2500)return false;}catch{return false;}
  const tenant=parseTenantOpenClawAgentId(job.agent_id);
  if(tenant?.ceoUserId!==job.owner_user_id||!/^[a-zA-Z0-9_-]+$/.test(job.agent_id)||!/^track-[a-f0-9-]{36}$/.test(job.id))return false;
  const start=Date.parse(job.created_at);if(!Number.isFinite(start))return false;

@@ -5,6 +5,7 @@
 import {
   normalizeDeliverTo,
   prefixFromAgentName,
+  channelTextParts,
   splitMediaLines,
   deliverToIncludes,
   mediaKindFromPath,
@@ -73,3 +74,11 @@ assert(WHATSAPP_OPUS_FFMPEG_ARGS.includes('48000'), 'opus resample 48k');
 assert(WHATSAPP_OPUS_FFMPEG_ARGS.includes('libopus'), 'opus codec');
 
 console.log('CHANNEL_ANNOUNCE_UNIT_OK');
+
+const longReply=prefixFromAgentName('Evidence paragraph. '.repeat(500)+'FINAL_SECTION_MARKER','Assistant');
+const parts=channelTextParts(longReply);
+assert(parts.length>1,'long reply uses multiple delivery parts');
+assert(parts.every(p=>p.text.length<=3500),'each part fits channel bound');
+assert(parts.map(p=>p.content).join('')===longReply,'delivery retains every character');
+assert(parts.at(-1).content.endsWith('FINAL_SECTION_MARKER'),'final section retained');
+console.log('CHANNEL_LONG_REPLY_OK: numbered bounded parts, exact reconstruction, final section retained');

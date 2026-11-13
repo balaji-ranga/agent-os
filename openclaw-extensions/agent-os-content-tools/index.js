@@ -8,7 +8,7 @@ import {registerNativeRetentionService} from './native-retention-service.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId,runtimeRecipient} from './runtime-channel.js';
 import {speechInputGuidance,speechTurnGuidance} from './speech-context.js';
 import {rememberStatusTurn,isStatusTurn,statusTurnBlock} from './async-status-turn.js';
-import {rememberSourceReview,sourceReviewBlock,sourceReviewGuidance} from './source-review-turn.js';
+import {rememberSourceReview,sourceReviewBlock,sourceReviewGuidance,sourceReviewParams} from './source-review-turn.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {connectorRoutingGuidance} from './connector-context.js';
 import {profileTimezoneHint} from './profile-timezone.js';
@@ -1136,6 +1136,8 @@ export default definePluginEntry({
         const scope = loadSessionAllowlists()[ctx?.sessionKey || safeApiSessionKey(api)];
         const reason = steeringToolBlock(scope, event?.toolName || ctx?.toolName, event?.params);
         if (reason) return { block: true, blockReason: reason };
+        const reviewParams=sourceReviewParams(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
+        if(reviewParams)return {params:reviewParams};
       }, { priority: 100 });
       api.on("before_prompt_build", async (event, ctx) => {
         rememberRuntimeChannel(ctx);
