@@ -5,6 +5,7 @@ import {lookupOpenClawSessionActor} from './tool-owner-scope.js';
 import {sendPlatformNotifications} from './platform-notifications.js';
 import {announceOnAgentChannel} from './agent-channel-announce.js';
 import {redactForStorage} from './tool-execution-governor.js';
+import {hasTrackedDeliveryReceipt} from './tool-delivery-receipt.js';
 
 const terminal=new Set(['completed','failed','uncertain','timed_out','cancelled','denied']);
 const stores=new WeakSet();
@@ -88,7 +89,7 @@ async function deliverTrackedNotification(job){
   const agent=getDb().prepare('SELECT a.id FROM agents a JOIN user_agents u ON u.agent_id=a.id AND u.user_id=? AND u.enabled=1 WHERE a.id=? OR a.openclaw_agent_id=?').get(job.owner_user_id,base,base);
   if(!agent)return {fallback:true};
   const result=await announceOnAgentChannel({ownerUserId:job.owner_user_id,agentId:agent.id,channel:'whatsapp',authorizedTo:job.target,text:notice(job),idempotencyKey:job.id,includeRecentMedia:false,singleAttempt:true});
-  if(!result.ok||result.skipped)return {fallback:true};
+  if(!result.ok||result.skipped)return {fallback:!hasTrackedDeliveryReceipt(job)};
  }
 }
 export function startToolAsyncWorker(){let busy=false;const timer=setInterval(async()=>{if(busy)return;busy=true;try{let physical;if(process.env.FLOLAH_PHYSICAL_ENABLED==='1')physical=(await import('./physical/runtime.js')).getPhysicalControlPlane();await advanceTrackedTools({physical});}catch(e){console.warn('[tool-async] maintenance failed:',e.message);}finally{busy=false;}},2000);timer.unref();return ()=>clearInterval(timer);}
