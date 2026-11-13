@@ -874,7 +874,7 @@ export async function executeConnectorAction(
       assertCalendarCoverage(id,result);
       recordSourceReceipt(userId,id,result);
       resolveConnectorSchemaError(userId,id);
-      try{recordFloAssistConnectorHealth(userId,appGuess,'available');}catch(e){console.warn('[floassist-health] observation unavailable');}
+      try{recordFloAssistConnectorHealth(userId,appGuess,'available',{operation:id});}catch(e){console.warn('[floassist-health] observation unavailable');}
       return connectorReferenceResult(db(),userId,id,result);
     } catch (error) {
       normalizeDriveReadError(id,error);
@@ -883,7 +883,7 @@ export async function executeConnectorAction(
         error.provider_status !== 403 && readOnly &&
         (error.provider_status === 401 || /(?:401|authorization[_ -]?failed|not connected|connect .*oauth)/i.test(message));
       if (!authorizationFailure || !appGuess || !userId || retryIndex >= configuredDelays.length) {
-        try{recordFloAssistConnectorHealth(userId,appGuess,connectorFailureState(error));}catch{}
+        try{recordFloAssistConnectorHealth(userId,appGuess,connectorFailureState(error),{operation:id});}catch{}
         throw error;
       }
       // OAuth refresh can briefly make both execution and the connection list
@@ -909,7 +909,7 @@ export async function executeConnectorAction(
           delay_ms: delayMs,
         });
       }
-      if (!connected) {try{recordFloAssistConnectorHealth(userId,appGuess,connectorFailureState(error));}catch{} throw error;}
+      if (!connected) {try{recordFloAssistConnectorHealth(userId,appGuess,connectorFailureState(error),{operation:id});}catch{} throw error;}
     }
   }
 }

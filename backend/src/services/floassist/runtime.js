@@ -1,5 +1,5 @@
 import {isIdleFloAssistNotification} from './idle-notification.js';
-import {connectorHealthEnabled,CONNECTOR_HEALTH_JOB} from './health-settings.js';
+import {connectorHealthEnabled,connectorAlertCooldownMs,CONNECTOR_HEALTH_JOB} from './health-settings.js';
 import {isPlatformCronActive} from '../platform-cron-registry.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { getDb } from '../../db/schema.js';
@@ -174,9 +174,13 @@ export async function tickFloAssistNotifications({db=getDb(),send,now=Date.now()
       const appId=row.source_key.slice(healthPrefix.length).split(':')[0];
       const prefs=JSON.parse(p.preferences_json);
       const current=db.prepare('SELECT state FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(row.owner_id,appId);
+      const prefix=`${healthPrefix}${appId}:`;
       if(!connectorHealthEnabled(p)||!prefs.connectors?.includes(appId)||row.source_key.endsWith(':recovered')||current?.state==='available'){
         db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(row.source_key);continue;
       }
+      // Delivery time controls frequency across recoveries and quiet-hour backlogs.
+      const prior=db.prepare("SELECT 1 FROM floassist_notifications WHERE owner_id=? AND source_key>=? AND source_key<? AND updated_at>? AND status IN ('sent','sending') LIMIT 1").get(row.owner_id,prefix,prefix+'\uffff',now-connectorAlertCooldownMs(prefs));
+      if(prior)continue;
     }
     if(inQuietHours(JSON.parse(p.preferences_json),new Date(now)))continue;
     if(row.source_key.startsWith(`${row.owner_id}:action-error:`)&&now-row.created_at<Math.max(1,Number(JSON.parse(p.preferences_json).notification_batch_minutes??5))*60000)continue;

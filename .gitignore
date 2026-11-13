@@ -78,3 +78,5 @@ physical-edge/android/local.properties
 # Physical edge private deployment material
 physical-edge/config/credentials/
 physical-edge/config/gateway.json
+# Timestamped environment backups contain secrets and must remain local.
+**/.env.backup-*

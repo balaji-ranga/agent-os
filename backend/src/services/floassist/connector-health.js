@@ -20,10 +20,11 @@ function ensure(db){
   db.exec(`CREATE TABLE IF NOT EXISTS floassist_connector_health (
     owner_id TEXT NOT NULL,app_id TEXT NOT NULL,state TEXT NOT NULL,episode TEXT,notification_key TEXT,checked_at INTEGER NOT NULL,
     PRIMARY KEY(owner_id,app_id));`);
+  if(!db.prepare('PRAGMA table_info(floassist_connector_health)').all().some(c=>c.name==='failed_action_id'))db.exec('ALTER TABLE floassist_connector_health ADD COLUMN failed_action_id TEXT');
 }
 
 /** Persist only health state, never provider error bodies, tokens or mailbox content. */
-export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),now=Date.now()}={}){
+export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),now=Date.now(),operation=null}={}){
   const p=profile(db,owner);
   const app=product.connectors.find(a=>(a.provider_id||a.id)===provider);
   if(!p||!app||!p.preferences.connectors?.includes(app.id))return {ignored:true};
@@ -31,6 +32,8 @@ export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),
   ensure(db);
   return db.transaction(()=>{
     const old=db.prepare('SELECT * FROM floassist_connector_health WHERE owner_id=? AND app_id=?').get(owner,app.id);
+    // Profile/identity success does not prove a previously failing mailbox read recovered.
+    if(state==='available'&&old?.state!=='available'&&old?.failed_action_id&&operation!==old.failed_action_id)return {state:old.state,queued:false,partial_success:true};
     const bad=state!=='available',wasBad=old&&old.state!=='available';
     let key=old?.notification_key||null,episode=old?.episode||null,queued=false;
     if(bad&&!wasBad){
@@ -48,7 +51,7 @@ export function recordFloAssistConnectorHealth(owner,provider,state,{db=getDb(),
       db.prepare("UPDATE floassist_notifications SET status='cancelled',text=NULL WHERE source_key=? AND status='pending'").run(`${key}:recovered`);
       episode=null;key=null;
     }
-    db.prepare('INSERT INTO floassist_connector_health VALUES (?,?,?,?,?,?) ON CONFLICT(owner_id,app_id) DO UPDATE SET state=excluded.state,episode=excluded.episode,notification_key=excluded.notification_key,checked_at=excluded.checked_at').run(owner,app.id,state,episode,key,now);
+    db.prepare('INSERT INTO floassist_connector_health(owner_id,app_id,state,episode,notification_key,checked_at,failed_action_id) VALUES (?,?,?,?,?,?,?) ON CONFLICT(owner_id,app_id) DO UPDATE SET state=excluded.state,episode=excluded.episode,notification_key=excluded.notification_key,checked_at=excluded.checked_at,failed_action_id=excluded.failed_action_id').run(owner,app.id,state,episode,key,now,bad?(operation||old?.failed_action_id||null):null);
     return {state,queued};
   })();
 }
@@ -102,11 +105,11 @@ export async function checkFloAssistConnectorHealth(owner,{db=getDb(),getInvento
           if(!guide.input_schema){recordFloAssistConnectorHealth(owner,provider,'unsupported',{db});continue;}
           await executeConnectorAction(owner,app.health_probe.action_id,app.health_probe.input,{source:p.agent_id,authorizationRetryDelaysMs:[]});
         }
-        recordFloAssistConnectorHealth(owner,provider,'available',{db});
+        recordFloAssistConnectorHealth(owner,provider,'available',{db,operation:app.health_probe.action_id});
       }catch(error){
         // Invalid input in our fixed health probe is an unsupported/misconfigured
         // check, not evidence that the user's OAuth connection was lost.
-        recordFloAssistConnectorHealth(owner,provider,connectorFailureState(error)||'unsupported',{db});
+        recordFloAssistConnectorHealth(owner,provider,connectorFailureState(error)||'unsupported',{db,operation:app.health_probe.action_id});
       }
     }
   }

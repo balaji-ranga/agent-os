@@ -29,7 +29,7 @@ try{
  await check('a',{db,probe:async()=>{throw {provider_status:401};},getInventory:async()=>({connected:['gmail']})});eq(total(),4);
  await check('a',{db,probe:async()=>{throw {provider_status:401};},getInventory:async()=>({connected:['gmail','googlecalendar']})});
  eq(db.prepare("SELECT state FROM floassist_connector_health WHERE owner_id='a' AND app_id='gmail'").get().state,'authorization');
- eq(record('a','googlecalendar','available',{db}).queued,false);eq(total(),4);
+ eq(record('a','googlecalendar','available',{db,operation:'googlecalendar.list_calendars'}).queued,false);eq(total(),4);
  eq(db.prepare("SELECT count(*) n FROM floassist_notifications WHERE status='cancelled'").get().n,1);
  eq(connectorFailureState({provider_status:401}),'authorization');eq(connectorFailureState({provider_status:403}),'permission');eq(connectorFailureState({provider_status:429}),'temporary');eq(connectorFailureState({message:'invalid_grant secret must not persist'}),'authorization');eq(connectorFailureState({status:400}),'unknown');
  const every={...prefs,connectors:['gmail','outlook','google_calendar','google_drive','onedrive','outlook_calendar']};
@@ -52,5 +52,18 @@ try{
  eq(connectorFailureState({provider_status:401,code:'invalid_grant'}),'authorization');
  db.prepare("UPDATE floassist_profiles SET status='paused' WHERE owner_id='a'").run();eq(record('a','gmail','authorization',{db}).ignored,true);
  db.prepare("UPDATE platform_users SET enabled=0 WHERE id='b'").run();eq(record('b','gmail','available',{db}).ignored,true);
+ const start=Date.now()+3600000;
+ db.prepare('INSERT INTO platform_users VALUES (?,1)').run('cooldown');
+ db.prepare('INSERT INTO floassist_profiles VALUES (?,?,?,?,?,?,?,?)').run('cooldown','fixture','+6581234567','active',JSON.stringify({...prefs,connector_alert_cooldown_minutes:60}),'{}',0,0);
+ record('cooldown','gmail','temporary',{db,now:start,operation:'gmail.fetch_emails'});
+ eq(record('cooldown','gmail','available',{db,now:start+1,operation:'gmail.get_profile'}).partial_success,true);
+ eq(db.prepare("SELECT state FROM floassist_connector_health WHERE owner_id='cooldown'").get().state,'temporary');
+ const observed=[];const send=async row=>{if(row.owner_id==='cooldown')observed.push(row.source_key);return {ok:true};};
+ await tickFloAssistNotifications({db,now:start,send});eq(observed.length,1);
+ record('cooldown','gmail','available',{db,now:start+60000,operation:'gmail.fetch_emails'});
+ record('cooldown','gmail','temporary',{db,now:start+120000,operation:'gmail.fetch_emails'});
+ await tickFloAssistNotifications({db,now:start+120000,send});eq(observed.length,1);
+ await tickFloAssistNotifications({db,now:start+3599999,send});eq(observed.length,1);
+ await tickFloAssistNotifications({db,now:start+3600000,send});eq(observed.length,2);
  console.log(`FLOASSIST_CONNECTOR_HEALTH_OK: ${n} checks`);
 }finally{db.close();}
