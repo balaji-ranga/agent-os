@@ -20,7 +20,7 @@ const OWNER_KEYS = new Set([
   'caller_agent_id', 'x_openclaw_agent_id', 'approval_token',
 ]);
 
-const POLL_OR_STATUS = /(?:_status|_list|_enquire|_get|_history|_watch_tick)$/;
+const POLL_OR_STATUS = /(?:_status|_list|_enquire|_get|_history|_watch_tick)$|^tool_result_read$/;
 const MUTATING = /(?:create|insert|update|delete|send|publish|post|place|submit|cancel|move_status|assign|trigger|run_now|save|apply|index_document)/;
 
 const CAPABILITY_RULES = [
@@ -174,7 +174,7 @@ export function putExecutionBehaviours(ownerUserId, mappings = []) {
     for (const item of items) {
       const name = String(item.tool_name || '').trim();
       if (!name) throw Object.assign(new Error('tool_name required'), { status: 400 });
-      const mode=item.execution_mode||'sync';if(!['sync','async'].includes(mode)||name==='tool_execution_status'&&mode!=='sync')throw Object.assign(Error('Invalid execution mode'),{status:400});
+      const mode=item.execution_mode||'sync';if(!['sync','async'].includes(mode)||['tool_execution_status','tool_result_read'].includes(name)&&mode!=='sync')throw Object.assign(Error('Invalid execution mode'),{status:400});
       const exists = db.prepare(`SELECT 1 FROM content_tools_meta WHERE name = ?`).get(name);
       if (!exists) throw Object.assign(new Error(`Unknown tool: ${name}`), { status: 400 });
       const retry = Math.max(0, Math.min(3, Number(item.retry_limit ?? 1)));

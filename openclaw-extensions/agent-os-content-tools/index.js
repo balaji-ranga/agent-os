@@ -237,6 +237,7 @@ function ownerUserIdFromSessionKey(sessionKey) {
 
 const PARAM_SCHEMAS = {
   ...physicalSchemas,
+  tool_result_read:{type:'object',properties:{resultId:{type:'string'},offset:{type:'integer',minimum:0}},required:['resultId'],additionalProperties:false},
   tool_execution_status:{type:'object',properties:{trackingId:{type:'string',description:'Tracking ID from the earlier async response. Omit to find recent requests in this conversation.'}},additionalProperties:false},
   ...floassistSchemas,
   'multi-format-content-tool': multiFormatSchema,

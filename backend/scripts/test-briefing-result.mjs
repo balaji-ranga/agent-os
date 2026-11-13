@@ -3,6 +3,10 @@ import {renderBriefingResult} from '../src/services/floassist/briefing-result.js
 const opts={today:'2026-11-11',resolveSource:(app,id)=>app==='gmail'&&id==='fa-ref-1'};
 const empty={agenda:[],priorities:[],information:[]};
 assert.match(renderBriefingResult(JSON.stringify(empty),opts),/No current action-required/);
+const partial=renderBriefingResult(JSON.stringify(empty),{...opts,incompleteSources:[{app_id:'google_calendar'}]});
+assert.match(partial,/Partial result/);
+assert.match(partial,/google_calendar/);
+assert.doesNotMatch(partial,/No calendar events found for today/);
 const priority={app_id:'gmail',source_id:'fa-ref-1',subject:'Invoice',kind:'already_committed',action:'Pay invoice',why_now:'Unpaid invoice remains outstanding',due_date:'2026-11-05'};
 const render=p=>renderBriefingResult(JSON.stringify({...empty,priorities:[p]}),opts);
 assert.match(render(priority),/overdue since 2026-11-05/);
@@ -16,11 +20,13 @@ console.log('Briefing source validation, dates, bounded fields and structured de
 import {reviewBriefingPriorities} from '../src/services/floassist/briefing-result.js';
 const draft=JSON.stringify({...empty,priorities:[priority,{...priority,subject:'Optional event',action:'Sign up if interested'}]});
 let reviewCalls=0;
-const reviewed=await reviewBriefingPriorities(draft,async messages=>{reviewCalls++;assert.ok(messages[1].content.length<16000);return JSON.stringify({decisions:[{index:0,action_required:true},{index:1,action_required:false}]});},()=> 'Verified invoice evidence');
+const reviewed=await reviewBriefingPriorities(draft,async messages=>{reviewCalls++;assert.ok(messages[1].content.length<16000);return JSON.stringify({decisions:[{index:0,action_required:true,basis:'existing_commitment',evidence_quote:'Verified invoice evidence'},{index:1,action_required:false}]});},()=> 'Verified invoice evidence');
 assert.equal(reviewCalls,1);
 assert.equal(JSON.parse(reviewed).priorities[1].kind,'informational');
 await assert.rejects(reviewBriefingPriorities(draft,async()=>'{"decisions":[]}',()=> 'evidence'),/Incomplete/);
-await assert.rejects(reviewBriefingPriorities(draft,async()=>'{"decisions":[{"index":0,"action_required":true},{"index":0,"action_required":false}]}',()=> 'evidence'),/Invalid/);
+await assert.rejects(reviewBriefingPriorities(draft,async()=>'{"decisions":[{"index":0,"action_required":false},{"index":0,"action_required":false}]}',()=> 'evidence'),/Invalid/);
+const uncertain=JSON.parse(await reviewBriefingPriorities(draft,async()=>'{"decisions":[{"index":0,"action_required":true},{"index":1,"action_required":false}]}',()=> 'evidence'));
+assert.equal(uncertain.priorities[0].kind,'informational');assert.match(uncertain.information[0].summary,/could not be verified/);
 console.log('Bounded independent action review: one call, complete index coverage, uncertain items demoted');
 import {parseBriefingJson} from '../src/services/floassist/briefing-result.js';
 assert.deepEqual(parseBriefingJson(JSON.stringify(empty)+'}'),empty);

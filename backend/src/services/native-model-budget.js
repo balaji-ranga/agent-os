@@ -21,7 +21,30 @@ export function ensureNativeModelBudget(db=getDb()){
  CREATE TABLE IF NOT EXISTS native_model_test_sessions(session_key TEXT PRIMARY KEY,budget_id TEXT);
  CREATE INDEX IF NOT EXISTS native_model_calls_run ON native_model_calls(owner_id,agent_id,run_key);
  CREATE INDEX IF NOT EXISTS native_model_calls_owner ON native_model_calls(owner_id,created_at);`);
+ db.exec(`CREATE TABLE IF NOT EXISTS native_model_execution_links(owner_id TEXT,child_run TEXT,parent_run TEXT,created_at INTEGER,PRIMARY KEY(owner_id,child_run));
+ CREATE INDEX IF NOT EXISTS native_model_execution_parent ON native_model_execution_links(owner_id,parent_run);
+ CREATE INDEX IF NOT EXISTS native_model_calls_root ON native_model_calls(owner_id,run_key);`);
  ensured.add(db);
+}
+export function nativeExecutionRoot(db,owner,run){
+ ensureNativeModelBudget(db);const seen=new Set();let current=run;
+ for(let depth=0;depth<16;depth++){
+  if(seen.has(current))throw Error('Execution budget lineage cycle');seen.add(current);
+  const link=db.prepare('SELECT parent_run FROM native_model_execution_links WHERE owner_id=? AND child_run=?').get(owner,current);
+  if(!link)return current;current=link.parent_run;
+ }
+ throw Error('Execution budget lineage exceeds bounded depth');
+}
+export function linkNativeExecution(owner,child,parent,session,db=getDb()){
+ if(!parent||!session)return;
+ ensureNativeModelBudget(db);
+ const identity=String(parent).split(':compaction:')[0];
+ const root=nativeExecutionRoot(db,owner,identity);
+ if(child===root)throw Error('Execution cannot be its own budget parent');
+ if(!db.prepare('SELECT 1 FROM native_model_calls WHERE owner_id=? AND session_key=? AND run_key=? LIMIT 1').get(owner,session,root))throw Error('Unverified parent execution budget');
+ const old=db.prepare('SELECT parent_run FROM native_model_execution_links WHERE owner_id=? AND child_run=?').get(owner,child);
+ if(old&&old.parent_run!==root)throw Error('Execution budget parent cannot change');
+ db.prepare('INSERT OR IGNORE INTO native_model_execution_links VALUES (?,?,?,?)').run(owner,child,root,Date.now());
 }
 export function createNativeTestBudget(owner,agent,{maxCalls=10,maxTokens=200000,minutes=30}={},db=getDb()){
  ensureNativeModelBudget(db);
@@ -57,7 +80,7 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
  const context=lookupSessionExecutionContext(identity.session,identity.owner)||{};
  const persisted=resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web');
  const scheduledRun=context.scheduled_goal_run_id||persisted?.run;
- const runKey=String(scheduledRun||String(input.run_id).split(':compaction:')[0]);
+ const runKey=nativeExecutionRoot(db,identity.owner,String(scheduledRun||String(input.run_id).split(':compaction:')[0]));
  // Reserve the WAL writer before reading: a deferred snapshot cannot be upgraded
  // after a concurrent process commits, even with SQLite busy_timeout enabled.
  try{return db.transaction(()=>{
@@ -70,7 +93,7 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
   const prefsRow=db.prepare("SELECT 1 FROM sqlite_master WHERE name='floassist_profiles'").get()?db.prepare("SELECT preferences_json FROM floassist_profiles WHERE owner_id=? AND agent_id=?").get(identity.owner,identity.agent):null;
   const prefs=JSON.parse(prefsRow?.preferences_json||'{}');
   // Include compaction/fallback requests in the scheduled run, not a new allowance.
-  const sums=db.prepare("SELECT count(*) calls,COALESCE(sum(CASE WHEN status='started' THEN reserved_tokens ELSE input_tokens+output_tokens END),0) tokens FROM native_model_calls WHERE owner_id=? AND agent_id=? AND run_key=?").get(identity.owner,identity.agent,runKey);
+  const sums=db.prepare("SELECT count(*) calls,COALESCE(sum(CASE WHEN status='started' THEN reserved_tokens ELSE input_tokens+output_tokens END),0) tokens FROM native_model_calls WHERE owner_id=? AND run_key=?").get(identity.owner,runKey);
   const boundedPreference=(name,max)=>Number.isInteger(prefs[name])&&prefs[name]>0&&prefs[name]<=max?prefs[name]:ALERT_DEFAULTS[name];
   const callLimit=boundedPreference('model_call_budget',256),tokenLimit=boundedPreference('model_token_budget',10000000);
   if(callLimit&&sums.calls>=callLimit)fail(429,'native_model_call_budget','Model-call limit reached for this request; remaining source coverage is incomplete.');
@@ -105,7 +128,7 @@ export function nativeBudgetFailureReason(input,{db=getDb(),now=Date.now()}={}){
  if(typeof input.run_id!=='string'||!input.run_id||input.run_id.length>200)return {blocked:false};
  const context=lookupSessionExecutionContext(identity.session,identity.owner)||{};
  const persisted=resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web');
- const key=String(context.scheduled_goal_run_id||persisted?.run||input.run_id.split(':compaction:')[0]);
+ const key=nativeExecutionRoot(db,identity.owner,String(context.scheduled_goal_run_id||persisted?.run||input.run_id.split(':compaction:')[0]));
  const block=db.prepare('SELECT b.reason FROM native_model_budget_blocks b JOIN native_model_budget_block_sessions s ON s.owner_id=b.owner_id AND s.agent_id=b.agent_id AND s.run_key=b.run_key AND s.reason=b.reason WHERE b.owner_id=? AND b.agent_id=? AND b.run_key=? AND s.session_key=? AND b.created_at>=? ORDER BY b.created_at DESC LIMIT 1').get(identity.owner,identity.agent,key,identity.session,now-10*60000);
  return block?{blocked:true,reason:block.reason}:{blocked:false};
 }

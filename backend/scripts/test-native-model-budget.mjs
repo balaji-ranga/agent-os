@@ -9,7 +9,7 @@ let db;
 try{
  const {initDb}=await import('../src/db/schema.js');db=initDb();
  const {initializeFloAssist}=await import('../src/services/floassist/core.js');initializeFloAssist(db);
- const {admitNativeModel,settleNativeModel,createNativeTestBudget,bindNativeTestBudget,nativeBudgetFailureReason}=await import('../src/services/native-model-budget.js');
+ const {admitNativeModel,settleNativeModel,createNativeTestBudget,bindNativeTestBudget,nativeBudgetFailureReason,linkNativeExecution,nativeExecutionRoot}=await import('../src/services/native-model-budget.js');
  const {setAgentBudget,getMemberBudgetStatus}=await import('../src/services/agent-budgets.js');
  const {getMonthlyTokens}=await import('../src/services/token-usage.js');
  const {registerOpenClawSessionOwner}=await import('../src/services/tool-owner-scope.js');
@@ -41,6 +41,14 @@ try{
  db.prepare("UPDATE floassist_profiles SET status='stopped' WHERE owner_id=?").run('budget-owner');
  assert.throws(()=>admitNativeModel({...call('budget-owner','limited'),provider:'secondary-provider',model:'secondary-model'}),e=>e.code==='native_model_call_budget','stopping automation or changing provider cannot reset the turn allowance');
  db.prepare("UPDATE floassist_profiles SET status='active' WHERE owner_id=?").run('budget-owner');
+ // Child work consumes the same request allowance as its originating model turn.
+ const parent=call('budget-owner','lineage-parent');parent.session_key+='-parent';admitNativeModel(parent);finish(parent);
+ linkNativeExecution('budget-owner','lineage-child','lineage-parent',parent.session_key,db);
+ assert.equal(nativeExecutionRoot(db,'budget-owner','lineage-child'),'lineage-parent');
+ assert.throws(()=>linkNativeExecution('budget-other','foreign-child','lineage-parent',parent.session_key,db),/Unverified parent/);
+ const child=call('budget-owner','lineage-child');child.session_key+='-child';admitNativeModel(child);finish(child);
+ assert.throws(()=>admitNativeModel({...call('budget-owner','lineage-child:compaction:one'),session_key:child.session_key}),e=>e.code==='native_model_call_budget','child and compaction cannot reset the parent request budget');
+ assert.equal(db.prepare('SELECT run_key FROM native_model_calls WHERE id=?').get(child.id).run_key,'lineage-parent');
  const profile=db.prepare('SELECT * FROM floassist_profiles WHERE owner_id=? AND agent_id=?').get('budget-owner',agent);
  db.prepare('DELETE FROM floassist_profiles WHERE owner_id=? AND agent_id=?').run('budget-owner',agent);
  assert.throws(()=>admitNativeModel({...call('budget-owner','without-profile'),input_tokens:2000000}),e=>e.code==='native_model_token_budget','agents without FloAssist retain a finite request token budget before any provider call');

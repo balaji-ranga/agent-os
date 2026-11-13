@@ -7,7 +7,10 @@ import {recordRunError} from '../services/floassist/source-receipts.js';
 import {floAssistTaskSource} from '../services/floassist/task-source.js';
 import {registerWhatsAppTask} from '../services/floassist/tracking.js';
 import {withFloAssistScope,resolveFloAssistScope,currentFloAssistScope,bindFloAssistWork} from '../services/floassist/execution-scope.js';
-import {withExecutionFetchBudget} from '../services/execution-fetch-budget.js';
+import {withExecutionFetchBudget,toolWorkFetchBudget,remainingFetchTime} from '../services/execution-fetch-budget.js';
+import {getPlatformTimeoutMs} from '../services/platform-timeout-settings.js';
+import {sharedToolResultPages} from '../services/tool-result-pages.js';
+import {boundedResponseJson} from '../services/bounded-tool-response.js';
 /**
  * Content tools API: summarize-url (Phase 1). Image and video endpoints in later phases.
  * Kanban tools: move-status, reassign-to-coo, assign-task, intent-classify-and-delegate.
@@ -744,7 +747,7 @@ router.post('/test/:name', attachToolsAuth, requireAuth, requireCeoOrAdmin, asyn
     }
 
     const response = await fetch(targetUrl, fetchOpts);
-    const data = await response.json().catch(() => ({}));
+    const data = await boundedResponseJson(response);
     if (!response.ok) return res.status(response.status).json(data);
     res.json(data);
   } catch (e) {
@@ -994,6 +997,9 @@ router.use((req, res, next) => {
   const trustedChannel=lookupSessionChannel(floSession,ownerUserId)||((req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))?req.headers['x-openclaw-message-channel']||'unknown':'web');
   const floScope=resolveFloAssistScope(getDb(),ownerUserId,memberKey,{...efficiencyExecutionContext,session_key:floSession},trustedChannel);
   if(floScope&&!floScope.blocked&&floSession)bindFloAssistWork(getDb(),ownerUserId,'session',floSession,floScope);
+  const fetchBudget=toolWorkFetchBudget(getDb(),{owner:ownerUserId,agent:memberKey,session:floSession,
+    runId:(req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))?req.headers['x-openclaw-run-id']:efficiencyExecutionContext?.client_turn_id,
+    context:efficiencyExecutionContext?.fetch_deadline_at?efficiencyExecutionContext:floScope},getPlatformTimeoutMs('tool_fetch_window'));
   withLlmopsContext(
     {
       ownerUserId,
@@ -1008,7 +1014,7 @@ router.use((req, res, next) => {
       clientTurnId: efficiencyExecutionContext?.client_turn_id || null,
       delegationTaskId: efficiencyExecutionContext?.delegation_task_id || null,
     },
-    () => withExecutionFetchBudget(efficiencyExecutionContext?.fetch_deadline_at?efficiencyExecutionContext:floScope,()=>withFloAssistScope(floScope,next))
+    () => withExecutionFetchBudget(fetchBudget,()=>withFloAssistScope(floScope,next))
   );
 });
 router.use(actionPolicyMiddleware);
@@ -1018,6 +1024,16 @@ router.use(jobApplicantTools);
 router.use(crmTools);
 router.use(erpTools);
 router.use(eventProductivityTools);
+router.post('/tool-result-read',async(req,res)=>{
+ try{
+  const owner=resolveToolOwnerUserId(req,req.body||{},resolveAuthenticatedCeoUserId),agent=String(req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']||''),session=String(req.headers['x-openclaw-session-key']||req.headers['x-session-key']||'');
+  if(!owner||!agent||!session)return res.status(403).json({error:'Authenticated agent conversation required'});
+  const result=await sharedToolResultPages.read({owner,agent,session},req.body||{},async tool=>{
+   const access=assertCallerMayUseTool(agent,tool);if(!access.ok)throw Object.assign(Error(access.error),{status:403});
+  });
+  res.json(result);
+ }catch(e){res.status(e.status||500).json({error:e.status?e.message:'Unable to read stored tool result',code:e.code});}
+});
 router.post('/tool-execution-status',(req,res)=>{
  try{const owner=resolveToolOwnerUserId(req,req.body||{},resolveAuthenticatedCeoUserId),agent=String(req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']||''),session=String(req.headers['x-openclaw-session-key']||req.headers['x-session-key']||'');
  if(!owner||!agent||!session)return res.status(403).json({error:'Authenticated agent conversation required'});
@@ -2744,7 +2760,8 @@ function scheduledGoalHandler(toolName, executor, opts = {}) {
         logTool(req, toolName, requestPayload, err, 'error', source);
         return res.status(403).json(err);
       }
-      const result = await executor(ownerUserId, requestPayload);
+      const result = await executor(ownerUserId, requestPayload, {trackedDelivery:!!(req.isInternalService&&req.headers['x-flolah-tracked-delivery']==='1'),
+        parentRunId:req.isInternalService?req.headers['x-openclaw-run-id']:null,parentSessionKey:req.isInternalService?req.headers['x-openclaw-session-key']:null});
       logTool(req, toolName, { ...requestPayload, owner_user_id: ownerUserId }, result, 'ok', source);
       res.json(result && typeof result === 'object' ? result : { ok: true, result });
     } catch (e) {
@@ -4205,7 +4222,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
   try {
     const toolName = (req.body?.tool_name || req.body?.toolName || '').trim();
     if (!toolName) return res.status(400).json({ error: 'tool_name required' });
-    if((req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))&&req.headers['x-flolah-status-only']==='1'&&toolName!=='tool_execution_status'){
+    if((req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))&&req.headers['x-flolah-status-only']==='1'&&!['tool_execution_status','tool_result_read'].includes(toolName)){
       return res.status(409).json({ok:false,code:'STATUS_ONLY_TURN',error:'Status enquiries cannot dispatch a new action. Use tool_execution_status with the tracking ID, or omit it to list this conversation’s requests.'});
     }
     const row = meta.getToolMeta(toolName);
@@ -4249,8 +4266,8 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     const ownerUserId = resolveToolOwnerUserId(req, params, resolveAuthenticatedCeoUserId);
     // Channel identity is accepted only on the owner+agent scoped plugin hop and is
     // forwarded to our internal endpoint; model parameters can never supply it.
-    if (req.toolsApiAuth && !req.legacyToolsApiAuth) {
-      for (const h of ['x-openclaw-requester-sender-id', 'x-openclaw-message-channel', 'x-openclaw-account-id']) {
+    if (req.isInternalService || (req.toolsApiAuth && !req.legacyToolsApiAuth)) {
+      for (const h of ['x-openclaw-requester-sender-id', 'x-openclaw-message-channel', 'x-openclaw-account-id','x-openclaw-run-id']) {
         if (req.headers[h]) headers[h] = String(req.headers[h]);
       }
     }
@@ -4347,7 +4364,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     const fetchOpts = {
       method,
       headers,
-      signal: AbortSignal.timeout(governed?.behaviour?.timeout_ms || 90000),
+      signal: AbortSignal.timeout(['tool_result_read','tool_execution_status'].includes(toolName)?(governed?.behaviour?.timeout_ms||60000):remainingFetchTime(governed?.behaviour?.timeout_ms || 90000)),
     };
     if (method === 'GET') {
       const url = new URL(targetUrl);
@@ -4359,12 +4376,13 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       fetchOpts.body = JSON.stringify(params);
     }
     const origin=(req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))?{channel:req.headers['x-openclaw-message-channel'],target:req.headers['x-openclaw-requester-sender-id']}:null;
-    if(governed?.behaviour.execution_mode==='async'&&toolName!=='tool_execution_status'){
-      const tracked=dispatchTrackedTool({owner:ownerUserId,agent:source,session:sessionKey||'',tool:toolName,actionId:governed.id,timeoutMs:governed.behaviour.timeout_ms,origin},async()=>{const response=await fetch(targetUrl,fetchOpts);return {httpStatus:response.status,data:await response.json().catch(()=>({}))};},{onResult:({httpStatus,data},job)=>{completeToolExecution(governed,{httpStatus,data});logTool(req,toolName,params,{...data,trackingId:job.id},httpStatus<400?'ok':'error',source);}});
+    if(governed?.behaviour.execution_mode==='async'&&!['tool_execution_status','tool_result_read'].includes(toolName)){
+      fetchOpts.headers={...fetchOpts.headers,'x-flolah-tracked-delivery':'1'};
+      const tracked=dispatchTrackedTool({owner:ownerUserId,agent:source,session:sessionKey||'',tool:toolName,actionId:governed.id,timeoutMs:governed.behaviour.timeout_ms,origin},async()=>{const response=await fetch(targetUrl,fetchOpts);const data=await boundedResponseJson(response);return {httpStatus:response.status,data:sharedToolResultPages.project({owner:ownerUserId,agent:source,session:sessionKey,tool:toolName},data,{deferRead:true})};},{onResult:({httpStatus,data},job)=>{completeToolExecution(governed,{httpStatus,data});logTool(req,toolName,params,{...data,trackingId:job.id},httpStatus<400?'ok':'error',source);}});
       return res.json(tracked.ack);
     }
     const response = await fetch(targetUrl, fetchOpts);
-    const data = await response.json().catch(() => ({}));
+    const data = await boundedResponseJson(response);
     const observation = governed
       ? completeToolExecution(governed, { httpStatus: response.status, data })
       : null;
@@ -4383,8 +4401,8 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     }
     const status = response.ok ? 'ok' : 'error';
     logTool(req,toolName, params, governedData, status, source);
-    if (!response.ok) return res.status(response.status).json(governedData);
-    res.json(governedData);
+    const nativeResult=source&&sessionKey&&(req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth));
+    res.status(response.status).json(toolName==='tool_result_read'||!nativeResult?governedData:sharedToolResultPages.project({owner:ownerUserId,agent:source,session:sessionKey,tool:toolName},governedData));
   } catch (e) {
     const errMsg = e.name === 'AbortError' ? 'Request timeout' : e.message;
     if (governed?.id) {

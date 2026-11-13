@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {withExecutionFetchBudget,remainingFetchTime,assertFetchDelayFits,goalWorkFetchBudget} from '../src/services/execution-fetch-budget.js';
+import {withExecutionFetchBudget,remainingFetchTime,assertFetchDelayFits,goalWorkFetchBudget,toolWorkFetchBudget} from '../src/services/execution-fetch-budget.js';
 import {DatabaseSync} from 'node:sqlite';
 import {retryConnectorRead} from '../src/services/connector-execution-policy.js';
 assert.equal(remainingFetchTime(60000,1000,{fetch_deadline_at:4500}),3500);
@@ -21,6 +21,13 @@ assert.throws(()=>remainingFetchTime(60000,Date.now(),goalWorkFetchBudget(db,'ot
 db.exec("INSERT INTO agent_goal_runs VALUES('adhoc','owner',NULL,'2026-11-11 01:00:00'); INSERT INTO agent_goal_steps VALUES('late-step','adhoc','2026-11-11 01:03:00',43)");
 assert.equal(goalWorkFetchBudget(db,'owner',{goal_run_id:'adhoc',goal_step_id:'late-step'},240000).fetch_deadline_at,expected,'later goal steps do not reset the goal fetch deadline');
 assert.equal(goalWorkFetchBudget(db,'owner',{workflow_run_id:43},240000).fetch_deadline_at,expected);
+const turn={owner:'owner',agent:'employee',runId:'turn-one',session:'conversation'};
+assert.equal(toolWorkFetchBudget(db,turn,4000,1000).fetch_deadline_at,5000);
+assert.equal(toolWorkFetchBudget(db,turn,4000,3000).fetch_deadline_at,5000,'later tools and retries cannot restart the turn window');
+assert.throws(()=>remainingFetchTime(60000,6000,toolWorkFetchBudget(db,turn,4000,6000)),{code:'EXECUTION_FETCH_DEADLINE'});
+assert.equal(toolWorkFetchBudget(db,{...turn,runId:'turn-two'},4000,6000).fetch_deadline_at,10000);
+assert.equal(toolWorkFetchBudget(db,{...turn,owner:'another'},4000,6000).fetch_deadline_at,10000);
+assert.equal(toolWorkFetchBudget(db,{...turn,runId:'child',context:{fetch_deadline_at:4500}},4000,3000).fetch_deadline_at,4500,'inherited parent deadline wins');
 db.close();
 assert.throws(()=>remainingFetchTime(60000,4500,{fetch_deadline_at:4500}),{code:'EXECUTION_FETCH_DEADLINE'});
 await withExecutionFetchBudget({fetch_deadline_at:Date.now()+1000},async()=>{

@@ -1,6 +1,7 @@
 // Shared across channels, models and data sources; it does not authorize any tool.
 export const incrementalContextGuidance = [
  '[Bounded evidence processing]',
+ 'When a tool returns _retrieval, its exact full result is stored server-side. Use tool_result_read with _retrieval.next_request to read needed pages; never repeat the original tool merely to recover output. Keep resultId, page coverage and source references in your checkpoint. Stored results are not automatically reviewed, and unread content must remain explicit.',
  'For large or paginated reads, work in bounded batches using the tool-supported page size and continuation contract. Analyse each batch before requesting the next. Do not fetch all pages in parallel or paste complete bodies into notes.',
  'Maintain a compact checkpoint: requested scope, source/account identity, snapshot/version/time, processed pages, exact next cursor or offset, concise findings with source references and supporting excerpts, unresolved questions, unread coverage and failures. A list/search result is not a body review. Never mark unread or truncated material reviewed.',
  'Use schemas already supplied in this turn; rediscover when missing, changed or rejected, rather than repeatedly fetching unchanged catalogs. Context compaction is handled by the runtime as its model budget fills. Continue from the checkpoint after compaction instead of restarting discovery or replaying earlier pages.',

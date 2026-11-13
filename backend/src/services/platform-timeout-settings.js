@@ -1,6 +1,7 @@
 import { getPlatformSetting, setPlatformSetting } from './platform-llm-settings.js';
 
 const DEFINITIONS = Object.freeze({
+  tool_fetch_window: { label: 'Tool turn cumulative fetch window', category: 'Tools', env: 'TOOL_FETCH_WINDOW_MS', defaultMs: 240000, minMs: 10000, maxMs: 1800000 },
   goal_fetch_window: { label: 'Goal execution fetch window', category: 'Goals', env: 'GOAL_FETCH_WINDOW_MS', defaultMs: 240000, minMs: 10000, maxMs: 1800000 },
   connector_fetch: { label: 'Single connector HTTP fetch', category: 'Connectors', env: 'CONNECTOR_FETCH_TIMEOUT_MS', defaultMs: 60000, minMs: 1000, maxMs: 120000 },
   llm_chat: { label: 'General model call', category: 'Models', env: 'LLM_CHAT_TIMEOUT_MS', defaultMs: 120000, minMs: 5000, maxMs: 900000 },

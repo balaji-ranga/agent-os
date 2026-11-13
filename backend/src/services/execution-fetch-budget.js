@@ -1,8 +1,28 @@
 import {AsyncLocalStorage} from 'node:async_hooks';
+import {createHash} from 'node:crypto';
 
 const storage=new AsyncLocalStorage();
+const initialized=new WeakSet();
 export const withExecutionFetchBudget=(context,fn)=>storage.run(context,fn);
 export const currentExecutionFetchBudget=()=>storage.getStore();
+
+/** Trusted turn identity keeps tool hops/retries from resetting the deadline. */
+export function toolWorkFetchBudget(db,{owner,agent,runId,session,context},windowMs,now=Date.now()){
+ const inherited=Number(context?.fetch_deadline_at);
+ if(!owner||!agent||!runId)return {...context,fetch_deadline_at:Number.isFinite(inherited)&&inherited>0?Math.min(inherited,now+windowMs):now+windowMs};
+ if(!initialized.has(db)){
+  db.exec('CREATE TABLE IF NOT EXISTS tool_fetch_windows(owner_user_id TEXT,execution_key TEXT,created_at INTEGER,fetch_deadline_at INTEGER,PRIMARY KEY(owner_user_id,execution_key)); CREATE INDEX IF NOT EXISTS tool_fetch_windows_age ON tool_fetch_windows(created_at)');
+  initialized.add(db);
+ }
+ const key=createHash('sha256').update(JSON.stringify([owner,agent,session||'',runId])).digest('hex');
+ const deadline=Number.isFinite(inherited)&&inherited>0?Math.min(inherited,now+windowMs):now+windowMs;
+ db.prepare('INSERT OR IGNORE INTO tool_fetch_windows VALUES (?,?,?,?)').run(owner,key,now,deadline);
+ const saved=db.prepare('SELECT fetch_deadline_at FROM tool_fetch_windows WHERE owner_user_id=? AND execution_key=?').get(owner,key);
+ // Keep active/expired turn guards long enough that a late retry cannot open a
+ // fresh window. Retention applies separately; this is bounded runtime expiry.
+ db.prepare('DELETE FROM tool_fetch_windows WHERE created_at<?').run(now-7*86400000);
+ return {...context,owner,execution_key:key,fetch_deadline_at:Math.min(saved.fetch_deadline_at,deadline)};
+}
 
 export function goalWorkFetchBudget(db,owner,context,windowMs){
   let scheduled=context?.scheduled_goal_run_id,step;

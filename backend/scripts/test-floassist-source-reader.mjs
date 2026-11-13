@@ -55,7 +55,13 @@ const media=await readFloAssistSource('a',{task_id:1},options);assert.equal(medi
 await assert.rejects(()=>readFloAssistSource('b',{task_id:1},{...options,context:null}),e=>e.status===404);
 await assert.rejects(()=>readFloAssistSource('a',{task_id:1,app_id:'gmail'},options),e=>e.code==='FLOASSIST_SOURCE_MISMATCH');
 mode='wrong';await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},options),e=>e.code==='FLOASSIST_SOURCE_READ_FAILED');
-mode='denied';await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},options),e=>e.status===403);
+const failureScope={...context,run:'provider-failure'};
+requireAppCoverage(db,failureScope,'gmail',{app_id:'gmail'});
+mode='denied';await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},{...options,context:failureScope}),e=>e.status===403);
+const afterFailure=calls.length;
+await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail'},{...options,context:failureScope}),e=>e.code==='EXECUTION_PROVIDER_UNAVAILABLE');
+assert.equal(calls.length,afterFailure,'failed provider is not contacted again in the same run');
+assert.equal(continuableSourceCoverage(pendingSourceCoverage(db,'a',failureScope.run)).length,0,'provider failure removes model continuation');
 mode='long';let out=await readFloAssistSource('a',{app_id:'gmail'},options);assert.equal(out.content.length,12000);assert.equal(out.next_offset,12000);out=await readFloAssistSource('a',{app_id:'gmail',source_id:out.source_id,snapshot_id:out.snapshot_id,offset:12000},options);assert.equal(out.next_offset,null);assert.match(out.content,/Please submit/);
 mode='normal';await assert.rejects(()=>readFloAssistSource('a',{app_id:'google_calendar',time_min:'2026-10-27T00:00Z',time_max:'2027-10-27T00:00Z'}, {...options,context:{owner:'a',origin:'whatsapp'}}),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED');
 for(const [zone,start]of [['Asia/Singapore','2026-10-26T16:00:00.000Z'],['Asia/Kolkata','2026-10-26T18:30:00.000Z'],['Asia/Jakarta','2026-10-26T17:00:00.000Z']])assert.equal(briefingCalendarWindow(now,zone).time_min,start);
@@ -253,10 +259,27 @@ assert.equal(resumedBytes,resumedPage.total_characters);
 assert.equal(calls.length,resumeProviderCalls,'resuming a snapshot must not download it again');
 assert.equal(resumeScheduledSourceInput(db,'a',selector,resumeScope),selector,'a complete source is not silently restarted');
 console.log('FLOASSIST_SCHEDULED_SOURCE_RESUME_OK: repeated selectors advance verified pages, bounded owner/run scope, explicit restart and ad hoc semantics preserved');
-db.close();
+
 
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp",runId:"turn-a"});
 rememberRuntimeChannel({sessionKey:"turn-preserve",channel:"whatsapp"});
 assert.equal(runtimeRunId({sessionKey:"turn-preserve"}),"turn-a");
 rememberRuntimeChannel({sessionKey:"turn-preserve",runId:"turn-b"});
 assert.equal(runtimeRunId({sessionKey:"turn-preserve"}),"turn-b");
+// Long URLs remain lossless server-side and are never fetched by the projection.
+const link='https://links.example.test/path?tracking='+'a'.repeat(16000);
+const linkScope={owner:'a',run:'links',origin:'floassist:briefing'};
+let linkCalls=0;
+const linkOptions={...options,context:linkScope,execute:async()=>{linkCalls++;return {threadId:'link-thread',messages:[{subject:'Link fixture',messageText:'Please review report. '+link+' End.',messageTimestamp:'2026-10-26T10:00:00Z'}]};}};
+const linkPage=await readFloAssistSource('a',{app_id:'gmail',source_id:'link-thread'},linkOptions);
+assert.equal(linkPage.coverage_complete,true,'opaque URLs do not create artificial source pages');assert.ok(linkPage.content.length<500);assert.match(linkPage.content,/Please review report/);assert.match(linkPage.content,/End\./);
+const linkCursor=linkPage.content.match(/cursor (fa-page-\d+)/)[1];
+const exact=await readFloAssistSource('a',{cursor:linkCursor},linkOptions);
+assert.equal(exact.url,link);assert.equal(linkCalls,1,'link retrieval does not refetch or visit URL');
+await assert.rejects(readFloAssistSource('a',{cursor:linkCursor},{...linkOptions,context:{...linkScope,run:'other'}}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED');
+const full=await readFloAssistSource('a',{app_id:'gmail',source_id:'link-thread'},{...linkOptions,context:{owner:'a',origin:'whatsapp'}});
+const fullNext=await readFloAssistSource('a',full.next_request,{...linkOptions,context:{owner:'a',origin:'whatsapp'}});
+assert.ok((full.content+fullNext.content).includes(link),'ad hoc exact source reading retains original URLs');
+console.log('FLOASSIST_LINK_CONTEXT_OK: compact URL references, exact authorized recovery, no network follow, run isolation, unchanged ad hoc content');
+
+db.close();

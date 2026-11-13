@@ -101,16 +101,16 @@ export function executeScheduledGoalDelete(ownerUserId, body = {}) {
   return deleteScheduledGoal(ownerUserId, id);
 }
 
-export async function executeScheduledGoalRunNow(ownerUserId, body = {}) {
+export async function executeScheduledGoalRunNow(ownerUserId, body = {}, {trackedDelivery=false,parentRunId,parentSessionKey}={}) {
   const id = resolveGoalId(ownerUserId, body);
   if (!id) {
     const err = new Error('goal_id or query (title) required');
     err.status = 400;
     throw err;
   }
-  const out = await runScheduledGoal(ownerUserId, id, { force: true });
-  const goal = getScheduledGoal(ownerUserId, id);
-  return { ...out, goal };
+  // Do not return the saved goal plan/prompt to a parent conversation. Its run
+  // receipt and bounded final reply are sufficient for status and delivery.
+  return runScheduledGoal(ownerUserId, id, { force: true, trackedDelivery,parentRunId,parentSessionKey });
 }
 
 export { requireCoo };

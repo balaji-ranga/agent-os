@@ -23,8 +23,8 @@ try{
  const app=express();app.use(express.json());
  // Isolated authentication boundary; execute the real /invoke handler below.
  app.use((req,res,next)=>{req.authUser={id:owner,role:'ceo'};req.actionPolicy={ok:true};req.isInternalService=true;next();});
- app.post('/fixture-read',async(req,res)=>{calls++;await delay(40);res.json({tables:listTables(owner)});});
- for(const path of ['/invoke','/tool-execution-status'])app.post([path,'/api/tools'+path],router.stack.find(layer=>layer.route?.path===path&&layer.route.methods.post).route.stack.at(-1).handle);
+ app.post('/fixture-read',async(req,res)=>{calls++;await delay(40);res.json(req.body.large?{rows:Array.from({length:300},(_,i)=>({id:i,text:'source evidence '.repeat(8)}))}:{tables:listTables(owner)});});
+ for(const path of ['/invoke','/tool-execution-status','/tool-result-read'])app.post([path,'/api/tools'+path],router.stack.find(layer=>layer.route?.path===path&&layer.route.methods.post).route.stack.at(-1).handle);
  server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
  const base='http://127.0.0.1:'+server.address().port;process.env.TOOLS_BASE_URL=base;
  const call=async(body,path='/invoke',sess=session)=>{const r=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json','x-openclaw-agent-id':agent,'x-openclaw-session-key':sess},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};};
@@ -41,5 +41,20 @@ try{
  assert.equal(db.prepare('SELECT COUNT(*) n FROM platform_user_notifications WHERE source_key=?').get(first.data.trackingId).n,1);
  const blocked=await fetch(base+'/invoke',{method:'POST',headers:{'Content-Type':'application/json','x-flolah-status-only':'1','x-openclaw-agent-id':agent,'x-openclaw-session-key':session},body:JSON.stringify({tool_name:'master_data_list_tables'})});
  assert.equal(blocked.status,409);assert.equal((await blocked.json()).code,'STATUS_ONLY_TURN');assert.equal(calls,2,'status-only turns cannot dispatch a new tool');
- console.log('ASYNC_ROUTE_OK: real invoke handler sync/async parity, duplicate tracking ID, status tool dispatch, one callback, two total reads');
+ governor.putExecutionBehaviours(owner,[{tool_name:'master_data_list_tables',execution_mode:'sync'}]);
+ const large=await call({tool_name:'master_data_list_tables',large:true},'/invoke','large-conversation');
+ assert.equal(large.status,200);assert.equal(large.data.result_stored,true);let text=large.data._retrieval.content,next=large.data._retrieval.next_request;
+ while(next){const page=await call({tool_name:'tool_result_read',...next},'/invoke','large-conversation');assert.equal(page.status,200,JSON.stringify(page.data));text+=page.data.content;next=page.data.next_request;}
+ assert.equal(JSON.parse(text).rows.length,300);assert.equal(calls,3,'paging never repeats the original tool');
+ governor.putExecutionBehaviours(owner,[{tool_name:'master_data_list_tables',execution_mode:'async'}]);
+ const asyncLarge=await call({tool_name:'master_data_list_tables',large:true},'/invoke','async-large-conversation');
+ await delay(90);
+ const asyncResult=await call({tool_name:'tool_execution_status',trackingId:asyncLarge.data.trackingId},'/invoke','async-large-conversation');
+ const saved=asyncResult.data.requests[0].result;
+ assert.equal(saved._retrieval.content,'','async storage must not truncate an already-marked-read first page');
+ next=saved._retrieval.next_request;text='';
+ while(next){const page=await call({tool_name:'tool_result_read',...next},'/invoke','async-large-conversation');assert.equal(page.status,200);text+=page.data.content;next=page.data.next_request;}
+ assert.equal(JSON.parse(text).rows.length,300);assert.equal(calls,4,'async result recovery cannot redispatch the source');
+ console.log('GENERIC_RESULT_ROUTE_OK: real invoke stores large output and exact read pages reconstruct it without another source call');
+ console.log('ASYNC_ROUTE_OK: real invoke handler sync/async parity, duplicate tracking ID, status tool dispatch, one callback, exact large async result recovery');
 }finally{server?.closeAllConnections();await new Promise(resolve=>server?server.close(resolve):resolve());(await import('../src/db/ceo-db.js')).closeCeoDb(owner);db.close();rmSync(root,{recursive:true,force:true});}

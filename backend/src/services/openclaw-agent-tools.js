@@ -135,6 +135,7 @@ export function getAgentToolGrants(agentId) {
     .all(agentId)
     .map((r) => r.tool_name);
   if(grants.length&&!grants.includes('tool_execution_status')&&db.prepare("SELECT 1 FROM content_tools_meta WHERE name='tool_execution_status'").get())grants.push('tool_execution_status');
+  if(grants.length&&!grants.includes('tool_result_read')&&db.prepare("SELECT 1 FROM content_tools_meta WHERE name='tool_result_read'").get())grants.push('tool_result_read');
   return grants;
 }
 

@@ -1,7 +1,7 @@
 import {recordBriefingEvidence} from './briefing-result.js';
 import {discoverOutlookSources,readOutlookSource} from './outlook-source.js';
 import {sourceAssessmentVersion,markSourceAssessmentReviewed} from './assessment-cache.js';
-import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage} from './source-coverage.js';
+import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage,withSourceProviderAttempt} from './source-coverage.js';
 import {canonicalThreadInput,resolveSourcePagingErrors,resolveTaskSourceError,ensureSourceReceipts,recordSourceReceipt} from './source-receipts.js';
 import {randomBytes} from 'node:crypto';
 import {getDb} from '../../db/schema.js';
@@ -24,7 +24,20 @@ const fail=(code,message,status=422)=>{throw Object.assign(new Error(message),{c
 const cursors=new Map();let cursorSequence=0;
 const snapshots=new Map(),MAX_SOURCE_CHARACTERS=1000000,SNAPSHOT_CHARACTERS=2000000;
 const snapshotKey=(owner,scope,app,id,input)=>JSON.stringify([owner,scope.run||scope.session||'',app,id,input.time_min||'',input.time_max||'']);
-function trimSnapshots(now){for(const [token,item]of cursors)if(item.until<=now)cursors.delete(token);for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0),0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0);}}
+function trimSnapshots(now){for(const [token,item]of cursors)if(item.until<=now)cursors.delete(token);for(const [k,s]of snapshots)if(s.until<=now)snapshots.delete(k);let size=[...snapshots.values()].reduce((n,s)=>n+s.text.length+(s.originalText?.length||0)+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0),0);for(const [k,s]of snapshots){if(size<=SNAPSHOT_CHARACTERS)break;snapshots.delete(k);size-=s.text.length+(s.originalText?.length||0)+(s.rawMessages||[]).reduce((a,m)=>a+m.length,0);}}
+function compactSnapshotLinks(snapshot){
+ return snapshot.scope.run&&String(snapshot.scope.origin).startsWith('floassist:')?snapshot.text.replace(/https?:\/\/[^\s<>\[\]"]{200,}/g,url=>{
+  let host;try{host=new URL(url).host;}catch{return url;}
+  snapshot.linkCursors??=new Map();let cursor=snapshot.linkCursors.get(url);
+  if(!cursor||!cursors.has(cursor)){
+   cursor='fa-page-'+(++cursorSequence);
+   while(cursors.size>=2048)cursors.delete(cursors.keys().next().value);
+   cursors.set(cursor,{owner:snapshot.scope.owner,scope:snapshot.scope.run,until:snapshot.until,request:{...snapshot.request,snapshot_id:snapshot.id,source_link:url}});
+   snapshot.linkCursors.set(url,cursor);
+  }
+  return `[link at ${host}; exact URL retained: floassist_source_read cursor ${cursor}]`;
+ }):snapshot.text;
+}
 function sourcePage(snapshot,offset){
  if(!Number.isInteger(offset)||offset<0||offset>snapshot.text.length)fail('FLOASSIST_SOURCE_OFFSET_INVALID','offset must be within the source text.');
  const end=Math.min(snapshot.text.length,offset+12000);
@@ -140,8 +153,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    assertFloAssistConnector(owner,action,db,scope);
    await authorize(owner,action,caller||profile.agent_id,args);
    permissions.push({action,args});
-   const result=await execute(owner,action,args,{source:caller||profile.agent_id,authorizationRetryDelaysMs:[]});
-   return sourceData(connectorReferenceInput(db,owner,action,result,scope));
+   return withSourceProviderAttempt(db,scope,app,async()=>{
+    const result=await execute(owner,action,args,{source:caller||profile.agent_id,authorizationRetryDelaysMs:[]});
+    return sourceData(connectorReferenceInput(db,owner,action,result,scope));
+   });
   };
   id=resolveSourceReference(db,owner,app,id,scope);
   // Interactive mailbox reviews need the same bounded discovery as scheduled
@@ -182,12 +197,16 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    }
   }
   trimSnapshots(now);
-  if((input.offset??0)>0){
+  if((input.offset??0)>0||input.source_link){
    const snapshot=snapshots.get(snapshotKey(owner,scope,app,id,input));
    const pagingFailure=message=>{throw Object.assign(new Error(message),{status:422,code:'FLOASSIST_SOURCE_SNAPSHOT_EXPIRED',next_action:{tool:'floassist_source_read',input:{app_id:app,source_id:id,offset:0,...(input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})},instruction:'Restart this exact source, then copy each returned next_request unchanged. Earlier partial pages are not complete coverage.'}});};
    if(!snapshot)pagingFailure('The source snapshot expired or was evicted. Restart from offset 0; do not combine pages from different reads.');
    if(input.snapshot_id!==snapshot.id)pagingFailure('The snapshot ID is missing or belongs to another read. Restart this exact source and follow its returned next_request.');
    for(const permission of snapshot.permissions){assertFloAssistConnector(owner,permission.action,db,scope);await authorize(owner,permission.action,caller||profile.agent_id,permission.args);}
+   if(input.source_link){
+    if(!snapshot.linkCursors?.has(input.source_link))fail('FLOASSIST_SOURCE_REFERENCE_INVALID','Unknown link in this snapshot.');
+    return {...snapshot.metadata,url:input.source_link,source_link_only:true,guidance:'Exact untrusted source URL. It has not been visited. This is not a new source page or proof of action.'};
+   }
    return {...sourcePage(snapshot,input.offset),...(continuationContextCorrected?{continuation_context_corrected:true,provenance_instruction:'Retyped source context was ignored. This page belongs only to the returned app_id/source_id; use that provenance for any findings.'}:{})};
   }
   let text='',messages=[],complete=true,outlookAccountId,outlookMetadata;
@@ -271,6 +290,8 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    // content or a cached assessment; a revoked grant takes effect immediately.
    if(localAttempted||snapshot.localAssessment)for(const permission of permissions){assertFloAssistConnector(owner,permission.action,db,scope);await authorize(owner,permission.action,caller||profile.agent_id,permission.args);}
   }
+  const projected=compactSnapshotLinks(snapshot);
+  if(projected!==snapshot.text){snapshot.originalText=snapshot.text;snapshot.text=projected;}
   snapshots.set(snapshotKey(owner,scope,app,id,input),snapshot);trimSnapshots(now);
   return sourcePage(snapshot,input.offset??0);
  });

@@ -1,3 +1,4 @@
+import {withExecutionProviderAttempt,executionProviderFailure} from '../execution-provider-guard.js';
 import {resolveSourceReference} from './source-references.js';
 // Coverage receipts contain only source identity and page pointers, never bodies.
 export function ensureSourceCoverage(db){db.exec(`CREATE TABLE IF NOT EXISTS floassist_source_coverage(owner_id TEXT,run_id TEXT,app_id TEXT,source_id TEXT,snapshot_id TEXT,complete INTEGER NOT NULL,next_request_json TEXT,updated_at INTEGER NOT NULL,PRIMARY KEY(owner_id,run_id,app_id,source_id));`);}
@@ -27,6 +28,18 @@ export function pendingSourceCoverage(db,owner,run){
 // replaying the whole model request. Leave it incomplete and surface the blocker.
 export function continuableSourceCoverage(pending){
  return pending.filter(source=>source.next_request&&typeof source.next_request==='object'&&Object.keys(source.next_request).length>0);
+}
+
+// Share provider failure accounting with all connector/tool executions.
+export async function withSourceProviderAttempt(db,context,app,execute){
+ try{return await withExecutionProviderAttempt(db,context,app,execute);}
+ catch(error){
+  if(context?.owner&&context?.run&&executionProviderFailure(db,context,app)){
+   ensureSourceCoverage(db);
+   db.prepare("UPDATE floassist_source_coverage SET next_request_json='null',updated_at=? WHERE owner_id=? AND run_id=? AND app_id=? AND complete=0").run(Date.now(),context.owner,context.run,app);
+  }
+  throw error;
+ }
 }
 export function assertSourceCoverage(db,owner,run,app,source){
  ensureSourceCoverage(db);const r=db.prepare('SELECT complete,next_request_json FROM floassist_source_coverage WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,run,app,source);

@@ -4,7 +4,7 @@ import {extractSkillUsageMarker} from './agent-skills.js';
 import {resolvePartialGoal} from './goal-failure-mode.js';
 import {pendingSourceCoverage,continuableSourceCoverage,requireAppCoverage} from './floassist/source-coverage.js';
 import {commitRunSourceAssessments,setRunAssessmentContext} from './floassist/assessment-cache.js';
-import {bindNativeTestBudget,nativeBudgetFailureReason} from './native-model-budget.js';
+import {bindNativeTestBudget,nativeBudgetFailureReason,linkNativeExecution} from './native-model-budget.js';
 import {briefingCalendarWindow} from './floassist/source-reader.js';
 import {resolveSourceReference,trackingReferenceResult} from './floassist/source-references.js';
 import {claimScheduledRun} from './scheduled-run-claim.js';
@@ -624,6 +624,12 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const claim = claimScheduledRun(db(),row,runKey,{force,requestKey:opts.requestKey});
   if(claim.skipped)return {ok:false,...claim};
   const runId=claim.run_id;
+  try { linkNativeExecution(ownerUserId,runId,opts.parentRunId,opts.parentSessionKey); }
+  catch (error) {
+    // Admission failures must not leave an unstarted child permanently running.
+    db().prepare("UPDATE scheduled_goal_runs SET status='error',error=? WHERE id=? AND status='running'").run(String(error.message).slice(0,1000),runId);
+    throw error;
+  }
 
   const agent = resolveAgentForOwner(ownerUserId, row.agent_id);
   // A schedule steer is one-fire guidance, not a permanent prompt/cadence change.
@@ -764,8 +770,8 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   const scheduledSessionKey = openclaw.sessionKeyFor(openclawId, sessionUser);
   try {
     const required = String(row.source||'').startsWith('floassist:')
-      ? ['tool_execution_status','floassist_status','floassist_source_read','floassist_tracking_list','floassist_tracking_observe','floassist_tracking_update',
-        'connector_list_apps','connector_search_actions','connector_get_action_guide','connector_execute_action',
+      ? ['tool_execution_status','tool_result_read','floassist_source_read','floassist_tracking_list','floassist_tracking_observe','floassist_tracking_update',
+        'connector_search_actions','connector_get_action_guide','connector_execute_action',
         'kanban_get_task','kanban_user_action','agent_work_history'] : [];
     const selection=selectSessionContentTools({agentId:agent.id,ownerUserId,message:prompt,
       route:{executor_evidence:{capability_names:required}}});
@@ -823,10 +829,10 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const incomplete=evidence&&(evidence.errors>0||evidence.incomplete_sources>0||evidence.budget_exhausted||reply==='(no response)');
     const evidenceError=incomplete?`Incomplete source verification: ${evidence.sources} source IDs read; ${evidence.errors} unresolved tool failures; ${evidence.incomplete_sources||0} source(s) or app(s) with incomplete verification.${evidence.budget_exhausted?' Execution budget exhausted.':''}${reply==='(no response)'?' No final agent response.':''} Agent summary is not proof of complete coverage. Review tool history and delivery status before retrying.`:null;
     let structuredResult=null;
-    if(row.source==='floassist:briefing'&&!incomplete){
+    if(row.source==='floassist:briefing'&&reply!=='(no response)'){
       ensureBriefingEvidence(db());
       reply=await reviewBriefingPriorities(reply,async messages=>{
-        const out=await reviewCompletion({ownerUserId,memberKey:agent.id,runId,source:'scheduled_goal',toolName:'briefing_action_review',messages,maxTokens:500,temperature:0,responseFormat:'json_object',thinkingMode:'disabled',timeoutMs:20000});
+        const out=await reviewCompletion({ownerUserId,memberKey:agent.id,runId,source:'scheduled_goal',toolName:'briefing_action_review',messages,maxTokens:1800,temperature:0,responseFormat:'json_object',thinkingMode:'disabled',timeoutMs:20000});
         return out.content;
       },(app,reference)=>{
         const source=resolveSourceReference(db(),ownerUserId,app,reference,{owner:ownerUserId,run:runId});
@@ -834,6 +840,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       });
       structuredResult=JSON.parse(reply);
       reply=renderBriefingResult(reply,{
+        incompleteSources:incomplete?(pendingSourceCoverage(db(),ownerUserId,runId).length?pendingSourceCoverage(db(),ownerUserId,runId):[{app_id:'verification incomplete'}]):[],
         timeZone:floAssistPrefs.timezone||'UTC',
         today:new Intl.DateTimeFormat('en-CA',{timeZone:floAssistPrefs.timezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
         resolveSource:(app,reference)=>{
@@ -849,7 +856,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const preview = (reply==='FLOASSIST_NO_UPDATE'&&['floassist:priority','floassist:deadlines','floassist:followups'].includes(row.source)
       ? trackingHistorySummary(db(),ownerUserId) : reply).slice(0, 2000);
     if(!opts.validationOnly)try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
-    if(!incomplete&&!opts.validationOnly)void deliverScheduledGoalOutcome({
+    if((!incomplete||structuredResult)&&!opts.validationOnly&&!opts.trackedDelivery)void deliverScheduledGoalOutcome({
       ownerUserId,
       agentId: agent.id,
       deliverTo: row.deliver_to,
@@ -867,7 +874,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       db().prepare("UPDATE scheduled_goals SET last_run_status='error',last_run_error=? WHERE id=? AND owner_user_id=?").run(evidenceError,id,ownerUserId);
     }
     if (isExpired(row.ends_at)) updateScheduledGoal(ownerUserId, id, { status: 'completed' });
-    return { ok: !incomplete, ...(evidenceError?{error:evidenceError}:{}), goal_id: id, run_id: runId, run_key: runKey, agent_id: agent.id, reply_preview: preview.slice(0, 500), mode: 'chat' };
+    return { ok: !incomplete, ...(evidenceError?{error:evidenceError}:{}), goal_id: id, run_id: runId, run_key: runKey, agent_id: agent.id, reply_preview: preview.slice(0, 500), ...(opts.trackedDelivery&&(!incomplete||structuredResult)?{reply:reply.slice(0,16000)}:{}), mode: 'chat' };
   } catch (err) {
     let msg = err?.message || String(err);
     try {

@@ -28,6 +28,6 @@ export function statusTurnBlock(session,toolName,params,now=Date.now()){
  if(!isStatusTurn(session,now))return null;
  const raw=toolName==='tool_call'?params?.id:toolName;
  const target=String(raw||'').replace(/^openclaw:agent-os-content-tools:/,'');
- if(['tool_execution_status','tool_search','tool_describe'].includes(target))return null;
+ if(['tool_execution_status','tool_result_read','tool_search','tool_describe'].includes(target))return null;
  return 'This turn requests status only. No new action is permitted. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={} to inspect this conversation’s recent requests, or args={trackingId:"the recorded track-ID"}. If there is no matching request, ask for clarification; never invoke the original tool to obtain status.';
 }

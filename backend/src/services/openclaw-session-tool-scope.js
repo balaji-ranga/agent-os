@@ -88,14 +88,14 @@ export function selectSessionContentTools({ agentId, ownerUserId = null, message
   if (selectedMcpCapabilities.length && bridgeGrants.length) {
     return {
       scoped: true,
-      tools: [...bridgeGrants,...grants.filter(name=>name==='tool_execution_status')],
+      tools: [...bridgeGrants,...grants.filter(name=>['tool_execution_status','tool_result_read'].includes(name))],
       grants_count: grants.length,
       selected_count: bridgeGrants.length,
       selected_mcp_capabilities: selectedMcpCapabilities,
     };
   }
   if(routeNames.length&&routeNames.every(name=>name.startsWith('physical_'))){
-    const requested=new Set([...routeNames,'physical_entities_list','physical_operation_get','tool_execution_status']);
+    const requested=new Set([...routeNames,'physical_entities_list','physical_operation_get','tool_execution_status','tool_result_read']);
     const tools=grants.filter(name=>requested.has(name));
     return {scoped:true,tools,grants_count:grants.length,selected_count:tools.length};
   }
@@ -108,7 +108,7 @@ export function selectSessionContentTools({ agentId, ownerUserId = null, message
     if (value && granted.has(value) && !selected.includes(value) && selected.length < limit) selected.push(value);
   };
 
-  add('tool_execution_status');
+  add('tool_execution_status');add('tool_result_read');
   if(/\.(?:ogg|opus|mp3|wav|m4a|webm|aac|flac)\b|\b(?:audio|voice|transcrib)/i.test(message)){
     add('speech_stt');add('list_inbound_attachments');
   }

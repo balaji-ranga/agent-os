@@ -1,7 +1,7 @@
 import {sourceReference,resolveSourceReference,connectorReferenceInput,connectorReferenceResult,trackingReferenceResult} from '../src/services/floassist/source-references.js';
 import {normalizeDriveReadInput,normalizeDriveReadError} from '../src/services/floassist/drive-read-input.js';
 import {connectorFailureState} from '../src/services/floassist/connector-health.js';
-import {sourceReadInstructions,reconciliationCandidates} from '../src/services/floassist/responsibilities.js';
+import {sourceReadInstructions,reconciliationCandidates,refreshResponsibilitySourceList} from '../src/services/floassist/responsibilities.js';
 import assert from 'node:assert/strict';
 import {verifiedTrackingInput} from '../src/services/floassist/source-receipts.js';
 import Database from 'better-sqlite3';
@@ -187,3 +187,5 @@ assert.equal(await recoverOrphanReassessment(orphanDb,'owner',rejected,orphanErr
 assert.equal(await recoverOrphanReassessment(orphanDb,'other',rejected,orphanError,{...orphanOptions,context:{...context,owner:'other'}}),null);assert.equal(canonicalReads,1,'foreign owner never triggers a source read');
 await assert.rejects(recoverOrphanReassessment(orphanDb,'owner',rejected,orphanError,{context:{...context,run:'provider-error'},read:async()=>{throw Object.assign(Error('fixture denied'),{code:'authorization_failed'});}}),e=>e.code==='authorization_failed','provider failures are never converted to recovered success');
 orphanDb.close();
+
+assert.doesNotMatch(refreshResponsibilitySourceList("Call floassist_status for current preferences.",{connectors:["gmail"]},"briefing"),/Call floassist_status/);

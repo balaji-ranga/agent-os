@@ -52,7 +52,8 @@ try {
   for(const name of ['physical_entities_list','physical_invoke','physical_operation_get'])assert.ok(physical.tools.includes(name),'physical request must retain discovery/invoke/verification tools');
   assert.ok(!physical.tools.includes('physical_evidence_get'),'protocol family must not grant unassigned tools');
   assert.ok(physical.tools.includes('tool_execution_status'),'physical routes retain generic tracking');
-  assert.ok(physical.tools.every(name=>name.startsWith('physical_')||name==='tool_execution_status'),'a single physical-device route cannot fall back to desktop browser or unrelated tools');
+  assert.ok(physical.tools.includes('tool_result_read'),'device discovery can page its own stored result without adding another capability');
+  assert.ok(physical.tools.every(name=>name.startsWith('physical_')||['tool_execution_status','tool_result_read'].includes(name)),'a single physical-device route cannot fall back to desktop browser or unrelated tools');
   const physicalRead=selectSessionContentTools({agentId:'scope-agent',message:'Inspect registered capabilities',route:{executor_evidence:{capability_names:['physical_entities_list']}}});
   assert.ok(!physicalRead.tools.includes('physical_invoke'),'a read-only device route does not gain an action tool');
   const key = 'agent:t-fixture--scope-agent:request-1';

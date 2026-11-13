@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {boundedResponseJson} from '../src/services/bounded-tool-response.js';
+assert.deepEqual(await boundedResponseJson(new Response('{"ok":true}')),{ok:true});
+let cancelled=false;
+const stream=new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('x'.repeat(30)));},cancel(){cancelled=true;}});
+await assert.rejects(boundedResponseJson(new Response(stream),{maxBytes:10}),{code:'TOOL_RESPONSE_TOO_LARGE'});assert.equal(cancelled,true);
+await assert.rejects(boundedResponseJson(new Response('{}',{headers:{'content-length':'100'}}),{maxBytes:10}),{code:'TOOL_RESPONSE_TOO_LARGE'});
+const failure=new ReadableStream({pull(c){c.error(new DOMException('expired','AbortError'));}});
+await assert.rejects(boundedResponseJson(new Response(failure)),{name:'AbortError'});
+console.log('BOUNDED_RESPONSE_OK: exact JSON, length guard, chunked-body cancellation, timeout propagation');
