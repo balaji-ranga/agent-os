@@ -4,6 +4,6 @@ lightgbm==4.6.0
 # CPU-only VPS image; avoid the CUDA/NCCL dependency pulled by newer wheels.
 xgboost==2.0.3
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.6.0+cpu
+torch==2.12.1+cpu
 transformers==4.56.0
 granite-tsfm==0.3.3
