@@ -340,7 +340,7 @@ const PARAM_SCHEMAS = {
   browse_task_start: {
     type: 'object',
     properties: {
-      goal: { type: 'string' },
+      goal: { type: 'string', minLength: 1, description: 'Required concrete browser objective from the user request.' },
       start_url: { type: 'string' },
       mode: { type: 'string', enum: ['autonomous', 'recorder', 'recipe_replay'] },
       recipe_id: { type: 'string' },
@@ -359,6 +359,7 @@ const PARAM_SCHEMAS = {
         description: 'Executor drivers that must not receive this task.',
       },
     },
+    required: ['goal'],
     additionalProperties: true,
   },
   browse_task_status: {
@@ -1129,6 +1130,8 @@ export default definePluginEntry({
       });
       api.on("before_tool_call", (event, ctx) => {
         rememberRuntimeChannel({ ...ctx, runId: event?.runId || ctx?.runId });
+        const envelopeAlias=(event?.toolName||ctx?.toolName)==='tool_call' && event?.params?.args===undefined && event?.params?.parameters && typeof event.params.parameters==='object' && !Array.isArray(event.params.parameters);
+        if(envelopeAlias) event={...event,params:{...event.params,args:event.params.parameters}};
         const statusBlock=statusTurnBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
         if(statusBlock)return {block:true,blockReason:statusBlock};
         const reviewBlock=sourceReviewBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
@@ -1138,6 +1141,7 @@ export default definePluginEntry({
         if (reason) return { block: true, blockReason: reason };
         const reviewParams=sourceReviewParams(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
         if(reviewParams)return {params:reviewParams};
+        if(envelopeAlias)return {params:event.params};
       }, { priority: 100 });
       api.on("before_prompt_build", async (event, ctx) => {
         rememberRuntimeChannel(ctx);

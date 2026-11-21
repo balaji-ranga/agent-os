@@ -41,6 +41,15 @@ try{
  assert.equal(tracking.trackedStatus({owner,agent,session}).requests.length,2);
  assert.throws(()=>tracking.trackedStatus({owner:'outsider',agent,session,trackingId:tv.ack.trackingId}),/not found/);
  assert.throws(()=>tracking.trackedStatus({owner,agent,session:'other',trackingId:tv.ack.trackingId}),/not found/);
+ const browser=tracking.createTrackedTool({owner,agent,session,tool:'browse_task_start',actionId:'browser-test',timeoutMs:120000});
+ db.prepare("INSERT INTO browser_tasks(id,ceo_user_id,status,result_json) VALUES(?,?,'pending',NULL)").run('bt-fixture',owner);
+ tracking.settleTrackedTool(browser.id,{data:{status:'pending',task_id:'bt-fixture'}});
+ assert.equal(tracking.trackedStatus({owner,agent,session,trackingId:browser.id}).requests[0].operationId,'bt-fixture');
+ db.prepare("UPDATE browser_tasks SET status='completed',result_json=? WHERE id=?").run(JSON.stringify({summary:'Verified browser result'}),'bt-fixture');
+ const notices=[];await tracking.advanceTrackedTools({deliver:async job=>{notices.push(job);}});
+ assert.equal(notices.find(j=>j.id===browser.id)?.status,'completed');
+ await tracking.advanceTrackedTools({deliver:async job=>{notices.push(job);}});
+ assert.equal(notices.filter(j=>j.id===browser.id).length,1);
  const crash=tracking.createTrackedTool({owner,agent,session:'web-fixture',tool:'master_data_list_tables',actionId:'crash'});
  db.prepare('UPDATE tool_async_jobs SET deadline_ms=0 WHERE id=?').run(crash.id);
  await tracking.advanceTrackedTools({db,deliver});assert.equal(tracking.trackedStatus({owner,agent,session:'web-fixture',trackingId:crash.id}).requests[0].status,'uncertain');

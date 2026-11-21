@@ -15,6 +15,8 @@ process.env.OPENAI_SECONDARY_BASE_URL = 'https://checker.invalid/v1';
 process.env.OPENAI_SECONDARY_MODEL = 'test-checker';
 process.env.OPENAI_SECONDARY_API_KEY = 'fixture-only';
 process.env.MODEL_ROUTING_ENABLED = '0';
+process.env.LITELLM_BASE_URL='http://litellm.fixture/v1';
+process.env.LITELLM_MASTER_KEY='fixture-only';
 const { getDb } = await import('../src/db/schema.js');
 const { routeAgentTurn, validateRouteDecision, needsRouteAdjudication, normalizeRouteDecision, ROUTER_SYSTEM, isDirectChatOnlyAgent } = await import('../src/services/agent-turn-router.js');
 const { buildRouteSchema, routeContractPrompt } = await import('../src/services/agent-route-contract.js');
@@ -30,7 +32,7 @@ function check(label, fn) { fn(); checks++; console.log('PASS ' + label); }
 const valid = { relation:'new_work',execution_mode:'delegate',relevant_turn_ids:[],parent_work_unit_id:null,target_agent_id:'specialist',resolved_request:'Review my inbox without making changes.',restart_requested:false,confidence:0.91,executor_evidence:{capability_names:['mailbox_review'],reason:'Mailbox review belongs to the mailbox specialist.'} };
 const roster = ['specialist'];
 globalThis.fetch = async (url, options) => {
-  assert.match(String(url), /^https:\/\/(maker|checker)\.invalid\/v1\/chat\/completions$/, 'no unmocked network');
+  assert.equal(String(url),'http://litellm.fixture/v1/chat/completions','no unmocked network');
   const body = JSON.parse(options.body);
   calls.push({url:String(url),body});
   assert(queue.length, 'unexpected extra LLM call');
@@ -108,15 +110,15 @@ try {
     return db.prepare("SELECT execution_mode FROM chat_work_units WHERE agent_id='router-coo' AND execution_mode='goal_plan' ORDER BY created_at DESC LIMIT 1").get()?.execution_mode;
   }
   const direct={...valid,execution_mode:'direct_tool',target_agent_id:null,executor_evidence:{capability_names:['ceo_profile'],reason:'The coordinator can read its CEO profile.'}};
-  await run([direct,direct]);
-  check('orchestrator direct execution requires independent fit check',()=>assert.equal(calls.length,2));
+  await run([direct]);
+  check('confident owned utility executes without a redundant judge veto',()=>assert.equal(calls.length,1));
   const wrongOwner={...direct,executor_evidence:valid.executor_evidence};
   await run([wrongOwner,valid]);
   check('specialist capability cannot be borrowed by orchestrator',()=>assert.equal(calls.length,2));
   const bad={...valid,execution_mode:'direct_tool',confidence:0};
   const repaired=await run([bad,valid]);
   check('contradictory router adjudicated with original input and errors',()=>{
-    assert.equal(calls.length,2);assert.match(calls[1].url,/checker.invalid/);
+    assert.equal(calls.length,2);assert.match(calls[1].body.model,/test-checker/);
     const first=JSON.parse(calls[0].body.messages[1].content), judge=JSON.parse(calls[1].body.messages[1].content);
     assert.deepEqual(judge.candidate_decision,bad);assert.deepEqual(judge.organization,first.organization);
     assert.deepEqual(judge.agent,first.agent);assert.equal(judge.current_message,first.current_message);
@@ -133,13 +135,14 @@ try {
   check('adjudicator can choose goal without forced confidence',()=>{assert.equal(goal.execution_mode,'goal_plan');assert.equal(goal.confidence,0.88);});
   for (const final of [{...valid,confidence:0.74},{...valid,confidence:null},bad,'not json',{...valid,target_agent_id:'outsider'}]) {
     const before=db.prepare('SELECT count(*) AS n FROM chat_work_units').get().n;
-    await assert.rejects(()=>run([bad,final]),e=>e.code==='ROUTER_DECISION_INVALID');
-    check('unresolved adjudication cannot create executable work',()=>{assert.equal(calls.length,2);assert.equal(db.prepare('SELECT count(*) AS n FROM chat_work_units').get().n,before);});
+    const fallback=await run([bad,final]);
+    assert.equal(fallback.execution_mode,'chat');assert.equal(fallback.agent_fallback,true);assert.equal(fallback.target_agent_id,null);assert.equal(fallback.restart_requested,false);assert.equal(fallback.confidence,0);assert.equal(calls.length,2);
+    check('unresolved adjudication cannot create executable work',()=>{assert.equal(calls.length,2);assert.equal(db.prepare('SELECT count(*) AS n FROM chat_work_units').get().n,before+1);});
   }
   const { setPlatformSetting } = await import('../src/services/platform-llm-settings.js');
   setPlatformSetting('llm_active_endpoint','secondary');
   await run([bad,valid]);
-  check('active slot switch swaps router and adjudicator models',()=>{assert.match(calls[0].url,/checker.invalid/);assert.match(calls[1].url,/maker.invalid/);});
+  check('active slot switch swaps router and adjudicator models',()=>{assert.match(calls[0].body.model,/test-checker/);assert.match(calls[1].body.model,/test-maker/);});
   console.log(`PASS ${checks} focused router/adjudicator checks; zero live model or agent calls.`);
 } finally {
   globalThis.fetch=nativeFetch;

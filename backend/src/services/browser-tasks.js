@@ -1513,11 +1513,21 @@ export async function startBrowserTask(ceoUserId, body = {}) {
     ? (body.excluded_drivers || body.excludedDrivers)
     : [];
   const requiredCapabilities = /\b(screen\s*shot|png|image capture)\b/i.test(goal) ? ['screenshot'] : [];
-  const selectedExecutor = selectBrowserExecutor(ceoUserId, {
+  let selectedExecutor = selectBrowserExecutor(ceoUserId, {
     preferredDriver,
     requiredCapabilities,
     excludedDrivers,
   });
+  // A heartbeat does not establish extension tab consent. Probe before pinning
+  // a task, so no action is replayed when selecting another executor.
+  if (selectedExecutor?.driver_mode === 'chrome_extension') {
+    const probe = await invokeViaBrowserWorker(ceoUserId, 'tabs', {}, {node:selectedExecutor});
+    const tabs = probe.ok ? parseJson(probe.text, {}).tabs : null;
+    if (!Array.isArray(tabs) || !tabs.length) {
+      if (!allowFallback) throw Object.assign(new Error('Requested browser extension has no available authorized tab'), {status:409});
+      selectedExecutor = selectBrowserExecutor(ceoUserId, {requiredCapabilities, excludedDrivers:[...excludedDrivers,'chrome_extension']});
+    }
+  }
   assertPreferredBrowserExecutor(selectedExecutor, preferredDriver, allowFallback);
   const traceId = randomUUID();
   const parentGoalRunId = String(body.goal_run_id || body.goalRunId || '').trim() || null;

@@ -175,9 +175,11 @@ Rules:
 - follow_up: the user intentionally continues, retries, answers, or modifies a specific earlier work unit. Select only turns needed for that unit.
 - correction: the user rejects or corrects a prior response. Select only the corrected unit, never unrelated work.
 - conversation: greeting, acknowledgement, explanation, or ordinary dialogue that needs no executable work.
-- goal_plan: substantial durable execution with multiple meaningful stages, dependencies, agents, tools, workflows, asynchronous work, tracking, retry, or a composite final deliverable.
+- goal_plan: substantial durable execution with independently meaningful stages, durable dependencies or explicitly coordinated participants. Ordinary discovery, paginated reading, asynchronous tool completion, status checking, retries and summarizing one lookup are implementation steps of ONE deliverable, not alone reasons for goal_plan.
 - delegate: one specialist deliverable that the user assigns to, or that is best owned by, a different employee in the supplied organization roster. An explicit request for another named employee to do the work is delegate, not direct_tool.
 - When execution_mode is delegate, target_agent_id is required and must be an exact id from the supplied organization roster. For every other mode it must be null.
+- Explicit user assignment takes precedence over specialist preference: when the user asks the current employee to handle the work without delegation, use its granted capabilities for bounded work; do not delegate merely because a specialist also has those capabilities. If capability discovery or clarification is needed, use chat so the selected employee can resolve it under normal permissions.
+- Confidence concerns destination and execution structure, not whether source facts, cinema listings, device availability or tool results are already known. Unknown answer content is resolved during execution.
 - An orchestrator coordinates work; it does not own every capability exposed anywhere in the company. If a roster employee's declared role or granted capabilities are a closer semantic fit than the current agent's declared role/capabilities, choose delegate even when the request has only one bounded deliverable.
 - direct_tool: one bounded action or lookup clearly owned by the current agent's declared role or granted capabilities. Do not choose it merely because some other employee has the needed tool.
 - chat: answer/explain/converse without durable execution.
@@ -402,12 +404,20 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
     }
   }
 
-  if (!semanticDecision && !routeValidation.ok) {
-    const error = new Error(`Unable to obtain a valid semantic route: ${routeValidation.errors.join('; ')}`);
-    error.code = 'ROUTER_DECISION_INVALID';
-    error.status = 503;
-    error.details = { attempts: routeAttempts };
-    throw error;
+  const agentFallback = !semanticDecision && !routeValidation.ok;
+  const fallbackReason = agentFallback ? routeValidation.errors : [];
+  if (agentFallback) {
+    // Uncertain control-plane classification cannot authorize delegation or
+    // launch durable work. Keep the addressed agent's normal permissioned loop.
+    const candidateValid = validateRouteDecision(parsed,candidates.map(t=>t.id),organization.map(a=>a.id)).ok;
+    parsed = {
+      relation: candidateValid ? parsed.relation : replyToMessageId ? 'follow_up' : 'new_work',
+      execution_mode:'chat', target_agent_id:null, parent_work_unit_id:null,
+      relevant_turn_ids:candidateValid ? parsed.relevant_turn_ids : [],
+      resolved_request:candidateValid ? parsed.resolved_request : String(message||'').trim(),
+      restart_requested:false, confidence:0,
+      executor_evidence:{capability_names:[],reason:'Routing uncertainty: continue in the addressed agent permissioned tool loop; clarify genuinely ambiguous intent.'},
+    };
   }
 
   const explicitReply = replyToMessageId && candidates.some(t => t.id === replyToMessageId);
@@ -457,6 +467,8 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
     routing_model_bypassed: directChatOnly && !semanticDecision,
     request_fingerprint: fingerprint,
     decision_attempts: routeAttempts,
+    agent_fallback: agentFallback,
+    fallback_reason: fallbackReason,
   };
   db().prepare(`
     INSERT INTO chat_work_units

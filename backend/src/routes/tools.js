@@ -4389,7 +4389,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     const governedData = data && typeof data === 'object' && !Array.isArray(data)
       ? { ...data, ...(observation ? { _execution: observation } : {}) }
       : { result: data, ...(observation ? { _execution: observation } : {}) };
-    if(governed&&response.ok&&toolName==='physical_invoke'&&['queued','dispatched','accepted','running','awaiting_approval'].includes(data.status)){
+    if(governed&&response.ok&&['physical_invoke','browse_task_start','browse_recipe_run'].includes(toolName)&&['pending','queued','dispatched','accepted','running','awaiting_approval'].includes(data.status)){
       const job=createTrackedTool({owner:ownerUserId,agent:source,session:sessionKey||'',tool:toolName,actionId:governed.id,timeoutMs:governed.behaviour.timeout_ms,origin});settleTrackedTool(job.id,{httpStatus:response.status,data});Object.assign(governedData,trackingAck({...job,status:data.status}));
     }
     try {
@@ -4545,6 +4545,7 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
     res.json({
       ok: true,
       task_id: task.id,
+      status: task.status,
       task,
       agent_hint:
         `Task routed to ${task.selected_driver_mode || 'unknown'}${task.selected_node_id ? ` node ${task.selected_node_id}` : ''}. Do not use the built-in browser tool before or after this task. Immediately tell the CEO this task_id and actual selected_driver_mode. Optionally call browse_task_status once with wait_ms: 90000; if still running, reply with the task_id.`,

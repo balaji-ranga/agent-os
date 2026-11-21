@@ -61,13 +61,20 @@ export function settleTrackedTool(id,{httpStatus=200,data={}},db=getDb()){
  // for notification delivery; the /invoke result paging still bounds LLM reads.
  if(typeof data.reply==='string'&&data.reply.length<=64000)stored.reply=data.reply;
  const result=JSON.stringify(stored); // Bound stored output; do not truncate JSON mid-value.
- db.prepare('UPDATE tool_async_jobs SET status=?,operation_id=COALESCE(operation_id,?),result_json=?,updated_at=? WHERE id=?').run(state,job.tool_name==='physical_invoke'?data.operationId||data.id||null:null,result.length<=100000?result:JSON.stringify({resultOmitted:true,reason:'Result exceeds notification storage limit; consult tool history'}),new Date().toISOString(),id);
+ db.prepare('UPDATE tool_async_jobs SET status=?,operation_id=COALESCE(operation_id,?),result_json=?,updated_at=? WHERE id=?').run(state,job.tool_name==='physical_invoke'?data.operationId||data.id||null:['browse_task_start','browse_recipe_run'].includes(job.tool_name)?data.task_id||data.task?.id||null:null,result.length<=100000?result:JSON.stringify({resultOmitted:true,reason:'Result exceeds notification storage limit; consult tool history'}),new Date().toISOString(),id);
 }
 export async function advanceTrackedTools({db=getDb(),physical,deliver}={}){
  ensureAsyncTracking(db);
  for(const job of db.prepare("SELECT * FROM tool_async_jobs WHERE status IN ('running','waiting') LIMIT 100").all()){
   if(job.operation_id&&job.tool_name==='physical_invoke'&&physical){
    try{physical.expire();const op=physical.owned('operations',job.owner_user_id,job.operation_id);if(terminal.has(op.status))settleTrackedTool(job.id,{data:{operationId:op.id,status:op.status,evidence:op.evidence,error:op.error,notice:'Delivery evidence does not independently establish physical state.'}},db);}catch{/* Deadline below prevents indefinite tracking. */}
+  }
+  if(job.operation_id&&['browse_task_start','browse_recipe_run'].includes(job.tool_name)){
+   const task=db.prepare('SELECT status,result_json,error FROM browser_tasks WHERE id=? AND ceo_user_id=?').get(job.operation_id,job.owner_user_id);
+   if(task&&terminal.has(task.status)){
+    let result={};try{result=JSON.parse(task.result_json||'{}');}catch{}
+    settleTrackedTool(job.id,{data:{status:task.status,task_id:job.operation_id,reply:result.summary||task.error||'Browser task finished.',result}},db);
+   }
   }
   if(Date.now()>job.deadline_ms)db.prepare("UPDATE tool_async_jobs SET status='uncertain',result_json=?,updated_at=? WHERE id=? AND status IN ('running','waiting')").run(JSON.stringify({error:'No final result before tracking deadline. Do not repeat a potentially dispatched action.'}),new Date().toISOString(),job.id);
  }

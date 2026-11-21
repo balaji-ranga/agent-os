@@ -206,7 +206,7 @@ export function requestedBrowserDriver(text, current = null) {
   const explicit = String(current || '').trim();
   if (explicit) return explicit;
   const instruction = String(text || '');
-  if (/\b(?:desktop|local)\s+(?:browser\s+)?worker\b|\bbrowsertools?\s+desktop\b|\bplaywright[_\s-]?chrome\b/i.test(instruction)) {
+  if (/\b(?:desktop|local)\s+(?:browser\s+)?(?:worker|bridge)\b|\bbrowsertools?\s+desktop\b|\bplaywright[_\s-]?chrome\b/i.test(instruction)) {
     return 'playwright_chrome';
   }
   if (/\bchrome\s+extension\b|\bflolah\s+extension\b/i.test(instruction)) return 'chrome_extension';
@@ -234,7 +234,7 @@ export function resolveBrowserTaskExecutorPreference(requestPayload = {}, execut
   const suppliedFallback = requestPayload.allow_fallback ?? requestPayload.allowFallback;
   return {
     preferred_driver: requested,
-    allow_fallback: contextRequested ? false : suppliedFallback,
+    allow_fallback: /\b(?:fallback|fall back|if .*?(?:unavailable|no authorized tab))\b/i.test(contextText) ? true : contextRequested ? false : suppliedFallback,
   };
 }
 
