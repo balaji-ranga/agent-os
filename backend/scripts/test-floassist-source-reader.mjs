@@ -311,4 +311,27 @@ assert.equal(chatLink.coverage_complete,true);const chatCursor=chatLink.content.
 assert.equal((await readFloAssistSource('a',{cursor:chatCursor},{...linkOptions,context:chatLinkScope})).url,link);
 await assert.rejects(readFloAssistSource('a',{cursor:chatCursor},{...linkOptions,context:{...chatLinkScope,session:'other'}}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED');
 console.log('ADHOC_LINK_CONTEXT_OK: lossless compact URL references remain conversation scoped');
+
+// Real ad hoc reader contract: invalid IDs never reach a provider; discovery
+// authorizes only its owner's session and exact returned source identity.
+calls=[];
+await assert.rejects(()=>readFloAssistSource('a',{app_id:'gmail',source_id:'owner@example.test'},{...options,context:{owner:'a',session:'ad-hoc'},discoverUnknownSources:true}),e=>e.code==='FLOASSIST_SOURCE_ID_INVALID'&&!!e.next_call);
+assert.equal(calls.length,0);
+mode='normal';
+const interactive={...options,context:{owner:'a',session:'ad-hoc'},discoverUnknownSources:true};
+// get_profile is required for bounded mailbox discovery.
+const interactiveExecute=async(owner,action,args)=>action==='gmail.get_profile'?{ok:true,data:{emailAddress:'owner@example.test'}}:execute(owner,action,args);
+interactive.execute=interactiveExecute;
+const found=await readFloAssistSource('a',{app_id:'gmail',source_id:'invented',relative_day:'today'},interactive);
+assert.equal(found.discovery_only,true);assert.equal(found.source_candidates[0].source_id,'real-thread');
+assert.ok(!calls.some(c=>c.action==='gmail.fetch_message_by_thread_id'));
+assert.equal(found.effective_window.time_min,'2026-10-26T16:00:00.000Z');
+calls=[];
+const verified=await readFloAssistSource('a',{app_id:'gmail',source_id:'real-thread'},interactive);
+assert.equal(verified.content_verified,true);assert.ok(calls.some(c=>c.action==='gmail.fetch_message_by_thread_id'));
+calls=[];
+const other=await readFloAssistSource('b',{app_id:'gmail',source_id:'real-thread'},{...interactive,context:{owner:'b',session:'ad-hoc'}});
+assert.equal(other.discovery_only,true);assert.ok(!calls.some(c=>c.action==='gmail.fetch_message_by_thread_id'));
+console.log('ADHOC_SOURCE_DISCOVERY_OK: no guessed provider IDs, owner/session isolation, discovered full bodies, owner-local window');
+
 db.close();

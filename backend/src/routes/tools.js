@@ -1,3 +1,4 @@
+import {sourceDuplicateRecovery} from '../services/floassist/source-read-contract.js';
 import {liveConnectorHealthEvidence} from '../services/connector-health-evidence.js';
 import {fetchModelViaGateway} from '../../../scripts/lib/model-egress.js';
 import {physicalAgentAssets,physicalAgentInstructions} from '../services/physical/agent-context.js';
@@ -4333,7 +4334,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
         logTool(req,toolName,params,out,'ok',source);
         return res.json(out);
       }
-      const out = { ok: false, error: governed.observation.message, _execution: governed.observation };
+      const out = { ok: false, error: governed.observation.message, ...(toolName==='floassist_source_read'?sourceDuplicateRecovery(governed.observation):{}), _execution: governed.observation };
       logTool(req, toolName, params, out, 'error', source);
       return res.status(409).json(out);
     }

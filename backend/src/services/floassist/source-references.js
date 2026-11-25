@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {currentFloAssistScope} from './execution-scope.js';
 const apps={gmail:'gmail',googledrive:'google_drive',outlook:'outlook'};
 const active=(owner,c)=>!!c?.run&&c.owner===owner;
@@ -52,4 +53,17 @@ export function trackingReferenceResult(db,owner,value,context=currentFloAssistS
  if(out.app_id&&typeof out.latest_message_id==='string')out.latest_message_id=sourceReference(db,owner,out.app_id,out.latest_message_id,context);
  for(const [k,v]of Object.entries(out))if(v&&typeof v==='object')out[k]=trackingReferenceResult(db,owner,v,context);
  return out;
+}
+
+// Ad hoc reads keep the public raw provider IDs, but must still prove that an
+// ID came from owner-scoped discovery. Never share this evidence across owners.
+const discoveryContext=(owner,context)=>context?.owner===owner?{...context,run:context.run||'source-session:'+createHash('sha256').update(context.session||'direct-source-read').digest('hex')}:null;
+export function rememberDiscoveredSources(db,owner,candidates,context){
+ const scoped=discoveryContext(owner,context);if(!scoped)return;
+ for(const item of candidates)sourceReference(db,owner,item.app_id,item.source_id,scoped);
+}
+export function knownDiscoveredSource(db,owner,app,id,context){
+ const scoped=discoveryContext(owner,context);if(!scoped||!id)return false;
+ ensure(db);
+ return !!db.prepare('SELECT 1 FROM floassist_source_references WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=? AND created_at>=?').get(owner,scoped.run,apps[app]||app,id,Date.now()-7*86400000);
 }

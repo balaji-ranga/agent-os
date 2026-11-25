@@ -1,5 +1,6 @@
+import {assertMailboxSourceId} from './source-read-contract.js';
 import {recordBriefingEvidence} from './briefing-result.js';
-import {gmailWindowQuery} from './source-window.js';
+import {gmailWindowQuery,resolveMailboxDay} from './source-window.js';
 import {discoverOutlookSources,readOutlookSource} from './outlook-source.js';
 import {sourceAssessmentVersion,markSourceAssessmentReviewed} from './assessment-cache.js';
 import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage,withSourceProviderAttempt} from './source-coverage.js';
@@ -7,7 +8,7 @@ import {canonicalThreadInput,resolveSourcePagingErrors,resolveTaskSourceError,en
 import {randomBytes} from 'node:crypto';
 import {getDb} from '../../db/schema.js';
 import {currentFloAssistScope,withFloAssistScope,assertFloAssistConnector} from './execution-scope.js';
-import {resolveSourceReference,connectorReferenceInput} from './source-references.js';
+import {resolveSourceReference,connectorReferenceInput,rememberDiscoveredSources,knownDiscoveredSource} from './source-references.js';
 import {recordVerifiedSourceText,deadlineEvidenceSuggestions} from './deadline-evidence.js';
 import {extractTextFromBuffer} from '../master-data-extract.js';
 import {localAlertDay} from './alert-policy.js';
@@ -110,16 +111,18 @@ export async function decodeDocument(bytes,mime,name,extract=extractTextFromBuff
 /** A bounded read orchestration; every inner operation uses the same owner,
  * caller grants, selected-app scope and action policy as connector execution. */
 export async function readFloAssistSource(owner,input,{db=getDb(),context=currentFloAssistScope(),execute,readTransit,extract=extractTextFromBuffer,authorize=authorizeSourceAction,assess=assessFloAssistSource,caller,now=Date.now(),discoverUnknownSources=false}={}){
- if(input.review_all===true){
-  if(input.source_id||input.cursor||input.task_id||input.kind)fail('FLOASSIST_REVIEW_SCOPE','Whole-period review requires discovery filters, not a source or continuation.');
-  const {review_all,...request}=input;
-  const {reviewSourcePeriod}=await import('./period-review.js');
-  return reviewSourcePeriod(owner,request,part=>readFloAssistSource(owner,part,{db,context,execute,readTransit,extract,authorize,assess,caller,discoverUnknownSources:true}),{scope:context||{}});
- }
  const profile=db.prepare('SELECT agent_id,status,preferences_json FROM floassist_profiles WHERE owner_id=?').get(owner);
  if(!profile)fail('FLOASSIST_OWNER_DENIED','FloAssist profile is required.',403);
  if(context&&context.owner!==owner)fail('FLOASSIST_OWNER_DENIED','Source owner mismatch.',403);
  const scope=context||{owner,origin:'source_read'};
+ assertMailboxSourceId(input);
+ input=resolveMailboxDay(input,JSON.parse(profile.preferences_json||'{}').timezone||'UTC',now);
+ if(input.review_all===true){
+  if(input.source_id||input.cursor||input.task_id||input.kind)fail('FLOASSIST_REVIEW_SCOPE','Whole-period review requires discovery filters, not a source or continuation.');
+  const {review_all,...request}=input;
+  const {reviewSourcePeriod}=await import('./period-review.js');
+  return reviewSourcePeriod(owner,request,part=>readFloAssistSource(owner,part,{db,context,execute,readTransit,extract,authorize,assess,caller,now,discoverUnknownSources:true}),{scope});
+ }
  const api=execute?null:await import('../openconnector.js');
  execute=execute||api.executeConnectorAction;readTransit=readTransit||api?.readConnectorTransitFile;
  return withFloAssistScope(scope,async()=>{
@@ -169,9 +172,9 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   // Interactive mailbox reviews need the same bounded discovery as scheduled
   // reviews. Without an ID, never silently substitute one latest thread.
   const mailboxDiscovery=!id&&['gmail','outlook'].includes(app);
-  if(discoverUnknownSources&&(!cursorContinuation||input.discovery_page_token)&&!input.task_id&&input.kind!=='draft'&&(mailboxDiscovery||scope.run&&id)&&!(app==='google_calendar'&&id==='primary')){
+  if(discoverUnknownSources&&(!cursorContinuation||input.discovery_page_token)&&!input.task_id&&input.kind!=='draft'&&(mailboxDiscovery||id&&(scope.run||['gmail','outlook'].includes(app)))&&!(app==='google_calendar'&&id==='primary')){
    ensureSourceReceipts(db);
-   const known=id&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id);
+   const known=id&&(knownDiscoveredSource(db,owner,app,id,scope)||scope.run&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id));
    const task=id&&db.prepare('SELECT task_id FROM floassist_task_tracking WHERE owner_id=? AND app_id=? AND source_id=?').get(owner,app,id);
    if(!known&&!task){
     let candidates=[],more=false,account,nextDiscovery=null,effectiveWindow;
@@ -204,6 +207,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
      assertFloAssistConnector(owner,`${providers[app]}.source_discovery`,db,scope);
      return {app_id:app,requested_source_read:false,content_verified:false,needs_source_selection:true,guidance:'This identifier has not been verified in this run. Use provider discovery and copy its exact item ID, or read an existing task with task_id only. No guessed item was sent to the provider.'};
     }
+    rememberDiscoveredSources(db,owner,candidates,scope);
     if(scope.run)for(const c of candidates)requireSourceReview(db,scope,c,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
     if(more&&scope.run)recordSourceCoverage(db,scope,{app_id:app,source_id:'@discovery'},'discovery',false,nextDiscovery);
     if(!more&&scope.run&&input.discovery_page_token)recordSourceCoverage(db,scope,{app_id:app,source_id:'@discovery'},'discovery',true,null);

@@ -1,3 +1,4 @@
+import {rememberSourceFailure,rewriteSourceFailureReply} from './source-failure-reply.js';
 import {physicalContextHint,physicalDiscoveryTurnHint} from './physical-context.js';
 import {resolveTurnTaskPrompt} from './turn-task-context.js';
 import {composeTaskGuidance} from './task-context-guidance.js';
@@ -1105,7 +1106,7 @@ export default definePluginEntry({
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     registerNativeRetentionService(api,{baseUrl:resolvePluginConfig(api).baseUrl,brokerSecret:loadToolBrokerSecret,root:OPENCLAW_DIR});
     if (typeof api.on === "function") {
-      api.on('reply_payload_sending',async event=>stripNativeSkillMarker(event,await rewriteBudgetFailureReply(event,{lookup:async body=>{
+      api.on('reply_payload_sending',async event=>stripNativeSkillMarker(event,rewriteSourceFailureReply(event)||await rewriteBudgetFailureReply(event,{lookup:async body=>{
         const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
         if(!base)throw new Error('Budget lookup unavailable');
         const response=await fetch(base+'/api/tools/native-model-budget/failure-reason',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify(body),signal:AbortSignal.timeout(3000)});
@@ -1247,11 +1248,12 @@ export default definePluginEntry({
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
+              if(name==='floassist_source_read')rememberSourceFailure(toolCtx?.sessionKey||safeApiSessionKey(api),runtimeRunId(toolCtx,api.context),result);
               // The native harness classifies thrown failures reliably; some
               // adapters discard an isError field on a normally returned result.
               if (result.data?._execution?.status === "budget_exhausted") throw new Error("FLOASSIST_TOOL_BUDGET_EXHAUSTED: The request limit was reached. Stop tool calls and report verified progress plus remaining work. Start a new request to continue; no provider call was made by this blocked attempt.");
               if (result.data?._execution?.status === "duplicate_blocked") {
-                return { content: [{ type: "text", text: JSON.stringify({ ...result.data, agent_reply_instructions: "No new execution occurred. Read _execution.previous_observation: if successful, use its recorded result to answer; if failed, report that actual failure. A duplicate block does not mean the original action failed or succeeded. Do not call again or vary arguments." }) }] };
+                return { content: [{ type: "text", text: JSON.stringify({ ...result.data, agent_reply_instructions: "No new execution occurred. Read _execution.previous_observation: if successful, use its recorded result to answer; if failed, report that actual failure. A duplicate block does not mean the original action failed or succeeded. Do not repeat or disguise the same action. If the original failed and the server returned next_call or next_action, follow that correction instead; it is not a duplicate bypass. Never say emails were already retrieved when the original read failed." }) }] };
               }
               if (!result.ok) {
                 return { isError: true, content: [{ type: "text", text: JSON.stringify(result.data || { error: result.error }) }] };

@@ -20,7 +20,7 @@ const run=fn=>async(req,res)=>{try{
   const service=getFloAssist();service.profile(owner);
   const result=trackingReferenceResult(getDb(),owner,await fn(owner,req.body||{},service,req));
   res.json({ok:true,...(req.path==='/floassist-source-read'?sourceReadContract(trackSourceReviewProgress(currentFloAssistScope(),result,req.body||{}),req.body||{}):result)});
-}catch(e){recordRunError(e,{trackingInput:req.path==='/floassist-tracking-observe'?req.body:undefined,sourceInput:req.path==='/floassist-source-read'?req.body:undefined});res.status(e.status||500).json({ok:false,error:e.status?e.message:'FloAssist operation failed.',code:e.code,...(e.next_action?{next_action:e.next_action}:{})});}};
+}catch(e){recordRunError(e,{trackingInput:req.path==='/floassist-tracking-observe'?req.body:undefined,sourceInput:req.path==='/floassist-source-read'?req.body:undefined});res.status(e.status||500).json({ok:false,error:e.status?e.message:'FloAssist operation failed.',code:e.code,...(e.next_action?{next_action:e.next_action}:{}),...(e.next_call?{next_call:e.next_call}:{})});}};
 router.post('/floassist-status',run((owner,_b,s)=>s.view(owner)));
 router.post('/floassist-source-read',run((owner,b,_s,req)=>readFloAssistSource(owner,b,{discoverUnknownSources:true,caller:req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']})));
 router.post('/floassist-reminder-create',run((owner,b)=>({reminder:createReminder(getDb(),owner,b)})));
