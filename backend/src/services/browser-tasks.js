@@ -108,9 +108,8 @@ export function sanitizeUtf8Text(value) {
 }
 
 /** Accept native objects and JSON-encoded objects from tool callers uniformly. */
-export function normalizeBrowserTaskInput(value) {
-  if (value == null || value === '') return {};
-  let parsed = value;
+export function normalizeBrowserTaskInput(value, body = {}) {
+  let parsed = value == null || value === '' ? {} : value;
   if (typeof parsed === 'string') {
     try {
       parsed = JSON.parse(parsed);
@@ -127,6 +126,9 @@ export function normalizeBrowserTaskInput(value) {
     error.status = 400;
     throw error;
   }
+  const operation = parsed.operation || parsed.action_effect || parsed.actionEffect || body.operation || body.action_effect || body.actionEffect;
+  if (operation && !parsed.operation) parsed = {...parsed, operation};
+  if (body.read_only === true || body.readOnly === true || body.prepare_only === true || body.prepareOnly === true) parsed = {...parsed, read_only:true};
   return parsed;
 }
 
@@ -390,13 +392,29 @@ async function browserInvoke(ceoUserId, action, extra = {}, agentId = 'browser-c
     error.status = 503;
     throw error;
   }
-  const { profile } = resolveBrowserProfile(ceoUserId);
+  const profile = browserTaskProfile(pinned, resolveBrowserProfile(ceoUserId).profile);
   if (profile === 'openclaw') {
     await ensureManagedBrowserReady({ restartOnFailure: false });
   }
   // Keep agentId for task ownership and audit context; browser CDP invokes must use an agent not denied browser.
   const cdpAgent = BROWSER_CDP_AGENT_ID;
-  return invokeBrowserAction(action, cdpAgent, { profile, ...extra });
+  const result = await invokeBrowserAction(action, cdpAgent, { profile, ...extra });
+  return requireBrowserActionSuccess(result);
+}
+
+export function requireBrowserActionSuccess(result) {
+  if (!result?.ok) {
+    throw Object.assign(new Error(String(result?.text || 'Browser action failed').slice(0, 500)), {
+      code: 'BROWSER_ACTION_FAILED', status: result?.status || 502,
+    });
+  }
+  return result;
+}
+
+// Executor selection is pinned before any navigation. A managed fallback must
+// not inherit a legacy client-Chrome preference and reach the relay again.
+export function browserTaskProfile(task, configuredProfile) {
+  return task?.selected_driver_mode === 'managed_playwright' ? 'openclaw' : configuredProfile;
 }
 
 async function takeSnapshot(ceoUserId, agentId = 'workflowbuilder', { limit = 6000 } = {}) {
@@ -1155,6 +1173,7 @@ async function verifyGoalCompletion({ ceoUserId, goal, plan, snapshot, history, 
             'Independently verify whether a browser goal is complete. Reply with only JSON: ' +
             '{"satisfied":true|false,"reason":"","evidence":[""],"missing_evidence":[""]}. ' +
             'Require observable evidence from the snapshot and action history. Reject unsupported success claims. ' +
+            'The plan describes intended work, not observed evidence. Respect conditional requirements: "up to" is a maximum, and links or fields explicitly allowed to be unavailable are optional. Never require or invent unavailable data. ' +
             'Tab cleanup is performed by the backend after verified completion, so it need not appear in pre-completion evidence. ' +
             'For data extraction, require the requested values in the proposed summary, not merely a claim that the page opened.',
         },
@@ -1494,9 +1513,14 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   }
   if (mode === 'recorder' && !goal) goal = body.name || 'Recorded browser session';
 
-  const taskInput = mode === 'recipe_replay'
+  const normalizedInput = mode === 'recipe_replay'
     ? normalizeRecipeInputs(body.inputs ?? body.input ?? {})
-    : normalizeBrowserTaskInput(body.input);
+    : normalizeBrowserTaskInput(body.input, body);
+  // Preserve an explicit read-only instruction even when a coordinator omits
+  // input.operation. Negated write words must not activate write accelerators.
+  const taskInput = mode !== 'recipe_replay' && explicitReadOnlyBrowserGoal(goal)
+    ? { ...normalizedInput, read_only: true }
+    : normalizedInput;
   const structuredPublish = structuredSocialPublishInput(taskInput);
   if (structuredPublish && !structuredPublish.valid) {
     const err = new Error('input.operation=social_publish requires a supported platform, body of at least 20 characters, and all safe-publish constraints enabled with max_submissions=1');
@@ -1652,8 +1676,9 @@ function fallbackTaskSummary(task) {
   return `Opened ${task?.start_url || 'the requested page'}; no readable content captured. task_id=${task?.id || 'unknown'}`;
 }
 
-function completedTaskSummary(summary, task) {
-  return String(summary || '').trim() || fallbackTaskSummary(task);
+export function completedTaskSummary(summary, task) {
+  const text = summary && typeof summary === 'object' ? JSON.stringify(summary) : String(summary || '');
+  return text.trim() || fallbackTaskSummary(task);
 }
 
 function browserArtifactsFromSteps(steps) {
@@ -1679,6 +1704,10 @@ export function goalLooksInteractive(goalText, { readOnly = false } = {}) {
   return /\b(publish|post|compose|submit|share|create a (new )?(post|tweet|update)|reply|comment|type|fill|click|upload|message|send|like|follow|connect|apply|paste|download|generate|capture|screen\s*shot|png|save (?:an? )?(?:image|screen\s*shot)|prompt box|prompt text|start generation|scene\s+\d+|google flow|labs\.google\/fx\/tools\/flow)\b/i.test(
     g
   );
+}
+
+export function explicitReadOnlyBrowserGoal(goalText) {
+  return /\bread[\s-]+only\b/i.test(String(goalText || ''));
 }
 
 /**
@@ -1879,6 +1908,7 @@ export function snapshotSummaryPrompt(goal, snapshot) {
     (flightGoal
       ? 'If flights are visible, list the top options sorted by ascending price with airline, stops, duration, and price. Prefer direct/nonstop when the goal asks for that. Do not invent prices or airlines. Prefer the DOM_RESULTS section when present because it has the flight cards. '
       : 'Stay specific to this goal and page. Do not introduce flight-search instructions or unrelated domains. ') +
+    ' Include only exact URLs observed in the supplied page evidence. Never construct a plausible URL from an author name or title. If unavailable, say the source URL was not captured. ' +
     '\nSnapshot:\n' +
     String(snapshot || '').slice(0, 20000)
   );
@@ -1896,7 +1926,17 @@ async function summarizeGoalFromSnapshot(ceoUserId, goal, snapshot) {
     ownerUserId: ceoUserId,
     toolName: 'browse_task_start',
   });
-  return String(content || '').trim();
+  return groundBrowserSummaryLinks(String(content || '').trim(), snapshot);
+}
+
+export function groundBrowserSummaryLinks(summary, evidence) {
+  const urls=text=>String(text||'').match(/https?:\/\/[^\s<>"'\])]+/g)||[];
+  const normalize=value=>{try{return new URL(value.replace(/[.,;]+$/,'')).href;}catch{return value;}};
+  const observed=new Set(urls(evidence).map(normalize));
+  let text=String(summary||'').replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (match,label,url)=>observed.has(normalize(url))?match:`${label} (source URL not captured)`);
+  for(const url of new Set(urls(text)))if(!observed.has(normalize(url)))text=text.split(url).join('[source URL not captured]');
+  return text;
 }
 
 function recordBrowserTaskOutcome(ceoUserId, task, { rating, comment, note }) {
@@ -2330,8 +2370,9 @@ async function runAutonomous(ceoUserId, taskId) {
     }
     parseFallbackStreak = 0;
     if (act === 'done') {
-      const summary = completedTaskSummary(decision.summary || decision.reason, task);
       const verificationSnapshot = await takeSnapshot(ceoUserId, agentId);
+      const proposedSummary = completedTaskSummary(decision.summary || decision.reason, task);
+      const summary = readOnly ? groundBrowserSummaryLinks(proposedSummary, verificationSnapshot) : proposedSummary;
       const verification = await verifyGoalCompletion({
         ceoUserId,
         goal: task.goal_text,

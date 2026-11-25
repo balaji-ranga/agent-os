@@ -76,5 +76,19 @@ try{
  const failed=tracking.createTrackedTool({owner,agent,session:'web-fixture',tool:'master_data_list_tables',actionId:'business-failure'});
  tracking.settleTrackedTool(failed.id,{data:{ok:false,error:'Fixture rejection'}});
  assert.equal(tracking.trackedStatus({owner,agent,session:'web-fixture',trackingId:failed.id}).requests[0].status,'failed','HTTP 200 is not proof of tool success');
- console.log('ASYNC_TOOL_TRACKING_OK: existing list-tables sync/async parity; virtual-TV completion; one dispatch; correlated single notifications; follow-up lookup; tenant/conversation isolation; interrupted request never replayed');
+ db.prepare("INSERT INTO agents(id,name,openclaw_agent_id) VALUES('employee','Fixture','employee')").run();
+ db.prepare("INSERT INTO chat_sessions(id,agent_id,owner_user_id,title,status) VALUES('original-chat','employee',?,'Original','archived'),('new-chat','employee',?,'New','active')").run(owner,owner);
+ db.prepare("INSERT INTO chat_work_units(id,owner_user_id,agent_id,session_id,relation,execution_mode,resolved_request) VALUES('original-work',?,'employee','original-chat','new','direct_tool','read a page')").run(owner);
+ const callback=tracking.createTrackedTool({owner,agent,session:'web-callback',tool:'browse_task_start',actionId:'chat-callback'});
+ assert.equal(tracking.bindTrackedChat(callback.id,'original-work'),true);
+ tracking.settleTrackedTool(callback.id,{data:{status:'failed',reply:'Browser failure returned to the original conversation.'}});
+ await tracking.advanceTrackedTools({db});await tracking.advanceTrackedTools({db});
+ const chat=db.prepare("SELECT * FROM chat_turns WHERE session_id='original-chat'").all();
+ assert.equal(chat.length,1);assert(chat[0].content.includes(callback.id));assert(chat[0].content.includes('Browser failure'));
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM chat_turns WHERE session_id='new-chat'").get().n,0,'never redirect to a newer conversation');
+ assert.equal(tracking.deliverTrackedChat(callback,db),true);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM chat_turns WHERE session_id='original-chat'").get().n,1,'callback is durable and deduplicated');
+ const outsider=tracking.createTrackedTool({owner:'outsider',agent,session:'web-outsider',tool:'read',actionId:'wrong-owner'});
+ assert.equal(tracking.bindTrackedChat(outsider.id,'original-work'),false);
+ console.log('ASYNC_TOOL_TRACKING_OK: sync/async parity; correlated single callbacks; original-chat delivery after archive; tenant isolation; no action replay');
 }finally{(await import('../src/db/ceo-db.js')).closeCeoDb(owner);db.close();rmSync(root,{recursive:true,force:true});}

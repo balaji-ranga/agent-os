@@ -155,7 +155,7 @@ export function compactRouterInput(input, maxChars = 60000) {
       is_orchestrator: agent.is_orchestrator, capabilities: agent.capabilities.slice(0, 20),
       skills: agent.skills.slice(0, 2).map(({ id, name, version, version_id, ready }) => ({ id, name, version, version_id, ready })),
     }));
-    value.candidate_turns = value.candidate_turns.slice(-2).map((turn) => ({ id: turn.id, role: turn.role, content: turn.content.slice(0, 250), work_unit_id: turn.work_unit_id }));
+    value.candidate_turns = value.candidate_turns.slice(-2).map((turn) => ({ id: turn.id, role: turn.role, content: turn.content.slice(0, 250), work_unit_id: turn.work_unit_id, status: turn.status, work_status: turn.work_status }));
   }
   if (originalChars > maxChars) {
     value._context_compaction = { compacted: true, original_chars: originalChars, budget_chars: maxChars, actual_chars: size() };
@@ -186,6 +186,7 @@ Rules:
 - The platformhelp agent is a direct product-help conversation/tool-loop surface. For it, choose chat for explanations and direct_tool for one bounded help lookup; never choose goal_plan.
 - Do not classify a detailed standalone specification as follow_up merely because its prose contains pronouns.
 - A terminal execution is historical evidence, not permission to restart it. Only select it when the current message semantically requests continuation/retry/status.
+- A self-contained request to fetch fresh information is new_work even if earlier turns concern the same topic. Topic similarity alone does not make it a follow_up. A new fetch is distinct from asking for the status of an earlier fetch. Use the candidate work_status to distinguish historical outcomes from active work.
 - restart_requested is true only when the user explicitly asks to retry, rerun, resume, or repeat terminal work; it is false for a status question or a new request.
 - resolved_request must be self-contained and must not add requirements.
 - relevant_turn_ids must come only from the supplied candidate list.`;
@@ -292,8 +293,15 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
     })),
     capability_catalog,
     registered_physical_assets: physicalAgentAssets({ownerUserId,principal:'agent:'+(agent.openclaw_agent_id||agent.id),grants:currentCapabilities.map(c=>typeof c==='string'?c:c.name)}),
-    current_message: String(message || ''), candidate_turns: compactTurns(history),
+    current_message: String(message || ''), candidate_turns: compactTurns(history).map(turn=>({...turn,work_status:turn.status||null})),
   });
+}
+
+export function terminalRelationErrors(decision,input) {
+  if(!['follow_up','correction'].includes(decision?.relation)||decision.restart_requested||decision.execution_mode==='chat')return [];
+  const selected=new Set(decision.relevant_turn_ids||[]);
+  const terminal=(input.candidate_turns||[]).some(t=>selected.has(t.id)&&['completed','partial_success','failed','cancelled'].includes(t.work_status));
+  return terminal?['Resolve terminal-work intent: a fresh fetch is new_work; an explicit retry uses restart_requested=true; a historical status question uses chat. Do not silently substitute an old result for newly requested work.']:[];
 }
 
 export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, history = [], semanticDecision = null, replyToMessageId = null }) {
@@ -343,7 +351,7 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
         parsed = normalizeRouteDecision(extractJson(content), { message, replyToMessageId });
         routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id), organization.map((member) => member.id));
         if(routeValidation.ok){
-          const evidenceErrors=validateExecutorEvidence(parsed,routeInput);
+          const evidenceErrors=[...validateExecutorEvidence(parsed,routeInput),...terminalRelationErrors(parsed,routeInput)];
           if(evidenceErrors.length)routeValidation={ok:false,errors:evidenceErrors};
           else if(requiresExecutorFitCheck(parsed,routeInput))routeValidation={ok:false,errors:['Independently verify orchestrator direct execution against available specialist ownership, regardless of confidence']};
         }
@@ -385,7 +393,7 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
         durable = normalizeRouteDecision(extractJson(content), { message, replyToMessageId });
         durableValidation = validateRouteDecision(durable, candidates.map(turn => turn.id), organization.map(member => member.id));
         if(durableValidation.ok){
-          const evidenceErrors=validateExecutorEvidence(durable,routeInput);
+          const evidenceErrors=[...validateExecutorEvidence(durable,routeInput),...terminalRelationErrors(durable,routeInput)];
           if(evidenceErrors.length)durableValidation={ok:false,errors:evidenceErrors};
         }
         if (durableValidation.ok && needsRouteAdjudication(durableValidation, durable)) {
@@ -433,7 +441,7 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
   const resolvedRequest = relation === 'new_work' || relation === 'conversation'
     ? String(message || '').trim()
     : `${String(parsed?.resolved_request || message || '').trim()}\n\nCurrent user instruction (verbatim):\n${String(message || '').trim()}`;
-  const parentWorkUnitId = selectedTurns.map((t) => t.work_unit_id).find(Boolean) || null;
+  const parentWorkUnitId = ['follow_up','correction'].includes(relation) ? selectedTurns.map((t) => t.work_unit_id).find(Boolean) || null : null;
   const parent = parentWorkUnitId ? db().prepare('SELECT status FROM chat_work_units WHERE id=? AND owner_user_id=?').get(parentWorkUnitId, ownerUserId) : null;
   const terminalParent = ['completed', 'partial_success', 'failed', 'cancelled'].includes(String(parent?.status || '').toLowerCase());
   const restartRequested = parsed?.restart_requested === true;

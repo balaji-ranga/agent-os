@@ -126,6 +126,12 @@ try {
     assert.equal(repaired.confidence,0.91);assert.equal(repaired.execution_mode,'delegate');
   });
   const history=[{id:45,role:'user',content:'Review inbox read-only',work_unit_id:'fixture-parent'}];
+  db.prepare("INSERT INTO chat_work_units(id,owner_user_id,agent_id,session_id,relation,execution_mode,resolved_request,status) VALUES('fixture-parent','router-owner','router-coo','fixture-session','new_work','direct_tool','Previous review','failed')").run();
+  const fresh=await run([{...valid,relation:'follow_up',relevant_turn_ids:[45],parent_work_unit_id:'fixture-parent'}, {...valid,relevant_turn_ids:[45]}],{history});
+  check('fresh fetch after terminal work is adjudicated without inheriting terminal guard',()=>{
+    assert.equal(calls.length,2);assert.equal(fresh.relation,'new_work');assert.equal(fresh.parent_work_unit_id,null);assert.equal(fresh.terminal_parent_guarded,false);assert.equal(fresh.execution_mode,'delegate');
+    assert(JSON.parse(calls[1].body.messages[1].content).validation_errors.some(e=>e.includes('terminal-work intent')));
+  });
   const corrected={...valid,relation:'correction',relevant_turn_ids:[45],parent_work_unit_id:'fixture-parent',restart_requested:true};
   const resumed=await run([bad,corrected],{history});
   check('adjudication preserves selected context and restart intent',()=>{assert.equal(resumed.relation,'correction');assert.deepEqual(resumed.relevant_turn_ids,[45]);assert.equal(resumed.restart_requested,true);});

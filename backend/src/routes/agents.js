@@ -1563,7 +1563,7 @@ router.post('/:id/chat', requireAuth, (req,res,next) => {
     const sessionUser = dashboardGatewaySessionUser(agentId, ownerUserId, threadId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
     registerOpenClawSessionOwner(sessionKey, ownerUserId, req.authUser.id, 'web', {
-      original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id, agent_id: agentId, client_turn_id: liveScope?.turnId,
+      original_request: message.trim(), resolved_request: routedMessage, resolved_user_request: resolvedMessage, work_unit_id: turnRoute.id, agent_id: agentId, client_turn_id: liveScope?.turnId,
     });
     registerActiveDashboardChat(agentId, ownerUserId, routedMessage, turnRoute.id);
     let sessionToolSelection = selectSessionContentTools({
@@ -1690,7 +1690,7 @@ router.post('/:id/chat', requireAuth, (req,res,next) => {
           ownerUserId,
           req.authUser.id,
           'web',
-          { original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id, agent_id: agentId, client_turn_id: liveScope?.turnId }
+          { original_request: message.trim(), resolved_request: routedMessage, resolved_user_request: resolvedMessage, work_unit_id: turnRoute.id, agent_id: agentId, client_turn_id: liveScope?.turnId }
         );
         installSessionToolScope(retrySessionKey, sessionToolSelection);
         try {

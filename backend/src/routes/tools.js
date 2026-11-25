@@ -71,6 +71,7 @@ import {
   verifyToolBrokerSecret,
 } from '../services/tool-scoped-token.js';
 import { resolveBrowserTaskExecutorPreference } from '../services/goal-plan-tool-args.js';
+import { browserTaskHandoff } from '../services/browser-task-handoff.js';
 
 function isDirectPrivateServiceRequest(req) {
   if (req.headers?.['x-forwarded-for'] || req.headers?.forwarded) return false;
@@ -4523,7 +4524,7 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
     const executionContext = lookupSessionExecutionContext(
       req.headers['x-openclaw-session-key'] || req.headers['x-session-key'], ownerUserId
     );
-    const normalizedInput = normalizeBrowserTaskInput(requestPayload.input);
+    const normalizedInput = normalizeBrowserTaskInput(requestPayload.input, requestPayload);
     const executorPreference = resolveBrowserTaskExecutorPreference(requestPayload, executionContext);
     const task = await startBrowserTask(ownerUserId, {
       ...requestPayload,
@@ -4533,12 +4534,7 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
         goal_step_id: executionContext.goal_step_id || requestPayload.goal_step_id,
       } : { input: normalizedInput }),
       ...executorPreference,
-      ...(executionContext ? { goal: [
-        'Original user request (preserve its outcomes and constraints):', executionContext.original_request,
-        'Resolved conversation context:', executionContext.resolved_request,
-        'Browser-specific assignment:', requestPayload.goal || requestPayload.goal_text || '',
-        'Perform only browser work relevant to this assignment. Do not execute unrelated actions from the broader request.',
-      ].join('\n') } : {}),
+      ...browserTaskHandoff(requestPayload, executionContext, normalizedInput),
       agent_id: source || requestPayload.agent_id || 'workflowbuilder',
     });
     logTool(req, 'browse_task_start', requestPayload, { ok: true, id: task.id }, 'ok', source);

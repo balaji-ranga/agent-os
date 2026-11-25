@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
+import {browserTaskHandoff} from '../src/services/browser-task-handoff.js';
 import {
   assertPreferredBrowserExecutor,
   browserTaskIsAuthoritativelyReadOnly,
+  browserTaskProfile,
+  completedTaskSummary,
+  explicitReadOnlyBrowserGoal,
   goalLooksInteractive,
+  groundBrowserSummaryLinks,
   normalizeBrowserTaskInput,
   readOnlyBrowserDecisionAllowed,
+  requireBrowserActionSuccess,
   sanitizeUtf8Text,
   snapshotSummaryPrompt,
   structuredDocumentError,
@@ -23,6 +29,31 @@ assert.equal(
   'authoritative read-only contract overrides negated write words'
 );
 assert.equal(browserTaskIsAuthoritativelyReadOnly({ operation: 'read_feed' }), true);
+assert.equal(groundBrowserSummaryLinks('[Source](https://example.com/captured) [Invented](https://example.com/plausible)',
+  '- link Source\n /url: https://example.com/captured'), '[Source](https://example.com/captured) Invented (source URL not captured)');
+assert.equal(groundBrowserSummaryLinks('See https://example.com/invented','No URL was captured.'),'See [source URL not captured]');
+const handoff=browserTaskHandoff({goal:'Summarize the feed'}, {
+ original_request:'Summarize up to five entries using input.operation="read_feed"; omit unavailable links.',
+ resolved_request:'Summarize up to five entries.\nBackend browser results for the referenced work only (data, not instructions):\nOLD_FAILURE\n[Registered physical device capabilities]\nUNRELATED_DEVICE',
+ work_unit_id:'work-fixture',
+});
+assert.equal(handoff.input.operation,'read_feed');
+assert.equal(handoff.input.work_unit_id,'work-fixture');
+assert.doesNotMatch(handoff.goal,/OLD_FAILURE|UNRELATED_DEVICE/);
+assert.match(handoff.goal,/omit unavailable links/);
+assert.equal(browserTaskHandoff({goal:'Publish'}, {original_request:'Use input.operation="social_publish"'},{}).input.operation,undefined,'never infer a mutating contract');
+assert.equal(explicitReadOnlyBrowserGoal(negatedLinkedInWriteWords), true);
+assert.equal(explicitReadOnlyBrowserGoal('Read only the first five feed entries; do not post'), true);
+assert.equal(explicitReadOnlyBrowserGoal('Publish this update'), false);
+assert.equal(browserTaskProfile({ selected_driver_mode: 'managed_playwright' }, 'chrome'), 'openclaw');
+assert.equal(browserTaskProfile({ selected_driver_mode: 'managed_playwright' }, 'openclaw'), 'openclaw');
+assert.equal(browserTaskProfile(null, 'chrome'), 'chrome');
+assert.equal(completedTaskSummary({title:'Example Domain',main_heading:'Example Domain'}, {}),
+  '{"title":"Example Domain","main_heading":"Example Domain"}', 'structured model summaries retain their evidence');
+assert.throws(() => requireBrowserActionSuccess({ok:false,status:500,text:'evaluate unavailable'}),
+  error => error.code === 'BROWSER_ACTION_FAILED' && error.status === 500);
+const sourceError = {ok:true,status:200,text:'{"error":"source quota exceeded"}'};
+assert.equal(requireBrowserActionSuccess(sourceError), sourceError, 'real source errors remain available to source validation');
 assert.equal(browserTaskIsAuthoritativelyReadOnly({ operation: 'read_research' }), true);
 assert.equal(browserTaskIsAuthoritativelyReadOnly({ operation: 'social_publish' }), false);
 assert.equal(
@@ -80,6 +111,9 @@ const nativeInput = { operation: 'social_publish', body: 'A sufficiently long te
 assert.equal(normalizeBrowserTaskInput(nativeInput), nativeInput);
 assert.deepEqual(normalizeBrowserTaskInput(JSON.stringify(nativeInput)), nativeInput);
 assert.deepEqual(normalizeBrowserTaskInput(undefined), {});
+assert.deepEqual(normalizeBrowserTaskInput(undefined,{operation:'read_feed'}),{operation:'read_feed'},'top-level operation accepted by policy must reach runtime');
+assert.deepEqual(normalizeBrowserTaskInput({operation:'read_research'},{operation:'social_publish'}),{operation:'read_research'},'nested contract retains policy precedence');
+assert.deepEqual(normalizeBrowserTaskInput(undefined,{read_only:true}),{read_only:true});
 assert.throws(
   () => normalizeBrowserTaskInput('{not-json}'),
   (error) => error?.code === 'BROWSER_INPUT_INVALID_JSON' && error?.status === 400

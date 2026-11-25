@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {getDb} from '../db/schema.js';
 import {parseTenantOpenClawAgentId} from './openclaw-tenant.js';
-import {lookupOpenClawSessionActor} from './tool-owner-scope.js';
+import {lookupOpenClawSessionActor,lookupSessionExecutionContext} from './tool-owner-scope.js';
 import {sendPlatformNotifications} from './platform-notifications.js';
 import {announceOnAgentChannel} from './agent-channel-announce.js';
 import {redactForStorage} from './tool-execution-governor.js';
@@ -18,6 +18,8 @@ export function ensureAsyncTracking(db=getDb()){
  deadline_ms INTEGER NOT NULL,notification_state TEXT NOT NULL DEFAULT 'pending',notification_attempts INTEGER NOT NULL DEFAULT 0,next_notify_ms INTEGER NOT NULL DEFAULT 0);
  CREATE INDEX IF NOT EXISTS idx_tool_async_scope ON tool_async_jobs(owner_user_id,agent_id,session_key,created_at);
  CREATE INDEX IF NOT EXISTS idx_tool_async_pending ON tool_async_jobs(status,notification_state);`);
+ const columns=new Set(db.prepare('PRAGMA table_info(tool_async_jobs)').all().map(c=>c.name));
+ for(const name of ['chat_session_id','work_unit_id','chat_turn_id'])if(!columns.has(name))db.exec(`ALTER TABLE tool_async_jobs ADD COLUMN ${name} ${name==='chat_turn_id'?'INTEGER':'TEXT'}`);
  stores.add(db);return db;
 }
 export function createTrackedTool({owner,agent,session='',tool,actionId,timeoutMs=60000,origin},db=getDb()){
@@ -32,7 +34,38 @@ export function createTrackedTool({owner,agent,session='',tool,actionId,timeoutM
  const actor=lookupOpenClawSessionActor(session);
  const id='track-'+randomUUID(),now=new Date().toISOString();
  db.prepare(`INSERT INTO tool_async_jobs(id,owner_user_id,agent_id,session_key,actor_user_id,tool_name,action_id,channel,target,status,created_at,updated_at,deadline_ms) VALUES(?,?,?,?,?,?,?,?,?,'running',?,?,?)`).run(id,owner,agent,session,actor?.ownerUserId===owner?actor.actorUserId:owner,tool,actionId,wa?'whatsapp':'web',wa?target:null,now,now,Date.now()+Math.max(timeoutMs,30000)+30000);
+ const work=lookupSessionExecutionContext(session,owner)?.work_unit_id;
+ if(work)bindTrackedChat(id,work,db);
  return db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(id);
+}
+// Bind only a persisted, owner/agent/actor-scoped work unit; never the currently
+// active chat, which may have changed before an asynchronous result arrives.
+export function bindTrackedChat(id,workUnitId,db=getDb()){
+ ensureAsyncTracking(db);
+ const job=db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(id);if(!job||job.channel!=='web')return false;
+ const base=parseTenantOpenClawAgentId(job.agent_id)?.baseOpenClawId||job.agent_id;
+ const target=db.prepare(`SELECT s.id,w.id AS work_id FROM chat_work_units w
+ JOIN chat_sessions s ON s.id=w.session_id AND s.agent_id=w.agent_id
+ JOIN agents a ON a.id=w.agent_id
+ WHERE w.id=? AND w.owner_user_id=? AND s.owner_user_id=? AND (a.id=? OR a.openclaw_agent_id=?)`).get(workUnitId,job.owner_user_id,job.actor_user_id,base,base);
+ if(!target)return false;
+ db.prepare('UPDATE tool_async_jobs SET chat_session_id=?,work_unit_id=? WHERE id=? AND chat_session_id IS NULL').run(target.id,target.work_id,id);
+ return true;
+}
+export function deliverTrackedChat(job,db=getDb()){
+ ensureAsyncTracking(db);
+ return db.transaction(()=>{
+  const row=db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(job.id);
+  if(!row||!terminal.has(row.status)||!row.chat_session_id||row.channel!=='web')return false;
+  if(row.chat_turn_id)return true;
+  const base=parseTenantOpenClawAgentId(row.agent_id)?.baseOpenClawId||row.agent_id;
+  const target=db.prepare(`SELECT s.agent_id FROM chat_sessions s JOIN agents a ON a.id=s.agent_id
+   WHERE s.id=? AND s.owner_user_id=? AND (a.id=? OR a.openclaw_agent_id=?)`).get(row.chat_session_id,row.actor_user_id,base,base);
+  if(!target)return false;
+  const turn=db.prepare("INSERT INTO chat_turns(agent_id,owner_user_id,role,content,session_id,work_unit_id) VALUES(?,?,'assistant',?,?,?)").run(target.agent_id,row.actor_user_id,notice(row),row.chat_session_id,row.work_unit_id);
+  db.prepare('UPDATE tool_async_jobs SET chat_turn_id=? WHERE id=?').run(Number(turn.lastInsertRowid),row.id);
+  return true;
+ })();
 }
 export function trackingAck(job){return {ok:true,async:true,trackingId:job.id,status:job.status,notificationChannel:job.channel,notification:job.notification_state,instruction:`Tell the user this request is tracked as ${job.id}. ${['sent','web_fallback'].includes(job.notification_state)?'Its final update has already been reported; do not send another unsolicited update.':'A final update will use the same tracking ID.'} Do not repeat the action. For follow-up questions use tool_execution_status with trackingId ${job.id}, or without an ID to list this conversation's recent requests.`};}
 export function dispatchTrackedTool(scope,execute,{db=getDb(),onResult=()=>{}}={}){
@@ -95,6 +128,7 @@ function notice(job){const r=job.result_json?JSON.parse(job.result_json):{};retu
 function sendWeb(job){if(getDb().prepare("SELECT 1 FROM platform_user_notifications WHERE user_id=? AND source='tool_async' AND source_key=?").get(job.actor_user_id,job.id))return;sendPlatformNotifications({userIds:[job.actor_user_id],createdBy:job.owner_user_id,title:`Tool update: ${job.status} (${job.id})`,body:notice(job),linkUrl:'/content-tools',source:'tool_async',sourceKey:job.id});}
 async function deliverTrackedNotification(job){
  sendWeb(job);
+ if(job.channel==='web')return {fallback:!deliverTrackedChat(job)};
  if(job.channel==='whatsapp'&&job.target){
   const base=parseTenantOpenClawAgentId(job.agent_id)?.baseOpenClawId||job.agent_id;
   const agent=getDb().prepare('SELECT a.id FROM agents a JOIN user_agents u ON u.agent_id=a.id AND u.user_id=? AND u.enabled=1 WHERE a.id=? OR a.openclaw_agent_id=?').get(job.owner_user_id,base,base);

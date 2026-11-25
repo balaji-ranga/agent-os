@@ -47,9 +47,11 @@ const routerInput = compactRouterInput({
   agent: { id: 'coo', name: 'COO', capabilities: ['tool'], skills: [{ id: 's', name: 'Skill', description: 'D'.repeat(1000) }] },
   organization: Array.from({ length: 100 }, (_, i) => ({ id: `agent-${i}`, name: `Agent ${i}`, role: 'specialist', capabilities: Array.from({ length: 100 }, () => 'capability'), skills: [{ id: 's', name: 'Skill', description: 'D'.repeat(1000) }] })),
   capability_catalog: Array.from({ length: 500 }, (_, i) => ({ name: `cap-${i}`, description: 'D'.repeat(1000) })),
-  candidate_turns: Array.from({ length: 30 }, (_, i) => ({ id: i, content: 'T'.repeat(2000) })),
+  candidate_turns: Array.from({ length: 30 }, (_, i) => ({ id: i, content: 'T'.repeat(2000), work_unit_id:'work-'+i, status:'failed', work_status:'failed' })),
 });
 assert.ok(JSON.stringify(routerInput).length <= 60000, 'router context must stay within compaction budget');
 assert.equal(routerInput._context_compaction.compacted, true);
+assert.equal(routerInput.candidate_turns.length,2,'fixture must exercise the strongest compaction tier');
+assert(routerInput.candidate_turns.every(t=>t.status==='failed'&&t.work_status==='failed'),'compaction must preserve execution state, not just identity');
 assert.ok(routerInput.capability_catalog.every(item=>item.description.length>0),'strong compaction must retain modality descriptions');
 console.log('quant skill contract and router context compaction tests passed');
