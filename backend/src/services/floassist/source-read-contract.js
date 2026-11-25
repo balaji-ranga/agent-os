@@ -10,6 +10,7 @@ export function sourceReadContract(result,request={}){
 }
 
 export function assertMailboxSourceId(input){
+ if(input.kind==='draft'&&input.app_id==='gmail'&&['latest','most_recent','@latest'].includes(input.source_id))return;
  if(input.cursor||input.next_request||input.task_id||!['gmail','outlook'].includes(input.app_id)||input.source_id==null)return;
  if(typeof input.source_id==='string'&&input.source_id.trim()&&!/[@\s]/.test(input.source_id))return;
  const request={app_id:input.app_id};
