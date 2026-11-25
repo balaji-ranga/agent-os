@@ -16,7 +16,7 @@ const owner='emulator-owner',other='emulator-other',agent='emulator-coo';
 let db,agentHook=async()=>{},outlookDown=false,incomingReply=false,checks=0,sequence=0;
 const calls=[],deliveries=[],scenarios=[];
 const check=(a,b,label)=>{assert.deepEqual(a,b,label);checks++;};
-const gateway=createServer(async(req,res)=>{try{let body='';for await(const chunk of req)body+=chunk;await agentHook(JSON.parse(body));res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:'FLOASSIST_NO_UPDATE'}}]}));}catch(error){console.error('Emulator hook:',error.code,error.message);res.statusCode=500;res.end(JSON.stringify({error:'emulator agent hook failed',code:error.code||'fixture_error'}));}});
+const gateway=createServer(async(req,res)=>{try{let body='';for await(const chunk of req)body+=chunk;const output=await agentHook(JSON.parse(body));res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:output||'FLOASSIST_NO_UPDATE'}}]}));}catch(error){console.error('Emulator hook:',error.code,error.message);res.statusCode=500;res.end(JSON.stringify({error:'emulator agent hook failed',code:error.code||'fixture_error'}));}});
 await new Promise(resolve=>gateway.listen(0,'127.0.0.1',resolve));
 process.env.OPENCLAW_GATEWAY_URL=`http://127.0.0.1:${gateway.address().port}`;
 const mail=(id,conversation,body,outgoing=false,at=now-3600000)=>({id,conversationId:conversation,isDraft:false,subject:`Fixture ${conversation}`,body:{contentType:'text',content:body},sentDateTime:new Date(at).toISOString(),receivedDateTime:new Date(at).toISOString(),from:{emailAddress:{address:outgoing?'owner@example.test':'sender@example.test'}}});
@@ -99,6 +99,9 @@ try{
     if(input)try{observeTracking(db,owner,verifiedTrackingInput(db,owner,input,context),now);}catch(e){if(!isTrackingExclusion(e))throw e;}
    }
   });
+  // Briefing now requires a structured, evidence-checked result. This fixture
+  // exercises empty findings; other modules use their no-update sentinel.
+  return module==='briefing'?JSON.stringify({agenda:[],priorities:[],information:[]}):undefined;
  };
  const fire=async(module,expected=true)=>{now+=1000;const result=await runScheduledGoal(owner,ids[module],{force:true,requestKey:`emulator-${++sequence}`});check(result.ok,expected,module+' scheduled outcome');check(db.prepare('SELECT status FROM scheduled_goals WHERE id=?').get(ids[module]).status,'paused','manual test preserves schedule pause');const history=listRecentRuns(owner,ids[module],1)[0];check(history.id,result.run_id,'UI history returns the actual scheduled run');check(history.status,expected?'ok':'error','UI history matches execution');if(expected){const proof=runEvidenceSummary(db,owner,result.run_id);check([proof.errors,proof.incomplete_sources,proof.budget_exhausted],[0,0,false],'success requires verified provider coverage');}scenarios.push({module,status:history.status});return result;};
 
