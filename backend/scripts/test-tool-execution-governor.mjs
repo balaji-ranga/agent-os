@@ -69,6 +69,15 @@ assert.equal(repeated.observation.previous_observation.status,'empty');
 assert.deepEqual(governor.beginToolExecution({...turnArgs,runId:'one'}).observation.previous_observation,repeated.observation.previous_observation,'third attempt retains original result');
 assert.equal(governor.beginToolExecution({...turnArgs,runId:'two'}).ok,true,'next request in the same chat may read again');
 assert.equal(governor.beginToolExecution({...turnArgs,ownerUserId:'other-owner',runId:'one'}).ok,true,'run IDs cannot collide across owners');
+// A corrected discovery call is a new read, not a bypass of the failed one.
+const sourceArgs={ownerUserId:'ceo-test',agentId:'agent-a',sessionKey:'source-session',runId:'source-turn',toolName:'floassist_source_read'};
+const invalidSource=governor.beginToolExecution({...sourceArgs,params:{app_id:'gmail',source_id:'owner@example.test'}});
+assert.equal(invalidSource.ok,true);
+governor.completeToolExecution(invalidSource,{httpStatus:422,data:{code:'FLOASSIST_SOURCE_ID_INVALID',error:'Mailbox addresses are not thread IDs.',next_call:{tool:'tool_call',arguments:{id:'floassist_source_read',args:{app_id:'gmail'}}}}});
+const invalidRepeat=governor.beginToolExecution({...sourceArgs,params:{app_id:'gmail',source_id:'owner@example.test'}});
+assert.equal(invalidRepeat.duplicate,true);
+assert.equal(invalidRepeat.observation.previous_observation.result.code,'FLOASSIST_SOURCE_ID_INVALID');
+assert.equal(governor.beginToolExecution({...sourceArgs,params:{app_id:'gmail'}}).ok,true,'server-prescribed discovery correction is admitted without disabling deduplication');
 console.log('PASS tool execution governor: scope, classification, duplicate guard, isolation, overrides, negative validation');
 const {initializeFloAssist}=await import('../src/services/floassist/core.js');const {withFloAssistScope}=await import('../src/services/floassist/execution-scope.js');initializeFloAssist(db);
 db.prepare('INSERT INTO floassist_profiles VALUES (?,?,?,?,?,?,?,?)').run('budget-owner','fixture-agent','fixture-phone','active',JSON.stringify({tool_call_budget:10}),'{}',Date.now(),Date.now());

@@ -96,7 +96,7 @@ try{
  equal(page.content.length,12000);equal(page.coverage_complete,false);equal(page.local_assessment,result);
  assert.ok(pendingSourceCoverage(db,'fixture-a','paging').length);checks++;
  const last=await readFloAssistSource('fixture-a',page.next_request,sourceOptions);
- equal(page.content+last.content,'Subject: Report\n'+full);equal(last.coverage_complete,true);equal(providerReads,1);
+ equal(page.content+last.content,'Message timestamp: 2026-10-26T10:00:00.000Z\nProvider labels: not supplied\nSubject: Report\n'+full);equal(last.coverage_complete,true);equal(providerReads,1);
  assert.ok(auth>=3);checks++;
  const adHoc=await readFloAssistSource('fixture-a',{app_id:'gmail',source_id:'verified'},{...sourceOptions,context:{owner:'fixture-a',origin:'whatsapp'},assess:async()=>null});equal(adHoc.local_assessment,undefined);equal(adHoc.content,page.content);
  const failure=await readFloAssistSource('fixture-a',{app_id:'gmail',source_id:'verified'},{...sourceOptions,context:{...base.scope,run:'assessor-failure'},assess:async()=>{throw Error('fixture');}});equal(failure.content,page.content);

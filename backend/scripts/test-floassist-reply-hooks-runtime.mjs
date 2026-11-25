@@ -36,13 +36,16 @@ try{
  assert.ok(!restricted.prependContext,'source-reader guidance stays absent when the session denies source tools');
  profileEnabled=false;
  const inactive=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{agentId:id,sessionKey:sparseSession});
- assert.ok(!inactive?.appendSystemContext,'unregistered agents must not inherit another profile timezone');
+ assert.ok(!/Trusted FloAssist profile timezone:|Current owner-local date\/time:/.test(inactive?.appendSystemContext||''),'unregistered agents must not inherit another profile timezone');
  profileEnabled=true;profileUnavailable=true;
  const unavailable=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{agentId:id,sessionKey:sparseSession});
  assert.match(unavailable.appendSystemContext,/Do not assume UTC/);profileUnavailable=false;
  await hooks.get('before_prompt_build')({prompt:'Review my email and calendar for weekly focus areas'},ctx);
  assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_list',args:{}}},ctx)).block,true);
  assert.equal(await hooks.get('before_tool_call')({toolName:'floassist_source_read',params:{app_id:'gmail'}},ctx),undefined);
+ await hooks.get('before_prompt_build')({prompt:"Check my gmail for today's emails snd summarize any important"},ctx);
+ const corrected=await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'floassist_source_read',args:{app_id:'gmail',source_id:'owner@example.test'}}},ctx);
+ assert.deepEqual(corrected.params.args,{app_id:'gmail',review_all:true,relative_day:'today'});
  await hooks.get('before_prompt_build')({prompt:'Run my morning briefing'},ctx);
  assert.equal(await hooks.get('before_tool_call')({toolName:'scheduled_goal_list',params:{}},ctx),undefined);
  const event={sessionKey:session,runId:'fixture-run',kind:'final',payload:{isError:true,text:'No reply was generated for this message. This is usually a temporary model failure - please try again.'}};
