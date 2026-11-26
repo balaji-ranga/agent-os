@@ -68,3 +68,7 @@ EXPOSE 18789 18792 5900
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["gateway"]
+
+COPY deploy/scripts/install-native-action-authority.mjs /opt/agent-os/deploy/scripts/
+COPY backend/scripts/test-native-action-authority.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/deploy/scripts/install-native-action-authority.mjs && node /opt/agent-os/backend/scripts/test-native-action-authority.mjs

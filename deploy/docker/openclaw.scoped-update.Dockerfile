@@ -49,3 +49,7 @@ COPY backend/scripts/test-memory-delta.mjs /opt/agent-os/backend/scripts/
 RUN node /opt/agent-os/deploy/scripts/install-native-memory-heap.mjs && node /opt/agent-os/backend/scripts/test-memory-delta.mjs
 RUN chmod +x /entrypoint.sh && node /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only
 RUN find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type f -exec chmod 644 {} +
+
+COPY deploy/scripts/install-native-action-authority.mjs /opt/agent-os/deploy/scripts/
+COPY backend/scripts/test-native-action-authority.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/deploy/scripts/install-native-action-authority.mjs && node /opt/agent-os/backend/scripts/test-native-action-authority.mjs

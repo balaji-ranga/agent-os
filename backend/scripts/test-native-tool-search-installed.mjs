@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readdirSync} from 'node:fs';
+import {readdirSync,readFileSync} from 'node:fs';
 import {visibleContentTools} from '../../openclaw-extensions/agent-os-content-tools/runtime-access.js';
 const dist='/usr/local/lib/node_modules/openclaw/dist/';
 const file=readdirSync(dist).find(n=>/^local-model-lean-.*\.js$/.test(n));
@@ -43,3 +43,25 @@ await assert.rejects(()=>invitationCall.execute('bad-expiry',{id:'voice_call_inv
 await assert.rejects(()=>invitationCall.execute('guessed-action',{id:'voice.call.link',args:{}}));
 assert.equal(invitations,1,'invalid or invented calls do not execute');
 console.log('PLATFORM_INVITE_SEARCH_OK: crowded native catalog; platform discovery; default-self schema; invalid lifetime and invented action rejected');
+
+// Exercise the installed native hook runner, not just a mock api.on callback.
+const hookFile=readdirSync(dist).find(n=>/^hook-runner-global-.*\.js$/.test(n)&&/initializeGlobalHookRunner as \w+/.test(readFileSync(dist+n,'utf8')));
+assert(hookFile,'Installed native hook runner required');
+const hookModule=await import(dist+hookFile),hookSource=readFileSync(dist+hookFile,'utf8');
+const symbol=name=>hookModule[hookSource.match(new RegExp(name+' as (\\w+)'))?.[1]];
+const initializeHooks=symbol('initializeGlobalHookRunner'),getHooks=symbol('getGlobalHookRunner'),resetHooks=symbol('resetGlobalHookRunner');
+assert.equal(typeof initializeHooks,'function');assert.equal(typeof getHooks,'function');assert.equal(typeof resetHooks,'function');
+let shaped=0,executed=0,retainedAuthority;
+try{
+ initializeHooks({hooks:[],typedHooks:[
+  {pluginId:'fixture-action-phases',hookName:'before_prompt_build',handler:async()=>{shaped++;return {systemPrompt:'compact fixture staging',toolsAllow:['fixture_export']};}},
+  {pluginId:'fixture-action-phases',hookName:'before_prompt_build',requiresToolAuthority:true,handler:async(_event,ctx)=>{retainedAuthority=ctx.toolAuthority;ctx.toolAuthority.assertActive();assert(ctx.toolAuthority.allows('fixture_export'));assert.equal(ctx.toolAuthority.allows('ungranted_action'),false);executed++;return {systemPrompt:'must not override after authority',toolsAllow:[],appendContext:'verified fixture receipt'};}}
+ ]});
+ const runner=getHooks(),context={agentId:'fixture',sessionKey:'agent:fixture:test'};
+ const ordinary=await runner.runBeforePromptBuild({prompt:'fixture',messages:[]},context);
+ assert.equal(shaped,1);assert.equal(executed,0);assert.equal(ordinary.systemPrompt,'compact fixture staging');assert.deepEqual(ordinary.toolsAllow,['fixture_export']);
+ const authorized=await runner.runAuthorizedPromptBuild({prompt:'fixture',messages:[]},context,{toolAuthorityFingerprint:'fixture-authority',activeToolNames:['fixture_export'],assertHostActive(){}});
+ assert.equal(executed,1);assert.equal(authorized.systemPrompt,undefined);assert.equal(authorized.toolsAllow,undefined);assert.equal(authorized.appendContext,'verified fixture receipt');
+ assert.throws(()=>retainedAuthority.assertActive(),/no longer active/);
+ console.log('NATIVE_ACTION_PHASES_INSTALLED_OK: ordinary shaping cannot dispatch; finalized authority gates execution; authority expires; authorized hooks cannot alter tool surface');
+}finally{resetHooks();}
