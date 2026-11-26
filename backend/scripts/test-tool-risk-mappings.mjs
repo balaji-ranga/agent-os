@@ -58,6 +58,11 @@ try {
   clearToolRiskMappingOverride(ownerA,{capability_type:'content_tool',capability_key:boundSave});
   assert.equal(resolveRiskForTool('connector_action:digital_adoption.submit',ownerA).risk_tier,'R3',
     'unbound submission remains conservative');
+  assert.equal(resolveRiskForTool('voice_call_invite',ownerA).action_family,'write_internal','issuing an owner-bound link does not contact an external party');
+  assert.equal(inferToolRiskMapping({capability_type:'connector_action',capability_id:'provider.invite_user'}).action_family,'communicate_external','external provider invitations remain governed');
+  setToolRiskMappingOverride(ownerA,{capability_type:'content_tool',capability_key:'voice_call_invite',risk_tier:'R2'});
+  assert.equal(resolveRiskForTool('voice_call_invite',ownerA).action_family,'communicate_external','explicit owner classification remains authoritative');
+  clearToolRiskMappingOverride(ownerA,{capability_type:'content_tool',capability_key:'voice_call_invite'});
   let rowsA = listToolRiskMappings(ownerA);
   const critical = rowsA.find((row) => row.capability_id === 'production_secret_rotate');
   assert.equal(critical.risk_tier, 'R4', 'critical privileged operations are interpreted as R4');

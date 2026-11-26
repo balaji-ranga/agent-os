@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
+import {voiceInviteSchema} from '../../openclaw-extensions/agent-os-content-tools/voice-invite-schema.js';
 const Ajv=createRequire(process.argv[2]||'/usr/local/lib/node_modules/openclaw/package.json')('ajv');
 const source=readFileSync(new URL('../../openclaw-extensions/agent-os-content-tools/index.js',import.meta.url),'utf8');
 const begin=source.indexOf('const PARAM_SCHEMAS = '),end=source.indexOf('\nfunction resolvePluginConfig',begin);
-const schemas=new Function('physicalSchemas','floassistSchemas','multiFormatSchema',source.slice(begin,end)+'; return PARAM_SCHEMAS;')({},{},{});
+const schemas=new Function('physicalSchemas','floassistSchemas','multiFormatSchema','voiceInviteSchema',source.slice(begin,end)+'; return PARAM_SCHEMAS;')({},{},{},voiceInviteSchema);
 const schema=schemas.connector_execute_action;
 assert.equal(schema.additionalProperties,false);
 assert.equal(schema.properties.input.additionalProperties,true,'Explicitly preserve the dynamic action payload through native schema normalization');

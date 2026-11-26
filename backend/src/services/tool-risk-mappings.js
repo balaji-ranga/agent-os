@@ -70,10 +70,12 @@ function strongReadOperation(candidate = {}) {
  * a strong read verb may then repair stale legacy metadata (for example get_* incorrectly saved as R3).
  */
 export function inferToolRiskMapping(candidate = {}) {
-  // This platform tool writes only the entitled CEO's in-app bell. Do not
-  // apply the generic external "notify" heuristic to it (or to provider tools).
+  // These registered platform operations only create private internal output.
+  // In particular, a Voice invitation issues a bounded owner-scoped URL; it
+  // does not place a call or contact a recipient. Provider invitations retain
+  // the conservative external classification below.
   if (String(candidate.capability_type || candidate.type || '') === 'content_tool' &&
-      ['notify_ceo','multi-format-content-tool'].includes(String(candidate.capability_id || candidate.id || candidate.name || ''))) {
+      ['notify_ceo','multi-format-content-tool','voice_call_invite'].includes(String(candidate.capability_id || candidate.id || candidate.name || ''))) {
     return { risk_tier: 'R1', action_family: 'write_internal' };
   }
   const text = `${candidate.capability_id || candidate.id || candidate.name || ''} ${candidate.display_name || ''} ${candidate.description || ''}`;

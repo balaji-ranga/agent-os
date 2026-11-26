@@ -545,6 +545,8 @@ const BUILTIN_TOOLS = [
     purpose:
       'API tool: create a short-lived owner-bound browser Voice call link. For an AI employee use agent_id (defaults to caller). COO may target a human colleague using exact user_id or user_name from ORG.md. ttl_seconds optional (60-3600; default 600). Return the exact url; never expose credentials or invent/reuse expired links.',
     model_used: '',
+    risk_tier: 'R1',
+    action_family: 'write_internal',
     enabled: 1,
     is_builtin: 1,
   },
@@ -2264,6 +2266,7 @@ export function seedVoiceInviteToolIfMissing() {
   for (const t of VOICE_INVITE_TOOLS) {
     stmt.run(t.name,t.display_name,t.endpoint,t.method,t.purpose,t.model_used,t.enabled,t.is_builtin);
     update.run(t.purpose,t.display_name,t.endpoint,t.method,t.name);
+    if(t.name==='voice_call_invite')db.prepare("UPDATE content_tools_meta SET risk_tier='R1',action_family='write_internal' WHERE name=? AND COALESCE(risk_tier,'')='' AND COALESCE(action_family,'')=''").run(t.name);
     for (const agent of db.prepare('SELECT id FROM agents').all()) grant.run(agent.id,t.name);
   }
 }
