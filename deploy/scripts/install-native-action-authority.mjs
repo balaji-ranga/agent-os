@@ -7,11 +7,11 @@ export function adaptNativeActionAuthority(source){
  const fingerprint='toolAuthorityFingerprint: attempt.toolAuthorityFingerprint,';
  const condition='!attempt.toolAuthorityFingerprint || !assertHostActive';
  const policyAnchor='applyPromptBuildToolsAllow: (toolsAllow) => {';
- const activeNames='activeToolNames: promptCacheToolNames,';
+ const activeNames=fingerprint+'\n\t\tactiveToolNames: promptCacheToolNames,';
  if(source.split(assertion).length!==2||source.split(condition).length!==2||!source.includes('const promptCacheToolNames = input.applyPromptBuildToolsAllow(hookResult?.toolsAllow);')||source.split(fingerprint).length!==2||source.split(policyAnchor).length!==2||source.split(activeNames).length!==2)throw Error('Unsupported finalized native action-authority ABI');
  return source.replace(assertion,assertion.replace(';',` || (() => { // ${marker}
  if(!attempt.abortSignal || attempt.abortSignal.aborted)throw new Error('Native action turn was cancelled or has no active lifecycle');
- });`)).replace(policyAnchor,'getPromptBuildAuthorizedToolNames: () => input.toolPolicy.current.uncompactedEffectiveTools.map(tool => tool.name),\n\t\t'+policyAnchor).replace(activeNames,'activeToolNames: input.getPromptBuildAuthorizedToolNames(),').replace(condition,'!assertHostActive').replace(fingerprint,`toolAuthorityFingerprint: attempt.toolAuthorityFingerprint || JSON.stringify([hookCtx.agentId, hookCtx.sessionKey, hookCtx.runId, promptCacheToolNames]),`);
+ });`)).replace(policyAnchor,'getPromptBuildAuthorizedToolNames: () => input.toolPolicy.current.uncompactedEffectiveTools.map(tool => tool.name),\n\t\t'+policyAnchor).replace(activeNames,fingerprint+'\n\t\tactiveToolNames: input.getPromptBuildAuthorizedToolNames(),').replace(condition,'!assertHostActive').replace(fingerprint,`toolAuthorityFingerprint: attempt.toolAuthorityFingerprint || JSON.stringify([hookCtx.agentId, hookCtx.sessionKey, hookCtx.runId, promptCacheToolNames]),`);
 }
 if(process.argv[1]&&resolve(process.argv[1])===resolve(new URL(import.meta.url).pathname)){
  const dist=resolve(process.argv[2]||'/usr/local/lib/node_modules/openclaw/dist');

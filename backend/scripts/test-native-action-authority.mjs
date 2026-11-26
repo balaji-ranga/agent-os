@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {adaptNativeActionAuthority} from '../../deploy/scripts/install-native-action-authority.mjs';
 const fixture=`const promptCacheToolNames = input.applyPromptBuildToolsAllow(hookResult?.toolsAllow);
 const assertHostActive = resolveAdmittedRunActiveAssertion(attempt.admittedRunContext, attempt.abortSignal);
-const authorizedHookResult = !attempt.toolAuthorityFingerprint || !assertHostActive ? undefined : runner({toolAuthorityFingerprint: attempt.toolAuthorityFingerprint,activeToolNames: promptCacheToolNames,assertHostActive});
+const authorizedHookResult = !attempt.toolAuthorityFingerprint || !assertHostActive ? undefined : runner({toolAuthorityFingerprint: attempt.toolAuthorityFingerprint,
+		activeToolNames: promptCacheToolNames,assertHostActive});
 return authorizedHookResult;
 const unusedFixturePolicy = {applyPromptBuildToolsAllow: (toolsAllow) => {}};`;
 const patched=adaptNativeActionAuthority(fixture);assert.equal(adaptNativeActionAuthority(patched),patched);assert.throws(()=>adaptNativeActionAuthority('unknown ABI'),/Unsupported/);
