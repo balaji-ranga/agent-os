@@ -30,11 +30,11 @@ export async function routeNativeAction(identity,input,{db=getDb(),complete=chat
  db.prepare('DELETE FROM native_action_contracts WHERE created_at<?').run(Date.now()-7*86400000);
  if(!input.turn_id||String(input.turn_id).length>240||!input.run_id||String(input.run_id).length>240||!input.context||JSON.stringify(input.context).length>14000)throw Object.assign(Error('A bounded native turn identity and context are required'),{status:422});
  const profile=db.prepare('SELECT agent_id,status FROM floassist_profiles WHERE owner_id=?').get(identity.owner);
- if(!profile||profile.agent_id!==identity.agent)return {decision:'other',enabled:false};
- if(input.context.context_incomplete)return {decision:'other',enabled:false};
- if(resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web')?.run)return {decision:'other',enabled:false};
+ if(!profile||profile.agent_id!==identity.agent)return {decision:'other',enabled:false,reason:'profile_not_bound'};
+ if(input.context.context_incomplete)return {decision:'other',enabled:false,reason:'context_incomplete'};
+ if(resolveFloAssistScope(db,identity.owner,identity.agent,{session_key:identity.session},'web')?.run)return {decision:'other',enabled:false,reason:'scheduled_scope'};
  const contracts=Object.entries(ACTION_CONTRACTS).filter(([name])=>db.prepare('SELECT 1 FROM agent_tool_grants g JOIN content_tools_meta t ON t.name=g.tool_name AND t.enabled=1 WHERE g.agent_id=? AND g.tool_name=?').get(identity.agent,name)&&getExecutionBehaviour(identity.owner,name).execution_mode==='sync').map(([tool_name,c])=>({tool_name,description:c.description,input_schema:c.parameters}));
- if(!contracts.length)return {decision:'other',enabled:false};
+ if(!contracts.length)return {decision:'other',enabled:false,reason:'no_sync_contracts'};
  const id='nac-'+createHash('sha256').update(JSON.stringify([identity.owner,identity.agent,identity.session,input.turn_id])).digest('hex');
  const existing=db.prepare('SELECT * FROM native_action_contracts WHERE id=?').get(id);if(existing)return existing.status==='routing'?awaitRoute(db,id):publicRow(existing);
  const now=Date.now();

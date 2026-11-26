@@ -28,8 +28,8 @@ try{
   if(String(url).endsWith('/marketing-inbound-event'))return new Response(JSON.stringify({matched:false}));
   throw Error('Unexpected network target');
  };
- const {default:plugin}=await import('/opt/agent-os/openclaw-extensions/agent-os-content-tools/index.js');const hooks=new Map();let turn=0;
- plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler)=>hooks.set(name,name==='before_prompt_build'?async(event,ctx)=>{ctx.runId='fixture-run-'+(++turn);return handler(event,ctx);}:handler),registerTool(){},registerCommand(){}});
+ const {default:plugin}=await import('/opt/agent-os/openclaw-extensions/agent-os-content-tools/index.js');const hooks=new Map();let turn=0;let authorizedHook;
+ plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler,options)=>options?.requiresToolAuthority?(authorizedHook=handler):hooks.set(name,name==='before_prompt_build'?async(event,ctx)=>{ctx.runId='fixture-run-'+(++turn);return handler(event,ctx);}:handler),registerTool(){},registerCommand(){}});
  const ctx={toolAuthority:{assertActive(){},allows:n=>n==='voice_call_invite'},agentId:id,sessionKey:session,channelId:'whatsapp',runId:'fixture-run'};
  const first=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(first.appendSystemContext,/Asia\/Singapore/);assert.match(first.appendSystemContext,/Fixture authorized physical device context/);assert.match(first.appendSystemContext,/A tool-search result or a prior assistant answer is not a device inventory result/);
  assert.ok(!first.prependContext,'domain policy must not become an extra user assignment');
@@ -94,7 +94,9 @@ try{
  for(const request of requests.filter(r=>r.path.includes('native-model-budget')))assert.ok(!('prompt'in request.body)&&!('content'in request.body));
  fixtureAction={id:'nac-fixture',decision:'execute',tool_name:'voice_call_invite',arguments:{ttl_seconds:600},status:'ready'};
  const staging=await hooks.get('before_prompt_build')({prompt:'Perform the selected registered action'},ctx);
- assert(staging.systemPrompt.length<500);assert.deepEqual(staging.toolsAllow,[]);assert.equal(staging.appendSystemContext,undefined,'non-executing staging does not replay manuals, schedules or prior artifact context');
+ assert.equal(actionDispatches,0,'ordinary prompt shaping cannot execute tools');
+ await authorizedHook({},ctx);
+ assert(staging.systemPrompt.length<500);assert.deepEqual(staging.toolsAllow,['voice_call_invite']);assert.equal(staging.appendSystemContext,undefined,'non-executing staging does not replay manuals, schedules or prior artifact context');
  assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'connector_execute_action',args:{action_id:'invented.action'}}},ctx)).block,true);
  await hooks.get('llm_input')({runId:ctx.runId,systemPrompt:staging.systemPrompt,prompt:'fixture'},ctx);
  const completedEvent={sessionKey:session,runId:ctx.runId,kind:'final',payload:{text:'An unsupported app blocked this action'}};

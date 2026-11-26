@@ -1214,10 +1214,10 @@ export default definePluginEntry({
           return profileTimezoneHint({enabled:true,timezone_available:false});
         };
         const skillContext=()=>assignedSkillContextHint({prompt:taskPrompt,sessionKey:ctx?.sessionKey||safeApiSessionKey(api),baseUrl:resolvePluginConfig(api).baseUrl,brokerSecret:loadToolBrokerSecret});
-        const [timezoneHint,result,skillHint] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx),skillContext(),actionContract]);
+        const [timezoneHint,result,skillHint,actionRoute] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx),skillContext(),actionContract]);
         const staging=actionContracts.prompt(statusSession);
-        api.logger?.info?.('[agent-os-content-tools] contract-preparation '+JSON.stringify({runId:ctx?.runId,elapsedMs:Math.round(performance.now()-contractStarted),staged:!!staging,stagingSystemChars:staging?.systemPrompt?.length||0}));
-        if(staging){await actionContracts.fulfill({...ctx,sessionKey:statusSession});return staging;}
+        api.logger?.info?.('[agent-os-content-tools] contract-preparation '+JSON.stringify({runId:ctx?.runId,elapsedMs:Math.round(performance.now()-contractStarted),staged:!!staging,stagingSystemChars:staging?.systemPrompt?.length||0,hasSession:!!statusSession,hasCaller:!!recoveryAgent,requestChars:sourceTurn.current_request?.length||0,incomplete:!!sourceTurn.context_incomplete,decision:actionRoute?.decision,reason:actionRoute?.reason}));
+        if(staging)return staging;
         const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
         const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
         const {personalContext,systemContext}=composeTaskGuidance({discoveryHint:platformDiscoveryGuidance,speechTurn,statusHint,timezoneHint,physicalHint,physicalDiscoveryHint:physicalDiscoveryTurnHint(physicalHint),scheduledHint:scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent,'scheduled_goal_list',ctx?.sessionKey)&&isToolAllowedForAgent(recoveryAgent,'scheduled_goal_run_now',ctx?.sessionKey)),speechHint,recoveryHint,reviewHint,skillHint,budgetHint:incrementalContextGuidance});
@@ -1244,7 +1244,8 @@ export default definePluginEntry({
                 : "Acknowledge the response concisely. Do not independently create another lead or run a separate campaign; Marketing Specialist owns the targeted follow-up.",
           ].join("\n"),
         };
-      }, { priority: 50, timeoutMs: 25000, requiresToolAuthority:true });
+      }, { priority: 50, timeoutMs: 25000 });
+      api.on('before_prompt_build',async(event,ctx)=>{await actionContracts.fulfill({...ctx,sessionKey:ctx?.sessionKey||safeApiSessionKey(api)});},{priority:50,timeoutMs:15000,requiresToolAuthority:true});
     }
     const tools = loadRuntimeToolDescriptors().sort((a, b) => {
       const rank = (n) =>

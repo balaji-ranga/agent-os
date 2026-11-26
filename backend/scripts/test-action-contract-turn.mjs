@@ -15,7 +15,7 @@ const controller=createActionContractController({
  invoke:async(tool,args,identity)=>{calls++;assert.equal(tool,'fixture_export');assert.deepEqual(args,{format:'csv'});assert.equal(identity.runId,'native-one');await new Promise(r=>setTimeout(r,10));return {ok:true,data:{receipt:'new-export'}};}
 });
 await controller.prepare({current_request:'Create an export'},ctx,ctx.agentId);await controller.bind(ctx,'native-one');
-const prompt=controller.prompt(session);assert.deepEqual(prompt.toolsAllow,[]);assert(prompt.systemPrompt.length<500,'single-action staging excludes manuals and cached facts');
+const prompt=controller.prompt(session);assert.deepEqual(prompt.toolsAllow,['fixture_export']);assert(prompt.systemPrompt.length<500,'single-action staging excludes manuals and cached facts');
 assert(controller.block({toolName:'connector_search_actions',params:{}},ctx)?.block);
 assert(controller.block({toolName:'physical_entities_list',params:{}},ctx)?.block);
 const event={sessionKey:session,runId:'native-one',kind:'final',payload:{text:'Here is an old cached result'}};

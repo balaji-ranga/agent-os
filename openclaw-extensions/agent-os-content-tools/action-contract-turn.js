@@ -32,7 +32,7 @@ export function createActionContractController({post,invoke,now=Date.now,invokeT
   // The staging model cannot act or publish facts. Its output is replaced by
   // verified evidence at delivery, so domain manuals and old artifacts are
   // irrelevant to this non-executing stage. Normal turns keep their context.
-  return {systemPrompt:'You are staging a registered platform action. The platform controller will execute the selected API through normal owner, grant, policy and budget checks and render its verified result. Do not call tools, create URLs, quote historical results or claim completion. Respond only: Processing your request.',toolsAllow:[]};
+  return {systemPrompt:'You are staging a registered platform action. The platform controller will execute the selected API through normal owner, grant, policy and budget checks and render its verified result. Do not call tools, create URLs, quote historical results or claim completion. Respond only: Processing your request.',toolsAllow:s.route.decision==='execute'?[s.route.tool_name]:[]};
  }
  function block(event,ctx){
   const s=forRun(ctx?.sessionKey,ctx?.runId);if(!['execute','clarify'].includes(s?.route?.decision))return;
