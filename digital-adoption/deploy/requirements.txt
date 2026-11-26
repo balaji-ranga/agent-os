@@ -1,4 +1,4 @@
-pypdf==6.21.0
+pypdf==6.21.4
 Pillow==13.0.0
 faster-whisper==1.2.1
 # faster-whisper 1.2.1 still passes metadata_errors, removed by PyAV 19.
