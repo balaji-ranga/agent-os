@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {platformDiscoveryGuidance,composeTaskGuidance} from '../../openclaw-extensions/agent-os-content-tools/task-context-guidance.js';
+import {voiceInviteSchema} from '../../openclaw-extensions/agent-os-content-tools/voice-invite-schema.js';
+const guidance=composeTaskGuidance({discoveryHint:platformDiscoveryGuidance,physicalDiscoveryHint:'device policy',scheduledHint:'schedule policy'});
+assert.equal(guidance.personalContext,'');
+assert.match(guidance.systemContext,/tool_search across the authorized platform catalog/);
+assert.match(guidance.systemContext,/external connector actions only/);
+assert.match(guidance.systemContext,/Never invent tool\/action IDs/);
+assert.equal(voiceInviteSchema.additionalProperties,false);
+assert.equal(voiceInviteSchema.required,undefined,'calling-agent invitation requires no guessed agent ID');
+assert.equal(voiceInviteSchema.properties.ttl_seconds.minimum,60);
+assert.equal(voiceInviteSchema.properties.ttl_seconds.maximum,3600);
+console.log('PLATFORM_CAPABILITY_DISCOVERY_OK: authorized platform inventory before domain discovery; no domain user assignment; typed invitation defaults');

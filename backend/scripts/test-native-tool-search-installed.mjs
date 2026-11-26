@@ -30,3 +30,16 @@ assert.equal(calls,1);
 await assert.rejects(()=>call.execute('invalid',{id:names.at(-1),args:{}}));
 assert.equal(calls,1);
 console.log('NATIVE_TOOL_SEARCH_INSTALLED_OK: 174 catalog tools / 3 visible schemas; tail search/describe/call; unknown tool and invalid input blocked');
+
+// Registered platform capabilities must be discoverable outside connector catalogs.
+const {voiceInviteSchema}=await import('../../openclaw-extensions/agent-os-content-tools/voice-invite-schema.js');
+const platformRef=createRef();let invitations=0;
+const platform=compact({config,catalogRef:platformRef,tools:[...createControls({config,catalogRef:platformRef}),...fixtures,{name:'voice_call_invite',label:'Create Voice Call Invitation',description:'Create a short-lived owner-bound browser Voice call link. Defaults to the calling agent.',parameters:voiceInviteSchema,execute:async()=>{invitations++;return {content:[{type:'text',text:'fixture invitation generated'}]};}}]});
+const discovery=await platform.tools.find(t=>t.name==='tool_search').execute('find-platform',{query:'generate a voice call link'});
+assert.match(JSON.stringify(discovery),/voice_call_invite/);
+const invitationCall=platform.tools.find(t=>t.name==='tool_call');
+assert.match(JSON.stringify(await invitationCall.execute('invite-self',{id:'voice_call_invite',args:{}})),/fixture invitation generated/);
+await assert.rejects(()=>invitationCall.execute('bad-expiry',{id:'voice_call_invite',args:{ttl_seconds:99999}}));
+await assert.rejects(()=>invitationCall.execute('guessed-action',{id:'voice.call.link',args:{}}));
+assert.equal(invitations,1,'invalid or invented calls do not execute');
+console.log('PLATFORM_INVITE_SEARCH_OK: crowded native catalog; platform discovery; default-self schema; invalid lifetime and invented action rejected');
