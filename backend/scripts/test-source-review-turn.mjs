@@ -21,3 +21,13 @@ assert.ok(sourceReviewGuidance('Review my email',{sourceReadSchema:schema}).incl
 assert.equal(sourceReviewGuidance('Open YouTube',{sourceReadSchema:schema}),'');
 assert.ok(!sourceReviewGuidance('Review my email').includes('another tool_describe'));
 assert.doesNotMatch(sourceReviewGuidance('Summarize my Gmail promotions\n\n[System — Dashboard chat]\nUse action tools and prioritize the user request'),/NOT work priorities/,'routing envelope must not change review intent');
+
+for(const prompt of ["I need a sunarized view of today's Gmail emails","Give me a summary of today's Gmail emails","Check my gmail for today's emails snd summarize any important","Check my Gmail today","Get today's emails","Summarise my Outlook inbox","Give me a summarized Gmail overview"]){
+ assert.equal(isSourceReview(prompt),true,prompt);
+ rememberSourceReview('wording',prompt,100);
+ assert.ok(sourceReviewBlock('wording','tool_call',{id:'scheduled_goal_run_now',args:{goal_id:'saved-briefing'}},101),prompt+' must not launch Morning Briefing');
+ assert.ok(sourceReviewBlock('wording','openclaw:agent-os-content-tools:scheduled_goal_run_now',{},101));
+ assert.equal(sourceReviewBlock('wording','floassist_source_read',{},101),null);
+}
+for(const prompt of ['Check Gmail connection health','Show Gmail settings','Get my OAuth permissions','Run my morning briefing','Run my Gmail scheduled goals','Pause Gmail automation'])assert.equal(isSourceReview(prompt),false,prompt);
+console.log('MAILBOX_WORDING_ROUTING_OK: actual sunarized retry, summary variants, ordinary reads, scheduler fallbacks blocked, health/settings and explicit schedule actions preserved');

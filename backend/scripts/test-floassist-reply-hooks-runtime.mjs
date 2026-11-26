@@ -46,6 +46,14 @@ try{
  await hooks.get('before_prompt_build')({prompt:"Check my gmail for today's emails snd summarize any important"},ctx);
  const corrected=await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'floassist_source_read',args:{app_id:'gmail',source_id:'owner@example.test'}}},ctx);
  assert.deepEqual(corrected.params.args,{app_id:'gmail',review_all:true,relative_day:'today'});
+ for(const prompt of ["I need a sunarized view of today's Gmail emails","Give me a summary of today's Gmail emails"]){
+  await hooks.get('before_prompt_build')({prompt},ctx);
+  const routed=await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'floassist_source_read',args:{app_id:'gmail',source_id:'owner@example.test',time_min:'2026-11-25T00:00:00+08:00',time_max:'2026-11-26T00:00:00+08:00'}}},ctx);
+  assert.equal(routed.params.args.source_id,undefined);assert.equal(routed.params.args.review_all,true);
+  assert.equal(routed.params.args.time_min,'2026-11-25T00:00:00+08:00','explicit owner date range is retained');
+  const fallback=await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_run_now',args:{goal_id:'saved-briefing'}}},ctx);
+  assert.equal(fallback.block,true,'source failure cannot fall back to Morning Briefing');
+ }
  await hooks.get('before_prompt_build')({prompt:'Run my morning briefing'},ctx);
  assert.equal(await hooks.get('before_tool_call')({toolName:'scheduled_goal_list',params:{}},ctx),undefined);
  const event={sessionKey:session,runId:'fixture-run',kind:'final',payload:{isError:true,text:'No reply was generated for this message. This is usually a temporary model failure - please try again.'}};

@@ -1,5 +1,8 @@
 // Narrowly separate direct source analysis from managing automation schedules.
 const turns=new Map();
+// Accept ordinary summary forms and common WhatsApp typing errors; routing
+// safety must not depend on the imperative spelling of summarize.
+const summaryIntent=/\b(?:su[mn]{1,2}ari[sz](?:e[ds]?|ing)|summar(?:y|ies)|digest|overview)\b/i;
 const sourceReviewText=prompt=>String(prompt||'').split('\n\n[System — Dashboard chat]')[0].replace(/\[chat_attachments\][\s\S]*?\[\/chat_attachments\]/g,'');
 export function sourceReviewGuidance(prompt,{sourceReadSchema}={}){
  if(!isSourceReview(prompt))return '';
@@ -24,13 +27,14 @@ export function sourceReviewGuidance(prompt,{sourceReadSchema}={}){
 }
 export function isSourceReview(prompt){
  const text=sourceReviewText(prompt);
- return /\b(?:emails?|gmail|outlook|mailbox|inbox|calendars?)\b/i.test(text)&&/\b(?:summari[sz]e|review|read|look at|focus|prioriti[sz]e|briefing|important|agenda)\b/i.test(text)&&!/\b(?:scheduled goals?|automation|configure|pause|resume|disable|enable|schedule a|run (?:the |my )?(?:scheduled|morning|daily))\b/i.test(text);
+ const contentIntent=summaryIntent.test(text)||/\b(?:review|read|look at|focus|prioriti[sz]e|important|agenda)\b/i.test(text)||/\b(?:check|show|fetch|retrieve|list|get)\b/i.test(text)&&!/\b(?:connect(?:ed|ion)?|oauth|permissions?|settings?|health|setup)\b/i.test(text);
+ return /\b(?:emails?|gmail|outlook|mailbox|inbox|calendars?)\b/i.test(text)&&contentIntent&&!/\b(?:scheduled goals?|automation|configure|pause|resume|disable|enable|schedule a|run (?:the |my )?(?:scheduled|morning|daily))\b/i.test(text);
 }
 export function rememberSourceReview(session,prompt,now=Date.now()){
  if(!session)return;
  for(const[k,v]of turns)if(v.until<=now)turns.delete(k);
  if(turns.size>=5000)turns.delete(turns.keys().next().value);
- turns.set(session,{prompt:sourceReviewText(prompt),active:isSourceReview(prompt),wholePeriod:isSourceReview(prompt)&&/\bsummari[sz]e\b/i.test(sourceReviewText(prompt))&&!/\b(?:latest|most recent|this email|that email|single email)\b/i.test(sourceReviewText(prompt)),until:now+900000});
+ turns.set(session,{prompt:sourceReviewText(prompt),active:isSourceReview(prompt),wholePeriod:isSourceReview(prompt)&&summaryIntent.test(sourceReviewText(prompt))&&!/\b(?:latest|most recent|this email|that email|single email)\b/i.test(sourceReviewText(prompt)),until:now+900000});
 }
 export function sourceReviewParams(session,toolName,params,now=Date.now()){
  const state=turns.get(session);if(!state?.wholePeriod||state.until<=now)return null;
