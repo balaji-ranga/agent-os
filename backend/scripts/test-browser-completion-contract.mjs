@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {browserCompletionMessages} from '../src/services/browser-completion-contract.js';
+const goal='Summarize the two visible updates';
+const messages=browserCompletionMessages({goal,plan:{completion_evidence:['Invented mandatory item URLs']},snapshot:'Update A: meeting moved. Update B: report ready.',history:[{action:'snapshot',ok:true}],proposedSummary:'A: meeting moved. B: report ready. Source URLs not captured.'});
+const data=JSON.parse(messages[1].content);
+assert.equal(data.user_goal,goal);assert.equal(data.plan,undefined);assert.ok(!JSON.stringify(messages).includes('Invented mandatory'));
+assert.match(messages[0].content,/NOT authority to add requirements/);assert.match(messages[0].content,/Mutations always require/);
+const required=browserCompletionMessages({goal:'Return the two updates and their exact source links',snapshot:'A and B',proposedSummary:'URLs unavailable'});
+assert.equal(JSON.parse(required[1].content).user_goal,'Return the two updates and their exact source links');assert.match(required[0].content,/unless the user explicitly required/);
+console.log('BROWSER_COMPLETION_AUTHORITY_OK: exact user goal and observed evidence, no planner-imposed acceptance criteria, missing optional links, explicit required links and mutation proof retained');

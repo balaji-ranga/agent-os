@@ -49,3 +49,5 @@ export function sourceReviewBlock(session,toolName,params,now=Date.now()){
  if(!['scheduled_goal_list','scheduled_goal_run_now','agent_goal_list'].includes(target))return null;
  return 'This request asks for analysis of actual email/calendar content, not automation schedules. Schedule definitions cannot answer it. Inspect the floassist_source_read schema with tool_describe and read the requested sources; omit source_id to discover mailbox candidates, then read returned source IDs. Use connector discovery only for capabilities outside the normalized reader. Follow returned next_call for content pages. If source reads fail, report the exact failure and partial coverage; do not substitute schedule descriptions or generic advice.';
 }
+
+export function currentSourceReviewIntent(session){const s=turns.get(session);return s?.until>Date.now()?s.intent:null;}

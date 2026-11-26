@@ -62,6 +62,12 @@ try{
  assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_run_now',args:{goal_id:'saved-briefing'}}},ctx)).block,true);
  const sent=requests.filter(r=>r.path==='/api/tools/native-turn-intent').at(-1).body;
  assert.equal(sent.context.current_request,'Retry');assert.equal(sent.context.reply_to.target.content,original.content);
+ fixtureIntent={mode:'browser_task',resolved_request:'Read the requested updates in the desktop bridge',app_id:null,whole_period:false,relative_day:null,actionable_only:false,browser_driver:'playwright_chrome',allow_fallback:false};
+ await hooks.get('before_prompt_build')({prompt:'Read the visible updates through the browser connected to my computer'},ctx);
+ assert.equal(await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'browse_task_start',args:{goal:'Summarize visible updates'}}},ctx),undefined);
+ fixtureIntent={mode:'source_review',resolved_request:'Read Gmail',app_id:'gmail',whole_period:false,relative_day:null,actionable_only:false};
+ await hooks.get('before_prompt_build')({prompt:'Read Gmail'},ctx);
+ assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'browse_task_start',args:{goal:'Wrong fallback'}}},ctx)).block,true);
  fixtureIntent={mode:'schedule_run',resolved_request:'Run my morning briefing',app_id:null,whole_period:false,relative_day:null,actionable_only:false};
  await hooks.get('before_prompt_build')({prompt:'Run my morning briefing'},ctx);
  assert.equal(await hooks.get('before_tool_call')({toolName:'scheduled_goal_list',params:{}},ctx),undefined);

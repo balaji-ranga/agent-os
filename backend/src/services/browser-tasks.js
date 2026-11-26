@@ -1,3 +1,4 @@
+import {browserCompletionMessages} from './browser-completion-contract.js';
 /**
  * Browser tasks: autonomous observe-act loop, recorder mode, recipe replay.
  */
@@ -1120,7 +1121,7 @@ async function createExecutionPlan(ceoUserId, goal, startUrl) {
           content:
             'Create a compact browser execution plan. Reply with only JSON: ' +
             '{"steps":[{"goal":"","evidence":""}],"completion_evidence":[""]}. ' +
-            'Use 2-8 observable checkpoints. Never claim an action or artifact exists before it is observed.',
+            'Use 2-8 observable checkpoints. Never claim an action or artifact exists before it is observed. Derive outcomes from the user goal; do not add mandatory links, fields or deliverables the user did not request. Completion evidence is a proposed verification method, not permission to expand acceptance criteria.',
         },
         { role: 'user', content: `Goal: ${goal}\nStart URL: ${startUrl || '(current page)'}` },
       ],
@@ -1166,24 +1167,7 @@ async function verifyGoalCompletion({ ceoUserId, goal, plan, snapshot, history, 
   }
   try {
     const { content } = await browserChatCompletions({
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Independently verify whether a browser goal is complete. Reply with only JSON: ' +
-            '{"satisfied":true|false,"reason":"","evidence":[""],"missing_evidence":[""]}. ' +
-            'Require observable evidence from the snapshot and action history. Reject unsupported success claims. ' +
-            'The plan describes intended work, not observed evidence. Respect conditional requirements: "up to" is a maximum, and links or fields explicitly allowed to be unavailable are optional. Never require or invent unavailable data. ' +
-            'Tab cleanup is performed by the backend after verified completion, so it need not appear in pre-completion evidence. ' +
-            'For data extraction, require the requested values in the proposed summary, not merely a claim that the page opened.',
-        },
-        {
-          role: 'user',
-          content:
-            `Goal: ${goal}\nPlan: ${JSON.stringify(plan)}\nProposed summary: ${proposedSummary || ''}\n` +
-            `Recent history: ${JSON.stringify(history.slice(-12))}\nSnapshot:\n${String(snapshot || '').slice(0, 12000)}`,
-        },
-      ],
+      messages: browserCompletionMessages({goal,snapshot,history,proposedSummary}),
       maxTokens: 700,
       ownerUserId: ceoUserId,
       toolName: 'browse_task_start',
@@ -1489,7 +1473,7 @@ export function inferLinkedInStartUrl(goal, startUrl = '') {
 
 export function assertPreferredBrowserExecutor(selectedExecutor, preferredDriver, allowFallback = true) {
   const preferred = String(preferredDriver || '').trim();
-  if (!preferred || allowFallback !== false || selectedExecutor?.driver_mode === preferred) return selectedExecutor;
+  if (!preferred || allowFallback !== false || selectedExecutor?.driver_mode === preferred || preferred==='managed_playwright'&&!selectedExecutor) return selectedExecutor;
   const error = new Error(`Required browser executor is offline: ${preferred}`);
   error.code = 'EXECUTOR_OFFLINE';
   error.status = 503;
@@ -1537,7 +1521,7 @@ export async function startBrowserTask(ceoUserId, body = {}) {
     ? (body.excluded_drivers || body.excludedDrivers)
     : [];
   const requiredCapabilities = /\b(screen\s*shot|png|image capture)\b/i.test(goal) ? ['screenshot'] : [];
-  let selectedExecutor = selectBrowserExecutor(ceoUserId, {
+  let selectedExecutor = preferredDriver==='managed_playwright'?null:selectBrowserExecutor(ceoUserId, {
     preferredDriver,
     requiredCapabilities,
     excludedDrivers,

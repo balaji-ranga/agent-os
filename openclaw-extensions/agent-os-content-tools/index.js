@@ -10,7 +10,7 @@ import {registerNativeRetentionService} from './native-retention-service.js';
 import {rememberRuntimeChannel,runtimeChannel,runtimeRunId,runtimeRecipient} from './runtime-channel.js';
 import {speechInputGuidance,speechTurnGuidance} from './speech-context.js';
 import {rememberStatusTurn,isStatusTurn,statusTurnBlock} from './async-status-turn.js';
-import {rememberSourceReview,sourceReviewBlock,sourceReviewParams} from './source-review-turn.js';
+import {rememberSourceReview,sourceReviewBlock,sourceReviewParams,sourceReviewGuidance,currentSourceReviewIntent} from './source-review-turn.js';
 import {rewriteBudgetFailureReply} from './budget-reply.js';
 import {connectorRoutingGuidance} from './connector-context.js';
 import {profileTimezoneHint} from './profile-timezone.js';
@@ -1137,7 +1137,7 @@ export default definePluginEntry({
         const statusBlock=statusTurnBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
         if(statusBlock)return {block:true,blockReason:statusBlock};
         const turnSession=ctx?.sessionKey||safeApiSessionKey(api),target=sourceToolTarget(event?.toolName||ctx?.toolName,event?.params);
-        if(['floassist_source_read','scheduled_goal_run_now','scheduled_goal_list','agent_goal_list'].includes(target)){
+        if(['floassist_source_read','scheduled_goal_run_now','scheduled_goal_list','agent_goal_list','browse_task_start'].includes(target)){
           const context=semanticTurnContext(turnSession),runId=runtimeRunId(ctx,api.context);
           let intent;
           try{
@@ -1150,9 +1150,10 @@ export default definePluginEntry({
             rememberSourceReview(turnSession,intent.resolved_request||context?.current_request||'',Date.now(),intent);
             if(intent.mode==='clarify')return {block:true,blockReason:intent.verification_failed?'The contextual intent verifier could not complete'+(intent.failure_code?' ('+intent.failure_code+')':'')+'. Report this blocker once. Do not claim the source itself failed, launch a saved goal, or ask the user to repeat an already resolved reply target.':'The current request/replied message is ambiguous or its explicit reply target is missing. Ask which request to retry. Do not launch a saved goal as a workaround.'};
             if(target==='scheduled_goal_run_now'&&intent.mode!=='schedule_run')return {block:true,blockReason:'The contextual user request does not authorize running a saved responsibility. '+(intent.mode==='source_review'?'Read the actual connected source using floassist_source_read without inventing source IDs.':'Ask for clarification; do not substitute Morning Briefing.')};
+            if(target==='browse_task_start'&&intent.mode!=='browser_task')return {block:true,blockReason:'The contextual request does not authorize starting a browser task. Fulfil the resolved user request or ask for clarification.'};
             const readArgs=(event?.toolName==='tool_call'?event?.params?.args:event?.params)||{};
             if(target==='floassist_source_read'&&intent.mode==='source_review'&&intent.app_id&&readArgs.app_id&&readArgs.app_id!==intent.app_id)return {block:true,blockReason:'Read only the source requested by the contextual intent: '+intent.app_id+'. Do not expand this into other connectors or saved goals.'};
-          }
+          }else rememberSourceReview(turnSession,'',Date.now(),{mode:'other'});
         }
         const reviewBlock=sourceReviewBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);
         if(reviewBlock)return {block:true,blockReason:reviewBlock};
@@ -1268,6 +1269,7 @@ export default definePluginEntry({
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
+              if(name==='floassist_source_read'&&result.ok){const intent=currentSourceReviewIntent(toolCtx?.sessionKey||safeApiSessionKey(api));if(intent?.mode==='source_review')result.data={...result.data,source_review_contract:sourceReviewGuidance(intent.resolved_request,{intent})};}
               if(name==='floassist_source_read')rememberSourceFailure(toolCtx?.sessionKey||safeApiSessionKey(api),runtimeRunId(toolCtx,api.context),result);
               // The native harness classifies thrown failures reliably; some
               // adapters discard an isError field on a normally returned result.

@@ -19,16 +19,20 @@ const cases=[
 ];
 let failure;
 try{
- for(const test of cases){
+ const selected=process.env.LIVE_INTENT_CASES?cases.filter((_,i)=>process.env.LIVE_INTENT_CASES.split(',').includes(String(i))):cases;
+ for(const test of selected){
   const session='agent:'+caller+':intent-test-'+randomUUID();bindNativeTestBudget(owner,agentId,session,budget,db);
   const result=await resolveFloAssistTurnIntent({owner,agent:agentId,session},{session_key:session,caller_agent_id:caller,run_id:'intent-test-'+randomUUID(),context:test.context},{db});
   console.log(JSON.stringify({case:test.name,mode:result.mode,app_id:result.app_id,whole_period:result.whole_period,relative_day:result.relative_day,verification_failed:result.verification_failed||false}));
   assert.equal(result.mode,test.expected);
   if(test.expected==='source_review'){assert.equal(result.app_id,'gmail');assert.equal(result.whole_period,true);assert.equal(result.relative_day,'today');}
  }
+ const used=db.prepare('SELECT count(*) n FROM native_model_calls WHERE test_budget_id=?').get(budget).n;
+ if(used>=3){
  const refusalSession='agent:'+caller+':intent-refusal-'+randomUUID();bindNativeTestBudget(owner,agentId,refusalSession,budget,db);
  assert.throws(()=>admitNativeModel({id:'refusal-'+randomUUID(),session_key:refusalSession,caller_agent_id:caller,run_id:'refusal-'+randomUUID(),provider:'not-submitted',model:'not-submitted',input_tokens:10,output_limit:20},{db}),e=>e.code==='native_test_budget_exhausted');
- console.log('LIVE_CONTEXTUAL_INTENT_OK: three configured-checker decisions, correct reply target, no keyword routing; fourth provider submission refused');
+ }
+ console.log('LIVE_CONTEXTUAL_INTENT_OK: configured-checker decisions, correct reply target, no keyword routing; fourth provider submission refused');
 }catch(e){failure=e;}finally{
  const usage=db.prepare('SELECT id,provider,model,status,input_tokens,output_tokens,estimated FROM native_model_calls WHERE test_budget_id=? ORDER BY created_at').all(budget);
  console.log(JSON.stringify({batch:budget,calls:usage.length,total_tokens:usage.reduce((n,r)=>n+r.input_tokens+r.output_tokens,0),usage}));

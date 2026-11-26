@@ -218,6 +218,7 @@ export function requestedBrowserDriver(text, current = null) {
  * goal. This is the final API-boundary guard shared by web, WhatsApp, goals,
  * workflows and specialist delegation. */
 export function resolveBrowserTaskExecutorPreference(requestPayload = {}, executionContext = null) {
+  if(executionContext?.browser_executor_preference)return {...executionContext.browser_executor_preference};
   const supplied = String(requestPayload.preferred_driver || requestPayload.preferredDriver || '').trim();
   const contextText = [
     executionContext?.original_request,

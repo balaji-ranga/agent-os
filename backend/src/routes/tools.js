@@ -1,3 +1,4 @@
+import {nativeTurnExecutionContext} from '../services/floassist/turn-intent.js';
 import {sourceDuplicateRecovery} from '../services/floassist/source-read-contract.js';
 import {liveConnectorHealthEvidence} from '../services/connector-health-evidence.js';
 import {fetchModelViaGateway} from '../../../scripts/lib/model-egress.js';
@@ -4535,7 +4536,7 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
     const executionContext = lookupSessionExecutionContext(
       req.headers['x-openclaw-session-key'] || req.headers['x-session-key'], ownerUserId
-    );
+    ) || nativeTurnExecutionContext(getDb(),ownerUserId,req.headers['x-openclaw-session-key'],req.headers['x-openclaw-run-id']);
     const normalizedInput = normalizeBrowserTaskInput(requestPayload.input, requestPayload);
     const executorPreference = resolveBrowserTaskExecutorPreference(requestPayload, executionContext);
     const task = await startBrowserTask(ownerUserId, {

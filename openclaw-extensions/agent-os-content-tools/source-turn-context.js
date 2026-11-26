@@ -29,8 +29,9 @@ export async function buildSourceTurnContext(prompt,history=[],{sessionKey,readR
   target=items.find(m=>m.__openclaw?.transport?.messageId===transport.replyToId&&m.__openclaw?.transport?.conversationRef===transport.conversationRef&&(m.__openclaw?.senderIdentity?.accountId||m.__openclaw?.transport?.accountId)===transport.accountId);
   target=target||await readReply(sessionKey,transport);
  }
- const tooLong=String(prompt).length>4000||target&&text(target).length>4000;
- return {current_request:tooLong?'[Request exceeds contextual routing bound; ask for clarification]':String(prompt),...(transport.replyToId?{reply_to:{message_id:transport.replyToId,target:target&&!tooLong?{role:target.role,content:text(target)}:null,missing:!target||!!tooLong}}:{}),recent_messages:items.filter(m=>m!==current).slice(-6).map(m=>({role:m.role,content:text(m).slice(0,600)})),...(tooLong?{context_incomplete:true}:{})};
+ const userPrompt=String(prompt).split('\n\n[System — Dashboard chat]')[0];
+ const tooLong=userPrompt.length>4000||target&&text(target).length>4000;
+ return {current_request:tooLong?'[Request exceeds contextual routing bound; ask for clarification]':userPrompt,...(transport.replyToId?{reply_to:{message_id:transport.replyToId,target:target&&!tooLong?{role:target.role,content:text(target)}:null,missing:!target||!!tooLong}}:{}),recent_messages:items.filter(m=>m!==current).slice(-6).map(m=>({role:m.role,content:text(m).slice(0,600)})),...(tooLong?{context_incomplete:true}:{})};
 }
 export function rememberSemanticTurn(session,context){
  if(!session)return;for(const[k,v]of turns)if(v.until<=Date.now())turns.delete(k);
