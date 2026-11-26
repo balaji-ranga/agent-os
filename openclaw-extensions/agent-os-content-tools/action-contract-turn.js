@@ -47,14 +47,14 @@ export function createActionContractController({post,invoke,now=Date.now,invokeT
   const s=forRun(session,event.runId);
   if(s?.route?.decision==='clarify'&&(!event.runId||s.aliases.has(event.runId))){s.closed=true;return {payload:{...event.payload,text:s.route.reply||'Please clarify which action and target you want. No action has been performed.',isError:false}};}
   if(s?.route?.decision==='execute'&&(!event.runId||s.aliases.has(event.runId))){
-   if(event.payload.isError||s.ctx.abortSignal?.aborted){s.closed=true;return {payload:{...event.payload,text:'I could not finish this request. No action was performed.',isError:true}};}
+   if((event.payload.isError||s.ctx.abortSignal?.aborted)&&!s.dispatchAttempted){s.closed=true;return {payload:{...event.payload,text:'I could not finish this request. No action was performed.',isError:true}};}
    if(!s.inFlight)s.inFlight=(async()=>{
     let reply;
    try{
     let result=await post({operation:'claim',session_key:session,caller_agent_id:s.caller,id:s.route.id});
     if(result.status==='claimed'){
      let output,timer;const abort=new AbortController();
-     try{output=await Promise.race([invoke(result.tool_name,result.arguments,{...s.ctx,sessionKey:session,agentId:s.caller,runId:s.nativeRun||s.run,platformActionSignal:abort.signal}),new Promise((_,reject)=>{timer=setTimeout(()=>{const error=Error('Action response timed out; dispatch is uncertain.');abort.abort(error);reject(error);},invokeTimeoutMs);})]);}
+     try{if(!s.canDispatch||!s.ctx.toolAuthority)throw Error('No authorized tool dispatch was started for this result.');s.ctx.toolAuthority.assertActive();if(!s.ctx.toolAuthority.allows(result.tool_name))throw Error('This tool is not permitted in the current request.');output=await Promise.race([invoke(result.tool_name,result.arguments,{...s.ctx,sessionKey:session,agentId:s.caller,runId:s.nativeRun||s.run,platformActionSignal:abort.signal}),new Promise((_,reject)=>{timer=setTimeout(()=>{const error=Error('Action response timed out; dispatch is uncertain.');abort.abort(error);reject(error);},invokeTimeoutMs);})]);}
      catch(e){output={ok:false,uncertain:abort.signal.aborted,error:String(e.message||'The platform action failed')};}
      finally{clearTimeout(timer);}
      result=await post({operation:'complete',session_key:session,caller_agent_id:s.caller,id:s.route.id,result:output});
@@ -68,6 +68,10 @@ export function createActionContractController({post,invoke,now=Date.now,invokeT
    return {payload:{...event.payload,text:(text.match(/^From:[^\n]+\r?\n\s*/)?.[0]||'')+reply,isError:false}};
   }
   if(s&&(!event.runId||s.aliases.has(event.runId)))s.closed=true;
+  if(!s&&event.runId){
+   const caller=session.match(/^agent::?([^:]+):/)?.[1];
+   if(caller)try{const stored=await post({operation:'lookup',session_key:session,caller_agent_id:caller,run_id:event.runId});if(stored.decision==='execute'&&stored.reply)return {payload:{...event.payload,text:stored.reply,isError:false}};}catch{}
+  }
   // Validate platform artifacts regardless of what the model claimed.
   if(/https?:\/\/[^\s<>)]*\/p\/[^\s<>)]*/.test(text)){
    const caller=session.match(/^agent::?([^:]+):/)?.[1];if(!caller)return;
@@ -77,5 +81,10 @@ export function createActionContractController({post,invoke,now=Date.now,invokeT
    }catch{return {payload:{...event.payload,text:'I could not verify that private result link, so I have withheld it.',isError:false}};}
   }
  }
- return {prepare,bind,prompt,block,finish};
+ async function fulfill(ctx){
+  const s=forRun(ctx?.sessionKey,ctx?.runId);if(s?.route?.decision!=='execute')return;
+  s.dispatchAttempted=true;s.canDispatch=true;s.ctx.toolAuthority=ctx.toolAuthority;
+  try{return await finish({sessionKey:s.session,runId:ctx.runId||s.run,kind:'final',payload:{text:''}});}finally{s.canDispatch=false;}
+ }
+ return {prepare,bind,prompt,block,finish,fulfill};
 }

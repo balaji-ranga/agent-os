@@ -30,7 +30,7 @@ try{
  };
  const {default:plugin}=await import('/opt/agent-os/openclaw-extensions/agent-os-content-tools/index.js');const hooks=new Map();let turn=0;
  plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler)=>hooks.set(name,name==='before_prompt_build'?async(event,ctx)=>{ctx.runId='fixture-run-'+(++turn);return handler(event,ctx);}:handler),registerTool(){},registerCommand(){}});
- const ctx={agentId:id,sessionKey:session,channelId:'whatsapp',runId:'fixture-run'};
+ const ctx={toolAuthority:{assertActive(){},allows:n=>n==='voice_call_invite'},agentId:id,sessionKey:session,channelId:'whatsapp',runId:'fixture-run'};
  const first=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(first.appendSystemContext,/Asia\/Singapore/);assert.match(first.appendSystemContext,/Fixture authorized physical device context/);assert.match(first.appendSystemContext,/A tool-search result or a prior assistant answer is not a device inventory result/);
  assert.ok(!first.prependContext,'domain policy must not become an extra user assignment');
  assert.match(first.appendSystemContext,/tool_search across the authorized platform catalog/);

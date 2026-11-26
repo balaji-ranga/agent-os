@@ -1116,16 +1116,16 @@ export default definePluginEntry({
         const response=await fetch(base+'/api/tools/native-action-contract',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify(body),signal:AbortSignal.timeout(body.operation==='route'?10000:3000)});
         if(!response.ok)throw new Error('Action contract unavailable');return response.json();
       },
-      invoke:(tool,args,ctx)=>callInvoke(api,tool,args,ctx.agentId,ctx)
+      invoke:(tool,args,ctx)=>{if(!isToolAllowedForAgent(ctx.agentId,tool,ctx.sessionKey))return {ok:false,error:'This tool is not available in the current session.'};ctx.toolAuthority.assertActive();if(!ctx.toolAuthority.allows(tool))return {ok:false,error:'This tool is not permitted in the current request.'};return callInvoke(api,tool,args,ctx.agentId,ctx);}
     });
     if (typeof api.on === "function") {
-      api.on('reply_payload_sending',async event=>stripNativeSkillMarker(event,await rewriteBudgetFailureReply(event,{lookup:async body=>{
+      api.on('reply_payload_sending',async event=>stripNativeSkillMarker(event,await actionContracts.finish(event)||await rewriteBudgetFailureReply(event,{lookup:async body=>{
         const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
         if(!base)throw new Error('Budget lookup unavailable');
         const response=await fetch(base+'/api/tools/native-model-budget/failure-reason',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify(body),signal:AbortSignal.timeout(3000)});
         if(!response.ok)throw new Error('Budget lookup unavailable');
         return response.json();
-      }})||await actionContracts.finish(event)||rewriteSourceFailureReply(event)),{priority:100,timeoutMs:15000});
+      }})||rewriteSourceFailureReply(event)),{priority:100,timeoutMs:15000});
       // llm_input carries the trusted turn runId even when prompt-build context does not.
       api.on("llm_input", async (event, ctx) => {
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
@@ -1217,7 +1217,7 @@ export default definePluginEntry({
         const [timezoneHint,result,skillHint] = await Promise.all([timezoneContext(),correlateInboundCampaign(api,event,ctx),skillContext(),actionContract]);
         const staging=actionContracts.prompt(statusSession);
         api.logger?.info?.('[agent-os-content-tools] contract-preparation '+JSON.stringify({runId:ctx?.runId,elapsedMs:Math.round(performance.now()-contractStarted),staged:!!staging,stagingSystemChars:staging?.systemPrompt?.length||0}));
-        if(staging)return staging;
+        if(staging){await actionContracts.fulfill({...ctx,sessionKey:statusSession});return staging;}
         const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
         const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
         const {personalContext,systemContext}=composeTaskGuidance({discoveryHint:platformDiscoveryGuidance,speechTurn,statusHint,timezoneHint,physicalHint,physicalDiscoveryHint:physicalDiscoveryTurnHint(physicalHint),scheduledHint:scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent,'scheduled_goal_list',ctx?.sessionKey)&&isToolAllowedForAgent(recoveryAgent,'scheduled_goal_run_now',ctx?.sessionKey)),speechHint,recoveryHint,reviewHint,skillHint,budgetHint:incrementalContextGuidance});
@@ -1244,7 +1244,7 @@ export default definePluginEntry({
                 : "Acknowledge the response concisely. Do not independently create another lead or run a separate campaign; Marketing Specialist owns the targeted follow-up.",
           ].join("\n"),
         };
-      }, { priority: 50, timeoutMs: 12000 });
+      }, { priority: 50, timeoutMs: 25000, requiresToolAuthority:true });
     }
     const tools = loadRuntimeToolDescriptors().sort((a, b) => {
       const rank = (n) =>

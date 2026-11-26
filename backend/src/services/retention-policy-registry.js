@@ -25,6 +25,7 @@ add('execution_provider_failures', { owner:'owner_id', unit:'ms' });
 add('tool_fetch_windows', { unit:'ms' });
 add('native_model_execution_links', { owner:'owner_id', unit:'ms' });
 add('native_action_contracts', { owner:'owner_id', unit:'ms' });
+add('native_action_contract_runs', { owner:'owner_id', unit:'ms' });
 add('tool_async_jobs', {time:'updated_at',state:'notification_state',states:['sent','web_fallback']});
 add('agent_workflow_audit', {parent:{table:'agent_workflow_definitions',key:'id',fk:'definition_id',owner:'owner_user_id'}});
 add('activities', {parent:{table:'agents',key:'id',fk:'agent_id',owner:'owner_user_id'}});

@@ -875,6 +875,7 @@ router.post('/native-action-contract',async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   if(body.operation==='route')return res.json(await service.routeNativeAction(identity,body));
   if(body.operation==='bind')return res.json(service.bindNativeActionRun(identity,body.id,body.run_id));
+  if(body.operation==='lookup')return res.json(service.lookupNativeAction(identity,body.run_id));
   if(body.operation==='claim')return res.json(service.claimNativeAction(identity,body.id));
   if(body.operation==='complete'){
    if(JSON.stringify(body.result||{}).length>12000)return res.status(422).json({error:'Bounded action result required'});

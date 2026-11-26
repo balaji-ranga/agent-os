@@ -24,6 +24,9 @@ try{
  const generated=voice.createVoiceInvite(identity.owner,identity.agent);
  const done=service.completeNativeAction(identity,first.id,{ok:true,data:generated},db);
  assert.equal(done.status,'completed');assert(done.reply.includes(generated.url));assert.equal(service.claimNativeAction(identity,first.id,db).status,'completed');
+ service.bindNativeActionRun(identity,first.id,'native-alias',db);
+ assert.equal(service.lookupNativeAction(identity,'native-alias:compaction:1',db).status,'completed');
+ assert.equal(service.lookupNativeAction({...identity,owner:'foreign'},'native-alias',db).decision,'other');
  assert.throws(()=>service.claimNativeAction({...identity,owner:'foreign'},first.id,db),/not found/);
  assert.throws(()=>service.claimNativeAction({...identity,session:'another-conversation'},first.id,db),/not found/);
  const another=await service.routeNativeAction(identity,request('two'),deps);service.claimNativeAction(identity,another.id,db);

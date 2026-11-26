@@ -18,6 +18,7 @@ export function ensureNativeActionContracts(db=getDb()){
  db.exec(`CREATE TABLE IF NOT EXISTS native_action_contracts(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,agent_id TEXT NOT NULL,session_key TEXT NOT NULL,turn_id TEXT NOT NULL,run_id TEXT NOT NULL,mode TEXT NOT NULL,tool_name TEXT,args_json TEXT NOT NULL,status TEXT NOT NULL,result_json TEXT,reply TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,claimed_at INTEGER,UNIQUE(owner_id,agent_id,session_key,turn_id));`);
  if(!db.prepare('PRAGMA table_info(native_action_contracts)').all().some(c=>c.name==='artifact_hash'))db.exec('ALTER TABLE native_action_contracts ADD COLUMN artifact_hash TEXT');
  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_native_action_artifact ON native_action_contracts(owner_id,artifact_hash) WHERE artifact_hash IS NOT NULL');
+ db.exec('CREATE TABLE IF NOT EXISTS native_action_contract_runs(owner_id TEXT,agent_id TEXT,session_key TEXT,run_id TEXT,contract_id TEXT,created_at INTEGER,PRIMARY KEY(owner_id,agent_id,session_key,run_id))');
 }
 const failure=message=>Object.assign(Error(message),{status:409});
 const publicRow=r=>({id:r.id,decision:r.mode,tool_name:r.tool_name,arguments:JSON.parse(r.args_json),status:r.status,...(r.reply?{reply:r.reply}:{}),...(r.result_json?{result:JSON.parse(r.result_json)}:{})});
@@ -60,12 +61,21 @@ export async function routeNativeAction(identity,input,{db=getDb(),complete=chat
 export function bindNativeActionRun(identity,id,run,db=getDb()){
  const r=owned(identity,id,db);if(typeof run!=='string'||!run||run.length>240)throw failure('Native run identity required');
  if(run!==r.run_id&&db.prepare('SELECT 1 FROM native_model_calls WHERE owner_id=? AND session_key=? AND run_key=? LIMIT 1').get(identity.owner,identity.session,r.run_id))linkNativeExecution(identity.owner,run,r.run_id,identity.session,db);
+ db.prepare('INSERT OR IGNORE INTO native_action_contract_runs VALUES (?,?,?,?,?,?)').run(identity.owner,identity.agent,identity.session,run.split(':compaction:')[0],id,Date.now());
  return publicRow(r);
+}
+export function lookupNativeAction(identity,run,db=getDb()){
+ ensureNativeActionContracts(db);if(typeof run!=='string'||!run||run.length>240)throw failure('Native run identity required');
+ const key=run.split(':compaction:')[0];
+ const r=db.prepare('SELECT * FROM native_action_contracts WHERE owner_id=? AND agent_id=? AND session_key=? AND (run_id=? OR id=(SELECT contract_id FROM native_action_contract_runs WHERE owner_id=? AND agent_id=? AND session_key=? AND run_id=?)) ORDER BY created_at DESC LIMIT 1').get(identity.owner,identity.agent,identity.session,key,identity.owner,identity.agent,identity.session,key);
+ if(!r)return {decision:'other',enabled:false};
+ if(r.mode==='execute'&&r.status==='completed')return claimNativeAction(identity,r.id,db);
+ return {...publicRow(r),...(r.mode==='execute'&&!r.reply?{reply:'The action has no verified completion result. I have not supplied a cached result or repeated it.'}:{})};
 }
 export function claimNativeAction(identity,id,db=getDb()){
  const r=owned(identity,id,db);if(r.mode!=='execute')return publicRow(r);
  if(r.status==='completed'){
-  const v=JSON.parse(r.result_json);if(Date.parse(v.expires_at)<=Date.now()+30000)return {id,status:'expired',reply:'The generated private link expired before delivery. Please request a new link.'};
+  const v=JSON.parse(r.result_json);if(Date.parse(v.expires_at)<=Date.now()+30000)return {id,decision:'execute',status:'expired',reply:'The generated private link expired before delivery. Please request a new link.'};
   return publicRow(r);
  }
  if(r.status!=='ready')return {...publicRow(r),reply:r.reply||'This action has an uncertain result. I have not repeated it.'};
