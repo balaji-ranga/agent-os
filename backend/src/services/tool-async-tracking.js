@@ -19,7 +19,7 @@ export function ensureAsyncTracking(db=getDb()){
  CREATE INDEX IF NOT EXISTS idx_tool_async_scope ON tool_async_jobs(owner_user_id,agent_id,session_key,created_at);
  CREATE INDEX IF NOT EXISTS idx_tool_async_pending ON tool_async_jobs(status,notification_state);`);
  const columns=new Set(db.prepare('PRAGMA table_info(tool_async_jobs)').all().map(c=>c.name));
- for(const name of ['chat_session_id','work_unit_id','chat_turn_id'])if(!columns.has(name))db.exec(`ALTER TABLE tool_async_jobs ADD COLUMN ${name} ${name==='chat_turn_id'?'INTEGER':'TEXT'}`);
+ for(const name of ['chat_session_id','work_unit_id','chat_turn_id','notification_error'])if(!columns.has(name))db.exec(`ALTER TABLE tool_async_jobs ADD COLUMN ${name} ${name==='chat_turn_id'?'INTEGER':'TEXT'}`);
  stores.add(db);return db;
 }
 export function createTrackedTool({owner,agent,session='',tool,actionId,timeoutMs=60000,origin},db=getDb()){
@@ -29,11 +29,15 @@ export function createTrackedTool({owner,agent,session='',tool,actionId,timeoutM
  const native=parseTenantOpenClawAgentId(agent);
  const match=session.match(/^agent::?([^:]+):whatsapp:(?:direct|dm):([+0-9]+(?:@s\.whatsapp\.net)?)$/);
  const runtimeTarget=origin?.channel==='whatsapp'&&/^\+?[0-9]{7,15}(?:@s\.whatsapp\.net)?$/.test(origin?.target||'')?origin.target:null;
- const target=runtimeTarget||(match?.[1]===agent?match[2]:null);
- const wa=!!(native?.ceoUserId===owner&&target);
+ const target=runtimeTarget||(!origin?.channel&&match?.[1]===agent?match[2]:null);
+ const owned=native?.ceoUserId===owner;
+ const wa=!!(owned&&target);
+ const slack=!!(owned&&origin?.channel==='slack'&&/^[UD][A-Z0-9]{8,}$/.test(origin?.target||''));
+ const channel=wa?'whatsapp':slack?'slack':'web';
+ const destination=wa?target:slack?origin.target:null;
  const actor=lookupOpenClawSessionActor(session);
  const id='track-'+randomUUID(),now=new Date().toISOString();
- db.prepare(`INSERT INTO tool_async_jobs(id,owner_user_id,agent_id,session_key,actor_user_id,tool_name,action_id,channel,target,status,created_at,updated_at,deadline_ms) VALUES(?,?,?,?,?,?,?,?,?,'running',?,?,?)`).run(id,owner,agent,session,actor?.ownerUserId===owner?actor.actorUserId:owner,tool,actionId,wa?'whatsapp':'web',wa?target:null,now,now,Date.now()+Math.max(timeoutMs,30000)+30000);
+ db.prepare(`INSERT INTO tool_async_jobs(id,owner_user_id,agent_id,session_key,actor_user_id,tool_name,action_id,channel,target,status,created_at,updated_at,deadline_ms) VALUES(?,?,?,?,?,?,?,?,?,'running',?,?,?)`).run(id,owner,agent,session,actor?.ownerUserId===owner?actor.actorUserId:owner,tool,actionId,channel,destination,now,now,Date.now()+Math.max(timeoutMs,30000)+30000);
  const work=lookupSessionExecutionContext(session,owner)?.work_unit_id;
  if(work)bindTrackedChat(id,work,db);
  return db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(id);
@@ -67,7 +71,7 @@ export function deliverTrackedChat(job,db=getDb()){
   return true;
  })();
 }
-export function trackingAck(job){return {ok:true,async:true,trackingId:job.id,status:job.status,notificationChannel:job.channel,notification:job.notification_state,instruction:`Tell the user this request is tracked as ${job.id}. ${['sent','web_fallback'].includes(job.notification_state)?'Its final update has already been reported; do not send another unsolicited update.':'A final update will use the same tracking ID.'} Do not repeat the action. For follow-up questions use tool_execution_status with trackingId ${job.id}, or without an ID to list this conversation's recent requests.`};}
+export function trackingAck(job){return {ok:true,async:true,trackingId:job.id,status:job.status,notificationChannel:job.channel,notification:job.notification_state,instruction:`Tell the user this request is tracked as ${job.id}. ${job.notification_state==='sent'?'Its final update was delivered to the initiating channel; do not send another unsolicited update.':job.notification_state==='web_fallback'?'Its result is available in Flolah notifications; initiating-channel delivery was not confirmed.':job.notification_state==='uncertain'?'Its channel delivery is uncertain; inspect status and do not resend or repeat the action.':'A final update will use the same tracking ID and initiating channel.'} Do not repeat the action. For follow-up questions use tool_execution_status with trackingId ${job.id}, or without an ID to list this conversation's recent requests.`};}
 export function dispatchTrackedTool(scope,execute,{db=getDb(),onResult=()=>{}}={}){
  ensureAsyncTracking(db);
  const existing=db.prepare('SELECT * FROM tool_async_jobs WHERE action_id=? AND owner_user_id=?').get(scope.actionId,scope.owner);
@@ -80,7 +84,7 @@ export function trackedStatus({owner,agent,session='',trackingId},db=getDb()){
  ensureAsyncTracking(db);
  const rows=trackingId?db.prepare('SELECT * FROM tool_async_jobs WHERE id=? AND owner_user_id=? AND agent_id=? AND session_key=?').all(trackingId,owner,agent,session):db.prepare('SELECT * FROM tool_async_jobs WHERE owner_user_id=? AND agent_id=? AND session_key=? ORDER BY created_at DESC LIMIT 10').all(owner,agent,session);
  if(trackingId&&!rows.length)throw Object.assign(Error('Tracking request not found in this conversation'),{status:404});
- return {requests:rows.map(r=>({trackingId:r.id,tool:r.tool_name,status:r.status,operationId:r.operation_id,createdAt:r.created_at,notification:r.notification_state,result:r.result_json?JSON.parse(r.result_json):null})),instruction:'Read-only status. Never invoke the original action to check status. If several requests match, ask which tracking ID.'};
+ return {requests:rows.map(r=>({trackingId:r.id,tool:r.tool_name,status:r.status,operationId:r.operation_id,createdAt:r.created_at,notification:r.notification_state,notificationError:r.notification_error||null,result:r.result_json?JSON.parse(r.result_json):null})),instruction:'Read-only status. Never invoke the original action to check status. If several requests match, ask which tracking ID.'};
 }
 export function attachTrackedOperation(actionId,owner,operationId,db=getDb()){
  ensureAsyncTracking(db);db.prepare("UPDATE tool_async_jobs SET operation_id=?,status='waiting',updated_at=? WHERE action_id=? AND owner_user_id=? AND status IN ('running','waiting')").run(operationId,new Date().toISOString(),actionId,owner);
@@ -115,27 +119,47 @@ export async function advanceTrackedTools({db=getDb(),physical,deliver}={}){
  for(const job of db.prepare("SELECT * FROM tool_async_jobs WHERE status NOT IN ('running','waiting') AND notification_state='pending' AND next_notify_ms<=? LIMIT 20").all(Date.now())){
   // A persisted claim prevents concurrent workers from duplicating delivery.
   if(!db.prepare("UPDATE tool_async_jobs SET notification_state='sending',notification_attempts=notification_attempts+1,next_notify_ms=? WHERE id=? AND notification_state='pending'").run(Date.now()+120000,job.id).changes)continue;
-  try{const outcome=await send(job);db.prepare("UPDATE tool_async_jobs SET notification_state=?,updated_at=? WHERE id=?").run(outcome?.fallback?'web_fallback':'sent',new Date().toISOString(),job.id);}
-  catch{db.prepare("UPDATE tool_async_jobs SET notification_state='pending',next_notify_ms=? WHERE id=?").run(Date.now()+60000,job.id);}
+  try{
+   const outcome=await send(job);
+   const retry=outcome?.retry&&job.notification_attempts<4;
+   const state=retry?'pending':outcome?.uncertain?'uncertain':outcome?.fallback||outcome?.retry?'web_fallback':'sent';
+   db.prepare('UPDATE tool_async_jobs SET notification_state=?,notification_error=?,next_notify_ms=?,updated_at=? WHERE id=?').run(state,outcome?.reason||null,retry?Date.now()+60000:0,new Date().toISOString(),job.id);
+  }catch{
+   // A thrown send may already have reached the provider. Reconcile rather
+   // than replaying an ambiguous channel send (or the underlying action).
+   sendWeb(job);db.prepare("UPDATE tool_async_jobs SET notification_state='uncertain',notification_error='delivery_exception',updated_at=? WHERE id=?").run(new Date().toISOString(),job.id);
+  }
  }
  // Uncertain channel delivery is not blindly resent after a crash. Web fallback
  // is durable and deduplicated; channel sends use the stable tracking ID too.
  for(const job of db.prepare("SELECT * FROM tool_async_jobs WHERE notification_state='sending' AND next_notify_ms<?").all(Date.now())){
-  sendWeb(job);db.prepare("UPDATE tool_async_jobs SET notification_state='web_fallback' WHERE id=?").run(job.id);
+  sendWeb(job);db.prepare("UPDATE tool_async_jobs SET notification_state='uncertain',notification_error='delivery_worker_interrupted' WHERE id=?").run(job.id);
+ }
+ // A late trusted mirror can resolve a lost response without sending again.
+ for(const job of db.prepare("SELECT * FROM tool_async_jobs WHERE notification_state='uncertain' AND channel='whatsapp' ORDER BY updated_at DESC LIMIT 20").all()){
+  if(hasTrackedDeliveryReceipt(job))db.prepare("UPDATE tool_async_jobs SET notification_state='sent',notification_error=NULL,updated_at=? WHERE id=? AND notification_state='uncertain'").run(new Date().toISOString(),job.id);
  }
 }
 function notice(job){const r=job.result_json?JSON.parse(job.result_json):{};return `Tracking ID: ${job.id}\nTool: ${job.tool_name}\nStatus: ${job.status}\n${job.operation_id?'Operation: '+job.operation_id+'\n':''}${typeof r.reply==='string'?r.reply:r.error||r.notice||'Result available through tool_execution_status.'}`;}
 function sendWeb(job){if(getDb().prepare("SELECT 1 FROM platform_user_notifications WHERE user_id=? AND source='tool_async' AND source_key=?").get(job.actor_user_id,job.id))return;sendPlatformNotifications({userIds:[job.actor_user_id],createdBy:job.owner_user_id,title:`Tool update: ${job.status} (${job.id})`,body:notice(job),linkUrl:'/content-tools',source:'tool_async',sourceKey:job.id});}
-async function deliverTrackedNotification(job){
+export async function deliverTrackedNotification(job,{announce=announceOnAgentChannel,receipt=hasTrackedDeliveryReceipt}={}){
  sendWeb(job);
  if(job.channel==='web')return {fallback:!deliverTrackedChat(job)};
- if(job.channel==='whatsapp'&&job.target){
+ if(['whatsapp','slack'].includes(job.channel)&&job.target){
   const base=parseTenantOpenClawAgentId(job.agent_id)?.baseOpenClawId||job.agent_id;
-  const agent=getDb().prepare('SELECT a.id FROM agents a JOIN user_agents u ON u.agent_id=a.id AND u.user_id=? AND u.enabled=1 WHERE a.id=? OR a.openclaw_agent_id=?').get(job.owner_user_id,base,base);
-  if(!agent)return {fallback:true};
-  const result=await announceOnAgentChannel({ownerUserId:job.owner_user_id,agentId:agent.id,channel:'whatsapp',authorizedTo:job.target,text:notice(job),idempotencyKey:job.id,includeRecentMedia:false,singleAttempt:true});
-  if(!result.ok||result.skipped)return {fallback:!hasTrackedDeliveryReceipt(job)};
+  const agent=getDb().prepare('SELECT a.id FROM agents a JOIN user_agents u ON u.agent_id=a.id AND u.user_id=? AND u.enabled=1 WHERE (a.id=? OR a.openclaw_agent_id=?)').get(job.owner_user_id,base,base);
+  if(!agent)return {fallback:true,reason:'agent_not_granted'};
+  const result=await announce({ownerUserId:job.owner_user_id,agentId:agent.id,channel:job.channel,authorizedTo:job.target,text:notice(job),idempotencyKey:job.id,includeRecentMedia:false,singleAttempt:true});
+  if(!result.ok||result.skipped){
+   if(job.channel==='whatsapp'&&receipt(job))return {};
+   const reason=result.reason||'channel_delivery_failed';
+   if(['unpaired','status_pairing','pair_check_failed'].includes(reason))return {retry:true,reason};
+   if(reason==='send_failed')return {uncertain:true,reason};
+   return {fallback:true,reason};
+  }
+  return {};
  }
+ return {fallback:true,reason:'missing_channel_destination'};
 }
 export function startToolAsyncWorker(){let busy=false;const timer=setInterval(async()=>{if(busy)return;busy=true;try{let physical;if(process.env.FLOLAH_PHYSICAL_ENABLED==='1')physical=(await import('./physical/runtime.js')).getPhysicalControlPlane();await advanceTrackedTools({physical});}catch(e){console.warn('[tool-async] maintenance failed:',e.message);}finally{busy=false;}},2000);timer.unref();return ()=>clearInterval(timer);}
 export function seedAsyncStatusTool(){const db=ensureAsyncTracking();const cols=db.prepare('PRAGMA table_info(content_tools_meta)').all().map(c=>c.name);for(const c of ['risk_tier','action_family'])if(!cols.includes(c))db.exec('ALTER TABLE content_tools_meta ADD COLUMN '+c+' TEXT');db.prepare("INSERT OR IGNORE INTO content_tools_meta(name,display_name,endpoint,method,purpose,enabled,is_builtin,risk_tier,action_family) VALUES('tool_execution_status','Tool execution status','/api/tools/tool-execution-status','POST','Read tracked tool status by trackingId, or omit it to list recent requests in this conversation. Never repeat an action to check status.',1,1,'R0','read')").run();db.prepare("INSERT OR IGNORE INTO content_tools_meta(name,display_name,endpoint,method,purpose,enabled,is_builtin,risk_tier,action_family) VALUES('tool_result_read','Read stored tool result','/api/tools/tool-result-read','POST','Read exact stored tool output with resultId and offset from _retrieval.next_request. No source action is repeated. Report unread coverage; never infer omitted content.',1,1,'R0','read')").run();}

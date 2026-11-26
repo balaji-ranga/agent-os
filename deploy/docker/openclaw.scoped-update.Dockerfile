@@ -14,6 +14,9 @@ COPY deploy/scripts/configure-openclaw-docker.js /opt/agent-os/deploy/scripts/co
 COPY deploy/scripts/install-native-model-budget.mjs /opt/agent-os/deploy/scripts/install-native-model-budget.mjs
 COPY scripts/lib/model-egress.js /opt/agent-os/scripts/lib/model-egress.js
 RUN node /opt/agent-os/deploy/scripts/install-native-model-budget.mjs
+COPY deploy/scripts/install-native-channel-delivery.mjs /opt/agent-os/deploy/scripts/
+COPY backend/scripts/test-native-channel-delivery.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/deploy/scripts/install-native-channel-delivery.mjs && node /opt/agent-os/backend/scripts/test-native-channel-delivery.mjs
 COPY deploy/scripts/install-native-compaction-ask-match.mjs /opt/agent-os/deploy/scripts/install-native-compaction-ask-match.mjs
 COPY backend/scripts/test-native-compaction-ask-match.mjs /opt/agent-os/backend/scripts/test-native-compaction-ask-match.mjs
 RUN node /opt/agent-os/deploy/scripts/install-native-compaction-ask-match.mjs && node /opt/agent-os/backend/scripts/test-native-compaction-ask-match.mjs

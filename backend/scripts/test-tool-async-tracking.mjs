@@ -90,5 +90,35 @@ try{
  assert.equal(db.prepare("SELECT COUNT(*) n FROM chat_turns WHERE session_id='original-chat'").get().n,1,'callback is durable and deduplicated');
  const outsider=tracking.createTrackedTool({owner:'outsider',agent,session:'web-outsider',tool:'read',actionId:'wrong-owner'});
  assert.equal(tracking.bindTrackedChat(outsider.id,'original-work'),false);
+ // Channel-aware completion uses the persisted origin, never a current/default chat.
+ db.prepare("INSERT OR IGNORE INTO user_agents(user_id,agent_id,enabled) VALUES(?,'employee',1)").run(owner);
+ const explicitWeb=tracking.createTrackedTool({owner,agent,session,tool:'read',actionId:'explicit-web',origin:{channel:'web',target:'+6500000000'}});
+ assert.equal(explicitWeb.channel,'web','explicit web origin must not inherit a WhatsApp session destination');
+ const slack=tracking.createTrackedTool({owner,agent,session:'native-slack',tool:'read',actionId:'slack-result',origin:{channel:'slack',target:'D12345678'}});
+ assert.equal(slack.channel,'slack');
+ tracking.settleTrackedTool(slack.id,{data:{reply:'Completed Slack result'}});
+ const emitted=[];
+ await tracking.deliverTrackedNotification(db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(slack.id),{announce:async args=>{emitted.push(args);return {ok:true};}});
+ assert.equal(emitted[0].channel,'slack');assert.equal(emitted[0].authorizedTo,'D12345678');assert.equal(emitted[0].idempotencyKey,slack.id);
+ const waResult=tracking.createTrackedTool({owner,agent,session,tool:'read',actionId:'wa-channel-result'});
+ tracking.settleTrackedTool(waResult.id,{data:{reply:'Completed original WhatsApp result'}});
+ const row=()=>db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(waResult.id);
+ let attempts=0;
+ const retryDelivery=job=>job.id===waResult.id?tracking.deliverTrackedNotification(job,{announce:async args=>{attempts++;assert.equal(args.channel,'whatsapp');assert.equal(args.authorizedTo,'+6500000000');return {ok:true,skipped:true,reason:'unpaired'};},receipt:()=>false}):Promise.resolve({});
+ await tracking.advanceTrackedTools({db,deliver:retryDelivery});
+ assert.equal(row().notification_state,'pending');assert.equal(row().notification_error,'unpaired');
+ await tracking.advanceTrackedTools({db,deliver:retryDelivery});assert.equal(attempts,1,'backoff avoids reconnect notification storms');
+ db.prepare('UPDATE tool_async_jobs SET next_notify_ms=0 WHERE id=?').run(waResult.id);
+ await tracking.advanceTrackedTools({db,deliver:async job=>job.id===waResult.id?tracking.deliverTrackedNotification(job,{announce:async()=>({ok:false,skipped:true,reason:'send_failed'}),receipt:()=>false}):{}});
+ assert.equal(row().notification_state,'uncertain','ambiguous gateway errors must not be reported as channel delivery');
+ const ack=tracking.trackingAck(row());assert.match(ack.instruction,/uncertain/);
+ await tracking.advanceTrackedTools({db,deliver:async()=>{throw Error('must not resend');}});
+ assert.equal(row().notification_state,'uncertain');
+ const confirmed=await tracking.deliverTrackedNotification(row(),{announce:async()=>({ok:false,reason:'send_failed'}),receipt:()=>true});
+ assert.deepEqual(confirmed,{},'trusted delivery receipt reconciles a lost transport response');
+ const disabled=await tracking.deliverTrackedNotification(row(),{announce:async()=>({ok:true,skipped:true,reason:'status_disabled'}),receipt:()=>false});
+ assert.equal(disabled.fallback,true);assert.equal(disabled.reason,'status_disabled');
+ const foreign=tracking.createTrackedTool({owner:'outsider',agent,session,tool:'read',actionId:'foreign-origin',origin:{channel:'whatsapp',target:'+6500000000'}});
+ assert.equal(foreign.channel,'web');
  console.log('ASYNC_TOOL_TRACKING_OK: sync/async parity; correlated single callbacks; original-chat delivery after archive; tenant isolation; no action replay');
 }finally{(await import('../src/db/ceo-db.js')).closeCeoDb(owner);db.close();rmSync(root,{recursive:true,force:true});}

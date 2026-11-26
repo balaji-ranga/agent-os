@@ -34,6 +34,7 @@ RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
 WORKDIR /opt/agent-os
 COPY . .
 RUN node deploy/scripts/install-native-model-budget.mjs
+RUN node deploy/scripts/install-native-channel-delivery.mjs && node backend/scripts/test-native-channel-delivery.mjs
 RUN node deploy/scripts/install-native-compaction-ask-match.mjs && node backend/scripts/test-native-compaction-ask-match.mjs
 RUN node deploy/scripts/install-native-tool-name-alias.mjs && node backend/scripts/test-native-tool-name-alias.mjs
 RUN node /opt/agent-os/deploy/scripts/install-native-heartbeat-silence.mjs
