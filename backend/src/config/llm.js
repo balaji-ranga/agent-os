@@ -296,6 +296,7 @@ async function performChatCompletions({
   toolName = null,
   temperature = null,
   responseFormat = null,
+  responseSchema = null,
   memberKey = null,
   source = null,
   sessionId = null,
@@ -356,7 +357,9 @@ async function performChatCompletions({
         body.temperature = Number(temperature);
       }
       // Prefer structured JSON when caller asks (OpenAI-compatible servers; ignored if unsupported).
-      if (responseFormat === 'json_object' || responseFormat === 'json') {
+      if (responseSchema && typeof responseSchema === 'object') {
+        body.response_format = {type:'json_schema',json_schema:{name:'flolah_contract',strict:true,schema:responseSchema}};
+      } else if (responseFormat === 'json_object' || responseFormat === 'json') {
         body.response_format = { type: 'json_object' };
       }
       // DeepSeek V4 enables thinking by default. Machine-judgement calls need

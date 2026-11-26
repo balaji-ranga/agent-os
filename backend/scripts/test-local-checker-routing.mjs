@@ -14,6 +14,9 @@ try{
  const result=await chatCompletions({endpointPreference:'secondary',toolName:'goal_plan_checker',responseFormat:'json_object',thinkingMode:'disabled',maxTokens:250,messages:[{role:'user',content:'Synthetic checker input'}]});
  assert.equal(result.localModel,true);assert.equal(result.actualModel,'fixture-deepseek-checker');assert.equal(calls.length,1);
  assert.equal(calls[0].url,'http://litellm:4000/v1/chat/completions');assert.equal(calls[0].body.reasoning_effort,'none');assert.deepEqual(calls[0].body.response_format,{type:'json_object'});assert.equal(calls[0].body.truncate,false);assert.equal(calls[0].body.num_ctx,32768);assert.equal(calls[0].body.num_thread,6);assert.equal(calls[0].body.max_tokens,250);assert.equal(calls[0].body.user_config.model_list[0].litellm_params.model,'ollama_chat/fixture-deepseek-checker');assert.equal(calls[0].body.user_config.model_list[0].litellm_params.api_base,'http://ollama:11434');
+ const schema={type:'object',properties:{approved:{type:'boolean'}},required:['approved'],additionalProperties:false};
+ await chatCompletions({endpointPreference:'secondary',toolName:'goal_plan_checker',responseSchema:schema,maxTokens:250,messages:[{role:'user',content:'Synthetic schema input'}]});
+ assert.deepEqual(calls.at(-1).body.response_format.json_schema.schema,schema,'typed schemas survive the native local checker transport');
  calls=[];globalThis.fetch=async(url)=>{calls.push(String(url));return new Response('{"error":"fixture failure"}',{status:503});};
  await assert.rejects(()=>chatCompletions({endpointPreference:'secondary',toolName:'goal_plan_checker',messages:[{role:'user',content:'fixture'}]}));
  assert.deepEqual(calls,['http://litellm:4000/v1/chat/completions'],'A local-checker failure cannot become a paid success');

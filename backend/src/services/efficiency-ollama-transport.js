@@ -16,7 +16,7 @@ export async function fetchEfficiencyOllama(chatUrl, init, localOptions = {}) {
   const native = { model: body.model, stream: false, truncate: false,
     messages: body.messages.map(({ role, content }) => ({ role, content })),
     options: { num_thread: threads, num_predict: body.max_tokens, ...(context!==undefined?{num_ctx:context}:{}), ...(body.temperature !== undefined ? { temperature: body.temperature } : {}) },
-    ...(body.response_format?.type === 'json_object' ? { format: 'json' } : {}),
+    ...(body.response_format?.type === 'json_schema'?{format:body.response_format.json_schema.schema}:body.response_format?.type === 'json_object' ? { format: 'json' } : {}),
     ...(localOptions.checker?{think:body.thinking?.type==='enabled'}:body.thinking?.type === 'disabled' ? { think: false } : {}) };
   const response = await fetchOllamaViaGateway(new URL('/api/chat', url), { ...init, body: JSON.stringify(native) });
   if (!response.ok) return response;

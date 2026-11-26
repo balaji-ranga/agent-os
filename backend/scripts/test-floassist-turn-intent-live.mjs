@@ -23,7 +23,7 @@ try{
  for(const test of selected){
   const session='agent:'+caller+':intent-test-'+randomUUID();bindNativeTestBudget(owner,agentId,session,budget,db);
   const result=await resolveFloAssistTurnIntent({owner,agent:agentId,session},{session_key:session,caller_agent_id:caller,run_id:'intent-test-'+randomUUID(),context:test.context},{db});
-  console.log(JSON.stringify({case:test.name,mode:result.mode,app_id:result.app_id,whole_period:result.whole_period,relative_day:result.relative_day,verification_failed:result.verification_failed||false}));
+  console.log(JSON.stringify({case:test.name,mode:result.mode,app_id:result.app_id,whole_period:result.whole_period,relative_day:result.relative_day,verification_failed:result.verification_failed||false,failure_stage:result.failure_stage}));
   assert.equal(result.mode,test.expected);
   if(test.expected==='source_review'){assert.equal(result.app_id,'gmail');assert.equal(result.whole_period,true);assert.equal(result.relative_day,'today');}
  }
