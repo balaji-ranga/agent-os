@@ -10,7 +10,8 @@ const [owner,agentId,reuseBudget]=process.argv.slice(2);if(!owner||!agentId)thro
 const db=getDb(),agent=db.prepare('SELECT * FROM agents WHERE id=?').get(agentId);assert.ok(agent);
 const caller=tenantOpenClawAgentId(owner,baseOpenClawAgentIdForAgent(agent));
 const budget=reuseBudget||createNativeTestBudget(owner,agentId,{maxCalls:3,maxTokens:20000,minutes:30},db);
-console.log(JSON.stringify({batch:budget,max_calls:3,max_tokens:20000,reused:!!reuseBudget}));
+const allowance=db.prepare('SELECT max_calls,max_tokens FROM native_model_test_budgets WHERE id=?').get(budget);
+console.log(JSON.stringify({batch:budget,...allowance,reused:!!reuseBudget}));
 const original="Check my gmail for today's emails snd summarize any important";
 const cases=[
  {name:'explicit WhatsApp reply retry',context:{current_request:'Retry',reply_to:{message_id:'fixture-message',missing:false,target:{role:'user',content:original}},recent_messages:[{role:'user',content:'What is the weather?'},{role:'assistant',content:'I could run Morning Briefing instead.'}]},expected:'source_review'},
@@ -28,7 +29,7 @@ try{
   if(test.expected==='source_review'){assert.equal(result.app_id,'gmail');assert.equal(result.whole_period,true);assert.equal(result.relative_day,'today');}
  }
  const used=db.prepare('SELECT count(*) n FROM native_model_calls WHERE test_budget_id=?').get(budget).n;
- if(used>=3){
+ if(used>=allowance.max_calls){
  const refusalSession='agent:'+caller+':intent-refusal-'+randomUUID();bindNativeTestBudget(owner,agentId,refusalSession,budget,db);
  assert.throws(()=>admitNativeModel({id:'refusal-'+randomUUID(),session_key:refusalSession,caller_agent_id:caller,run_id:'refusal-'+randomUUID(),provider:'not-submitted',model:'not-submitted',input_tokens:10,output_limit:20},{db}),e=>e.code==='native_test_budget_exhausted');
  }
