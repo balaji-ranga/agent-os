@@ -34,7 +34,7 @@ export async function resolveFloAssistTurnIntent(identity,input,{db=getDb(),comp
  const work=(async()=>{
   let admission,usage=null,verified=false,stage='configuration';
   const messages=[{role:'system',content:TURN_INTENT_CONTRACT},{role:'user',content:JSON.stringify(input.context)}];
-  const call={id:'turn-intent-'+randomUUID(),session_key:identity.session,caller_agent_id:input.caller_agent_id,run_id:input.run_id,input_tokens:Math.ceil(JSON.stringify(messages).length/3),output_limit:600};
+  const call={id:'turn-intent-'+randomUUID(),session_key:identity.session,caller_agent_id:input.caller_agent_id,run_id:input.run_id,input_tokens:Buffer.byteLength(JSON.stringify(messages)+JSON.stringify(TURN_INTENT_SCHEMA),'utf8'),output_limit:600};
   try{
    const route=await resolveConfig({ownerUserId:identity.owner,endpointPreference:'secondary',toolName:'floassist_turn_intent'});
    stage='admission';admission=admit({...call,provider:'configured-secondary',model:route.cfg.primary.model},{db});
