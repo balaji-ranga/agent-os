@@ -132,7 +132,7 @@ export function nativeBudgetFailureReason(input,{db=getDb(),now=Date.now()}={}){
  const block=db.prepare('SELECT b.reason FROM native_model_budget_blocks b JOIN native_model_budget_block_sessions s ON s.owner_id=b.owner_id AND s.agent_id=b.agent_id AND s.run_key=b.run_key AND s.reason=b.reason WHERE b.owner_id=? AND b.agent_id=? AND b.run_key=? AND s.session_key=? AND b.created_at>=? ORDER BY b.created_at DESC LIMIT 1').get(identity.owner,identity.agent,key,identity.session,now-10*60000);
  return block?{blocked:true,reason:block.reason}:{blocked:false};
 }
-export function settleNativeModel(input,{db=getDb(),now=Date.now()}={}){
+export function settleNativeModel(input,{db=getDb(),now=Date.now(),usageRecorded=false}={}){
  ensureNativeModelBudget(db);const identity=nativeModelIdentity(input,db);
  if(!integer(input.input_tokens)||!integer(input.output_tokens)||!['completed','error','cancelled'].includes(input.status)||typeof input.estimated!=='boolean')fail(400,'native_budget_input','Bounded numeric usage and a terminal status are required.');
  return db.transaction(()=>{
@@ -149,7 +149,8 @@ export function settleNativeModel(input,{db=getDb(),now=Date.now()}={}){
    return {ok:true,duplicate:true};
   }
   db.prepare('UPDATE native_model_calls SET status=?,input_tokens=?,output_tokens=?,estimated=?,reserved_tokens=0,updated_at=? WHERE id=?').run(input.status,input.input_tokens,input.output_tokens,input.estimated?1:0,now,call.id);
-  if((input.input_tokens||input.output_tokens)&&!recordTokenUsage(identity.owner,{memberKey:identity.agent,agentId:identity.agent,source:'native_model',modelId:call.model,inputTokens:input.input_tokens,outputTokens:input.output_tokens,estimated:input.estimated,sessionId:call.session_key,runId:call.scheduled_run_id||call.run_key,traceId:call.id}))throw Error('Native usage ledger write failed.');
+  if(usageRecorded&&(input.input_tokens||input.output_tokens)&&!db.prepare('SELECT 1 FROM token_usage WHERE owner_user_id=? AND member_key=? AND trace_id=?').get(identity.owner,identity.agent,call.id))throw Error('Utility usage was not recorded; native reservation cannot be settled without accounting.');
+  if(!usageRecorded&&(input.input_tokens||input.output_tokens)&&!recordTokenUsage(identity.owner,{memberKey:identity.agent,agentId:identity.agent,source:'native_model',modelId:call.model,inputTokens:input.input_tokens,outputTokens:input.output_tokens,estimated:input.estimated,sessionId:call.session_key,runId:call.scheduled_run_id||call.run_key,traceId:call.id}))throw Error('Native usage ledger write failed.');
   return {ok:true};
  }).immediate();
 }

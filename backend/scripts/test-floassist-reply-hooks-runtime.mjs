@@ -9,8 +9,9 @@ try{
  process.env.OPENCLAW_DIR=root;process.env.OPENCLAW_CONFIG_PATH=join(root,'openclaw.json');process.env.PLATFORM_RUNTIME_SECRETS_PATH=join(root,'secrets.json');process.env.OPENCLAW_TOOLS_LIST_PATH=join(root,'tools.json');
  const config={agents:{list:[{id,tools:{allow:['floassist_source_read','physical_entities_list']}}]},plugins:{entries:{'agent-os-content-tools':{config:{baseUrl:'https://fixture.invalid'}}}}};
  writeFileSync(process.env.OPENCLAW_CONFIG_PATH,JSON.stringify(config));writeFileSync(process.env.PLATFORM_RUNTIME_SECRETS_PATH,JSON.stringify({version:1,secrets:{tool_broker:{value:'fixture-only'}}}));writeFileSync(process.env.OPENCLAW_TOOLS_LIST_PATH,'[]');writeFileSync(join(root,'agent-tool-allowlists.json'),JSON.stringify({[id]:['floassist_source_read','physical_entities_list']}));
- const requests=[];let zone='Asia/Singapore',profileEnabled=true,profileUnavailable=false;globalThis.fetch=async(url,options)=>{
+ const requests=[];let fixtureIntent={mode:'source_review',resolved_request:"Check my Gmail for today's emails and summarize important messages",app_id:'gmail',whole_period:true,relative_day:'today',actionable_only:true};let zone='Asia/Singapore',profileEnabled=true,profileUnavailable=false;globalThis.fetch=async(url,options)=>{
   requests.push({path:new URL(url).pathname,body:JSON.parse(options.body)});
+  if(String(url).endsWith('/native-turn-intent'))return new Response(JSON.stringify(fixtureIntent));
   if(String(url).endsWith('/physical-context'))return new Response(JSON.stringify({instructions:'Fixture authorized physical device context'}));
   if(String(url).endsWith('/profile-context'))return profileUnavailable?new Response('{}',{status:503}):new Response(JSON.stringify({enabled:profileEnabled,timezone_available:true,timezone:zone,local_now:'fixture local time'}));
   if(String(url).endsWith('/failure-reason'))return new Response(JSON.stringify({blocked:true,reason:'native_monthly_token_budget'}));
@@ -19,7 +20,7 @@ try{
  };
  const {default:plugin}=await import('/opt/agent-os/openclaw-extensions/agent-os-content-tools/index.js');const hooks=new Map();
  plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler)=>hooks.set(name,handler),registerTool(){},registerCommand(){}});
- const ctx={agentId:id,sessionKey:session,channelId:'whatsapp'};
+ const ctx={agentId:id,sessionKey:session,channelId:'whatsapp',runId:'fixture-run'};
  const first=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(first.appendSystemContext,/Asia\/Singapore/);assert.match(first.appendSystemContext,/Fixture authorized physical device context/);assert.match(first.prependContext,/A tool-search result or a prior assistant answer is not a device inventory result/);
  assert.match(first.appendSystemContext,/floassist_source_read/);
  const web=await hooks.get('before_prompt_build')({prompt:'Fixture request'},{...ctx,channelId:'web'});assert.match(web.appendSystemContext,/Connected-service routing/);
@@ -42,7 +43,7 @@ try{
  assert.match(unavailable.appendSystemContext,/Do not assume UTC/);profileUnavailable=false;
  await hooks.get('before_prompt_build')({prompt:'Review my email and calendar for weekly focus areas'},ctx);
  assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_list',args:{}}},ctx)).block,true);
- assert.equal(await hooks.get('before_tool_call')({toolName:'floassist_source_read',params:{app_id:'gmail'}},ctx),undefined);
+ assert.equal((await hooks.get('before_tool_call')({toolName:'floassist_source_read',params:{app_id:'gmail'}},ctx)).params.review_all,true);
  await hooks.get('before_prompt_build')({prompt:"Check my gmail for today's emails snd summarize any important"},ctx);
  const corrected=await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'floassist_source_read',args:{app_id:'gmail',source_id:'owner@example.test'}}},ctx);
  assert.deepEqual(corrected.params.args,{app_id:'gmail',review_all:true,relative_day:'today'});
@@ -54,6 +55,14 @@ try{
   const fallback=await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_run_now',args:{goal_id:'saved-briefing'}}},ctx);
   assert.equal(fallback.block,true,'source failure cannot fall back to Morning Briefing');
  }
+ const original={role:'user',content:"Check my gmail for today's emails snd summarize any important",__openclaw:{senderIdentity:{accountId:id},transport:{channel:'whatsapp',conversationRef:'fixture-conversation',messageId:'original'}}};
+ const retry={role:'user',content:'Retry',__openclaw:{senderIdentity:{accountId:id},transport:{channel:'whatsapp',conversationRef:'fixture-conversation',messageId:'retry',replyToId:'original'}}};
+ const contextual=await hooks.get('before_prompt_build')({prompt:'Retry',messages:[original,{role:'user',content:'Unrelated later topic'},retry]},ctx);
+ assert.match(contextual.appendSystemContext,/explicit reply/);
+ assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_run_now',args:{goal_id:'saved-briefing'}}},ctx)).block,true);
+ const sent=requests.filter(r=>r.path==='/api/tools/native-turn-intent').at(-1).body;
+ assert.equal(sent.context.current_request,'Retry');assert.equal(sent.context.reply_to.target.content,original.content);
+ fixtureIntent={mode:'schedule_run',resolved_request:'Run my morning briefing',app_id:null,whole_period:false,relative_day:null,actionable_only:false};
  await hooks.get('before_prompt_build')({prompt:'Run my morning briefing'},ctx);
  assert.equal(await hooks.get('before_tool_call')({toolName:'scheduled_goal_list',params:{}},ctx),undefined);
  const event={sessionKey:session,runId:'fixture-run',kind:'final',payload:{isError:true,text:'No reply was generated for this message. This is usually a temporary model failure - please try again.'}};

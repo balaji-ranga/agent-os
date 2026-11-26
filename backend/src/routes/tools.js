@@ -853,6 +853,17 @@ router.post('/native-skill-context', async (req,res)=>{
   }catch(error){return res.status(error.status||500).json({error:'Assigned skill context unavailable'});}
 });
 
+router.post('/native-turn-intent',async(req,res)=>{
+ try{
+  if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});
+  if(!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker']))return res.status(401).json({error:'Intent authentication failed'});
+  if(Object.keys(req.body||{}).some(k=>!['session_key','caller_agent_id','run_id','context'].includes(k)))return res.status(422).json({error:'Unexpected intent fields'});
+  const identity=nativeModelIdentity(req.body);
+  const {resolveFloAssistTurnIntent}=await import('../services/floassist/turn-intent.js');
+  res.setHeader('Cache-Control','no-store');return res.json(await resolveFloAssistTurnIntent(identity,req.body));
+ }catch(e){return res.status(e.status||503).json({error:'Contextual intent could not be verified.'});}
+});
+
 router.post('/native-model-budget/:operation', (req,res)=>{
   try{
     if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});

@@ -11,7 +11,7 @@ try{
  const {initializeFloAssist}=await import('../src/services/floassist/core.js');initializeFloAssist(db);
  const {admitNativeModel,settleNativeModel,createNativeTestBudget,bindNativeTestBudget,nativeBudgetFailureReason,linkNativeExecution,nativeExecutionRoot}=await import('../src/services/native-model-budget.js');
  const {setAgentBudget,getMemberBudgetStatus}=await import('../src/services/agent-budgets.js');
- const {getMonthlyTokens}=await import('../src/services/token-usage.js');
+ const {getMonthlyTokens,recordTokenUsage}=await import('../src/services/token-usage.js');
  const {registerOpenClawSessionOwner}=await import('../src/services/tool-owner-scope.js');
  const agent='budget-fixture';let seq=0;
  for(const owner of ['budget-owner','budget-other']){
@@ -35,6 +35,16 @@ try{
  finish(second,{input_tokens:100,output_tokens:5,estimated:false});assert.equal(getMonthlyTokens('budget-owner',agent).total_tokens,315,'late reported usage replaces its estimate rather than adding spend');
  assert.throws(()=>settleNativeModel({...call('budget-other'),id:first.id,status:'completed',input_tokens:1,output_tokens:1,estimated:false}),e=>e.status===403);
  setAgentBudget('budget-owner',agent,{monthly_token_budget:null});
+ const utility=call('budget-owner','utility-accounted');admitNativeModel(utility);
+ const beforeUtility=getMonthlyTokens('budget-owner',agent).total_tokens;
+ recordTokenUsage('budget-owner',{memberKey:agent,agentId:agent,source:'floassist_turn_intent',modelId:'fixture-model',inputTokens:25,outputTokens:10,traceId:utility.id});
+ settleNativeModel({...utility,status:'completed',input_tokens:25,output_tokens:10,estimated:false},{db,usageRecorded:true});
+ assert.equal(getMonthlyTokens('budget-owner',agent).total_tokens,beforeUtility+35,'semantic intent counts once in the shared ledger');
+ assert.equal(db.prepare('SELECT input_tokens+output_tokens n FROM native_model_calls WHERE id=?').get(utility.id).n,35,'intent still consumes native run/test allowance');
+ const unmetered=call('budget-owner','utility-unmetered');admitNativeModel(unmetered);
+ assert.throws(()=>settleNativeModel({...unmetered,status:'completed',input_tokens:25,output_tokens:10,estimated:false},{db,usageRecorded:true}),/not recorded/);
+ finish(unmetered);
+
  db.prepare('UPDATE floassist_profiles SET preferences_json=? WHERE owner_id=?').run(JSON.stringify({model_call_budget:2,model_token_budget:2000000}),'budget-owner');
  for(let i=0;i<2;i++){const c=call('budget-owner','limited');admitNativeModel(c);finish(c);}
  assert.throws(()=>admitNativeModel(call('budget-owner','limited:compaction:fixture')),e=>e.code==='native_model_call_budget','compaction shares the parent turn budget');

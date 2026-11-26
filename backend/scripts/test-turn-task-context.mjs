@@ -5,7 +5,7 @@ const original='Look at real email and calendars and generate week focus areas';
 const resolve=(sessionKey,runId,prompt,now=1)=>resolveTurnTaskPrompt({sessionKey,runId,prompt,now});
 assert.equal(resolve('a','run-1',original),original);
 assert.equal(resolve('a','run-1','Continue after compaction',2),original);
-assert.match(sourceReviewGuidance(resolve('a','run-1','Continue',3)),/NOT work priorities/);
+assert.match(sourceReviewGuidance(resolve('a','run-1','Continue',3),{intent:{mode:'source_review',whole_period:true,actionable_only:true}}),/NOT work priorities/);
 assert.equal(resolve('b','run-1','Check device status'),'Check device status');
 assert.equal(resolve('a','run-2','Open an app'),'Open an app');
 assert.equal(resolve('a','run-2','Continue',4),'Open an app');

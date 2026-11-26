@@ -34,6 +34,7 @@ add('ibkrnew_instrument_profiles ibkrnew_component_health ibkrnew_profile_refres
 add('floassist_run_errors', { owner: 'owner_id', time: 'resolved_at', unit: 'ms' });
 add('floassist_account_receipts floassist_connector_health floassist_storage_health floassist_connector_monitor', { owner: 'owner_id', time: 'checked_at', unit: 'ms' });
 add('floassist_task_alert_days', { owner: 'owner_id', time: 'first_sent_at', unit: 'ms' });
+add('floassist_turn_intents', { owner:'owner_id',time:'created_at',unit:'ms' });
 add('floassist_source_assessments', { owner: 'owner_id', time: 'completed_at', unit: 'ms' });
 add('floassist_coverage_audit floassist_tracking_audit floassist_run_assessment_context floassist_run_source_versions floassist_source_references floassist_briefing_evidence', { owner: 'owner_id', unit: 'ms' });
 add('floassist_source_receipts', { owner: 'owner_id', time: 'checked_at', unit: 'ms' });

@@ -14,7 +14,7 @@ assert.equal(out.review_complete,true);assert.equal(out.reviewed,41);assert.equa
 assert.ok(digests.every(b=>b.length<=6));assert.equal(reads.filter(r=>r.cursor==='page2').length,1);
 const invalid=await boundedSourceReview({request:{},read,digest:async()=>[]});assert.equal(invalid.review_complete,false);assert.deepEqual(invalid.failures,['review_digest_incomplete']);assert.equal(invalid.reviewed,0);
 let now=0;const timed=await boundedSourceReview({request:{},clock:()=>now,deadline:1,read:async r=>{now=2;return read(r);},digest});assert.equal(timed.review_complete,false);assert.ok(timed.failures.includes('review_time_limit'));
-rememberSourceReview('s','Look at last one month gmail and summarize');
+rememberSourceReview('s','Look at last one month gmail and summarize',Date.now(),{mode:'source_review',whole_period:true,app_id:'gmail'});
 assert.equal(sourceReviewParams('s','tool_call',{id:'floassist_source_read',args:{app_id:'gmail',time_min:'start',time_max:'end'}}).args.review_all,true);
 assert.equal(sourceReviewParams('s','tool_call',{id:'floassist_source_read',args:{app_id:'gmail',source_id:'one'}}),null);
 assert.equal(sourceReviewParams('s','tool_call',{id:'physical_invoke',args:{}}),null);

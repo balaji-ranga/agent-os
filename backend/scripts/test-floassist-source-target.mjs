@@ -3,14 +3,14 @@ import {rememberSourceReview,sourceReviewParams} from '../../openclaw-extensions
 import {assertMailboxSourceId,sourceDuplicateRecovery} from '../src/services/floassist/source-read-contract.js';
 import {resolveMailboxDay,mailboxDayWindow,gmailWindowQuery} from '../src/services/floassist/source-window.js';
 const prompt="Check my gmail for today's emails snd summarize any important";
-rememberSourceReview('owner-session',prompt,100);
+rememberSourceReview('owner-session',prompt,100,{mode:'source_review',whole_period:true,relative_day:'today'});
 const bad={id:'floassist_source_read',args:{app_id:'gmail',source_id:'owner@example.test'}};
 const corrected=sourceReviewParams('owner-session','tool_call',bad,101);
 assert.deepEqual(corrected,{id:'floassist_source_read',args:{app_id:'gmail',review_all:true,relative_day:'today'}});
 assert.equal(sourceReviewParams('other-session','tool_call',bad,101),null);
 assert.equal(sourceReviewParams('owner-session','tool_call',bad,900101),null);
 for(const args of [{source_id:'real-thread'},{kind:'draft'},{task_id:1},{cursor:'fa-page-1'},{next_request:{cursor:'fa-page-1'}}])assert.equal(sourceReviewParams('owner-session','floassist_source_read',{app_id:'gmail',...args},101),null);
-rememberSourceReview('explicit',"Summarize today's emails from owner@example.test",100);
+rememberSourceReview('explicit',"Summarize today's emails from owner@example.test",100,{mode:'source_review',whole_period:true,relative_day:'today'});
 assert.equal(sourceReviewParams('explicit','tool_call',bad,101),null);
 const now=Date.parse('2026-11-25T00:49:54Z');
 const request=resolveMailboxDay(corrected.args,'Asia/Singapore',now);
