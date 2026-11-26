@@ -32,7 +32,7 @@ try{
  const refusalSession='agent:'+caller+':intent-refusal-'+randomUUID();bindNativeTestBudget(owner,agentId,refusalSession,budget,db);
  assert.throws(()=>admitNativeModel({id:'refusal-'+randomUUID(),session_key:refusalSession,caller_agent_id:caller,run_id:'refusal-'+randomUUID(),provider:'not-submitted',model:'not-submitted',input_tokens:10,output_limit:20},{db}),e=>e.code==='native_test_budget_exhausted');
  }
- console.log('LIVE_CONTEXTUAL_INTENT_OK: configured-checker decisions, correct reply target, no keyword routing; fourth provider submission refused');
+ console.log('LIVE_CONTEXTUAL_INTENT_OK: configured-checker decision, correct reply target, no keyword routing; cumulative allowance retained');
 }catch(e){failure=e;}finally{
  const usage=db.prepare('SELECT id,provider,model,status,input_tokens,output_tokens,estimated FROM native_model_calls WHERE test_budget_id=? ORDER BY created_at').all(budget);
  console.log(JSON.stringify({batch:budget,calls:usage.length,total_tokens:usage.reduce((n,r)=>n+r.input_tokens+r.output_tokens,0),usage}));

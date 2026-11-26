@@ -23,5 +23,6 @@ try{
 }finally{
  if(admitted){const recorded=!!db.prepare('SELECT 1 FROM token_usage WHERE owner_user_id=? AND member_key=? AND trace_id=?').get(owner,agentId,call.id);settleNativeModel({...call,status:verified?'completed':'error',input_tokens:usage?.input_tokens??call.input_tokens,output_tokens:usage?.output_tokens??0,estimated:!usage},{db,usageRecorded:recorded});}
  const rows=db.prepare('SELECT provider,model,status,input_tokens,output_tokens,estimated FROM native_model_calls WHERE test_budget_id=? ORDER BY created_at').all(budget);console.log(JSON.stringify({batch:budget,calls:rows.length,total_tokens:rows.reduce((n,r)=>n+r.input_tokens+r.output_tokens,0),usage:rows}));
+ if(rows.length>=3){assert.throws(()=>admitNativeModel({...call,id:'refused-'+randomUUID(),run_id:'refused-'+randomUUID(),input_tokens:10,output_limit:20},{db}),e=>e.code==='native_test_budget_exhausted');console.log('CUMULATIVE_BATCH_REFUSAL_VERIFIED: no fourth provider submission');}
  db.prepare('DELETE FROM native_model_test_sessions WHERE budget_id=?').run(budget);
 }
