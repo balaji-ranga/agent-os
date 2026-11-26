@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';import {join} from 'node:path';import {randomBytes} from 'node:crypto';
+const root=mkdtempSync(join(tmpdir(),'native-contract-'));process.env.AGENT_OS_DATA_DIR=root;process.env.SESSION_SECRET=randomBytes(32).toString('hex');process.env.AGENT_OS_BASE_URL='https://fixture.invalid';
+const {getDb}=await import('../src/db/schema.js');const db=getDb();
+const service=await import('../src/services/native-action-contracts.js');
+const voice=await import('../src/services/agent-voice-sessions.js');
+const identity={owner:'fixture-owner',agent:'fixture-coo',session:'agent:t-fixture-owner--fixture-coo:main'};
+try{
+ db.prepare("INSERT INTO platform_users(id,email,password_hash,name,role) VALUES(?,'contract@invalid.test','fixture','Fixture','ceo')").run(identity.owner);
+ db.prepare("INSERT INTO agents(id,name,openclaw_agent_id,is_coo) VALUES(?,'Fixture COO','fixture-coo',1)").run(identity.agent);
+ db.prepare('INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)').run(identity.owner,identity.agent);
+ db.exec('CREATE TABLE IF NOT EXISTS floassist_profiles(owner_id TEXT PRIMARY KEY,agent_id TEXT,status TEXT)');
+ db.prepare("INSERT INTO floassist_profiles VALUES (?,?,'active')").run(identity.owner,identity.agent);
+ db.prepare("INSERT INTO ceo_agent_channels(id,owner_user_id,agent_id,channel,status,config_json) VALUES('fixture-voice',?,?,'voice','enabled',?)").run(identity.owner,identity.agent,JSON.stringify({published:true,public_slug:'fixture-voice'}));
+ for(const name of ['voice_call_invite','fixture_export']){db.prepare('INSERT OR IGNORE INTO content_tools_meta(name,display_name,enabled,endpoint) VALUES(?,?,1,?)').run(name,name,'/fixture');db.prepare('INSERT INTO agent_tool_grants(agent_id,tool_name) VALUES(?,?)').run(identity.agent,name);}
+ let modelCalls=0,settlements=0,verdict={decision:'execute',tool_name:'voice_call_invite',arguments_json:'{}'};
+ const deps={db,resolveConfig:async()=>({cfg:{primary:{model:'fixture'}}}),admit:call=>{db.prepare("INSERT INTO native_model_calls(id,owner_id,agent_id,session_key,run_key,status,created_at,updated_at) VALUES(?,?,?,?,?,'started',?,?)").run(call.id,identity.owner,identity.agent,identity.session,call.run_id,Date.now(),Date.now());return {output_limit:200};},settle:()=>{settlements++;},complete:async input=>{modelCalls++;assert.equal(input.messages[0].content,service.ACTION_ROUTE_INSTRUCTION);assert(!JSON.stringify(input.messages).includes('PRIVATE_TOKEN'));await new Promise(r=>setTimeout(r,15));return {content:JSON.stringify(verdict),usage:{input_tokens:100,output_tokens:30}};}};
+ (await import('../src/services/native-model-budget.js')).ensureNativeModelBudget(db);
+ const request=turn=>({turn_id:turn,run_id:turn,caller_agent_id:'t-fixture-owner--fixture-coo',context:{current_request:'Regenerate the previous link',recent_messages:[{role:'assistant',content:'https://fixture.invalid/p/voice-invite/PRIVATE_TOKEN'}]}});
+ const pair=await Promise.all([service.routeNativeAction(identity,request('one'),deps),service.routeNativeAction(identity,request('one'),deps)]);
+ assert.equal(modelCalls,1);assert.equal(settlements,1);assert.equal(pair[0].id,pair[1].id);assert.equal(pair[0].decision,'execute');
+ const first=service.claimNativeAction(identity,pair[0].id,db);assert.equal(first.status,'claimed');assert.equal(service.claimNativeAction(identity,first.id,db).status,'running','claim cannot dispatch twice');
+ const generated=voice.createVoiceInvite(identity.owner,identity.agent);
+ const done=service.completeNativeAction(identity,first.id,{ok:true,data:generated},db);
+ assert.equal(done.status,'completed');assert(done.reply.includes(generated.url));assert.equal(service.claimNativeAction(identity,first.id,db).status,'completed');
+ assert.throws(()=>service.claimNativeAction({...identity,owner:'foreign'},first.id,db),/not found/);
+ assert.throws(()=>service.claimNativeAction({...identity,session:'another-conversation'},first.id,db),/not found/);
+ const another=await service.routeNativeAction(identity,request('two'),deps);service.claimNativeAction(identity,another.id,db);
+ assert.equal(service.completeNativeAction(identity,another.id,{ok:true,data:generated},db).status,'failed','a previous artifact cannot satisfy a new turn, even within its TTL');
+ const denied=await service.routeNativeAction(identity,request('denied'),deps);service.claimNativeAction(identity,denied.id,db);
+ const denial=service.completeNativeAction(identity,denied.id,{ok:false,data:{error:'Action family prohibited'}},db);assert.equal(denial.status,'failed');assert.match(denial.reply,/prohibited/);assert(!denial.reply.includes('/p/'));
+ const stale=voice.createVoiceInvite(identity.owner,identity.agent);const future=Date.now()+3601000;const originalNow=Date.now;Date.now=()=>future;
+ try{assert.equal(service.validateNativeActionReply(identity,stale.url).invalid_artifact,true);}finally{Date.now=originalNow;}
+ assert.equal(service.validateNativeActionReply({...identity,owner:'foreign'},generated.url).invalid_artifact,true);
+ assert.equal(service.validateNativeActionReply(identity,generated.url.replace('fixture.invalid','attacker.invalid')).invalid_artifact,true);
+ service.ACTION_CONTRACTS.fixture_export={description:'Create a temporary private CSV export',parameters:{type:'object',properties:{format:{enum:['csv']}},additionalProperties:false},validate:a=>Object.keys(a).length===1&&a.format==='csv',artifact_prefix:'/p/fixture-export/',evidence:(result,principal,claimedAt)=>{if(result.owner!==principal.owner||result.issued_at<claimedAt)throw Error('Bad export receipt');return {url:result.url,expires_at:new Date(Date.now()+60000).toISOString()};},render:a=>'Export ready: '+a.url};
+ verdict={decision:'execute',tool_name:'fixture_export',arguments_json:'{"format":"csv"}'};
+ const exportRoute=await service.routeNativeAction(identity,request('export'),deps);assert.equal(exportRoute.tool_name,'fixture_export');service.claimNativeAction(identity,exportRoute.id,db);
+ assert.equal(service.completeNativeAction(identity,exportRoute.id,{ok:true,data:{owner:identity.owner,issued_at:Date.now()+1,url:'https://fixture.invalid/p/fixture-export/fresh'}},db).status,'completed');
+ verdict={decision:'other',tool_name:null,arguments_json:'{}'};const other=await service.routeNativeAction(identity,request('gmail'),deps);assert.equal(other.decision,'other');assert.equal(service.claimNativeAction(identity,other.id,db).status,'ignored');
+ verdict={decision:'execute',tool_name:'invented.action',arguments_json:'{}'};assert.equal((await service.routeNativeAction(identity,request('invented'),deps)).status,'failed');
+ console.log('NATIVE_ACTION_CONTRACTS_OK: semantic decision once; two capability adapters; current-turn artifact proof; prior nonce/expiry/owner/origin rejection; policy failure preserved; atomic claims; normal source isolation');
+}finally{delete service.ACTION_CONTRACTS.fixture_export;db.close();rmSync(root,{recursive:true,force:true});}

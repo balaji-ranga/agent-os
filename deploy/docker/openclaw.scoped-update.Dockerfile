@@ -10,6 +10,8 @@ COPY scripts/verify-openclaw-extension-integrity.mjs /opt/agent-os/scripts/verif
 COPY scripts/sync-openclaw-extensions.js /opt/agent-os/scripts/sync-openclaw-extensions.js
 COPY openclaw-extensions/agent-os-content-tools /opt/agent-os/openclaw-extensions/agent-os-content-tools
 COPY backend/scripts/test-platform-capability-discovery.mjs backend/scripts/test-task-context-guidance.mjs backend/scripts/test-native-tool-search-installed.mjs backend/scripts/test-floassist-reply-hooks-runtime.mjs /opt/agent-os/backend/scripts/
+COPY backend/scripts/test-action-contract-turn.mjs /opt/agent-os/backend/scripts/
+RUN node /opt/agent-os/backend/scripts/test-action-contract-turn.mjs
 RUN node /opt/agent-os/backend/scripts/test-platform-capability-discovery.mjs && node /opt/agent-os/backend/scripts/test-task-context-guidance.mjs && node /opt/agent-os/backend/scripts/test-native-tool-search-installed.mjs && node /opt/agent-os/backend/scripts/test-floassist-reply-hooks-runtime.mjs
 COPY deploy/docker/openclaw-entrypoint.sh /entrypoint.sh
 COPY deploy/scripts/configure-openclaw-docker.js /opt/agent-os/deploy/scripts/configure-openclaw-docker.js

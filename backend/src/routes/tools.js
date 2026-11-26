@@ -865,6 +865,26 @@ router.post('/native-turn-intent',async(req,res)=>{
  }catch(e){return res.status(e.status||503).json({error:'Contextual intent could not be verified.'});}
 });
 
+router.post('/native-action-contract',async(req,res)=>{
+ try{
+  if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});
+  if(!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker']))return res.status(401).json({error:'Action contract authentication failed'});
+  const body=req.body||{};
+  if(Object.keys(body).some(k=>!['operation','session_key','caller_agent_id','run_id','turn_id','context','id','result','text'].includes(k)))return res.status(422).json({error:'Unexpected action contract fields'});
+  const identity=nativeModelIdentity(body),service=await import('../services/native-action-contracts.js');
+  res.setHeader('Cache-Control','no-store');
+  if(body.operation==='route')return res.json(await service.routeNativeAction(identity,body));
+  if(body.operation==='bind')return res.json(service.bindNativeActionRun(identity,body.id,body.run_id));
+  if(body.operation==='claim')return res.json(service.claimNativeAction(identity,body.id));
+  if(body.operation==='complete'){
+   if(JSON.stringify(body.result||{}).length>12000)return res.status(422).json({error:'Bounded action result required'});
+   return res.json(service.completeNativeAction(identity,body.id,body.result));
+  }
+  if(body.operation==='validate_reply')return res.json(service.validateNativeActionReply(identity,body.text));
+  return res.status(422).json({error:'Unknown action contract operation'});
+ }catch(e){return res.status(e.status||503).json({error:'Platform action contract unavailable'});}
+});
+
 router.post('/native-model-budget/:operation', (req,res)=>{
   try{
     if(!isDirectPrivateServiceRequest(req))return res.status(404).json({error:'Not found'});

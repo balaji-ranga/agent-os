@@ -727,7 +727,7 @@ function voiceInviteSecret() {
 }
 
 /** Short-lived owner + agent + channel-bound URL for sharing a private call handoff. */
-export function createVoiceInvite(ownerUserId, agentId, { ttlSeconds = VOICE_INVITE_TTL_SECONDS } = {}) {
+export function createVoiceInvite(ownerUserId, agentId, { ttlSeconds = VOICE_INVITE_TTL_SECONDS } = {}, { now = Date.now } = {}) {
   const owner = String(ownerUserId || '').trim();
   const agent = assertAgentForOwner(owner, agentId);
   const channel = getVoiceChannelForAgent(owner, agent.id);
@@ -741,7 +741,8 @@ export function createVoiceInvite(ownerUserId, agentId, { ttlSeconds = VOICE_INV
     a: agent.id,
     c: channel.id,
     s: String(config.public_slug).toLowerCase(),
-    e: Math.floor(Date.now() / 1000) + Math.max(60, Math.min(Number(ttlSeconds) || VOICE_INVITE_TTL_SECONDS, 3600)),
+    i: Math.floor(now() / 1000),
+    e: Math.floor(now() / 1000) + Math.max(60, Math.min(Number(ttlSeconds) || VOICE_INVITE_TTL_SECONDS, 3600)),
     n: randomBytes(8).toString('hex'),
   })).toString('base64url');
   const signature = createHmac('sha256', voiceInviteSecret()).update(payload).digest('base64url');
@@ -767,6 +768,17 @@ export function resolveVoiceInvite(token) {
 export function voiceInvitePagePayload(token) {
   const { data, pub } = resolveVoiceInvite(token);
   return { invite: true, expires_at: new Date(data.e * 1000).toISOString(), agent: pub.agent ? { id: pub.agent.id, name: pub.agent.name, role: pub.agent.role } : null, channel_id: pub.row.id, status: pub.row.status };
+}
+
+/** Completion evidence is stronger than a clickable link: the signed artifact
+ * must belong to this owner/agent and have been issued after this turn's claim. */
+export function voiceInviteEvidence(result,identity,claimedAt){
+  const url=new URL(String(result?.url||''));
+  const base=new URL(getPublicBaseUrl());
+  if(url.origin!==base.origin||!url.pathname.startsWith('/p/voice-invite/'))throw new Error('The action did not return a platform Voice invitation');
+  const {data}=resolveVoiceInvite(decodeURIComponent(url.pathname.slice('/p/voice-invite/'.length)));
+  if(data.o!==identity.owner||data.a!==identity.agent||!Number.isInteger(data.i)||data.i*1000<claimedAt-1500||data.e*1000<=Date.now()+30000)throw new Error('The invitation is stale or belongs to another owner or agent');
+  return {url:url.href,issued_at:new Date(data.i*1000).toISOString(),expires_at:new Date(data.e*1000).toISOString()};
 }
 
 export function voicePublicUrl(slug) {
