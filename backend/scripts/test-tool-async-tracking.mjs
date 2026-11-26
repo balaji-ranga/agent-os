@@ -96,6 +96,8 @@ try{
  assert.equal(explicitWeb.channel,'web','explicit web origin must not inherit a WhatsApp session destination');
  const slack=tracking.createTrackedTool({owner,agent,session:'native-slack',tool:'read',actionId:'slack-result',origin:{channel:'slack',target:'D12345678'}});
  assert.equal(slack.channel,'slack');
+ const slackSender=tracking.createTrackedTool({owner,agent,session:'native-slack',tool:'read',actionId:'slack-sender-only',origin:{channel:'slack',target:'U12345678'}});
+ assert.equal(slackSender.channel,'web','a Slack sender ID must not guess a conversation destination');
  tracking.settleTrackedTool(slack.id,{data:{reply:'Completed Slack result'}});
  const emitted=[];
  await tracking.deliverTrackedNotification(db.prepare('SELECT * FROM tool_async_jobs WHERE id=?').get(slack.id),{announce:async args=>{emitted.push(args);return {ok:true};}});

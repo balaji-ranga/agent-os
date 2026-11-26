@@ -32,7 +32,9 @@ export function createTrackedTool({owner,agent,session='',tool,actionId,timeoutM
  const target=runtimeTarget||(!origin?.channel&&match?.[1]===agent?match[2]:null);
  const owned=native?.ceoUserId===owner;
  const wa=!!(owned&&target);
- const slack=!!(owned&&origin?.channel==='slack'&&/^[UD][A-Z0-9]{8,}$/.test(origin?.target||''));
+ // A Slack sender (U...) is not a conversation. Never redirect a channel
+ // request into that person's DM; require a trusted DM conversation ID.
+ const slack=!!(owned&&origin?.channel==='slack'&&/^D[A-Z0-9]{8,}$/.test(origin?.target||''));
  const channel=wa?'whatsapp':slack?'slack':'web';
  const destination=wa?target:slack?origin.target:null;
  const actor=lookupOpenClawSessionActor(session);
