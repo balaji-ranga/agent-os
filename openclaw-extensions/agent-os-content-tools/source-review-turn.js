@@ -27,7 +27,7 @@ export function sourceReviewGuidance(prompt,{sourceReadSchema}={}){
 }
 export function isSourceReview(prompt){
  const text=sourceReviewText(prompt);
- const contentIntent=summaryIntent.test(text)||/\b(?:review|read|look at|focus|prioriti[sz]e|important|agenda)\b/i.test(text)||/\b(?:check|show|fetch|retrieve|list|get)\b/i.test(text)&&!/\b(?:connect(?:ed|ion)?|oauth|permissions?|settings?|health|setup)\b/i.test(text);
+ const contentIntent=summaryIntent.test(text)||/\b(?:review|read|look at|focus|prioriti[sz]e|briefing|important|agenda)\b/i.test(text)||/\b(?:check|show|fetch|retrieve|list|get)\b/i.test(text)&&!/\b(?:connect(?:ed|ion)?|oauth|permissions?|settings?|health|setup)\b/i.test(text);
  return /\b(?:emails?|gmail|outlook|mailbox|inbox|calendars?)\b/i.test(text)&&contentIntent&&!/\b(?:scheduled goals?|automation|configure|pause|resume|disable|enable|schedule a|run (?:the |my )?(?:scheduled|morning|daily))\b/i.test(text);
 }
 export function rememberSourceReview(session,prompt,now=Date.now()){

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {isSourceReview,rememberSourceReview,sourceReviewBlock,sourceReviewGuidance} from '../../openclaw-extensions/agent-os-content-tools/source-review-turn.js';
-for(const p of ['Look at the real.email and calendars and generate a week focus areas for me. I don’t need generic advice','Summarize my Outlook inbox','Review my calendar agenda'])assert.equal(isSourceReview(p),true,p);
+for(const p of ['Look at the real.email and calendars and generate a week focus areas for me. I don’t need generic advice','Summarize my Outlook inbox','Review my calendar agenda','A briefing of my Gmail emails'])assert.equal(isSourceReview(p),true,p);
 for(const p of ['Run my morning briefing','Pause scheduled goals for email review','Configure calendar automation','Is Gmail connected?','Open YouTube'])assert.equal(isSourceReview(p),false,p);
 rememberSourceReview('a','Summarize my inbox',100);
 assert(sourceReviewBlock('a','tool_call',{id:'scheduled_goal_list'},101));
