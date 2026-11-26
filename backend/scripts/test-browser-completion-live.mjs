@@ -20,7 +20,7 @@ try{
  const response=await chatCompletions({ownerUserId:owner,memberKey:agentId,sessionId:session,runId:run,traceId:call.id,toolName:'browse_task_start',messages,maxTokens:admitted.output_limit,responseFormat:'json_object',thinkingMode:'disabled',timeoutMs:10000});
  usage=response.usage;db.prepare('UPDATE native_model_calls SET model=?,provider=? WHERE id=?').run(response.actualModel||config.cfg.primary.model,response.endpointHost||'configured-maker',call.id);
  const result=JSON.parse(response.content.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));
- console.log(JSON.stringify({test:requireLinks?'explicitly required source URLs are missing':'generic content summary with uncaptured optional links',satisfied:result.satisfied}));assert.equal(result.satisfied,!requireLinks);verified=true;
+ console.log(JSON.stringify({test:requireLinks?'explicitly required source URLs are missing':'generic content summary with uncaptured optional links',satisfied:result.satisfied,reason:String(result.reason||'').slice(0,600)}));assert.equal(result.satisfied,!requireLinks);verified=true;
 }finally{
  if(admitted){const recorded=!!db.prepare('SELECT 1 FROM token_usage WHERE owner_user_id=? AND member_key=? AND trace_id=?').get(owner,agentId,call.id);settleNativeModel({...call,status:verified?'completed':'error',input_tokens:usage?.input_tokens??call.input_tokens,output_tokens:usage?.output_tokens??0,estimated:!usage},{db,usageRecorded:recorded});}
  const rows=db.prepare('SELECT provider,model,status,input_tokens,output_tokens,estimated FROM native_model_calls WHERE test_budget_id=? ORDER BY created_at').all(budget);console.log(JSON.stringify({batch:budget,calls:rows.length,total_tokens:rows.reduce((n,r)=>n+r.input_tokens+r.output_tokens,0),usage:rows}));

@@ -1,3 +1,4 @@
+import {structuredCompletionMessages} from '../services/structured-completion-contract.js';
 ﻿/**
  * Central LLM config: primary and secondary OpenAPI-compliant endpoints (base URL + API key + model).
  * Precedence: per-user BYOK (openai / openrouter / ollama_free) → platform .env when platform_decided or unset.
@@ -308,6 +309,7 @@ async function performChatCompletions({
   requestSignal = null,
   _config = null,
 }) {
+  messages=structuredCompletionMessages(messages,responseSchema);
   warnOnLargeLlmContext(messages, {
     source: source || 'direct_chat_completions',
     tool: toolName,
