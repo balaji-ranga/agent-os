@@ -42,6 +42,9 @@ try{
  const exportRoute=await service.routeNativeAction(identity,request('export'),deps);assert.equal(exportRoute.tool_name,'fixture_export');service.claimNativeAction(identity,exportRoute.id,db);
  assert.equal(service.completeNativeAction(identity,exportRoute.id,{ok:true,data:{owner:identity.owner,issued_at:Date.now()+1,url:'https://fixture.invalid/p/fixture-export/fresh'}},db).status,'completed');
  verdict={decision:'other',tool_name:null,arguments_json:'{}'};const other=await service.routeNativeAction(identity,request('gmail'),deps);assert.equal(other.decision,'other');assert.equal(service.claimNativeAction(identity,other.id,db).status,'ignored');
+ const longer=request('full-context');longer.context.current_request='Explain the previous result. '+ 'Details '.repeat(180)+' Do not generate another result.';
+ await service.routeNativeAction(identity,longer,{...deps,complete:async input=>{assert(JSON.stringify(input.messages).includes('Do not generate another result.'),'preserve constraints at the end of every supported current request');return {content:JSON.stringify(verdict),usage:{input_tokens:300,output_tokens:20}};}});
+ const beforeLong=modelCalls;const oversized=request('oversized');oversized.context.current_request='x'.repeat(4001);assert.equal((await service.routeNativeAction(identity,oversized,deps)).reason,'context_incomplete');assert.equal(modelCalls,beforeLong);
  verdict={decision:'execute',tool_name:'invented.action',arguments_json:'{}'};assert.equal((await service.routeNativeAction(identity,request('invented'),deps)).status,'failed');
  console.log('NATIVE_ACTION_CONTRACTS_OK: semantic decision once; two capability adapters; current-turn artifact proof; prior nonce/expiry/owner/origin rejection; policy failure preserved; atomic claims; normal source isolation');
 }finally{delete service.ACTION_CONTRACTS.fixture_export;db.close();rmSync(root,{recursive:true,force:true});}
