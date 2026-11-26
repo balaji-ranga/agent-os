@@ -36,10 +36,10 @@ export async function resolveFloAssistTurnIntent(identity,input,{db=getDb(),comp
   const messages=[{role:'system',content:TURN_INTENT_CONTRACT},{role:'user',content:JSON.stringify(input.context)}];
   const call={id:'turn-intent-'+randomUUID(),session_key:identity.session,caller_agent_id:input.caller_agent_id,run_id:input.run_id,input_tokens:Buffer.byteLength(JSON.stringify(messages)+JSON.stringify(TURN_INTENT_SCHEMA),'utf8'),output_limit:600};
   try{
-   const route=await resolveConfig({ownerUserId:identity.owner,endpointPreference:'secondary',toolName:'floassist_turn_intent'});
-   stage='admission';admission=admit({...call,provider:'configured-secondary',model:route.cfg.primary.model},{db});
-   stage='provider';const response=await complete({ownerUserId:identity.owner,memberKey:identity.agent,sessionId:identity.session,runId:input.run_id,traceId:call.id,toolName:'floassist_turn_intent',endpointPreference:'secondary',maxTokens:Math.min(600,admission.output_limit),temperature:0,thinkingMode:'disabled',responseFormat:'json_object',responseSchema:TURN_INTENT_SCHEMA,timeoutMs:8000,requestSignal:AbortSignal.timeout(8000),messages});
-   stage='validation';usage=response.usage;db.prepare('UPDATE native_model_calls SET model=?,provider=? WHERE id=?').run(response.actualModel||route.cfg.primary.model,response.endpointHost||'configured-secondary',call.id);const result=validateTurnIntent(response.content);
+   const route=await resolveConfig({ownerUserId:identity.owner,endpointPreference:'primary',toolName:'agent_turn_router'});
+   stage='admission';admission=admit({...call,provider:'configured-router',model:route.cfg.primary.model},{db});
+   stage='provider';const response=await complete({ownerUserId:identity.owner,memberKey:identity.agent,sessionId:identity.session,runId:input.run_id,traceId:call.id,toolName:'agent_turn_router',source:'native_turn_intent',endpointPreference:'primary',maxTokens:Math.min(600,admission.output_limit),temperature:0,thinkingMode:'disabled',responseFormat:'json_object',responseSchema:TURN_INTENT_SCHEMA,timeoutMs:8000,requestSignal:AbortSignal.timeout(8000),messages});
+   stage='validation';usage=response.usage;db.prepare('UPDATE native_model_calls SET model=?,provider=? WHERE id=?').run(response.actualModel||route.cfg.primary.model,response.endpointHost||'configured-router',call.id);const result=validateTurnIntent(response.content);
    db.prepare("UPDATE floassist_turn_intents SET status='ok',result_json=? WHERE owner_id=? AND agent_id=? AND session_key=? AND run_id=?").run(JSON.stringify(result),...args);
    verified=true;return result;
   }catch(error){
