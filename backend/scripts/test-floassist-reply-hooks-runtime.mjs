@@ -18,8 +18,8 @@ try{
   if(String(url).endsWith('/marketing-inbound-event'))return new Response(JSON.stringify({matched:false}));
   throw Error('Unexpected network target');
  };
- const {default:plugin}=await import('/opt/agent-os/openclaw-extensions/agent-os-content-tools/index.js');const hooks=new Map();
- plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler)=>hooks.set(name,handler),registerTool(){},registerCommand(){}});
+ const {default:plugin}=await import('/opt/agent-os/openclaw-extensions/agent-os-content-tools/index.js');const hooks=new Map();let turn=0;
+ plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler)=>hooks.set(name,name==='before_prompt_build'?async(event,ctx)=>{ctx.runId='fixture-run-'+(++turn);return handler(event,ctx);}:handler),registerTool(){},registerCommand(){}});
  const ctx={agentId:id,sessionKey:session,channelId:'whatsapp',runId:'fixture-run'};
  const first=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(first.appendSystemContext,/Asia\/Singapore/);assert.match(first.appendSystemContext,/Fixture authorized physical device context/);assert.match(first.prependContext,/A tool-search result or a prior assistant answer is not a device inventory result/);
  assert.match(first.appendSystemContext,/floassist_source_read/);

@@ -1,4 +1,4 @@
-import {readFileSync,existsSync} from 'node:fs';
+import {existsSync} from 'node:fs';
 import {join} from 'node:path';
 const turns=new Map();
 const message=m=>m?.message||m;
