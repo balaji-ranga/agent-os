@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {adaptChannelDelivery} from '../../deploy/scripts/install-native-channel-delivery.mjs';
 const fixture=`function createMessageTool(options) { return async function(action) { return runMessageActionForTool({conversationReadOrigin: options?.conversationReadOrigin, params: {channel:'fixture'}}); }; }`;
 const patched=adaptChannelDelivery(fixture);
+assert(adaptChannelDelivery(fixture+'\nfunction other() { return {conversationReadOrigin: options?.conversationReadOrigin,}; }').endsWith('function other() { return {conversationReadOrigin: options?.conversationReadOrigin,}; }'),'other tool contexts are untouched');
 assert.equal(adaptChannelDelivery(patched),patched);
 assert.throws(()=>adaptChannelDelivery('unknown ABI'),/Unsupported/);
 const calls=[];
