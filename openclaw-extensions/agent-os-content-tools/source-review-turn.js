@@ -30,7 +30,7 @@ export function rememberSourceReview(session,prompt,now=Date.now(),intent){
  turns.set(session,{prompt:sourceReviewText(prompt),active:isSourceReview(prompt,intent),wholePeriod:intent?.mode==='source_review'&&intent.whole_period===true,intent,until:now+900000});
 }
 export function sourceReviewParams(session,toolName,params,now=Date.now()){
- const state=turns.get(session);if(!state?.wholePeriod||state.until<=now)return null;
+ const state=turns.get(session);if(!state?.active||state.until<=now)return null;
  const wrapped=toolName==='tool_call',target=String(wrapped?params?.id:toolName).replace(/^openclaw:agent-os-content-tools[:.]/,'').replace(/^functions\./,'');
  const args=wrapped?params?.args:params;
  if(target!=='floassist_source_read'||!['gmail','outlook'].includes(args?.app_id)||args.task_id||args.kind||args.cursor||args.next_request)return null;
@@ -40,7 +40,8 @@ export function sourceReviewParams(session,toolName,params,now=Date.now()){
  const {source_id,...filters}=args;
  const relativeDay=state.intent?.relative_day;
  const explicit=filters.time_min!=null||filters.time_max!=null||/(?:^|\s)(?:after|before|newer|older|newer_than|older_than):\S+/i.test(filters.query||'');
- const corrected={...filters,review_all:true,...(relativeDay&&!explicit?{relative_day:relativeDay}:{})};
+ if(!args.source_id&&!state.wholePeriod&&(!relativeDay||explicit))return null;
+ const corrected={...filters,...(state.wholePeriod?{review_all:true}:{}),...(relativeDay&&!explicit?{relative_day:relativeDay}:{})};
  return wrapped?{...params,args:corrected}:corrected;
 }
 export function sourceReviewBlock(session,toolName,params,now=Date.now()){

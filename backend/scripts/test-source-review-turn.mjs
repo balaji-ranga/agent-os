@@ -18,3 +18,7 @@ assert.match(contract,/full thread\/body/);assert.match(contract,/No verified pr
 assert.equal(sourceReviewGuidance('Summarize my Gmail'),'', 'without a semantic verdict text must not select a route');
 assert.doesNotMatch(sourceReviewGuidance('irrelevant wording',{intent:{...intent,actionable_only:false}}),/NOT work priorities/);
 console.log('SEMANTIC_SOURCE_GUARDS_OK: no keyword inference, explicit typed decisions, contextual retry, schedule isolation, expiry and whole-period scope');
+
+rememberSourceReview('single','Read the requested mailbox period',Date.now(),{mode:'source_review',whole_period:false,relative_day:'today'});
+const recovery=sourceReviewParams('single','tool_call',{id:'floassist_source_read',args:{app_id:'gmail',source_id:'mailbox@example.test'}});
+assert.deepEqual(recovery.args,{app_id:'gmail',relative_day:'today'},'ID validation and owner-day routing cannot depend on a separate batching decision');
