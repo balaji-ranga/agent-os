@@ -62,6 +62,12 @@ try{
  assert.equal((await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'scheduled_goal_run_now',args:{goal_id:'saved-briefing'}}},ctx)).block,true);
  const sent=requests.filter(r=>r.path==='/api/tools/native-turn-intent').at(-1).body;
  assert.equal(sent.context.current_request,'Retry');assert.equal(sent.context.reply_to.target.content,original.content);
+ fixtureIntent={mode:'source_review',resolved_request:'Read the selected Drive file',app_id:'google_drive',whole_period:false,relative_day:null,actionable_only:false};
+ await hooks.get('before_prompt_build')({prompt:'Read the selected Drive file'},ctx);
+ assert.equal(await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'floassist_source_read',args:{app_id:'googledrive',source_id:'real-file'}}},ctx),undefined,'canonical and connector aliases represent the same approved source');
+ fixtureIntent={...fixtureIntent,resolved_request:'Review mail and calendar',app_id:null};
+ await hooks.get('before_prompt_build')({prompt:'Review mail and calendar'},ctx);
+ assert.equal(await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'floassist_source_read',args:{app_id:'google_calendar',time_min:'2026-11-26T00:00:00+08:00',time_max:'2026-11-27T00:00:00+08:00'}}},ctx),undefined,'multi-source intent must not exclude another approved source');
  fixtureIntent={mode:'browser_task',resolved_request:'Read the requested updates in the desktop bridge',app_id:null,whole_period:false,relative_day:null,actionable_only:false,browser_driver:'playwright_chrome',allow_fallback:false};
  await hooks.get('before_prompt_build')({prompt:'Read the visible updates through the browser connected to my computer'},ctx);
  assert.equal(await hooks.get('before_tool_call')({toolName:'tool_call',params:{id:'browse_task_start',args:{goal:'Summarize visible updates'}}},ctx),undefined);

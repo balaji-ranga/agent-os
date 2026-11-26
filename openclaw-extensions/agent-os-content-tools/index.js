@@ -1152,7 +1152,8 @@ export default definePluginEntry({
             if(target==='scheduled_goal_run_now'&&intent.mode!=='schedule_run')return {block:true,blockReason:'The contextual user request does not authorize running a saved responsibility. '+(intent.mode==='source_review'?'Read the actual connected source using floassist_source_read without inventing source IDs.':'Ask for clarification; do not substitute Morning Briefing.')};
             if(target==='browse_task_start'&&intent.mode!=='browser_task')return {block:true,blockReason:'The contextual request does not authorize starting a browser task. Fulfil the resolved user request or ask for clarification.'};
             const readArgs=(event?.toolName==='tool_call'?event?.params?.args:event?.params)||{};
-            if(target==='floassist_source_read'&&intent.mode==='source_review'&&intent.app_id&&readArgs.app_id&&readArgs.app_id!==intent.app_id)return {block:true,blockReason:'Read only the source requested by the contextual intent: '+intent.app_id+'. Do not expand this into other connectors or saved goals.'};
+            const canonicalSourceApp=app=>({googledrive:'google_drive',one_drive:'onedrive',googlecalendar:'google_calendar'}[app]||app);
+            if(target==='floassist_source_read'&&intent.mode==='source_review'&&intent.app_id&&readArgs.app_id&&canonicalSourceApp(readArgs.app_id)!==intent.app_id)return {block:true,blockReason:'Read only the source requested by the contextual intent: '+intent.app_id+'. Do not expand this into other connectors or saved goals.'};
           }else rememberSourceReview(turnSession,'',Date.now(),{mode:'other'});
         }
         const reviewBlock=sourceReviewBlock(ctx?.sessionKey||safeApiSessionKey(api),event?.toolName||ctx?.toolName,event?.params);

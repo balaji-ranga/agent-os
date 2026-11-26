@@ -25,6 +25,7 @@ assert.equal((await resolveFloAssistTurnIntent({...identity,owner:'foreign'},req
 const failing={...options,complete:async()=>{calls++;throw Error('model unavailable');}};
 assert.equal((await resolveFloAssistTurnIntent(identity,{...request,run_id:'failure'},failing)).mode,'clarify');
 await resolveFloAssistTurnIntent(identity,{...request,run_id:'failure'},failing);assert.equal(calls,2,'provider failure is cached; no retry loop');
+for(const app_id of ['google_drive','onedrive',null])assert.equal(validateTurnIntent({...verdict,app_id}).app_id,app_id);
 assert.throws(()=>validateTurnIntent({...verdict,mode:'invented'}));
 assert.throws(()=>validateTurnIntent({...verdict,mode:'schedule_run'}));
 const browser={mode:'browser_task',resolved_request:'Read the requested updates through my desktop bridge',app_id:null,whole_period:false,relative_day:null,actionable_only:false,browser_driver:'playwright_chrome',allow_fallback:false};
@@ -38,4 +39,4 @@ db.exec('CREATE TABLE floassist_execution_scopes(owner_id TEXT,kind TEXT,work_id
 const scheduledSession=identity.session+'-scheduled';db.prepare('INSERT INTO floassist_execution_scopes VALUES (?,?,?,?)').run('owner','session',scheduledSession,JSON.stringify({owner:'owner',run:'scheduled-run',origin:'floassist:briefing'}));
 const beforeScheduled=calls;const scheduleScope=await resolveFloAssistTurnIntent({...identity,session:scheduledSession},{...request,run_id:'scheduled-native',context:{current_request:'System scheduled task'}},options);
 assert.equal(scheduleScope.enabled,false);assert.equal(calls,beforeScheduled,'scheduled connector reads retain their existing execution scope without another intent check');
-db.close();console.log('FLOASSIST_CONTEXTUAL_INTENT_OK: exact reply anchor despite intervening topic, compaction recovery, single semantic check, configured secondary, budget/output cap, usage once, failure cache, no cross-owner route');
+db.close();console.log('FLOASSIST_CONTEXTUAL_INTENT_OK: exact reply anchor despite intervening topic, compaction recovery, single semantic check, platform router role, budget/output cap, usage once, failure cache, no cross-owner route');
