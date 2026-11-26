@@ -34,4 +34,8 @@ assert.equal(browserResult.mode,'browser_task');
 const handoff=nativeTurnExecutionContext(db,'owner',identity.session,'browser-run');assert.equal(handoff.browser_executor_preference.preferred_driver,'playwright_chrome');assert.equal(handoff.browser_executor_preference.allow_fallback,false);assert.equal(handoff.original_request,browserRequest.context.current_request);
 assert.equal(nativeTurnExecutionContext(db,'foreign',identity.session,'browser-run'),null);
 assert.equal(nativeTurnExecutionContext(db,'owner','other-session','browser-run'),null);
+db.exec('CREATE TABLE floassist_execution_scopes(owner_id TEXT,kind TEXT,work_id TEXT,context_json TEXT)');
+const scheduledSession=identity.session+'-scheduled';db.prepare('INSERT INTO floassist_execution_scopes VALUES (?,?,?,?)').run('owner','session',scheduledSession,JSON.stringify({owner:'owner',run:'scheduled-run',origin:'floassist:briefing'}));
+const beforeScheduled=calls;const scheduleScope=await resolveFloAssistTurnIntent({...identity,session:scheduledSession},{...request,run_id:'scheduled-native',context:{current_request:'System scheduled task'}},options);
+assert.equal(scheduleScope.enabled,false);assert.equal(calls,beforeScheduled,'scheduled connector reads retain their existing execution scope without another intent check');
 db.close();console.log('FLOASSIST_CONTEXTUAL_INTENT_OK: exact reply anchor despite intervening topic, compaction recovery, single semantic check, configured secondary, budget/output cap, usage once, failure cache, no cross-owner route');
