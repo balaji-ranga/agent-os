@@ -1,6 +1,6 @@
 // Explicit operator test. No email bodies, private links or credentials are printed.
 import assert from 'node:assert/strict';
-import {writeFileSync,readFileSync} from 'node:fs';
+import {writeFileSync,readFileSync,existsSync} from 'node:fs';
 import {getDb} from '../src/db/schema.js';
 import {createNativeTestBudget,bindNativeTestBudget} from '../src/services/native-model-budget.js';
 import {readOrganization} from '../src/services/organization-read.js';
@@ -9,9 +9,12 @@ if(process.env.RUN_LIVE_COO_CHANNEL_TESTS!=='1')throw Error('Explicit live opera
 const [operation,dir,owner,agent,caller]=process.argv.slice(2),db=getDb();
 if(operation==='prepare'){
  assert(owner&&agent&&caller);
- const budget=createNativeTestBudget(owner,agent,{maxCalls:16,maxTokens:240000,minutes:90});
+ const saved=existsSync(dir+'/coo-e2e-plan-private.json')?JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')):null;
+ if(saved)assert(saved.owner===owner&&saved.agent===agent,'preserve the approved batch identity');
+ const budget=saved?.budget||createNativeTestBudget(owner,agent,{maxCalls:16,maxTokens:240000,minutes:90});
+ const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert(allowance&&allowance.max_calls===16&&allowance.max_tokens===240000&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
  const session='agent:'+caller+':main';
- const previous=db.prepare('SELECT budget_id FROM native_model_test_sessions WHERE session_key=?').get(session);
+ const previous=saved?saved.previous:db.prepare('SELECT budget_id FROM native_model_test_sessions WHERE session_key=?').get(session);
  bindNativeTestBudget(owner,agent,session,budget);
  const expected=readOrganization(owner,agent,{section:'departments',limit:50}).items.map(d=>d.name);
  const cases=[
