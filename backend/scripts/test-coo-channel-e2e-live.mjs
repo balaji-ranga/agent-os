@@ -38,6 +38,17 @@ if(operation==='prepare'){
  const identity=privateVoiceIdentity(row);bindNativeTestBudget(plan.owner,plan.agent,identity.key,plan.budget);
  writeFileSync(dir+'/coo-voice-binding-private.json',JSON.stringify({session_key:identity.key,caller_agent_id:identity.caller}),{mode:0o600});
  console.log('COO_PRIVATE_VOICE_BOUND_TO_EXISTING_TEST_BUDGET');
+}else if(operation==='voice-input'){
+ const plan=JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')),results=JSON.parse(readFileSync(dir+'/coo-e2e-results-private.json','utf8'));
+ const after=(results.filter(r=>r.id==='private-voice-link').at(-1)?.finished||Date.now()/1000-300)*1000;
+ const row=db.prepare("SELECT * FROM native_action_contracts WHERE owner_id=? AND agent_id=? AND tool_name='voice_call_invite' AND status='completed' AND created_at>=? ORDER BY created_at DESC LIMIT 1").get(plan.owner,plan.agent,after);
+ if(!row){console.log('COO_VERIFIED_USER_INVITATION_PENDING');process.exitCode=2;}
+ else{
+  const artifact=JSON.parse(row.result_json),url=new URL(artifact.url),invite=resolveVoiceInvite(decodeURIComponent(url.pathname.split('/').at(-1)));
+  assert(invite.data.aud==='owner_assistant'&&invite.data.o===plan.owner&&invite.data.a===plan.agent,'fresh invitation must belong to the verified owner and COO');
+  writeFileSync(dir+'/voice-browser-config-private.json',JSON.stringify({url:artifact.url,expected_departments:plan.expected,session_file:'/tmp/coo-voice-session-id-private.json',binding_file:'/tmp/coo-voice-binding-private.json'}),{mode:0o600});
+  console.log(JSON.stringify({verified_user_invitation:true,owner_bound:true,coo_bound:true,guest:false,fresh:true}));
+ }
 }else if(operation==='collect'){
  const plan=JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')),results=JSON.parse(readFileSync(dir+'/coo-e2e-results-private.json','utf8'));
  for(const result of results){if(!result.response?.runId)continue;const observed=lookupNativeAction({owner:plan.owner,agent:plan.agent,session:plan.session},result.response.runId);if(observed.decision==='execute'&&observed.status==='completed')result.controller=observed;}

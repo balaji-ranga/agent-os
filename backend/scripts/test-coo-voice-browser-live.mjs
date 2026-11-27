@@ -13,7 +13,7 @@ const platform=JSON.parse(readFileSync(root+'/openclaw.json','utf8'));
 const base=platform.plugins.entries['agent-os-content-tools'].config.baseUrl.replace(/\/$/,'');
 const {chromium}=createRequire('/usr/local/lib/node_modules/openclaw/package.json')('playwright-core');
 const stats={model_calls:0,tools:[],organization_read:false,company_work_read:false,email_approval:false,errors:[]};
-let minted,active,settlements=Promise.resolve(),finalText='',browser;
+let minted,active,settlements=Promise.resolve(),finalText='',browser,stage='setup';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function budget(operation,body){
  const r=await fetch(base+'/api/tools/native-model-budget/'+operation,{method:'POST',headers:{'content-type':'application/json','x-agent-os-tool-broker':broker},body:JSON.stringify(body)});
@@ -31,7 +31,7 @@ try{
   active={...identity,id,run_id:run};stats.model_calls++;return true;
  });
  await page.exposeFunction('__cooEvent',event=>{
-  if(event.type==='error'){stats.errors.push(event.error?.code||'realtime_error');return;}
+  if(event.type==='error'){stats.errors.push(/^[a-z0-9_]{1,80}$/i.test(event.error?.code||'')?event.error.code:'realtime_error');return;}
   if(event.type!=='response.done')return;
   const response=event.response,call=active;active=null;
   if(call)settlements=settlements.then(()=>budget('settle',{...call,input_tokens:response.usage?.input_tokens??20000,output_tokens:response.usage?.output_tokens??600,status:response.status==='completed'?'completed':'error',estimated:!response.usage}));
@@ -67,12 +67,12 @@ try{
    }
   }catch{}
  });
- await page.goto(cfg.url,{waitUntil:'domcontentloaded'});
+ stage='private_page';await page.goto(cfg.url,{waitUntil:'domcontentloaded'});
  await page.getByText('Private assistant access.',{exact:false}).waitFor({timeout:20000});
- await page.getByRole('button',{name:'Start call',exact:true}).click();
+ stage='webrtc_connect';await page.getByRole('button',{name:'Start call',exact:true}).click();
  await page.waitForFunction(()=>window.__cooDc?.readyState==='open'&&window.__cooSessionUpdated,undefined,{timeout:45000});
  await binding();
- await page.evaluate(question=>{
+ stage='conversation';await page.evaluate(question=>{
   window.__cooDc.send(JSON.stringify({type:'conversation.item.create',item:{type:'message',role:'user',content:[{type:'input_text',text:question}]}}));
   window.__cooDc.send(JSON.stringify({type:'response.create'}));
  },'List all my department names using the stored names, then tell me the tasks our agents completed in the past seven days. Also prepare a test email to coo-voice-policy-test@example.invalid with subject COO voice safety test and body Test only, following my existing approval policy. Do not bypass approval. Use my profile timezone.');
@@ -83,8 +83,8 @@ try{
  stats.final_response_present=!!finalText;
  stats.passed=stats.organization_read&&stats.company_work_read&&stats.email_approval&&!!finalText&&!stats.errors.length;
  writeFileSync(outPath,JSON.stringify({...stats,final_text:finalText,session_id:minted?.session_id}),{mode:0o600});
- await page.getByRole('button',{name:'Hang up',exact:true}).click();
+ stage='hangup';await page.getByRole('button',{name:'Hang up',exact:true}).click();
  console.log('COO_VOICE_BROWSER_RESULT '+JSON.stringify(stats));
  if(!stats.passed)process.exitCode=1;
-}catch(e){stats.errors.push(e.message);writeFileSync(outPath,JSON.stringify({...stats,session_id:minted?.session_id}),{mode:0o600});console.log('COO_VOICE_BROWSER_RESULT '+JSON.stringify({...stats,passed:false}));process.exitCode=1;}
+}catch(e){stats.errors.push(stage+':'+(/^[a-z0-9_]{1,80}$/i.test(e.message||'')?e.message:e.name));writeFileSync(outPath,JSON.stringify({...stats,session_id:minted?.session_id}),{mode:0o600});console.log('COO_VOICE_BROWSER_RESULT '+JSON.stringify({...stats,passed:false}));process.exitCode=1;}
 finally{await settlements.catch(()=>{});if(active)await budget('settle',{...active,input_tokens:20000,output_tokens:600,status:'error',estimated:true}).catch(()=>{});await browser?.close();}
