@@ -8,7 +8,7 @@ export function readOrganization(owner,caller,args={},deps={}){
  const db=deps.db||getDb();
  const entitled=id=>!!db.prepare('SELECT 1 FROM user_agents WHERE user_id=? AND agent_id=? AND enabled=1').get(owner,id);
  if(!owner||!caller||!entitled(caller))deny();
- const agent=db.prepare('SELECT id,is_coo FROM agents WHERE id=?').get(caller);if(!agent)deny();
+ const agent=db.prepare('SELECT id,name,is_coo FROM agents WHERE id=?').get(caller);if(!agent)deny();
  const section=args.section||'summary';if(!['summary','departments','people','agents','skills'].includes(section))throw Object.assign(Error('Unknown organisation section'),{status:422});
  const target=args.agent_id||caller;if(!entitled(target)||(!agent.is_coo&&target!==caller))deny();
  if(!agent.is_coo&&section!=='skills')deny();
@@ -18,7 +18,7 @@ export function readOrganization(owner,caller,args={},deps={}){
  const people=()=>db.prepare("SELECT id,name,department,parent_id,role_title,enabled FROM platform_users WHERE owner_user_id=? AND role='org_user' ORDER BY name").all(owner);
  const skills=()=> (deps.skills||listAgentSkillAssignments)(owner,target).map(s=>({id:s.skill_id,name:s.name,description:s.description,enabled:s.enabled,ready:s.ready,missing_tools:s.missing_tools||[],missing_connector_actions:s.missing_connector_actions||[]}));
  const page=items=>({items:items.slice(offset,offset+limit),total:items.length,offset,has_more:offset+limit<items.length});
- if(section==='summary')return {ok:true,source:'flolah_live_organization',captured_at:new Date().toISOString(),departments:page(departments()),agents:page(agents()),people:page(people()),skills:page(skills())};
+ if(section==='summary'){const person=db.prepare('SELECT name,business_name FROM platform_users WHERE id=?').get(owner);return {ok:true,company:{name:person?.business_name||null},owner:{name:person?.name||null},coo:{id:agent.id,name:agent.name},source:'flolah_live_organization',captured_at:new Date().toISOString(),departments:page(departments()),agents:page(agents()),people:page(people()),skills:page(skills())};}
  return {ok:true,source:'flolah_live_organization',captured_at:new Date().toISOString(),section,...page(({departments,agents,people,skills})[section]())};
 }
 export function organizationContext(owner,caller){
