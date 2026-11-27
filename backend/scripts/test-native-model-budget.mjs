@@ -57,6 +57,11 @@ try{
  const beforeUnbound=db.prepare('SELECT count(*) n FROM native_model_calls').get().n;
  await withNativeTestUtilityBudget({...utilityOptions,sessionId:utilitySession.session_key+'-normal'},async()=>({content:'normal request'}));
  assert.equal(db.prepare('SELECT count(*) n FROM native_model_calls').get().n,beforeUnbound,'unbound user chats retain their existing behavior');
+ const uncertainBatch=createNativeTestBudget('budget-owner',agent,{maxCalls:1,maxTokens:5000,minutes:10}),uncertainSession=utilitySession.session_key+'-uncertain';
+ bindNativeTestBudget('budget-owner',agent,uncertainSession,uncertainBatch);
+ await assert.rejects(()=>withNativeTestUtilityBudget({...utilityOptions,sessionId:uncertainSession},async()=>{throw Error('uncertain provider failure');}),/uncertain provider failure/);
+ const uncertainUsage=db.prepare('SELECT estimated,output_tokens FROM native_model_calls WHERE test_budget_id=?').get(uncertainBatch);
+ assert.equal(uncertainUsage.estimated,1);assert.equal(uncertainUsage.output_tokens,20,'unknown completion usage retains the full bounded output reservation');
  const utility=call('budget-owner','utility-accounted');admitNativeModel(utility);
  const beforeUtility=getMonthlyTokens('budget-owner',agent).total_tokens;
  recordTokenUsage('budget-owner',{memberKey:agent,agentId:agent,source:'floassist_turn_intent',modelId:'fixture-model',inputTokens:25,outputTokens:10,traceId:utility.id});
