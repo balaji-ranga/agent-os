@@ -1,4 +1,5 @@
 import {observationGuidance} from './read-only-observations.js';
+import {createHash} from 'node:crypto';
 import {PARAM_SCHEMAS} from './tool-parameter-schemas.js';
 import {buildSourceTurnContext,rememberSemanticTurn,semanticTurnContext,sourceToolTarget} from './source-turn-context.js';
 import {rememberSourceFailure,rewriteSourceFailureReply} from './source-failure-reply.js';
@@ -413,13 +414,17 @@ export default definePluginEntry({
       invoke:(tool,args,ctx)=>{if(!isToolAllowedForAgent(ctx.agentId,tool,ctx.sessionKey))return {ok:false,error:'This tool is not available in the current session.'};ctx.toolAuthority.assertActive();if(!ctx.toolAuthority.allows(tool))return {ok:false,error:'This tool is not permitted in the current request.'};return callInvoke(api,tool,args,ctx.agentId,ctx);}
     });
     if (typeof api.on === "function") {
-      api.on('reply_payload_sending',async event=>stripNativeSkillMarker(event,await actionContracts.finish(event)||await rewriteBudgetFailureReply(event,{lookup:async body=>{
+      api.on('reply_payload_sending',async event=>{
+       const contractReply=await actionContracts.finish(event);
+       if(contractReply?.payload?.text)api.logger?.info?.('[agent-os-content-tools] verified-reply-boundary '+JSON.stringify({runId:event.runId,channel:event.channel,chars:contractReply.payload.text.length,sha256:createHash('sha256').update(contractReply.payload.text.replace(/^From:[^\n]+\r?\n\s*/,'')).digest('hex')}));
+       return stripNativeSkillMarker(event,contractReply||await rewriteBudgetFailureReply(event,{lookup:async body=>{
         const base=String(resolvePluginConfig(api).baseUrl||'').trim().replace(/\/$/,'');
         if(!base)throw new Error('Budget lookup unavailable');
         const response=await fetch(base+'/api/tools/native-model-budget/failure-reason',{method:'POST',headers:{'Content-Type':'application/json','x-agent-os-tool-broker':loadToolBrokerSecret()},body:JSON.stringify(body),signal:AbortSignal.timeout(3000)});
         if(!response.ok)throw new Error('Budget lookup unavailable');
         return response.json();
-      }})||rewriteSourceFailureReply(event)),{priority:100,timeoutMs:15000});
+      }})||rewriteSourceFailureReply(event));
+      },{priority:100,timeoutMs:15000});
       // llm_input carries the trusted turn runId even when prompt-build context does not.
       api.on("llm_input", async (event, ctx) => {
         if (event?.runId) rememberRuntimeChannel({ ...ctx, runId: event.runId });
