@@ -4,7 +4,7 @@ import {writeFileSync,readFileSync,existsSync} from 'node:fs';
 import {getDb} from '../src/db/schema.js';
 import {createNativeTestBudget,bindNativeTestBudget} from '../src/services/native-model-budget.js';
 import {readOrganization} from '../src/services/organization-read.js';
-import {resolveVoiceInvite} from '../src/services/agent-voice-sessions.js';
+import {resolveVoiceInvite,createVoiceInvite} from '../src/services/agent-voice-sessions.js';
 import {lookupNativeAction} from '../src/services/native-action-contracts.js';
 import {createHash} from 'node:crypto';
 import {privateVoiceIdentity} from '../src/services/voice-governed-tools.js';
@@ -38,16 +38,19 @@ if(operation==='prepare'){
  const identity=privateVoiceIdentity(row);bindNativeTestBudget(plan.owner,plan.agent,identity.key,plan.budget);
  writeFileSync(dir+'/coo-voice-binding-private.json',JSON.stringify({session_key:identity.key,caller_agent_id:identity.caller}),{mode:0o600});
  console.log('COO_PRIVATE_VOICE_BOUND_TO_EXISTING_TEST_BUDGET');
-}else if(operation==='voice-input'){
+}else if(operation==='voice-input'||operation==='voice-fixture'){
  const plan=JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')),results=JSON.parse(readFileSync(dir+'/coo-e2e-results-private.json','utf8'));
  const after=(results.filter(r=>r.id==='private-voice-link').at(-1)?.finished||Date.now()/1000-300)*1000;
  const row=db.prepare("SELECT * FROM native_action_contracts WHERE owner_id=? AND agent_id=? AND tool_name='voice_call_invite' AND status='completed' AND created_at>=? ORDER BY created_at DESC LIMIT 1").get(plan.owner,plan.agent,after);
  if(!row){console.log('COO_VERIFIED_USER_INVITATION_PENDING');process.exitCode=2;}
  else{
-  const artifact=JSON.parse(row.result_json),url=new URL(artifact.url),invite=resolveVoiceInvite(decodeURIComponent(url.pathname.split('/').at(-1)));
+  const proven=JSON.parse(row.result_json);
+  assert(proven.access_mode==='owner_assistant','a real completed private owner invitation must precede the browser fixture');
+  const artifact=operation==='voice-fixture'?createVoiceInvite(plan.owner,plan.agent,{ownerAccess:true}):proven;
+  const url=new URL(artifact.url),invite=resolveVoiceInvite(decodeURIComponent(url.pathname.split('/').at(-1)));
   assert(invite.data.aud==='owner_assistant'&&invite.data.o===plan.owner&&invite.data.a===plan.agent,'fresh invitation must belong to the verified owner and COO');
   writeFileSync(dir+'/voice-browser-config-private.json',JSON.stringify({url:artifact.url,expected_departments:plan.expected,session_file:'/tmp/coo-voice-session-id-private.json',binding_file:'/tmp/coo-voice-binding-private.json'}),{mode:0o600});
-  console.log(JSON.stringify({verified_user_invitation:true,owner_bound:true,coo_bound:true,guest:false,fresh:true}));
+  console.log(JSON.stringify({verified_user_invitation:true,owner_bound:true,coo_bound:true,guest:false,fresh:true,renewed_test_fixture:operation==='voice-fixture'}));
  }
 }else if(operation==='collect'){
  const plan=JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')),results=JSON.parse(readFileSync(dir+'/coo-e2e-results-private.json','utf8'));
