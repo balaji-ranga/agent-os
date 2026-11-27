@@ -61,6 +61,10 @@ try{
  const wrongSource=await service.routeNativeAction(identity,request('org-read-wrong-source'),deps);service.claimNativeAction(identity,wrongSource.id,db);assert.equal(service.completeNativeAction(identity,wrongSource.id,{ok:true,data:{...observation,source:'erp_contacts'}},db).status,'failed');
  verdict={decision:'execute',tool_name:'organization_read',arguments_json:'{"section":"guessed"}'};assert.equal((await service.routeNativeAction(identity,request('bad-org-section'),deps)).status,'failed');
  verdict={decision:'execute',tool_name:'agent_work_history',arguments_json:'{"scope":"company","status":"completed","days":7}'};
+ assert.deepEqual(service.ACTION_CONTRACTS.agent_work_history.parameters.properties.scope.enum,['company']);
+ assert(service.ACTION_CONTRACTS.agent_work_history.validate({scope:'company',limit:100}));
+ assert(!service.ACTION_CONTRACTS.agent_work_history.validate({scope:'agent'}));
+ assert(!service.ACTION_CONTRACTS.agent_work_history.validate({scope:'company',limit:101}));
  const work=await service.routeNativeAction(identity,request('company-work'),deps);service.claimNativeAction(identity,work.id,db);const workDone=service.completeNativeAction(identity,work.id,{ok:true,data:{captured_at:new Date().toISOString(),scope:'company',days:7,counts:{total:1},items:[{task_id:1,title:'Fixture completed task',status:'completed'}],evidence_source:'owner_entitled_company_kanban_and_delegation_ledger'}},db);assert.equal(workDone.status,'completed');assert.match(workDone.reply,/Fixture completed task/);
  console.log('NATIVE_ACTION_CONTRACTS_OK: semantic selection; typed governed observations; fresh/source verification; repeat read; voice artifact anti-replay; permissions and atomic claims');
 }finally{delete service.ACTION_CONTRACTS.fixture_export;db.close();rmSync(root,{recursive:true,force:true});}

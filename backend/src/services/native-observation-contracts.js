@@ -3,7 +3,7 @@
 import {PARAM_SCHEMAS} from '../../../openclaw-extensions/agent-os-content-tools/tool-parameter-schemas.js';
 const sectionNames=['summary','departments','people','agents','skills'];
 const validKeys=(args,keys)=>args&&typeof args==='object'&&!Array.isArray(args)&&Object.keys(args).every(k=>keys.includes(k));
-const pageValid=a=>(a.limit===undefined||Number.isInteger(a.limit)&&a.limit>=1&&a.limit<=50)&&(a.offset===undefined||Number.isInteger(a.offset)&&a.offset>=0);
+const pageValid=(a,max=50)=>(a.limit===undefined||Number.isInteger(a.limit)&&a.limit>=1&&a.limit<=max)&&(a.offset===undefined||Number.isInteger(a.offset)&&a.offset>=0);
 const fresh=(v,claimed)=>{if(!v||!Number.isFinite(Date.parse(v.captured_at))||Date.parse(v.captured_at)<claimed-1000)throw Error('A fresh live observation is required.');return v;};
 const page=(title,value)=>['*'+title+'*',...(value.items||[]).map(v=>'- '+(v.name||v.id)+(v.role?' — '+v.role:'')+(v.ready!==undefined?' · '+(v.ready?'ready':'not ready'):'')),...(!value.total?['No records returned.']:[]),...(value.has_more?['Showing '+value.items.length+' of '+value.total+'; more records remain.']:[])].join('\n');
 export const NATIVE_OBSERVATION_CONTRACTS={
@@ -16,8 +16,8 @@ export const NATIVE_OBSERVATION_CONTRACTS={
  },
  agent_work_history:{
   observation:true,description:'Read current recorded Kanban/delegation work for enabled company agents, including completed tasks in a specified recent number of days. Use scope company for the organisation, status completed for finished tasks. This is agent work history, not CRM customer tasks. Choose only for requests fully answered by this ledger.',
-  parameters:PARAM_SCHEMAS.agent_work_history,
-  validate:a=>validKeys(a,['scope','days','status','limit','offset'])&&a.scope==='company'&&(a.days===undefined||Number.isInteger(a.days)&&a.days>=1&&a.days<=365)&&(a.status===undefined||['completed','failed','in_progress','open','awaiting_confirmation','cancelled',''].includes(a.status))&&pageValid(a),
+  parameters:{type:'object',properties:{...Object.fromEntries(['days','status','limit','offset'].map(k=>[k,PARAM_SCHEMAS.agent_work_history.properties[k]])),scope:{type:'string',enum:['company']}},required:['scope'],additionalProperties:false},
+  validate:a=>validKeys(a,['scope','days','status','limit','offset'])&&a.scope==='company'&&(a.days===undefined||Number.isInteger(a.days)&&a.days>=1&&a.days<=365)&&(a.status===undefined||['completed','failed','in_progress','open','awaiting_confirmation','cancelled',''].includes(a.status))&&pageValid(a,100),
   evidence(v,_identity,claimed){fresh(v,claimed);if(v.scope!=='company'||v.evidence_source!=='owner_entitled_company_kanban_and_delegation_ledger')throw Error('Wrong company work evidence source');return v;},
   render(v){return ['*Agent work — past '+v.days+' days*','Source: enabled company agents’ Kanban/delegation records.',...(v.items||[]).map(t=>'- #'+t.task_id+' · '+t.title+' · '+t.status),...(!v.counts.total?['No matching recorded work in this window.']:[]),...(v.has_more?['Showing '+v.items.length+' of '+v.counts.total+'; more records remain.']:[])].join('\n');}
  }

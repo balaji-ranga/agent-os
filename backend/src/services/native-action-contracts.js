@@ -45,18 +45,18 @@ export async function routeNativeAction(identity,input,{db=getDb(),complete=chat
  const schema=actionRouteSchema(contracts.map(c=>c.tool_name));
  const context=boundedContext(input.context),messages=[{role:'system',content:ACTION_ROUTE_INSTRUCTION},{role:'user',content:JSON.stringify({contracts,context})}];
  const call={id:'action-route-'+randomUUID(),session_key:identity.session,caller_agent_id:input.caller_agent_id,run_id:input.run_id,input_tokens:Buffer.byteLength(JSON.stringify(messages)+JSON.stringify(schema)),output_limit:200};
- let admission,usage=null,success=false;
+ let admission,usage=null,success=false,stage='context';
  try{
   if(context.reply_to?.missing)throw failure('The explicit reply target is unavailable.');
   const config=await resolveConfig({ownerUserId:identity.owner,endpointPreference:'primary',toolName:'agent_turn_router'});
-  admission=admit({...call,provider:'configured-router',model:config.cfg.primary.model},{db});
+  stage='admission';admission=admit({...call,provider:'configured-router',model:config.cfg.primary.model},{db});stage='model_request';
   const response=await complete({ownerUserId:identity.owner,memberKey:identity.agent,sessionId:identity.session,runId:input.run_id,traceId:call.id,toolName:'agent_turn_router',source:'native_action_contract',endpointPreference:'primary',maxTokens:Math.min(200,admission.output_limit),temperature:0,thinkingMode:'disabled',responseFormat:'json_object',responseSchema:schema,timeoutMs:8000,requestSignal:AbortSignal.timeout(8000),messages});
-  usage=response.usage;db.prepare('UPDATE native_model_calls SET model=?,provider=? WHERE id=?').run(response.actualModel||config.cfg.primary.model,response.endpointHost||'configured-router',call.id);const v=JSON.parse(response.content);if(typeof v.arguments_json!=='string'||v.arguments_json.length>3000)throw failure('Invalid action arguments');const args=JSON.parse(v.arguments_json);
+  usage=response.usage;db.prepare('UPDATE native_model_calls SET model=?,provider=? WHERE id=?').run(response.actualModel||config.cfg.primary.model,response.endpointHost||'configured-router',call.id);stage='response_json';const v=JSON.parse(response.content);if(typeof v.arguments_json!=='string'||v.arguments_json.length>3000)throw failure('Invalid action arguments');const args=JSON.parse(v.arguments_json);stage='response_schema';
   if(!['execute','other','clarify'].includes(v.decision)||!args||typeof args!=='object'||Array.isArray(args)||Object.keys(v).some(k=>!['decision','tool_name','arguments_json'].includes(k)))throw failure('Invalid capability decision');
-  if(v.decision==='execute'&&(!contracts.some(c=>c.tool_name===v.tool_name)||!ACTION_CONTRACTS[v.tool_name].validate(args)))throw failure('Unregistered or invalid action contract');
+  stage='capability_arguments';if(v.decision==='execute'&&(!contracts.some(c=>c.tool_name===v.tool_name)||!ACTION_CONTRACTS[v.tool_name].validate(args)))throw failure('Unregistered or invalid action contract');
   if(v.decision!=='execute'&&(v.tool_name!==null||Object.keys(args).length))throw failure('Non-action decision cannot dispatch a tool');
   db.prepare('UPDATE native_action_contracts SET mode=?,tool_name=?,args_json=?,status=?,updated_at=? WHERE id=?').run(v.decision,v.tool_name,JSON.stringify(args),v.decision==='execute'?'ready':'ignored',Date.now(),id);success=true;
- }catch(e){db.prepare("UPDATE native_action_contracts SET mode='clarify',status='failed',reply=?,updated_at=? WHERE id=?").run('I could not verify this request for a platform action. No action was performed.',Date.now(),id);}
+ }catch(e){db.prepare("UPDATE native_action_contracts SET mode='clarify',status='failed',reply=?,result_json=?,updated_at=? WHERE id=?").run('I could not verify this request for a platform action. No action was performed.',JSON.stringify({ok:false,code:'native_action_route_failed',stage}),Date.now(),id);}
  finally{if(admission){const recorded=!!db.prepare('SELECT 1 FROM token_usage WHERE owner_user_id=? AND member_key=? AND trace_id=?').get(identity.owner,identity.agent,call.id);settle({...call,status:success?'completed':'error',input_tokens:usage?.input_tokens??call.input_tokens,output_tokens:usage?.output_tokens??0,estimated:!usage},{db,usageRecorded:recorded});}}
  return publicRow(db.prepare('SELECT * FROM native_action_contracts WHERE id=?').get(id));
 }
