@@ -2387,7 +2387,13 @@ router.post('/voice-call-invite', optionalAuth, (req, res) => {
     const agentId = String(requestPayload.agent_id || caller?.id || '').trim();
     if (!agentId) return res.status(400).json({ error: 'agent_id required when the caller cannot be identified' });
     if (caller && !caller.is_coo && String(caller.id) !== agentId) return res.status(403).json({ error: 'Only the COO can create a Voice invitation for another employee' });
-    const out = createVoiceInvite(ownerUserId, agentId, { ttlSeconds: requestPayload.ttl_seconds });
+    let ownerAccess=false;
+    if(!caller||caller.is_coo){
+      const trustedActor=req.isInternalService?String(req.headers['x-flolah-actor-user-id']||''):req.authUser&&!req.authUser.internal?req.authUser.id:'';
+      if(trustedActor)ownerAccess=loadCompanyActor(ownerUserId,trustedActor)?.id===ownerUserId;
+      else if(req.isInternalService&&req.headers['x-openclaw-requester-sender-id']){try{ownerAccess=resolveChannelActor({ownerUserId,senderId:req.headers['x-openclaw-requester-sender-id'],channel:req.headers['x-openclaw-message-channel']||'whatsapp'})?.id===ownerUserId;}catch{}}
+    }
+    const out = createVoiceInvite(ownerUserId, agentId, { ttlSeconds: requestPayload.ttl_seconds,ownerAccess });
     logTool(req, 'voice_call_invite', { agent_id: agentId, owner_user_id: ownerUserId }, { ok: true, expires_at: out.expires_at }, 'ok', source);
     res.json({ ok: true, ...out });
   } catch (e) {

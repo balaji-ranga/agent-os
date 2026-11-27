@@ -743,7 +743,7 @@ function voiceInviteSecret() {
 }
 
 /** Short-lived owner + agent + channel-bound URL for sharing a private call handoff. */
-export function createVoiceInvite(ownerUserId, agentId, { ttlSeconds = VOICE_INVITE_TTL_SECONDS } = {}, { now = Date.now } = {}) {
+export function createVoiceInvite(ownerUserId, agentId, { ttlSeconds = VOICE_INVITE_TTL_SECONDS, ownerAccess = false } = {}, { now = Date.now } = {}) {
   const owner = String(ownerUserId || '').trim();
   const agent = assertAgentForOwner(owner, agentId);
   const channel = getVoiceChannelForAgent(owner, agent.id);
@@ -753,6 +753,7 @@ export function createVoiceInvite(ownerUserId, agentId, { ttlSeconds = VOICE_INV
   const config = parseJson(channel.config_json, {});
   if (!config.public_slug) throw Object.assign(new Error('Voice channel has no published route'), { status: 400 });
   const payload = Buffer.from(JSON.stringify({
+    aud: ownerAccess&&agent.is_coo?'owner_assistant':'guest',
     o: owner,
     a: agent.id,
     c: channel.id,
