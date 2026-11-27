@@ -7,8 +7,10 @@ import {admitNativeModel,settleNativeModel,linkNativeExecution} from './native-m
 import {voiceInviteEvidence} from './agent-voice-sessions.js';
 import {resolveFloAssistScope} from './floassist/execution-scope.js';
 import {getExecutionBehaviour} from './tool-execution-governor.js';
+import {NATIVE_OBSERVATION_CONTRACTS} from './native-observation-contracts.js';
+import {sharedToolResultPages} from './tool-result-pages.js';
 
-export const ACTION_CONTRACTS={
+export const ACTION_CONTRACTS={...NATIVE_OBSERVATION_CONTRACTS,
  voice_call_invite:{artifact_prefix:'/p/voice-invite/',description:'Generate a fresh private browser voice-call link for the assistant. Creates a short-lived owner-bound URL, not a provider meeting or an external telephone call.',parameters:{type:'object',properties:{ttl_seconds:{type:'integer',minimum:60,maximum:3600}},additionalProperties:false},validate(args){return Object.keys(args).every(k=>k==='ttl_seconds')&&(args.ttl_seconds===undefined||Number.isInteger(args.ttl_seconds)&&args.ttl_seconds>=60&&args.ttl_seconds<=3600);},validateArtifact:voiceInviteEvidence,evidence(result,identity,claimedAt){const proof=voiceInviteEvidence(result,identity,claimedAt);if(proof.access_mode!=='owner_assistant')throw Error('Owner identity could not be verified for a private COO call. Request the link from your verified owner chat.');return proof;},render(result){return `Your voice call link\n\n${result.url}\n\nThis private link expires in ${Math.max(1,Math.ceil((Date.parse(result.expires_at)-Date.now())/60000))} minutes.`;}}
 };
 export function actionRouteSchema(names=Object.keys(ACTION_CONTRACTS)){return {type:'object',additionalProperties:false,properties:{decision:{type:'string',enum:['execute','other','clarify']},tool_name:{type:['string','null'],enum:[...names,null]},arguments_json:{type:'string',description:'JSON object serialized as a string, matching the selected registered input schema; use "{}" when no arguments were specified.'}},required:['decision','tool_name','arguments_json']};}
@@ -82,6 +84,17 @@ export function claimNativeAction(identity,id,db=getDb()){
  const change=db.prepare("UPDATE native_action_contracts SET status='running',claimed_at=?,updated_at=? WHERE id=? AND status='ready'").run(Date.now(),Date.now(),id);
  return change.changes?{...publicRow(r),status:'claimed'}:{id,status:'running'};
 }
+export async function resolveNativeActionResult(identity,id,result,db=getDb()){
+ const row=owned(identity,id,db);
+ if(!ACTION_CONTRACTS[row.tool_name]?.observation||!result?.data?.result_stored)return result;
+ try{
+  const scope={owner:identity.owner,agent:identity.session.match(/^agent::?([^:]+):/)?.[1],session:identity.session};
+  const authorize=name=>{if(name!==row.tool_name||!db.prepare('SELECT 1 FROM agent_tool_grants g JOIN content_tools_meta t ON t.name=g.tool_name AND t.enabled=1 WHERE g.agent_id=? AND g.tool_name=?').get(identity.agent,name))throw Error('Observation snapshot access revoked');};
+  let request={resultId:result.data._retrieval?.resultId,offset:0},text='',pages=0;
+  while(request){if(++pages>32)throw Error('Observation exceeds bounded page coverage; narrow the read');const page=await sharedToolResultPages.read(scope,request,authorize);text+=page.content;request=page.next_request;}
+  return {...result,data:JSON.parse(text)};
+ }catch{return {ok:false,error:'The full authorized observation could not be verified. Narrow the read; no source action was repeated.'};}
+}
 export function completeNativeAction(identity,id,result,db=getDb()){
  const r=owned(identity,id,db);if(r.status!=='running')return publicRow(r);
  let artifact,reply,status='failed';
@@ -91,8 +104,10 @@ export function completeNativeAction(identity,id,result,db=getDb()){
   if(result?.ok!==true||!result.data||result.data.ok===false||result.data.error)throw failure(result?.data?.error||result?.error||'The authorized platform action did not complete.');
   artifact=ACTION_CONTRACTS[r.tool_name].evidence(result.data,identity,r.claimed_at);
   const hash=createHash('sha256').update(JSON.stringify(artifact.url||artifact)).digest('hex');
-  if(db.prepare('SELECT 1 FROM native_action_contracts WHERE owner_id=? AND artifact_hash=? AND id<>?').get(identity.owner,hash,id))throw failure('A previous action artifact cannot satisfy a new turn');
-  db.prepare('UPDATE native_action_contracts SET artifact_hash=? WHERE id=?').run(hash,id);
+  if(!ACTION_CONTRACTS[r.tool_name].observation){
+   if(db.prepare('SELECT 1 FROM native_action_contracts WHERE owner_id=? AND artifact_hash=? AND id<>?').get(identity.owner,hash,id))throw failure('A previous action artifact cannot satisfy a new turn');
+   db.prepare('UPDATE native_action_contracts SET artifact_hash=? WHERE id=?').run(hash,id);
+  }
   reply=ACTION_CONTRACTS[r.tool_name].render(artifact);status='completed';
  }catch(e){artifact=null;reply='I could not generate the requested result. '+String(e.message||'The platform action failed.').slice(0,220);}
  db.prepare('UPDATE native_action_contracts SET status=?,result_json=?,reply=?,updated_at=? WHERE id=? AND status=\'running\'').run(status,artifact?JSON.stringify(artifact):null,reply,Date.now(),id);

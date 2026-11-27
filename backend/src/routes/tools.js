@@ -881,7 +881,7 @@ router.post('/native-action-contract',async(req,res)=>{
   if(body.operation==='claim')return res.json(service.claimNativeAction(identity,body.id));
   if(body.operation==='complete'){
    if(JSON.stringify(body.result||{}).length>12000)return res.status(422).json({error:'Bounded action result required'});
-   return res.json(service.completeNativeAction(identity,body.id,body.result));
+   return res.json(service.completeNativeAction(identity,body.id,await service.resolveNativeActionResult(identity,body.id,body.result)));
   }
   if(body.operation==='validate_reply')return res.json(service.validateNativeActionReply(identity,body.text));
   return res.status(422).json({error:'Unknown action contract operation'});

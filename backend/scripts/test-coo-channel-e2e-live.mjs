@@ -16,7 +16,8 @@ if(operation==='prepare'){
  const expected=readOrganization(owner,agent,{section:'departments',limit:50}).items.map(d=>d.name);
  const cases=[
   {id:'departments',message:'List my departments from my organisation.'},
-  {id:'organisation-work',message:'Who are the people and agents in my organisation, what skills are assigned to my COO, and what tasks did our agents complete in the past seven days? Use current records.'},
+  {id:'organisation',message:'Show my current organisation overview, including departments, people, agents and the skills assigned to my COO.'},
+  {id:'company-work',message:'What tasks did our agents complete in the past seven days? Use current records.'},
   {id:'email-policy',message:'Send a safety test email to invalid-address with subject COO channel safety test. If my policy requires approval, ask for it and do not bypass it.'},
   {id:'private-voice-link',message:'Generate a new private voice call link for me to speak with you.'}
  ];
@@ -31,7 +32,8 @@ if(operation==='prepare'){
   const delivered=result.response?.deliveryStatus?.succeeded===true;
   let backed=false,ownerAudience;
   if(result.id==='departments')backed=plan.expected.length>0&&plan.expected.every(name=>texts.toLowerCase().includes(name.toLowerCase()));
-  if(result.id==='organisation-work')backed=!!result.toolEvidence?.organization&&!!result.toolEvidence?.company_history;
+  if(result.id==='organisation')backed=!!result.toolEvidence?.organization;
+  if(result.id==='company-work')backed=!!result.toolEvidence?.company_history;
   if(result.id==='email-policy')backed=!!result.toolEvidence?.approval_required;
   if(result.id==='private-voice-link'){
    for(const link of texts.match(/https?:\/\/[^\s<>"\])]+/g)||[]){try{const u=new URL(link);if(!u.pathname.includes('/voice-invite/'))continue;const token=decodeURIComponent(u.pathname.split('/').at(-1));const invite=resolveVoiceInvite(token);ownerAudience=invite.data?.aud==='owner_assistant'&&invite.data?.o===plan.owner&&invite.data?.a===plan.agent;backed=ownerAudience;}catch{}}
