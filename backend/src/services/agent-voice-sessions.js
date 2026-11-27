@@ -685,6 +685,8 @@ export async function endVoiceSession({ sessionToken, transcript = [] }) {
   let wrap = { queued: false };
   if (guest) {
     wrap = { queued: false, skipped: 'guest_no_tool_wrapup' };
+  } else if (getDb().prepare('SELECT is_coo FROM agents WHERE id=?').get(session.agent_id)?.is_coo) {
+    wrap = {queued:false,skipped:'coo_actions_already_recorded'};
   } else if (compact.length) {
     try {
       wrap = await runVoiceWrapUp({
