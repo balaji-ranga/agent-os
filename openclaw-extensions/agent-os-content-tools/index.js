@@ -434,6 +434,10 @@ export default definePluginEntry({
             nativeDiscovery:system.includes('call tool_call with id="physical_entities_list"'),
             sourceReviewContract:system.includes('[Current source-review task contract]'),
             assignedSkillContract:system.includes('[FLOLAH SKILL CONTRACT]'),
+            organizationContext:system.includes('Current owner organisation summary'),
+            organizationUnavailable:system.includes('Live organisation context is temporarily unavailable'),
+            organizationToolInDirectory:system.includes('- organization_read '),
+            profileTimezone:system.includes('Trusted FloAssist profile timezone:'),
           }));
         }
       });
