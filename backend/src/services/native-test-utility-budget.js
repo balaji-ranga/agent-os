@@ -20,7 +20,7 @@ export async function withNativeTestUtilityBudget(options,complete,{db=getDb(),a
   settle({...call,status:'completed',input_tokens:usage?.input_tokens??call.input_tokens,output_tokens:usage?.output_tokens??Math.ceil(String(response.content||'').length/4),estimated:!usage},{db,usageRecorded:recorded});
   return response;
  }catch(error){
-  if(!response)settle({...call,status:'error',input_tokens:call.input_tokens,output_tokens:0,estimated:true},{db});
+  if(!response)settle({...call,status:'error',input_tokens:call.input_tokens,output_tokens:admission.output_limit,estimated:true},{db});
   throw error;
  }
 }
