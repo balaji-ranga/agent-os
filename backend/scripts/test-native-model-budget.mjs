@@ -47,6 +47,7 @@ try{
  const utilityBatch=createNativeTestBudget('budget-owner',agent,{maxCalls:2,maxTokens:5000,minutes:10}),utilitySession=call('budget-owner','backend-utility-fixture');
  utilitySession.session_key+='-backend-utility';bindNativeTestBudget('budget-owner',agent,utilitySession.session_key,utilityBatch);
  const utilityOptions={ownerUserId:'budget-owner',sessionId:utilitySession.session_key,runId:utilitySession.run_id,messages:[{role:'user',content:'Fixture'}],maxTokens:20};
+ await assert.rejects(()=>withNativeTestUtilityBudget({...utilityOptions,ownerUserId:'budget-other'},()=>assert.fail('owner mismatch must not execute')),/owner mismatch/);
  await withNativeTestUtilityBudget(utilityOptions,async options=>{recordTokenUsage('budget-owner',{memberKey:agent,agentId:agent,source:'test_utility',modelId:'fixture-model',inputTokens:3,outputTokens:1,traceId:options.traceId});return {content:'ok',usage:{input_tokens:3,output_tokens:1}};});
  assert.equal(db.prepare('SELECT count(*) n FROM native_model_calls WHERE test_budget_id=?').get(utilityBatch).n,1);
  assert.equal(db.prepare('SELECT sum(input_tokens+output_tokens) n FROM native_model_calls WHERE test_budget_id=?').get(utilityBatch).n,4);

@@ -5,11 +5,11 @@ import {getDb} from '../db/schema.js';
 import {nativeModelIdentity,admitNativeModel,settleNativeModel} from './native-model-budget.js';
 export async function withNativeTestUtilityBudget(options,complete,{db=getDb(),admit=admitNativeModel,settle=settleNativeModel}={}){
  if(!options.ownerUserId||!options.sessionId||!db.prepare("SELECT 1 FROM sqlite_master WHERE name='native_model_test_sessions'").get())return complete(options);
- const budget=db.prepare('SELECT b.id FROM native_model_test_sessions s JOIN native_model_test_budgets b ON b.id=s.budget_id WHERE s.session_key=? AND b.owner_id=?').get(options.sessionId,options.ownerUserId);
+ const budget=db.prepare('SELECT b.id,b.owner_id,b.agent_id FROM native_model_test_sessions s JOIN native_model_test_budgets b ON b.id=s.budget_id WHERE s.session_key=?').get(options.sessionId);
  if(!budget)return complete(options);
  const identity=nativeModelIdentity({session_key:options.sessionId},db);
- if(identity.owner!==options.ownerUserId)throw Error('Test utility owner mismatch');
- const outer=options.traceId&&db.prepare("SELECT 1 FROM native_model_calls WHERE id=? AND owner_id=? AND agent_id=? AND session_key=? AND status='started'").get(options.traceId,identity.owner,identity.agent,identity.session);
+ if(identity.owner!==options.ownerUserId||budget.owner_id!==identity.owner||budget.agent_id!==identity.agent)throw Error('Test utility owner mismatch');
+ const outer=options.traceId&&db.prepare("SELECT 1 FROM native_model_calls WHERE id=? AND owner_id=? AND agent_id=? AND session_key=? AND test_budget_id=? AND status='started'").get(options.traceId,identity.owner,identity.agent,identity.session,budget.id);
  if(outer)return complete(options); // caller already owns this exact reservation
  const call={id:'test-utility-'+randomUUID(),session_key:identity.session,caller_agent_id:identity.session.match(/^agent::?([^:]+):/)[1],run_id:options.runId||'test-utility-'+budget.id,provider:'backend-test-utility',model:options.modelOverride||'configured',input_tokens:Math.max(1,Math.ceil(Buffer.byteLength(JSON.stringify(options.messages||[]))/4)),output_limit:options.maxTokens||1024};
  const admission=admit(call,{db});let response;
