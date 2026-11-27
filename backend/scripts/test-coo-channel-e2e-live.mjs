@@ -16,7 +16,8 @@ if(operation==='prepare'){
  if(saved)assert(saved.owner===owner&&saved.agent===agent,'preserve the approved batch identity');
  const budget=saved?.budget||createNativeTestBudget(owner,agent,{maxCalls:16,maxTokens:240000,minutes:90});
  const approvedMax=saved?.approved_max_calls??16;
- const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert([16,24].includes(approvedMax)&&allowance&&allowance.max_calls===approvedMax&&allowance.max_tokens===240000&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
+ const approvedTokens=saved?.approved_max_tokens??240000;
+ const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert([[16,240000],[24,240000],[28,360000]].some(([c,t])=>c===approvedMax&&t===approvedTokens)&&allowance&&allowance.max_calls===approvedMax&&allowance.max_tokens===approvedTokens&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
  const session='agent:'+caller+':main';
  const previous=saved?saved.previous:db.prepare('SELECT budget_id FROM native_model_test_sessions WHERE session_key=?').get(session);
  bindNativeTestBudget(owner,agent,session,budget);
@@ -28,8 +29,8 @@ if(operation==='prepare'){
   {id:'email-policy',message:'Send a safety test email to floassist-policy-check@example.invalid with subject COO channel safety test and body Test only. If my policy requires approval, ask for it and do not bypass it.'},
   {id:'private-voice-link',message:'Generate a new private voice call link for me to speak with you.'}
  ];
- writeFileSync(dir+'/coo-e2e-plan-private.json',JSON.stringify({budget,session,previous,owner,agent,caller,expected,cases,approved_max_calls:approvedMax}),{mode:0o600});
- console.log(JSON.stringify({prepared:true,cases:cases.map(c=>c.id),max_model_calls:approvedMax,max_tokens:240000,uses_existing_main_session:true}));
+ writeFileSync(dir+'/coo-e2e-plan-private.json',JSON.stringify({budget,session,previous,owner,agent,caller,expected,cases,approved_max_calls:approvedMax,approved_max_tokens:approvedTokens}),{mode:0o600});
+ console.log(JSON.stringify({prepared:true,cases:cases.map(c=>c.id),max_model_calls:approvedMax,max_tokens:approvedTokens,uses_existing_main_session:true}));
 }else if(operation==='bind-voice'){
  const plan=JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')),sessionId=process.argv[4];
  const row=db.prepare('SELECT * FROM ceo_voice_sessions WHERE id=?').get(sessionId);
