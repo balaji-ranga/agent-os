@@ -9,7 +9,7 @@ import {resolveFloAssistScope} from './floassist/execution-scope.js';
 import {getExecutionBehaviour} from './tool-execution-governor.js';
 
 export const ACTION_CONTRACTS={
- voice_call_invite:{artifact_prefix:'/p/voice-invite/',description:'Generate a fresh private browser voice-call link for the assistant. Creates a short-lived owner-bound URL, not a provider meeting or an external telephone call.',parameters:{type:'object',properties:{ttl_seconds:{type:'integer',minimum:60,maximum:3600}},additionalProperties:false},validate(args){return Object.keys(args).every(k=>k==='ttl_seconds')&&(args.ttl_seconds===undefined||Number.isInteger(args.ttl_seconds)&&args.ttl_seconds>=60&&args.ttl_seconds<=3600);},evidence:voiceInviteEvidence,render(result){return `Your voice call link\n\n${result.url}\n\nThis private link expires in ${Math.max(1,Math.ceil((Date.parse(result.expires_at)-Date.now())/60000))} minutes.`;}}
+ voice_call_invite:{artifact_prefix:'/p/voice-invite/',description:'Generate a fresh private browser voice-call link for the assistant. Creates a short-lived owner-bound URL, not a provider meeting or an external telephone call.',parameters:{type:'object',properties:{ttl_seconds:{type:'integer',minimum:60,maximum:3600}},additionalProperties:false},validate(args){return Object.keys(args).every(k=>k==='ttl_seconds')&&(args.ttl_seconds===undefined||Number.isInteger(args.ttl_seconds)&&args.ttl_seconds>=60&&args.ttl_seconds<=3600);},validateArtifact:voiceInviteEvidence,evidence(result,identity,claimedAt){const proof=voiceInviteEvidence(result,identity,claimedAt);if(proof.access_mode!=='owner_assistant')throw Error('Owner identity could not be verified for a private COO call. Request the link from your verified owner chat.');return proof;},render(result){return `Your voice call link\n\n${result.url}\n\nThis private link expires in ${Math.max(1,Math.ceil((Date.parse(result.expires_at)-Date.now())/60000))} minutes.`;}}
 };
 export function actionRouteSchema(names=Object.keys(ACTION_CONTRACTS)){return {type:'object',additionalProperties:false,properties:{decision:{type:'string',enum:['execute','other','clarify']},tool_name:{type:['string','null'],enum:[...names,null]},arguments_json:{type:'string',description:'JSON object serialized as a string, matching the selected registered input schema; use "{}" when no arguments were specified.'}},required:['decision','tool_name','arguments_json']};}
 export const ACTION_ROUTE_SCHEMA=actionRouteSchema();
@@ -102,7 +102,7 @@ export function validateNativeActionReply(identity,text){
  if(typeof text!=='string'||text.length>64000)throw Object.assign(Error('Bounded reply text required'),{status:422});
  const links=text.match(/https?:\/\/[^\s<>)]*/g)||[];
  for(const link of links){
-  try{const url=new URL(link),contract=Object.values(ACTION_CONTRACTS).find(c=>c.artifact_prefix&&url.pathname.startsWith(c.artifact_prefix));if(!contract)continue;contract.evidence({url:link},identity,0);}
+  try{const url=new URL(link),contract=Object.values(ACTION_CONTRACTS).find(c=>c.artifact_prefix&&url.pathname.startsWith(c.artifact_prefix));if(!contract)continue;(contract.validateArtifact||contract.evidence)({url:link},identity,0);}
   catch{return {reply:'That earlier private result link has expired or could not be verified. I have not generated a new result.',invalid_artifact:true};}
  }
  return {valid:true};

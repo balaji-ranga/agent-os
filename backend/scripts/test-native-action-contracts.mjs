@@ -21,7 +21,7 @@ try{
  const pair=await Promise.all([service.routeNativeAction(identity,request('one'),deps),service.routeNativeAction(identity,request('one'),deps)]);
  assert.equal(modelCalls,1);assert.equal(settlements,1);assert.equal(pair[0].id,pair[1].id);assert.equal(pair[0].decision,'execute');
  const first=service.claimNativeAction(identity,pair[0].id,db);assert.equal(first.status,'claimed');assert.equal(service.claimNativeAction(identity,first.id,db).status,'running','claim cannot dispatch twice');
- const generated=voice.createVoiceInvite(identity.owner,identity.agent);
+ const generated=voice.createVoiceInvite(identity.owner,identity.agent,{ownerAccess:true});
  const done=service.completeNativeAction(identity,first.id,{ok:true,data:generated},db);
  assert.equal(done.status,'completed');assert(done.reply.includes(generated.url));assert.equal(service.claimNativeAction(identity,first.id,db).status,'completed');
  service.bindNativeActionRun(identity,first.id,'native-alias',db);

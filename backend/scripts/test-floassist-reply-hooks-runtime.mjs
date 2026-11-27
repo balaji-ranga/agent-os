@@ -23,7 +23,7 @@ try{
   if(String(url).endsWith('/tools/invoke')){actionDispatches++;assert.equal(body.tool_name,'voice_call_invite');return new Response(JSON.stringify({ok:true,url:'https://fixture.invalid/p/voice-invite/new-fixture',expires_at:new Date(Date.now()+600000).toISOString()}));}
   if(String(url).endsWith('/native-turn-intent'))return new Response(JSON.stringify(fixtureIntent));
   if(String(url).endsWith('/physical-context'))return new Response(JSON.stringify({instructions:'Fixture authorized physical device context'}));
-  if(String(url).endsWith('/profile-context'))return profileUnavailable?new Response('{}',{status:503}):new Response(JSON.stringify({enabled:profileEnabled,timezone_available:true,timezone:zone,local_now:'fixture local time'}));
+  if(String(url).endsWith('/profile-context'))return profileUnavailable?new Response('{}',{status:503}):new Response(JSON.stringify({enabled:profileEnabled,timezone_available:true,timezone:zone,local_now:'fixture local time',organization_context:'Fixture live owner organisation'}));
   if(String(url).endsWith('/failure-reason'))return new Response(JSON.stringify({blocked:true,reason:'native_monthly_token_budget'}));
   if(String(url).endsWith('/marketing-inbound-event'))return new Response(JSON.stringify({matched:false}));
   throw Error('Unexpected network target');
@@ -31,7 +31,7 @@ try{
  const {default:plugin}=await import('/opt/agent-os/openclaw-extensions/agent-os-content-tools/index.js');const hooks=new Map();let turn=0;let authorizedHook;
  plugin.register({config,context:{agentId:id,sessionKey:session},logger:{info(){},warn(){},debug(){}},on:(name,handler,options)=>options?.requiresToolAuthority?(authorizedHook=handler):hooks.set(name,name==='before_prompt_build'?async(event,ctx)=>{ctx.runId='fixture-run-'+(++turn);return handler(event,ctx);}:handler),registerTool(){},registerCommand(){}});
  const ctx={toolAuthority:{assertActive(){},allows:n=>n==='voice_call_invite'},agentId:id,sessionKey:session,channelId:'whatsapp',runId:'fixture-run'};
- const first=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(first.appendSystemContext,/Asia\/Singapore/);assert.match(first.appendSystemContext,/Fixture authorized physical device context/);assert.match(first.appendSystemContext,/A tool-search result or a prior assistant answer is not a device inventory result/);
+ const first=await hooks.get('before_prompt_build')({prompt:'Fixture request'},ctx);assert.match(first.appendSystemContext,/Asia\/Singapore/);assert.match(first.appendSystemContext,/Fixture live owner organisation/);assert.match(first.appendSystemContext,/Fixture authorized physical device context/);assert.match(first.appendSystemContext,/A tool-search result or a prior assistant answer is not a device inventory result/);
  assert.ok(!first.prependContext,'domain policy must not become an extra user assignment');
  assert.match(first.appendSystemContext,/tool_search across the authorized platform catalog/);
  assert.match(first.appendSystemContext,/floassist_source_read/);

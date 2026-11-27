@@ -95,7 +95,7 @@ export function visibleContentTools(agentId,sessionKey,descriptors,allowlists,co
  // Keep the generic device control plane visible even for large agent catalogs.
  // Device/action names and schemas are discovered at runtime, never selected here.
  // Filtering by grants and active session restrictions above remains authoritative.
- const priority=n=>['content_tools_enquire','scheduled_goal_list','scheduled_goal_run_now','physical_entities_list','physical_invoke','physical_operation_get','physical_cancel'].includes(n)?0:/^(floassist_|connector_|ceo_profile|kanban_|intent_classify_and_delegate|agent_delegate|agent_goal_|agent_workflow_|agent_work_history|learnings_)/.test(n)?1:2;
+ const priority=n=>['organization_read','content_tools_enquire','scheduled_goal_list','scheduled_goal_run_now','physical_entities_list','physical_invoke','physical_operation_get','physical_cancel'].includes(n)?0:/^(floassist_|connector_|ceo_profile|kanban_|intent_classify_and_delegate|agent_delegate|agent_goal_|agent_workflow_|agent_work_history|learnings_)/.test(n)?1:2;
  return new Set(names.sort((a,b)=>priority(a)-priority(b)||a.localeCompare(b)).slice(0,MAX_UNSCOPED_CONTENT_TOOLS));
 }
 

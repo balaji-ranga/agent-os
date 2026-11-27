@@ -798,7 +798,7 @@ export function voiceInviteEvidence(result,identity,claimedAt){
   if(url.origin!==base.origin||!url.pathname.startsWith('/p/voice-invite/'))throw new Error('The action did not return a platform Voice invitation');
   const {data}=resolveVoiceInvite(decodeURIComponent(url.pathname.slice('/p/voice-invite/'.length)));
   if(data.o!==identity.owner||data.a!==identity.agent||!Number.isInteger(data.i)||data.i*1000<claimedAt-1500||data.e*1000<=Date.now()+30000)throw new Error('The invitation is stale or belongs to another owner or agent');
-  return {url:url.href,issued_at:new Date(data.i*1000).toISOString(),expires_at:new Date(data.e*1000).toISOString()};
+  return {url:url.href,access_mode:data.aud==='owner_assistant'?'owner_assistant':'guest',issued_at:new Date(data.i*1000).toISOString(),expires_at:new Date(data.e*1000).toISOString()};
 }
 
 export function voicePublicUrl(slug) {
