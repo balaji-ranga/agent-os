@@ -16,3 +16,7 @@ COPY openclaw-workspace-templates /opt/agent-os/openclaw-workspace-templates
 COPY scripts/lib/content-tools-allow.js /opt/agent-os/scripts/lib/content-tools-allow.js
 COPY openclaw-extensions/agent-os-content-tools /opt/agent-os/openclaw-extensions/agent-os-content-tools
 RUN find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions/agent-os-content-tools -type f -exec chmod 644 {} +
+
+COPY scripts/lib/openclaw-extension-integrity.js /opt/agent-os/scripts/lib/openclaw-extension-integrity.js
+COPY scripts/verify-openclaw-extension-integrity.mjs /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs
+RUN node /opt/agent-os/scripts/verify-openclaw-extension-integrity.mjs --source-only

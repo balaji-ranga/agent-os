@@ -22,6 +22,9 @@ try{
  cpSync(source,runtime,{recursive:true});
  rmSync(join(runtime,'agent-os-content-tools','floassist-schemas.js'));
  assert.throws(()=>verifyExtensionIntegrity(source,runtime),/mismatch/);
+ writeFileSync(code,"import {PARAM_SCHEMAS} from './tool-parameter-schemas.js';");
+ const shared=join(source,'agent-os-content-tools','tool-parameter-schemas.js');writeFileSync(shared,"import {floassistSchemas} from './floassist-schemas.js'; export const PARAM_SCHEMAS={...floassistSchemas};");cpSync(source,runtime,{recursive:true});
+ assert.equal(verifyExtensionIntegrity(source,runtime).runtime_verified,true,'shared schemas are part of shipped integrity');rmSync(join(runtime,'agent-os-content-tools','tool-parameter-schemas.js'));assert.throws(()=>verifyExtensionIntegrity(source,runtime),/mismatch/);
  writeFileSync(join(source,'agent-os-content-tools','index.ts'),'const schemas={};');
  assert.throws(()=>verifyExtensionIntegrity(source),/not registered/);
  console.log('OPENCLAW_EXTENSION_INTEGRITY_OK: matching, equivalent EOLs, stale, missing dependency, TS registration');
