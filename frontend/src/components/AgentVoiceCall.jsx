@@ -1,3 +1,4 @@
+import {createVoiceTurnContext} from '../lib/voice-turn-context.js';
 /**
  * WebRTC click-to-call against an owner-BYOK OpenAI Realtime ephemeral session.
  * Tools go through /api/voice/tools with the short-lived session token.
@@ -29,6 +30,7 @@ export default function AgentVoiceCall({
   const sessionRef = useRef(null);
   const transcriptRef = useRef([]);
   const endedRef = useRef(false);
+  const voiceTurnsRef=useRef(createVoiceTurnContext());
 
   const hangup = useCallback(
     async (opts = {}) => {
@@ -103,6 +105,7 @@ export default function AgentVoiceCall({
             return;
           }
           const type = String(msg?.type || '');
+          voiceTurnsRef.current.observe(msg);
           if (type === 'conversation.item.input_audio_transcription.completed') {
             const text = String(msg.transcript || '').trim();
             if (text) transcriptRef.current.push({ role: 'user', text });
@@ -113,6 +116,7 @@ export default function AgentVoiceCall({
           }
           if (type === 'response.function_call_arguments.done') {
             const callId = msg.call_id;
+            const turnId=voiceTurnsRef.current.forCall(msg);
             const name = msg.name;
             const args = parseArgs(msg.arguments);
             try {
@@ -122,7 +126,7 @@ export default function AgentVoiceCall({
                 body: JSON.stringify({
                   session_token: sessionRef.current?.session_token,
                   tool_name: name,
-                  turn_id: msg.response_id||callId,call_id:callId,
+                  turn_id: turnId,call_id:callId,
                   arguments: args,
                 }),
               });
@@ -134,7 +138,7 @@ export default function AgentVoiceCall({
                   item: { type: 'function_call_output', call_id: callId, output },
                 })
               );
-              dc.send(JSON.stringify({ type: 'response.create' }));
+              if(voiceTurnsRef.current.isCurrent(turnId))dc.send(JSON.stringify({ type: 'response.create' }));
             } catch (err) {
               try {
                 dc.send(
@@ -147,7 +151,7 @@ export default function AgentVoiceCall({
                     },
                   })
                 );
-                dc.send(JSON.stringify({ type: 'response.create' }));
+                if(voiceTurnsRef.current.isCurrent(turnId))dc.send(JSON.stringify({ type: 'response.create' }));
               } catch {
                 /* ignore */
               }

@@ -1,5 +1,5 @@
 import {toolResultPages} from './tool-result-pages.js';
-export const voiceResultPages=toolResultPages({inlineChars:4500,pageChars:2200});
+export const voiceResultPages=toolResultPages({inlineChars:4500,pageChars:2200,idPrefix:'voice-result-'});
 import {getAgentToolGrants} from './openclaw-agent-tools.js';
 import {getToolMeta} from './content-tools-meta.js';
 import {PARAM_SCHEMAS} from '../../../openclaw-extensions/agent-os-content-tools/tool-parameter-schemas.js';

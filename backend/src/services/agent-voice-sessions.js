@@ -1,7 +1,8 @@
 import {floAssistRuntimeContext} from './floassist/runtime-guidance.js';
 import {profileTimezoneHint} from '../../../openclaw-extensions/agent-os-content-tools/profile-timezone.js';
 import {PRIVATE_VOICE_CONTROLS,privateVoiceCatalog,privateVoiceDiscovery,voiceResultPages} from './voice-tool-catalog.js';
-import {invokePrivateVoiceTool} from './voice-governed-tools.js';
+import {sharedToolResultPages} from './tool-result-pages.js';
+import {invokePrivateVoiceTool,privateVoiceIdentity} from './voice-governed-tools.js';
 import {organizationContext} from './organization-read.js';
 import {PARAM_SCHEMAS} from '../../../openclaw-extensions/agent-os-content-tools/tool-parameter-schemas.js';
 import {prepareModelEgress,modelEgressSettings} from '../../../scripts/lib/model-egress.js';
@@ -578,7 +579,7 @@ export async function invokeVoiceSessionTool({ sessionToken, toolName, args, tur
   if(!guest){
     const catalog=privateVoiceCatalog(session.agent_id);
     const scope={owner:session.owner_user_id,agent:session.agent_id,session:session.id};
-    if(name==='voice_result_read')return {ok:true,tool_name:name,result:await voiceResultPages.read(scope,args||{},tool=>{if(!PRIVATE_VOICE_CONTROLS.some(t=>t.name===tool)&&!catalog.some(t=>t.name===tool))throw Object.assign(Error('Tool grant revoked'),{status:403});})};
+    if(name==='voice_result_read'){const local=String(args?.resultId||'').startsWith('voice-result-'),identity=privateVoiceIdentity(session);return {ok:true,tool_name:name,result:await (local?voiceResultPages:sharedToolResultPages).read(local?scope:{owner:session.owner_user_id,agent:identity.caller,session:identity.key},args||{},tool=>{if(!PRIVATE_VOICE_CONTROLS.some(t=>t.name===tool)&&!catalog.some(t=>t.name===tool))throw Object.assign(Error('Tool grant revoked'),{status:403});})};}
     const project=(tool,data)=>voiceResultPages.project({...scope,tool},data);
     if(['tool_search','tool_describe','tool_call'].includes(name)){
       const discovered=privateVoiceDiscovery(catalog,name,args);

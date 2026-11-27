@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 
 /** Exact, bounded tool-result snapshots. Paging never repeats the source action. */
-export function toolResultPages({clock=Date.now,ttl=900000,maxBytes=32*1024*1024,maxResultBytes=8*1024*1024,inlineChars=12000,pageChars=6000}={}){
+export function toolResultPages({clock=Date.now,ttl=900000,maxBytes=32*1024*1024,maxResultBytes=8*1024*1024,inlineChars=12000,pageChars=6000,idPrefix='result-'}={}){
  const entries=new Map();let bytes=0;
  const fail=(code,message,status)=>{throw Object.assign(Error(message),{code,status});};
  const clean=()=>{for(const [id,e] of entries)if(e.expires<=clock()){entries.delete(id);bytes-=e.bytes;}};
@@ -23,7 +23,7 @@ export function toolResultPages({clock=Date.now,ttl=900000,maxBytes=32*1024*1024
    if(!scope.owner||!scope.agent||!scope.session)fail('TOOL_RESULT_SCOPE','Large tool result requires an authenticated conversation',403);
    clean();const size=Buffer.byteLength(text);
    if(size>maxResultBytes||bytes+size>maxBytes) return {ok:false,code:'TOOL_RESULT_CAPACITY',action_may_have_completed:true,coverage_complete:false,instruction:'Result exceeds the bounded result store. Do not repeat a mutation. Inspect the original operation receipt; narrow future read queries.'};
-   const id='result-'+randomUUID(),entry={...scope,text,bytes:size,expires:clock()+ttl,ranges:[]};entries.set(id,entry);bytes+=size;
+   const id=idPrefix+randomUUID(),entry={...scope,text,bytes:size,expires:clock()+ttl,ranges:[]};entries.set(id,entry);bytes+=size;
    const receipt={};for(const k of ['ok','status','code','error','id','operationId','trackingId'])if(['string','number','boolean'].includes(typeof value?.[k])&&String(value[k]).length<200)receipt[k]=value[k];
    const first=page(id,entry,0);
    if(deferRead){entry.ranges=[];first.content='';first.next_offset=0;first.next_request={resultId:id,offset:0};first.coverage_complete=false;}

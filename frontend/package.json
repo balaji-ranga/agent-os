@@ -9,7 +9,7 @@
     "test:home-team-activity": "node ./scripts/test-home-team-activity.mjs",
     "test:action-approval": "node ./scripts/test-action-approval-state.mjs",
     "dev": "vite",
-    "build": "node ./scripts/check-utf8.mjs && node ./scripts/test-display-timezone.mjs && node ./scripts/test-virtual-room-placement.mjs && node ./scripts/test-design-system.mjs && node ./scripts/test-ibkr-bridge-status.mjs && vite build --configLoader runner",
+    "build": "node ./scripts/test-voice-turn-context.mjs && node ./scripts/check-utf8.mjs && node ./scripts/test-display-timezone.mjs && node ./scripts/test-virtual-room-placement.mjs && node ./scripts/test-design-system.mjs && node ./scripts/test-ibkr-bridge-status.mjs && vite build --configLoader runner",
     "check:utf8": "node ./scripts/check-utf8.mjs",
     "test:timezone": "node ./scripts/test-display-timezone.mjs",
     "test:chat": "node ./scripts/test-chat-tables.mjs && node ./scripts/test-chat-goal-references.mjs",
