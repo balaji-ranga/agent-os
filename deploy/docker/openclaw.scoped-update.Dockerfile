@@ -30,9 +30,6 @@ RUN node /opt/agent-os/deploy/scripts/install-native-tool-name-alias.mjs && node
 COPY deploy/scripts/install-native-complete-tool-directory.mjs /opt/agent-os/deploy/scripts/
 COPY backend/scripts/test-native-complete-tool-directory.mjs /opt/agent-os/backend/scripts/
 RUN node /opt/agent-os/deploy/scripts/install-native-complete-tool-directory.mjs && node /opt/agent-os/backend/scripts/test-native-complete-tool-directory.mjs
-COPY deploy/scripts/install-native-delivery-run-identity.mjs /opt/agent-os/deploy/scripts/
-COPY backend/scripts/test-native-delivery-run-identity.mjs /opt/agent-os/backend/scripts/
-RUN node /opt/agent-os/deploy/scripts/install-native-delivery-run-identity.mjs && node /opt/agent-os/backend/scripts/test-native-delivery-run-identity.mjs
 COPY deploy/scripts/install-native-heartbeat-silence.mjs /opt/agent-os/deploy/scripts/install-native-heartbeat-silence.mjs
 RUN node /opt/agent-os/deploy/scripts/install-native-heartbeat-silence.mjs
 COPY deploy/scripts/install-native-sqlite-reopen.mjs deploy/scripts/install-native-memory-delta.mjs deploy/scripts/install-native-sqlite-diagnostics.mjs deploy/scripts/install-native-prompt-context.mjs /opt/agent-os/deploy/scripts/
