@@ -36,6 +36,7 @@ router.post('/tools', async (req, res) => {
     }
     const out = await invokeVoiceSessionTool({
       sessionToken: req.body?.session_token || req.body?.sessionToken,
+      turnId:req.body?.turn_id,callId:req.body?.call_id,
       toolName: req.body?.tool_name || req.body?.name,
       args: req.body?.arguments || req.body?.args || req.body?.params || {},
     });

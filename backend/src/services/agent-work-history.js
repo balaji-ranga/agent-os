@@ -256,3 +256,16 @@ export function compactAgentWorkHistoryEvidence(history, limit = 20) {
     items: (history.items || []).slice(0, Math.max(1, Number(limit) || 20)),
   };
 }
+/** Owner/COO-authorized company ledger; no CRM inference and no per-agent model loop. */
+export function listCompanyWorkHistory({ownerUserId,callerAgentId,days=7,limit=25,offset=0,status='',database=getDb()}={}){
+ const db=database;
+ if(!db.prepare('SELECT 1 FROM agents a JOIN user_agents u ON u.agent_id=a.id AND u.user_id=? AND u.enabled=1 WHERE a.id=? AND a.is_coo=1').get(ownerUserId,callerAgentId))throw Object.assign(Error('COO company-work access required'),{status:403});
+ if(status&&!['completed','failed','in_progress','open','awaiting_confirmation','cancelled'].includes(status))throw Object.assign(Error('Invalid task status'),{status:422});
+ const d=boundedDays(days),n=boundedLimit(limit),start=boundedOffset(offset);
+ const where=`k.owner_user_id=? AND EXISTS(SELECT 1 FROM user_agents u WHERE u.user_id=k.owner_user_id AND lower(u.agent_id)=lower(k.assigned_agent_id) AND u.enabled=1) AND datetime(COALESCE(k.updated_at,k.created_at))>=datetime('now',?) AND (?='' OR k.status=?)`;
+ const values=[ownerUserId,`-${d} days`,status,status];
+ const groups=db.prepare(`SELECT k.status,COUNT(*) n FROM kanban_tasks k WHERE ${where} GROUP BY k.status`).all(...values);
+ const counts=Object.fromEntries(groups.map(r=>[r.status,r.n])),total=groups.reduce((n,r)=>n+r.n,0);
+ const items=db.prepare(`SELECT k.id task_id,k.title,k.status,k.assigned_agent_id agent_id,k.updated_at,k.created_at,k.goal_run_id,k.agent_delegation_task_id delegation_task_id,d.completed_at,COALESCE(d.response_content,d.error_message,k.description) outcome FROM kanban_tasks k LEFT JOIN agent_delegation_tasks d ON d.id=k.agent_delegation_task_id WHERE ${where} ORDER BY datetime(COALESCE(k.updated_at,k.created_at)) DESC,k.id DESC LIMIT ? OFFSET ?`).all(...values,n,start).map(r=>({...r,title:clip(r.title,500),outcome:clip(r.outcome,1500)}));
+ return {scope:'company',days:d,counts:{...counts,total},activity_count:total,items,offset:start,has_more:start+items.length<total,evidence_source:'owner_entitled_company_kanban_and_delegation_ledger'};
+}

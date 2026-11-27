@@ -107,6 +107,7 @@ export const BROWSER_SESSION_CONTENT_TOOLS = [
 
 /** Default COO (balserve) content tools.allow — merged on every container configure. */
 export const COO_CONTENT_TOOLS_ALLOW = [
+  'organization_read',
   'multi-format-content-tool',
   'download_pdf',
   'download_file',

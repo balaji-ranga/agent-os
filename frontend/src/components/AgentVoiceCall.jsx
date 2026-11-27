@@ -122,6 +122,7 @@ export default function AgentVoiceCall({
                 body: JSON.stringify({
                   session_token: sessionRef.current?.session_token,
                   tool_name: name,
+                  turn_id: msg.response_id||callId,call_id:callId,
                   arguments: args,
                 }),
               });
@@ -130,7 +131,7 @@ export default function AgentVoiceCall({
               dc.send(
                 JSON.stringify({
                   type: 'conversation.item.create',
-                  item: { type: 'function_call_output', call_id: callId, output: output.slice(0, 8000) },
+                  item: { type: 'function_call_output', call_id: callId, output },
                 })
               );
               dc.send(JSON.stringify({ type: 'response.create' }));

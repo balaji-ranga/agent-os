@@ -29,7 +29,7 @@ export function resolveFloAssistScope(db,owner,agent,context={},channel='web'){
   let run=context?.scheduled_goal_run_id;
   if(!run&&context?.goal_run_id)run=db.prepare('SELECT scheduled_goal_run_id FROM agent_goal_runs WHERE id=? AND owner_user_id=?').get(context.goal_run_id,owner)?.scheduled_goal_run_id;
   if(!run){
-    if(channel==='whatsapp'&&p.agent_id===agent)return {owner,origin:'whatsapp',...(context.session_key?{session:context.session_key}:{})};
+    if(['whatsapp','voice'].includes(channel)&&p.agent_id===agent)return {owner,origin:channel,...(context.session_key?{session:context.session_key}:{})};
     if(channel==='unknown'&&p.agent_id===agent)return {owner,origin:'unclassified',blocked:true};
     return null;
   }
@@ -47,7 +47,7 @@ export function assertFloAssistConnector(owner,action,db=getDb(),context=current
   // These origins are assigned by the trusted channel/source-reader boundary;
   // tool arguments cannot mark a scheduled run interactive. Bound work retains
   // its original run and scope, so delayed/delegated schedules stay stopped.
-  const interactive=!context.run&&['whatsapp','source_read'].includes(context.origin);
+  const interactive=!context.run&&['whatsapp','voice','source_read'].includes(context.origin);
   if(p&&p.status!=='active'&&!interactive)
     throw Object.assign(new Error(`FloAssist is ${p.status}. This request did not access the source. The connected account may still be valid; the FloAssist lifecycle setting blocked execution.`),{status:403,code:'FLOASSIST_INACTIVE'});
   if(!p||!app||!JSON.parse(p.preferences_json).connectors?.includes(app.id))

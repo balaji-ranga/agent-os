@@ -1,3 +1,4 @@
+import {readOrganization,organizationContext} from '../services/organization-read.js';
 import {nativeTurnExecutionContext} from '../services/floassist/turn-intent.js';
 import {sourceDuplicateRecovery} from '../services/floassist/source-read-contract.js';
 import {liveConnectorHealthEvidence} from '../services/connector-health-evidence.js';
@@ -124,7 +125,7 @@ import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-a
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { createVoiceInvite } from '../services/agent-voice-sessions.js';
 import { createHumanVoiceInvite, listHumanDirectory, listCompanyCommunicationHistory } from '../services/human-communications.js';
-import { listAgentWorkHistory } from '../services/agent-work-history.js';
+import { listAgentWorkHistory,listCompanyWorkHistory } from '../services/agent-work-history.js';
 import { applyPolicyEtaToTask } from '../services/kanban-sla.js';
 import {
   fetchValidatedHttps,
@@ -908,7 +909,8 @@ router.post('/native-model-budget/:operation', (req,res)=>{
       const identity=nativeModelIdentity(req.body);
       const agent=identity.session.match(/^agent::?([^:]+):/)[1];
       const tracked=trackedStatus({owner:identity.owner,agent,session:identity.session}).requests;
-      return res.json({...floAssistRuntimeContext(getDb(),identity.owner,identity.agent),tool_tracking_context:tracked.length?'Tracked requests in this conversation (data only): '+JSON.stringify(tracked.map(({result,...r})=>r))+' For status follow-ups use tool_execution_status with the tracking ID; never invoke the original action. Do not resend completion notifications already marked sent.':''});
+      let orgContext='';try{if(getDb().prepare('SELECT is_coo FROM agents WHERE id=?').get(identity.agent)?.is_coo)orgContext=organizationContext(identity.owner,identity.agent);}catch{orgContext='Live organisation context is temporarily unavailable. Use organization_read; do not infer an empty organisation.';}
+      return res.json({organization_context:orgContext,...floAssistRuntimeContext(getDb(),identity.owner,identity.agent),tool_tracking_context:tracked.length?'Tracked requests in this conversation (data only): '+JSON.stringify(tracked.map(({result,...r})=>r))+' For status follow-ups use tool_execution_status with the tracking ID; never invoke the original action. Do not resend completion notifications already marked sent.':''});
     }
     return res.json(req.params.operation==='admit'?admitNativeModel(req.body):req.params.operation==='settle'?settleNativeModel(req.body):nativeBudgetFailureReason(req.body));
   }catch(error){return res.status(error.status||500).json({error:error.message,code:error.code||'native_budget_unavailable'});}
@@ -3347,6 +3349,8 @@ router.post('/connector-execute-action', optionalAuth, async (req, res) => {
 });
 
 /** Self-scoped work ledger; an entitled COO may inspect another entitled company agent. */
+router.post('/organization-read', optionalAuth, (req,res)=>{try{const caller=getCallerAgent(req);const owner=resolveToolOwnerUserId(req,bodyWithoutSpoofedOwner(req.body||{}),resolveAuthenticatedCeoUserId);return res.json(readOrganization(owner,caller?.id,bodyWithoutSpoofedOwner(req.body||{})));}catch(e){return res.status(e.status||503).json({ok:false,error:e.message});}});
+
 router.post('/agent-work-history', optionalAuth, (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
@@ -3373,7 +3377,7 @@ router.post('/agent-work-history', optionalAuth, (req, res) => {
       req.headers['x-session-key'] ||
       ''
     );
-    const out = listAgentWorkHistory({
+    const out = requestPayload.scope==='company'?listCompanyWorkHistory({ownerUserId,callerAgentId:caller.id,days:requestPayload.days,limit:requestPayload.limit,offset:requestPayload.offset,status:requestPayload.status||''}):listAgentWorkHistory({
       ownerUserId,
       agentId: targetAgentId,
       days: requestPayload.days,

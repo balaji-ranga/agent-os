@@ -41,6 +41,7 @@ const home = process.env.USERPROFILE || process.env.HOME || '';
 const NATIVE_OPENCLAW_TOOLS = new Set(NATIVE_OPENCLAW_TOOLS_LIST);
 export const MANDATORY_AGENT_EVIDENCE_TOOLS = Object.freeze([
   'agent_work_history',
+  'organization_read',
   'company_objectives_query',
   'objective_deviation_record',
 ]);

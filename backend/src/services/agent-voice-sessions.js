@@ -1,3 +1,7 @@
+import {PRIVATE_VOICE_CONTROLS,privateVoiceCatalog,privateVoiceDiscovery,voiceResultPages} from './voice-tool-catalog.js';
+import {invokePrivateVoiceTool} from './voice-governed-tools.js';
+import {organizationContext} from './organization-read.js';
+import {PARAM_SCHEMAS} from '../../../openclaw-extensions/agent-os-content-tools/tool-parameter-schemas.js';
 import {prepareModelEgress,modelEgressSettings} from '../../../scripts/lib/model-egress.js';
 /**
  * Generic Voice channel sessions: mint owner-BYOK OpenAI Realtime ephemeral keys,
@@ -242,6 +246,7 @@ export function resolveRealtimeConfig(ownerUserId) {
 }
 
 function toolParametersFor(name) {
+  if(PARAM_SCHEMAS[name])return PARAM_SCHEMAS[name];
   const common = { type: 'object', additionalProperties: true, properties: {} };
   if (name === 'master_data_rag') {
     return {
@@ -448,14 +453,14 @@ function assertGuestMintBudget(ownerUserId) {
   row.n += 1;
   guestMintHits.set(key, row);
   if (row.n > GUEST_MINT_PER_OWNER) {
-    throw Object.assign(new Error('Too many public voice sessions for this company'), { status: 429 });
+    throw Object.assign(new Error('Too many voice sessions for this company'), { status: 429 });
   }
 }
 
 export async function createVoiceSession({ ownerUserId, agentId, channelId = null, publicSlug = null, guest = false }) {
   ensureVoiceSessionsSchema();
   const owner = String(ownerUserId || '').trim();
-  if (guest) assertGuestMintBudget(owner);
+  assertGuestMintBudget(owner);
   const agent = assertAgentForOwner(owner, agentId);
   const resolved = resolveRealtimeConfig(owner);
   if (!resolved.ok) {
@@ -465,12 +470,9 @@ export async function createVoiceSession({ ownerUserId, agentId, channelId = nul
 
   const ensured = ensureTenantOpenClawAgent(agent, owner);
   const soul = readSoulSnippet(ensured.workspacePath);
-  const instructions = [
-    soul || `You are ${agent.name}, a live voice support employee.`,
-    'Speak in short sentences. Use tools for FAQs (master_data_rag) and CRM lookups before creating records.',
-    'Never invent policy. Never ask the guest for CEO credentials.',
-  ].join('\n\n');
-  const tools = realtimeToolsForAgent(agent.id, { guest: !!guest });
+  let org='';if(!guest&&agent.is_coo){try{org=organizationContext(owner,agent.id);}catch{org='Live organisation lookup unavailable; use organization_read and report a lookup failure, never an empty organisation.';}}
+  const instructions = [soul.slice(0,1500)||`You are ${agent.name}.`,guest?'This is a public guest support session with restricted lookup tools. Do not claim to be the owner or have private COO access.':'This is a private owner-authorized assistant session. Use tool_search, tool_describe and tool_call to access the same granted platform capabilities as chat. Discover the exact tool schema; never invent parameters or replace an organisation read with ERP contacts/customers. Use organization_read for departments, people, agents and skills; agent_work_history with scope company and status completed for completed work across agents. CRM tasks are not the agent work ledger. For stored results call voice_result_read using _retrieval.next_request until relevant coverage is complete. Never repeat the source action to retrieve its result. Backend action policy is authoritative: if approval is required, explain that approval is required and retain any request reference; do not claim the tool is missing, bypass approval, or claim completion. An empty result from an unrelated source does not answer the question. An unavailable tool, failed read, truncated result and confirmed empty result are different outcomes. On duplicate protection use the prior successful observation; do not repeat an equivalent call.',org,'Speak concisely. Report only tool-backed facts. Never expose credentials or raw private tokens.'].filter(Boolean).join('\n\n');
+  const tools = guest?realtimeToolsForAgent(agent.id,{guest:true}):PRIVATE_VOICE_CONTROLS;
   let minted = null;
   let realtime = options[0];
   let lastMintErr = null;
@@ -559,7 +561,7 @@ function loadOpenSession(sessionToken) {
   return row;
 }
 
-export async function invokeVoiceSessionTool({ sessionToken, toolName, args }) {
+export async function invokeVoiceSessionTool({ sessionToken, toolName, args, turnId, callId }) {
   const session = loadOpenSession(sessionToken);
   if (!session) {
     throw Object.assign(new Error('Voice session expired or invalid'), { status: 401 });
@@ -570,6 +572,20 @@ export async function invokeVoiceSessionTool({ sessionToken, toolName, args }) {
     throw Object.assign(new Error('speech_* is not used on the live Voice path'), { status: 400 });
   }
   const guest = Number(session.is_guest) === 1;
+  if(!guest){
+    const catalog=privateVoiceCatalog(session.agent_id);
+    const scope={owner:session.owner_user_id,agent:session.agent_id,session:session.id};
+    if(name==='voice_result_read')return {ok:true,tool_name:name,result:await voiceResultPages.read(scope,args||{},tool=>{if(!PRIVATE_VOICE_CONTROLS.some(t=>t.name===tool)&&!catalog.some(t=>t.name===tool))throw Object.assign(Error('Tool grant revoked'),{status:403});})};
+    const project=(tool,data)=>voiceResultPages.project({...scope,tool},data);
+    if(['tool_search','tool_describe','tool_call'].includes(name)){
+      const discovered=privateVoiceDiscovery(catalog,name,args);
+      if(name!=='tool_call')return {ok:true,tool_name:name,result:project(name,discovered)};
+      const result=await invokePrivateVoiceTool(session,discovered.tool_name,discovered.arguments,{turnId,callId});
+      return {ok:result.ok!==false,tool_name:discovered.tool_name,result:project(discovered.tool_name,result)};
+    }
+    if(!catalog.some(t=>t.name===name))throw Object.assign(Error('Tool not granted in this voice session'),{status:403});
+    const result=await invokePrivateVoiceTool(session,name,args||{},{turnId,callId});return {ok:result.ok!==false,tool_name:name,result:project(name,result)};
+  }
   const allowed = new Set(realtimeToolsForAgent(session.agent_id, { guest }).map((t) => t.name));
   if (!allowed.has(name)) {
     throw Object.assign(new Error('Tool not allowed on this Voice session'), { status: 403 });
@@ -767,7 +783,7 @@ export function resolveVoiceInvite(token) {
 
 export function voiceInvitePagePayload(token) {
   const { data, pub } = resolveVoiceInvite(token);
-  return { invite: true, expires_at: new Date(data.e * 1000).toISOString(), agent: pub.agent ? { id: pub.agent.id, name: pub.agent.name, role: pub.agent.role } : null, channel_id: pub.row.id, status: pub.row.status };
+  return { invite: true, access_mode:data.aud==='owner_assistant'?'owner_assistant':'guest', expires_at: new Date(data.e * 1000).toISOString(), agent: pub.agent ? { id: pub.agent.id, name: pub.agent.name, role: pub.agent.role } : null, channel_id: pub.row.id, status: pub.row.status };
 }
 
 /** Completion evidence is stronger than a clickable link: the signed artifact

@@ -562,12 +562,15 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name:'organization_read',display_name:'Read Current Organisation',endpoint:'/api/tools/organization-read',method:'POST',purpose:'Read live Flolah departments, people, entitled agents and assigned skills. This is the organisation source, not ERP contacts/customers. Supports section summary/departments/people/agents/skills, agent_id, offset and limit. COO-only organisation data; other agents may inspect their own skills.',model_used:'',enabled:1,is_builtin:1,
+  },
+  {
     name: 'agent_work_history',
     display_name: 'Agent Work History',
     endpoint: '/api/tools/agent-work-history',
     method: 'POST',
     purpose:
-      'Authoritative owner-scoped work history. Any agent may read only its own Kanban/delegation ledger; COO may pass target_agent_id to report on a company agent. Optional days (1-365, default 7) and limit. Use for status, activity, progress, or prior-work reports; do not infer activity from learnings_summary.',
+      'Authoritative owner-scoped work history. Any agent may read only its own Kanban/delegation ledger; COO may pass target_agent_id to report on a company agent. COO may set scope company and status completed for completed work across all entitled agents. Optional days (1-365, default 7), limit and offset. Use for status, activity, progress, or prior-work reports; do not infer activity from learnings_summary.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -1044,7 +1047,7 @@ const SPEECH_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'speech_tts' || t.na
 const VISION_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'analyze_image');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
 const VOICE_INVITE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'voice_call_invite' || t.name === 'company_communications_history');
-const AGENT_WORK_HISTORY_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'agent_work_history');
+const AGENT_WORK_HISTORY_TOOLS = BUILTIN_TOOLS.filter((t) => ['agent_work_history','organization_read'].includes(t.name));
 const ONBOARDING_PROPOSAL_TOOLS = BUILTIN_TOOLS.filter((t) =>
   t.name === 'onboarding_save_proposal' || t.name === 'onboarding_apply_proposal'
 );
@@ -1463,7 +1466,7 @@ export function seedAgentWorkHistoryToolIfMissing() {
   }
   const grant = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
   let granted = 0;
-  for (const row of db.prepare('SELECT id FROM agents').all()) granted += Number(grant.run(row.id, 'agent_work_history').changes || 0);
+  for (const row of db.prepare('SELECT id FROM agents').all()) granted += Number(grant.run(row.id, 'agent_work_history').changes || 0) + Number(grant.run(row.id,'organization_read').changes||0);
   return granted;
 }
 

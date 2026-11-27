@@ -28,6 +28,7 @@ export default function PublicVoiceCall({ invite = false }) {
       <p style={{ color: 'var(--muted)' }}>
         {meta?.agent?.role || 'Live voice with this company AI employee. Your browser microphone is used. This is not a phone call.'}
       </p>
+      {meta?.access_mode === 'owner_assistant' && <p style={{ color: 'var(--muted)' }}>Private assistant access. Keep this link private; your existing approval policies apply.</p>}
       {error && <p style={{ color: '#f87171' }}>{error}</p>}
       {!calling && !error && (
         <button type="button" className="btn-primary" onClick={() => setCalling(true)}>

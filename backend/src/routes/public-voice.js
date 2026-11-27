@@ -36,7 +36,7 @@ router.post('/invite/:token/session', async (req, res) => {
     const ip = String(req.ip || req.headers['x-forwarded-for'] || 'ip').slice(0, 80);
     if (!rateLimitOk(`invite:${ip}`)) return res.status(429).json({ error: 'Too many call attempts' });
     const { data, pub } = resolveVoiceInvite(req.params.token);
-    const out = await createVoiceSession({ ownerUserId: data.o, agentId: data.a, channelId: pub.row.id, publicSlug: data.s, guest: true });
+    const out = await createVoiceSession({ ownerUserId: data.o, agentId: data.a, channelId: pub.row.id, publicSlug: data.s, guest: data.aud!=='owner_assistant' });
     res.json(out);
   } catch (e) { res.status(e.status || 500).json({ error: e.message || 'Voice invitation failed' }); }
 });

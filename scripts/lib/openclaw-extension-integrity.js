@@ -24,7 +24,8 @@ export function verifyExtensionIntegrity(sourceRoot,runtimeRoot=null){
   const path=join(sourceRoot,'agent-os-content-tools',name);
   if(!existsSync(path))continue;
   const text=readFileSync(path,'utf8');
-  if(!text.includes("from './floassist-schemas.js'")||!text.includes('...floassistSchemas'))throw new Error(`FloAssist schemas are not registered in ${name}`);
+  const schemas=name==='index.js'&&text.includes("from './tool-parameter-schemas.js'")?readFileSync(join(sourceRoot,'agent-os-content-tools','tool-parameter-schemas.js'),'utf8'):text;
+  if(!schemas.includes("from './floassist-schemas.js'")||!schemas.includes('...floassistSchemas'))throw new Error(`FloAssist schemas are not registered in ${name}`);
  }
  const schema=join(sourceRoot,'agent-os-content-tools','floassist-schemas.js');
  if(!existsSync(schema))throw new Error('Missing FloAssist tool schema module');
