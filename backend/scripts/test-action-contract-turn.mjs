@@ -53,3 +53,9 @@ await denied.prepare({current_request:'Fixture'},ctx,ctx.agentId);
 const deniedResult=await denied.fulfill({...ctx,toolAuthority:{assertActive(){},allows:()=>false}});
 assert.match(deniedResult.payload.text,/not permitted/);assert.equal(deniedInvocations,0);
 console.log('ACTION_CONTRACT_AUTHORITY_OK: finalized native scope enforced; persisted result recovered without replay');
+
+const {rememberStatusTurn,statusTurnBlock}=await import('../../openclaw-extensions/agent-os-content-tools/async-status-turn.js');
+rememberStatusTurn(session,'What tasks have my agents completed recently?');
+for(const name of ['agent_work_history','organization_read','kanban_get_task'])assert.equal(statusTurnBlock(session,'tool_call',{id:name,args:{}}),null,'observational questions may inspect the correct authoritative ledger');
+assert.match(statusTurnBlock(session,'browse_task_start',{}),/No new action/);assert.match(statusTurnBlock(session,'email_send',{}),/No new action/);
+console.log('OBSERVATIONAL_SOURCE_SCOPE_OK: work/organisation/task reads remain available; original actions cannot replay');

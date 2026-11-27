@@ -1,3 +1,4 @@
+import {isObservationTool} from '../../../openclaw-extensions/agent-os-content-tools/read-only-observations.js';
 import {readOrganization,organizationContext} from '../services/organization-read.js';
 import {nativeTurnExecutionContext} from '../services/floassist/turn-intent.js';
 import {sourceDuplicateRecovery} from '../services/floassist/source-read-contract.js';
@@ -4267,7 +4268,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
   try {
     const toolName = (req.body?.tool_name || req.body?.toolName || '').trim();
     if (!toolName) return res.status(400).json({ error: 'tool_name required' });
-    if((req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))&&req.headers['x-flolah-status-only']==='1'&&!['tool_execution_status','tool_result_read'].includes(toolName)){
+    if((req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))&&req.headers['x-flolah-status-only']==='1'&&!isObservationTool(toolName)){
       return res.status(409).json({ok:false,code:'STATUS_ONLY_TURN',error:'Status enquiries cannot dispatch a new action. Use tool_execution_status with the tracking ID, or omit it to list this conversation’s requests.'});
     }
     const row = meta.getToolMeta(toolName);
@@ -4421,7 +4422,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       fetchOpts.body = JSON.stringify(params);
     }
     const origin=(req.isInternalService||(req.toolsApiAuth&&!req.legacyToolsApiAuth))?{channel:req.headers['x-openclaw-message-channel'],target:req.headers['x-openclaw-requester-sender-id']}:null;
-    if(governed?.behaviour.execution_mode==='async'&&!['tool_execution_status','tool_result_read'].includes(toolName)){
+    if(governed?.behaviour.execution_mode==='async'&&!isObservationTool(toolName)){
       fetchOpts.headers={...fetchOpts.headers,'x-flolah-tracked-delivery':'1'};
       const tracked=dispatchTrackedTool({owner:ownerUserId,agent:source,session:sessionKey||'',tool:toolName,actionId:governed.id,timeoutMs:governed.behaviour.timeout_ms,origin},async()=>{const response=await fetch(targetUrl,fetchOpts);const data=await boundedResponseJson(response);return {httpStatus:response.status,data:{...sharedToolResultPages.project({owner:ownerUserId,agent:source,session:sessionKey,tool:toolName},data,{deferRead:true}),...(typeof data?.reply==='string'&&data.reply.length<=64000?{reply:data.reply}:{})}};},{onResult:({httpStatus,data},job)=>{completeToolExecution(governed,{httpStatus,data});logTool(req,toolName,params,{...data,trackingId:job.id},httpStatus<400?'ok':'error',source);}});
       return res.json(tracked.ack);

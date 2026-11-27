@@ -1,3 +1,4 @@
+import {observationGuidance} from './read-only-observations.js';
 import {PARAM_SCHEMAS} from './tool-parameter-schemas.js';
 import {buildSourceTurnContext,rememberSemanticTurn,semanticTurnContext,sourceToolTarget} from './source-turn-context.js';
 import {rememberSourceFailure,rewriteSourceFailureReply} from './source-failure-reply.js';
@@ -511,7 +512,7 @@ export default definePluginEntry({
         const staging=actionContracts.prompt(statusSession);
         api.logger?.info?.('[agent-os-content-tools] contract-preparation '+JSON.stringify({runId:ctx?.runId,elapsedMs:Math.round(performance.now()-contractStarted),staged:!!staging,stagingSystemChars:staging?.systemPrompt?.length||0,hasSession:!!statusSession,hasCaller:!!recoveryAgent,requestChars:sourceTurn.current_request?.length||0,incomplete:!!sourceTurn.context_incomplete,decision:actionRoute?.decision,reason:actionRoute?.reason}));
         if(staging)return staging;
-        const statusHint=isStatusTurn(statusSession)?'The current request is a READ-ONLY status enquiry. Call tool_call with id="openclaw:agent-os-content-tools:tool_execution_status" and args={}. This returns this conversation’s recent requests, their tracking IDs and recorded results. For a known tracking ID use args={trackingId:"the recorded track-ID"}. Do not invoke any original action. Ask for clarification if no request matches.':'';
+        const statusHint=isStatusTurn(statusSession)?observationGuidance:'';
         const speechHint=speechInputGuidance({canTranscribe:isToolAllowedForAgent(recoveryAgent,'speech_stt',ctx?.sessionKey),canList:isToolAllowedForAgent(recoveryAgent,'list_inbound_attachments',ctx?.sessionKey),canSpeak:isToolAllowedForAgent(recoveryAgent,'speech_tts',ctx?.sessionKey)});
         const {personalContext,systemContext}=composeTaskGuidance({discoveryHint:platformDiscoveryGuidance,speechTurn,statusHint,timezoneHint,physicalHint,physicalDiscoveryHint:physicalDiscoveryTurnHint(physicalHint),scheduledHint:scheduledGoalRoutingHint(isToolAllowedForAgent(recoveryAgent,'scheduled_goal_list',ctx?.sessionKey)&&isToolAllowedForAgent(recoveryAgent,'scheduled_goal_run_now',ctx?.sessionKey)),speechHint,recoveryHint,reviewHint,skillHint,budgetHint:incrementalContextGuidance});
         const clockContext=systemContext?{appendSystemContext:systemContext}:{};
