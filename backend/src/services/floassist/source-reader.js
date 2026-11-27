@@ -1,6 +1,6 @@
 import {assertMailboxSourceId} from './source-read-contract.js';
 import {recordBriefingEvidence} from './briefing-result.js';
-import {gmailWindowQuery,resolveMailboxDay} from './source-window.js';
+import {gmailWindowQuery,resolveMailboxDay,sourceWindow} from './source-window.js';
 import {discoverOutlookSources,readOutlookSource} from './outlook-source.js';
 import {sourceAssessmentVersion,markSourceAssessmentReviewed} from './assessment-cache.js';
 import {recordSourceCoverage,requireSourceReview,verifyEmptyAppCoverage,withSourceProviderAttempt} from './source-coverage.js';
@@ -145,6 +145,10 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   }
   let app=input.app_id,id=input.source_id;
   if(app==='google_calendar'&&scope.run&&scope.origin==='floassist:briefing'&&!input.time_min&&!input.time_max)input={...input,...briefingCalendarWindow(now,JSON.parse(profile.preferences_json||'{}').timezone||'UTC')};
+  if(app==='google_calendar'&&!input.cursor&&!input.task_id){
+   const range=sourceWindow(input,{now,direction:'future'});
+   input={...input,time_min:range.time_min,time_max:range.time_max};
+  }
   // These reserved selectors cannot be Gmail provider IDs. Treat them as the
   // bounded latest-draft operation; never reinterpret an actual specific ID.
   if(input.kind==='draft'&&app==='gmail'&&['latest','most_recent','@latest'].includes(id))id=undefined;
@@ -171,7 +175,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   id=resolveSourceReference(db,owner,app,id,scope);
   // Interactive mailbox reviews need the same bounded discovery as scheduled
   // reviews. Without an ID, never silently substitute one latest thread.
-  const mailboxDiscovery=!id&&['gmail','outlook'].includes(app);
+  const mailboxDiscovery=!id&&['gmail','outlook','google_drive','google_calendar'].includes(app);
   if(discoverUnknownSources&&(!cursorContinuation||input.discovery_page_token)&&!input.task_id&&input.kind!=='draft'&&(mailboxDiscovery||id&&(scope.run||['gmail','outlook'].includes(app)))&&!(app==='google_calendar'&&id==='primary')){
    ensureSourceReceipts(db);
    const known=id&&(knownDiscoveredSource(db,owner,app,id,scope)||scope.run&&db.prepare('SELECT 1 FROM floassist_source_receipts WHERE owner_id=? AND run_id=? AND app_id=? AND source_id=?').get(owner,scope.run,app,id));
@@ -192,20 +196,34 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
       nextDiscovery={cursor};
      }
     }else if(app==='outlook'){
-     const found=await discoverOutlookSources({owner,run,db,context:scope,now,lookbackDays:days});
-     candidates=found.candidates;account=found.identity.account_id;more=found.more;
+     const found=await discoverOutlookSources({owner,run,db,context:scope,now,lookbackDays:scope.run?days:7,input});
+     candidates=found.candidates;account=found.identity.account_id;more=found.more;effectiveWindow=found.window;
+     if(more)nextDiscovery={app_id:app,time_min:found.window.time_min,time_max:found.window.time_max,discovery_page_token:found.next};
     }else if(app==='google_drive'){
      const who=await run('googledrive.about.get',{fields:'user(emailAddress)'});account=who.user?.emailAddress;
-     const since=new Date(now-days*86400000).toISOString();
-     const data=await run('googledrive.files.list',{q:`trashed = false and modifiedTime > '${since}' and mimeType != 'application/vnd.google-apps.folder'`,orderBy:'modifiedTime desc',pageSize:40});
+     effectiveWindow=sourceWindow(input,{now,defaultDays:scope.run?days:7});
+     const data=await run('googledrive.files.list',{q:`trashed = false and modifiedTime > '${effectiveWindow.time_min}' and modifiedTime < '${effectiveWindow.time_max}' and mimeType != 'application/vnd.google-apps.folder'`,orderBy:'modifiedTime desc',pageSize:40,...(input.discovery_page_token?{pageToken:input.discovery_page_token}:{})});
      recordSourceReceipt(owner,'googledrive.files.list',{data},{db,context:scope,now});
      candidates=(data.files||[]).filter(f=>f.id&&documentType(f.mimeType)!=='unsupported').map(f=>({app_id:app,source_id:f.id}));more=!!data.nextPageToken;
+     if(more){
+      if(data.nextPageToken===input.discovery_page_token)fail('FLOASSIST_SOURCE_PAGINATION_STALLED','Drive repeated its discovery cursor.');
+      nextDiscovery={app_id:app,time_min:effectiveWindow.time_min,time_max:effectiveWindow.time_max,discovery_page_token:data.nextPageToken};
+     }
     }else if(app==='google_calendar'){
-     const data=await run('googlecalendar.list_calendars',{maxResults:100});recordSourceReceipt(owner,'googlecalendar.list_calendars',{data},{db,context:scope,now});
+     effectiveWindow=sourceWindow(input,{now,direction:'future'});
+     const data=await run('googlecalendar.list_calendars',{maxResults:100,...(input.discovery_page_token?{pageToken:input.discovery_page_token}:{})});recordSourceReceipt(owner,'googlecalendar.list_calendars',{data},{db,context:scope,now});
      candidates=(data.items||[]).filter(c=>c.id).map(c=>({app_id:app,source_id:c.id}));more=!!data.nextPageToken;
+     if(more){
+      if(data.nextPageToken===input.discovery_page_token)fail('FLOASSIST_SOURCE_PAGINATION_STALLED','Calendar repeated its discovery cursor.');
+      nextDiscovery={app_id:app,time_min:effectiveWindow.time_min,time_max:effectiveWindow.time_max,discovery_page_token:data.nextPageToken};
+     }
     }else{
      assertFloAssistConnector(owner,`${providers[app]}.source_discovery`,db,scope);
      return {app_id:app,requested_source_read:false,content_verified:false,needs_source_selection:true,guidance:'This identifier has not been verified in this run. Use provider discovery and copy its exact item ID, or read an existing task with task_id only. No guessed item was sent to the provider.'};
+    }
+    if(nextDiscovery&&!nextDiscovery.cursor){
+     const cursor='fa-page-'+(++cursorSequence);while(cursors.size>=2048)cursors.delete(cursors.keys().next().value);
+     cursors.set(cursor,{owner,scope:scope.run||scope.session||'',until:now+10*60000,request:nextDiscovery});nextDiscovery={cursor};
     }
     rememberDiscoveredSources(db,owner,candidates,scope);
     if(scope.run)for(const c of candidates)requireSourceReview(db,scope,c,{app_id:app,source_id:c.source_id,offset:0,...(app==='google_calendar'&&input.time_min?{time_min:input.time_min,time_max:input.time_max}:{})});
@@ -247,7 +265,7 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
    messages=data.messages.map(m=>({rawText:m.messageText,text:mailMessageText(m),at:m.messageTimestamp}));
    text=messages.map(m=>m.text).join('\n\n');
   }else if(app==='outlook'){
-   const result=await readOutlookSource(id,{owner,run,db,context:scope,now});outlookAccountId=result.identity.account_id;
+   const result=await readOutlookSource(id,{owner,run,db,context:scope,now,input});outlookAccountId=result.identity.account_id;
    if(!result.source_id){if(result.complete)verifyEmptyAppCoverage(db,scope,app);return {app_id:app,account_id:outlookAccountId,content_verified:result.complete,empty:true,content:'',next_offset:null};}
    id=result.source_id;complete=result.complete;outlookMetadata={latest_message_id:result.latest_message_id,latest_message_at:result.latest_message_at,latest_message_sent:result.latest_message_sent,reply_direction_verified:result.reply_direction_verified};
    messages=result.messages.map(m=>({rawText:m.messageText,text:mailMessageText(m),at:m.messageTimestamp}));
@@ -259,8 +277,8 @@ export async function readFloAssistSource(owner,input,{db=getDb(),context=curren
   }else{
    if(!id&&app==='google_drive'){
     const prefs=JSON.parse(profile.preferences_json||'{}');
-    const since=new Date(now-(prefs.discovery_lookback_days??7)*86400000).toISOString();
-    const data=await run('googledrive.files.list',{q:`trashed = false and modifiedTime > '${since}' and mimeType != 'application/vnd.google-apps.folder'`,orderBy:'modifiedTime desc',pageSize:40});
+    const range=sourceWindow(input,{now,defaultDays:scope.run?(prefs.discovery_lookback_days??7):7});
+    const data=await run('googledrive.files.list',{q:`trashed = false and modifiedTime > '${range.time_min}' and modifiedTime < '${range.time_max}' and mimeType != 'application/vnd.google-apps.folder'`,orderBy:'modifiedTime desc',pageSize:40});
     const supported=(data.files||[]).filter(f=>f.id&&documentType(f.mimeType)!=='unsupported');
     for(const f of supported)requireSourceReview(db,scope,{app_id:app,source_id:f.id},{app_id:app,source_id:f.id,offset:0});
     if(data.nextPageToken)requireSourceReview(db,scope,{app_id:app,source_id:'@discovery'},null);

@@ -1,5 +1,5 @@
 /** Explicit user ranges override the default; never silently replace them. */
-export function sourceWindow(input,{now=Date.now(),defaultDays=7}={}){
+export function sourceWindow(input,{now=Date.now(),defaultDays=7,direction='past'}={}){
  const fail=()=>{throw Object.assign(Error('Supply both time_min and time_max as valid ISO timestamps with timezone offsets, with time_max after time_min.'),{status:422,code:'FLOASSIST_SOURCE_WINDOW_REQUIRED'});};
  const explicit=input.time_min!=null||input.time_max!=null;
  if(explicit){
@@ -7,7 +7,7 @@ export function sourceWindow(input,{now=Date.now(),defaultDays=7}={}){
   const start=Date.parse(input.time_min),end=Date.parse(input.time_max);if(end<=start)fail();
   return {time_min:new Date(start).toISOString(),time_max:new Date(end).toISOString(),explicit:true};
  }
- return {time_min:new Date(now-defaultDays*86400000).toISOString(),time_max:new Date(now).toISOString(),explicit:false};
+ return {time_min:new Date(direction==='future'?now:now-defaultDays*86400000).toISOString(),time_max:new Date(direction==='future'?now+defaultDays*86400000:now).toISOString(),explicit:false};
 }
 export function gmailWindowQuery(input,options){
  const query=String(input.query||'').trim();

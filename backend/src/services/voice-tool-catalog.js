@@ -15,7 +15,10 @@ export function privateVoiceCatalog(agentId,{grants=getAgentToolGrants,meta=getT
 export function privateVoiceDiscovery(catalog,name,args={}){
  if(name==='tool_search'){
   const q=String(args.query||'').toLowerCase().split(/\s+/).filter(Boolean);const scored=catalog.map(t=>({t,score:q.reduce((n,w)=>n+(String(t.name+' '+t.display_name+' '+t.purpose).toLowerCase().includes(w)?1:0),0)})).filter(x=>x.score||!q.length).sort((a,b)=>b.score-a.score);
-  return {ok:true,tools:scored.slice(0,12).map(({t})=>({id:t.name,description:t.purpose||t.display_name})),has_more:scored.length>12};
+  // Discovery is an index, not the full operating guide. Keep it inline so a
+  // large purpose cannot consume several voice turns just to discover tools.
+  // tool_describe retains the complete guide and authoritative input schema.
+  return {ok:true,tools:scored.slice(0,12).map(({t})=>({id:t.name,description:String(t.purpose||t.display_name||'').slice(0,180)})),has_more:scored.length>12};
  }
  const tool=catalog.find(t=>t.name===args.id);if(!tool)throw Object.assign(Error('Tool not granted in this voice session'),{status:403});
  if(name==='tool_describe')return {ok:true,id:tool.name,description:tool.purpose||tool.display_name,parameters:PARAM_SCHEMAS[tool.name]||{type:'object',properties:{},additionalProperties:true}};

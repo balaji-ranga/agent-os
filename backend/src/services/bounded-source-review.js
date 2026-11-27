@@ -27,7 +27,10 @@ export async function boundedSourceReview({request,read,digest,reduce,clock=Date
    for(const source of discovery.source_candidates||[])inventory.add(source.source_id);
    for(const source of discovery.source_candidates||[]){
     if(seen.has(source.source_id))continue;if(seen.size>=maxSources)throw Error('review_source_limit');seen.add(source.source_id);
-    let page=await fetchPage({app_id:source.app_id,source_id:source.source_id}),content='';
+    // Calendar/event reads must use the exact discovery range, including after
+    // later discovery pages. Never drop the user's explicit period at this hop.
+    const range=window?.time_min&&window?.time_max?window:request;
+    let page=await fetchPage({app_id:source.app_id,source_id:source.source_id,...(range.time_min&&range.time_max?{time_min:range.time_min,time_max:range.time_max}:{})}),content='';
     while(true){
      if(!page.content_verified||typeof page.content!=='string')throw Error('review_source_unverified');
      characters+=page.content.length;if(characters>maxCharacters)throw Error('review_character_limit');content+=page.content;

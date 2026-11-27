@@ -1,6 +1,7 @@
 // Outlook translates into the shared mail-thread contract. It owns no alert,
 // scheduling, Kanban or delivery decisions. All I/O uses the caller's authorized run.
 import {recordSourceReceipt,recordMailThreadReceipt} from './source-receipts.js';
+import {sourceWindow} from './source-window.js';
 
 const PREFIX='outlook-conversation:';
 const fields=['id','conversationId','subject','from','sender','sentDateTime','receivedDateTime','isDraft','body'];
@@ -37,13 +38,23 @@ function callFor({owner,run,db,context,now}){
 export async function discoverOutlookSources(options){
  const call=callFor(options),identity=outlookIdentity(await call('outlook.get_profile',{}));
  const sent=options.context.origin==='floassist:followups';
- const since=new Date(options.now-(options.lookbackDays??7)*86400000).toISOString();
+ const window=sourceWindow(options.input||{},{now:options.now,defaultDays:options.lookbackDays??7});
  const dateField=sent?'sentDateTime':'receivedDateTime';
- const data=await call('outlook.list_messages',{...(sent?{mailFolderId:'sentitems'}:{}),top:40,filter:`${dateField} ge ${since} and isDraft eq false`,orderby:`${dateField} desc`,select:fields.filter(f=>f!=='body'),bodyContentType:'text'});
+ const filter=`${dateField} ge ${window.time_min} and ${dateField} lt ${window.time_max} and isDraft eq false`;
+ const nextLink=options.input?.discovery_page_token;
+ const checkLink=link=>{
+  let url;try{url=new URL(link);}catch{fail('FLOASSIST_SOURCE_READ_FAILED','Invalid Outlook discovery cursor.');}
+  const paths=['/v1.0/me/messages',`/v1.0/users/${identity.id}/messages`,...(sent?['/v1.0/me/mailFolders/sentitems/messages',`/v1.0/users/${identity.id}/mailFolders/sentitems/messages`]:[])];
+  if(url.origin!=='https://graph.microsoft.com'||url.username||url.password||url.hash||!paths.includes(decodeURI(url.pathname))||url.searchParams.has('$filter')&&url.searchParams.get('$filter')!==filter)fail('FLOASSIST_SOURCE_READ_FAILED','Outlook discovery cursor left the authenticated mailbox or date range.');
+  return link;
+ };
+ const data=await call('outlook.list_messages',nextLink?{nextLink:checkLink(nextLink),bodyContentType:'text'}:{...(sent?{mailFolderId:'sentitems'}:{}),top:40,filter,orderby:`${dateField} desc`,select:fields.filter(f=>f!=='body'),bodyContentType:'text'});
  if(!Array.isArray(data.messages)||data.messages.some(m=>!m.id||!m.conversationId||typeof m.isDraft!=='boolean'))fail('FLOASSIST_SOURCE_READ_FAILED','Outlook discovery did not return message and conversation identities.');
  const candidates=[...new Set(data.messages.filter(m=>!m.isDraft).map(m=>sourceId(identity.id,m.conversationId)))].map(source_id=>({app_id:'outlook',source_id}));
  recordSourceReceipt(options.owner,'outlook.list_messages',{data:{messages:candidates.map(c=>({id:c.source_id}))}},{db:options.db,context:options.context,now:options.now});
- return {identity,candidates,more:!!(data.nextLink||data['@odata.nextLink']||data.nextPageToken)};
+ const next=data.nextLink||data['@odata.nextLink']||data.nextPageToken;
+ if(next&&next===nextLink)fail('FLOASSIST_SOURCE_PAGINATION_STALLED','Outlook repeated its discovery cursor.');
+ return {identity,candidates,more:!!next,next:next?checkLink(next):null,window};
 }
 export async function readOutlookSource(id,options){
  const call=callFor(options),identity=outlookIdentity(await call('outlook.get_profile',{}));
@@ -51,7 +62,7 @@ export async function readOutlookSource(id,options){
  if(id&&!isOutlookConversationSource(id)){const mapped=options.db.prepare('SELECT thread_id FROM floassist_message_threads WHERE owner_id=? AND app_id=? AND message_id=?').get(options.owner,'outlook',id);if(isOutlookConversationSource(mapped?.thread_id))routed=mapped.thread_id;}
  let conversation=conversationFromSource(routed,identity),anchor;
  if(!conversation){
-  if(!id){const list=await call('outlook.list_messages',{top:40,orderby:'receivedDateTime desc',bodyContentType:'text',select:['id','conversationId','isDraft']});
+  if(!id){const range=sourceWindow(options.input||{},{now:options.now});const list=await call('outlook.list_messages',{top:40,filter:`receivedDateTime ge ${range.time_min} and receivedDateTime lt ${range.time_max}`,orderby:'receivedDateTime desc',bodyContentType:'text',select:['id','conversationId','isDraft']});
    if(!Array.isArray(list.messages))fail('FLOASSIST_SOURCE_READ_FAILED','Outlook did not return a mailbox list.');
    id=list.messages.find(m=>!m.isDraft)?.id;
    if(!id&&(list.nextLink||list['@odata.nextLink']||list.nextPageToken))fail('FLOASSIST_SOURCE_COVERAGE_LIMIT','The bounded latest-mail page contains only drafts; additional messages remain unread.');

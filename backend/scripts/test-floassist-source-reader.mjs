@@ -66,7 +66,7 @@ mode='long';let out=await readFloAssistSource('a',{app_id:'gmail'},options);asse
 mode='normal';await assert.rejects(()=>readFloAssistSource('a',{app_id:'google_calendar',time_min:'2026-10-27T00:00Z',time_max:'2027-10-27T00:00Z'}, {...options,context:{owner:'a',origin:'whatsapp'}}),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED');
 for(const [zone,start]of [['Asia/Singapore','2026-10-26T16:00:00.000Z'],['Asia/Kolkata','2026-10-26T18:30:00.000Z'],['Asia/Jakarta','2026-10-26T17:00:00.000Z']])assert.equal(briefingCalendarWindow(now,zone).time_min,start);
 calls=[];await readFloAssistSource('a',{app_id:'google_calendar'},{...options,context:{...context,origin:'floassist:briefing'}});assert.equal(calls.at(-1).input.timeMin,'2026-10-26T16:00:00.000Z');assert.equal(calls.at(-1).input.timeMax,'2026-10-27T16:00:00.000Z');
-await assert.rejects(()=>readFloAssistSource('a',{app_id:'google_calendar'},{...options,context:{owner:'a',origin:'whatsapp'}}),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED','ad hoc requests still require their explicit intended window');
+calls=[];await readFloAssistSource('a',{app_id:'google_calendar'},{...options,context:{owner:'a',origin:'whatsapp'}});assert.equal(calls.at(-1).input.timeMin,new Date(now).toISOString());assert.equal(calls.at(-1).input.timeMax,new Date(now+7*86400000).toISOString(),'open-ended calendar reads use the upcoming seven days');
 const calendarProofContext={...context,origin:'floassist:conflicts',run:'calendar-window-recovery'};
 for(const source of ['primary','unread-calendar'])recordRunError(Object.assign(Error('explicit window required'),{code:'FLOASSIST_SOURCE_WINDOW_REQUIRED'}),{db,context:calendarProofContext,sourceInput:{app_id:'google_calendar',...(source==='primary'?{}:{source_id:source})}});
 await readFloAssistSource('a',{app_id:'google_calendar',time_min:'2026-10-27T00:00Z',time_max:'2026-10-28T00:00Z'},{...options,context:calendarProofContext});
@@ -304,6 +304,27 @@ const defaultRange=await readFloAssistSource('a',{app_id:'gmail'},monthOptions);
 assert.equal(Date.parse(defaultRange.effective_window.time_max)-Date.parse(defaultRange.effective_window.time_min),7*86400000);
 await assert.rejects(readFloAssistSource('a',{app_id:'gmail',time_min:requestedMonth.time_min},monthOptions),e=>e.code==='FLOASSIST_SOURCE_WINDOW_REQUIRED');
 console.log('MAIL_WINDOW_OK: explicit month, timezone preservation, seven-day default, fixed-query pagination, owner-bound cursors, invalid range rejected');
+
+for(const app of ['outlook','google_drive','google_calendar']){
+ const pagedCalls=[],session={owner:'a',origin:'whatsapp',session:'window-pagination-'+app};
+ const opts={...options,context:session,discoverUnknownSources:true,execute:async(owner,action,args)=>{
+  pagedCalls.push({action,args});
+  if(action==='outlook.get_profile')return {id:'account',mail:'owner@example.test'};
+  if(action==='googledrive.about.get')return {user:{emailAddress:'owner@example.test'}};
+  const next=app==='outlook'?args.nextLink:args.pageToken;
+  if(app==='outlook')return {messages:[{id:next?'m2':'m1',conversationId:next?'c2':'c1',isDraft:false}],...(!next?{nextLink:'https://graph.microsoft.com/v1.0/me/messages?$skiptoken=opaque'}:{})};
+  return {...(app==='google_drive'?{files:[{id:next?'f2':'f1',mimeType:'text/plain'}]}:{items:[{id:next?'c2':'c1'}]}),...(!next?{nextPageToken:'opaque'}:{})};
+ }};
+ const request={app_id:app,time_min:'2026-10-01T00:00:00+08:00',time_max:'2026-10-20T00:00:00+08:00'};
+ const first=await readFloAssistSource('a',request,opts);assert(first.next_request?.cursor);assert.equal(first.more_candidates,true);
+ const second=await readFloAssistSource('a',first.next_request,{...opts,now:now+20000});assert.equal(second.more_candidates,false);assert.deepEqual(second.effective_window,first.effective_window,'range is fixed across provider pages');
+ const list=pagedCalls.find(c=>c.action===({outlook:'outlook.list_messages',google_drive:'googledrive.files.list',google_calendar:'googlecalendar.list_calendars'}[app])).args;
+ if(app==='outlook'){assert.match(list.filter,/receivedDateTime ge 2026-09-30T16:00:00.000Z and receivedDateTime lt 2026-10-19T16:00:00.000Z/);assert(pagedCalls.some(c=>c.args.nextLink));}
+ if(app==='google_drive'){assert.match(list.q,/modifiedTime > '2026-09-30T16:00:00.000Z'/);assert.match(list.q,/modifiedTime < '2026-10-19T16:00:00.000Z'/);}
+ await assert.rejects(readFloAssistSource('b',first.next_request,{...opts,context:{...session,owner:'b'}}),e=>e.code==='FLOASSIST_SOURCE_SNAPSHOT_EXPIRED');
+ const defaults=await readFloAssistSource('a',{app_id:app},opts);assert.equal(Date.parse(defaults.effective_window.time_max)-Date.parse(defaults.effective_window.time_min),7*86400000);
+}
+console.log('CONNECTOR_WINDOW_PAGINATION_OK: Outlook/Drive/calendar explicit ranges, fixed continuations, seven-day defaults and owner isolation');
 
 const chatLinkScope={owner:'a',origin:'whatsapp',session:'link-review'};
 const chatLink=await readFloAssistSource('a',{app_id:'gmail',source_id:'link-thread'},{...linkOptions,context:chatLinkScope});

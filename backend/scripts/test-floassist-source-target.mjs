@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {rememberSourceReview,sourceReviewParams} from '../../openclaw-extensions/agent-os-content-tools/source-review-turn.js';
 import {assertMailboxSourceId,sourceDuplicateRecovery} from '../src/services/floassist/source-read-contract.js';
-import {resolveMailboxDay,mailboxDayWindow,gmailWindowQuery} from '../src/services/floassist/source-window.js';
+import {resolveMailboxDay,mailboxDayWindow,gmailWindowQuery,sourceWindow} from '../src/services/floassist/source-window.js';
 const prompt="Check my gmail for today's emails snd summarize any important";
 rememberSourceReview('owner-session',prompt,100,{mode:'source_review',whole_period:true,relative_day:'today'});
 const bad={id:'floassist_source_read',args:{app_id:'gmail',source_id:'owner@example.test'}};
@@ -13,6 +13,9 @@ for(const args of [{source_id:'real-thread'},{kind:'draft'},{task_id:1},{cursor:
 rememberSourceReview('explicit',"Summarize today's emails from owner@example.test",100,{mode:'source_review',whole_period:true,relative_day:'today'});
 assert.equal(sourceReviewParams('explicit','tool_call',bad,101),null);
 const now=Date.parse('2026-11-25T00:49:54Z');
+assert.equal(Date.parse(sourceWindow({},{now}).time_min),now-7*86400000);
+assert.equal(Date.parse(sourceWindow({},{now,direction:'future'}).time_max),now+7*86400000);
+assert.equal(sourceWindow({time_min:'2026-01-01T00:00:00+08:00',time_max:'2026-02-01T00:00:00+08:00'},{now}).time_min,'2025-12-31T16:00:00.000Z','explicit historical queries override default lookback');
 const request=resolveMailboxDay(corrected.args,'Asia/Singapore',now);
 assert.equal(request.time_min,'2026-11-24T16:00:00.000Z');assert.equal(request.time_max,'2026-11-25T16:00:00.000Z');
 assert.match(gmailWindowQuery(request,{now}).query,/after:1795536000 before:1795622400/);

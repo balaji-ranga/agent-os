@@ -42,3 +42,16 @@ assert.equal(routes[0].preference,undefined);
 assert.equal(routes[1].preference,'primary','failed local backend is not retried for each subsequent batch');
 assert.equal(routes[2].tool,'source_review_synthesis','final synthesis is outside local utility workload');
 console.log('SOURCE_DIGEST_CONTRACT_OK');
+
+// Force several content pages, discovery pages and digest batches. The final
+// reduction must still see evidence from the very first and last pages.
+const retained=[],range={time_min:'2026-11-01T00:00:00Z',time_max:'2026-11-04T00:00:00Z'};
+const holistic=await boundedSourceReview({request:{app_id:'fixture',...range},batchCharacters:16,read:async r=>{
+ if(!r.source_id)return {discovery_only:true,effective_window:range,source_candidates:[{app_id:'fixture',source_id:r.cursor?'last':'first'}],more_candidates:!r.cursor,next_request:r.cursor?null:{cursor:'next-discovery'}};
+ if(!r.offset)assert.deepEqual({time_min:r.time_min,time_max:r.time_max},range,'discovery ranges reach every content read');
+ return {content_verified:true,content:r.offset?'FINAL-PAGE':'FIRST-PAGE',coverage_complete:!!r.offset,next_request:r.offset?null:{source_id:r.source_id,offset:10}};
+},digest:async b=>b.map(s=>({source_id:s.source_id,summary:s.content,evidence:[s.content]})),reduce:async f=>{retained.push(...f);return f.map(x=>x.summary).join(' | ');}});
+assert.equal(holistic.review_complete,true);assert.equal(holistic.reviewed,2);
+for(const id of ['first','last'])assert.equal(retained.filter(x=>x.source_id===id).map(x=>x.summary).join(''),'FIRST-PAGEFINAL-PAGE');
+assert.equal(holistic.digest_calls,4,'raw content is batched rather than accumulated in one model prompt');
+console.log('HOLISTIC_PAGED_REVIEW_OK: earliest/latest discovery and content pages retained across bounded digests');
