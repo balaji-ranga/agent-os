@@ -14,7 +14,7 @@ export async function withNativeTestUtilityBudget(options,complete,{db=getDb(),a
  const call={id:'test-utility-'+randomUUID(),session_key:identity.session,caller_agent_id:identity.session.match(/^agent::?([^:]+):/)[1],run_id:options.runId||'test-utility-'+budget.id,provider:'backend-test-utility',model:options.modelOverride||'configured',input_tokens:Math.max(1,Math.ceil(Buffer.byteLength(JSON.stringify(options.messages||[]))/4)),output_limit:options.maxTokens||1024};
  const admission=admit(call,{db});let response;
  try{
-  response=await complete({...options,memberKey:options.memberKey||identity.agent,traceId:call.id,maxTokens:Math.min(options.maxTokens||1024,admission.output_limit)});
+  response=await complete({...options,memberKey:identity.agent,traceId:call.id,maxTokens:Math.min(options.maxTokens||1024,admission.output_limit)});
   const usage=response.usage;
   const recorded=!!db.prepare('SELECT 1 FROM token_usage WHERE owner_user_id=? AND member_key=? AND trace_id=?').get(identity.owner,identity.agent,call.id);
   settle({...call,status:'completed',input_tokens:usage?.input_tokens??call.input_tokens,output_tokens:usage?.output_tokens??Math.ceil(String(response.content||'').length/4),estimated:!usage},{db,usageRecorded:recorded});
