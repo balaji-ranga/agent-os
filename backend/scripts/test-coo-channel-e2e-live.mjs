@@ -17,7 +17,7 @@ if(operation==='prepare'){
  const budget=saved?.budget||createNativeTestBudget(owner,agent,{maxCalls:16,maxTokens:240000,minutes:90});
  const approvedMax=saved?.approved_max_calls??16;
  const approvedTokens=saved?.approved_max_tokens??240000;
- const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert([[16,240000],[24,240000],[28,360000]].some(([c,t])=>c===approvedMax&&t===approvedTokens)&&allowance&&allowance.max_calls===approvedMax&&allowance.max_tokens===approvedTokens&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
+ const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert([[16,240000],[24,240000],[28,360000],[36,420000]].some(([c,t])=>c===approvedMax&&t===approvedTokens)&&allowance&&allowance.max_calls===approvedMax&&allowance.max_tokens===approvedTokens&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
  const session='agent:'+caller+':main';
  const previous=saved?saved.previous:db.prepare('SELECT budget_id FROM native_model_test_sessions WHERE session_key=?').get(session);
  bindNativeTestBudget(owner,agent,session,budget);

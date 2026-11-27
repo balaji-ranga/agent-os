@@ -1,7 +1,7 @@
 // Operator-only real UI/WebRTC conversation test. Uses a muted fake microphone
 // and text turns over the real voice data channel; does not test speech recognition.
 // Provider generations reserve/settle against the SAME approved native test batch.
-import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+import {readFileSync,writeFileSync,existsSync,readdirSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {randomUUID} from 'node:crypto';
 if(process.env.RUN_LIVE_COO_CHANNEL_TESTS!=='1')throw Error('Explicit live operator opt-in required');
@@ -12,6 +12,9 @@ const broker=runtime.secrets.tool_broker.value;
 const platform=JSON.parse(readFileSync(root+'/openclaw.json','utf8'));
 const base=platform.plugins.entries['agent-os-content-tools'].config.baseUrl.replace(/\/$/,'');
 const {chromium}=createRequire('/usr/local/lib/node_modules/openclaw/package.json')('playwright-core');
+const browserRoot=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/playwright';
+const candidates=[cfg.browser_executable,platform.browser?.executablePath,chromium.executablePath(),...readdirSync(browserRoot).filter(n=>/^chromium-/.test(n)).sort().reverse().flatMap(n=>['chrome-linux64/chrome','chrome-linux/chrome'].map(p=>browserRoot+'/'+n+'/'+p))];
+const executablePath=candidates.find(p=>p&&existsSync(p));if(!executablePath)throw Error('installed_browser_unavailable');
 const stats={model_calls:0,tools:[],organization_read:false,company_work_read:false,email_approval:false,errors:[]};
 let minted,active,settlements=Promise.resolve(),finalText='',browser,stage='setup';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -21,7 +24,7 @@ async function budget(operation,body){
 }
 async function binding(){for(let i=0;i<120;i++){if(existsSync(cfg.binding_file))return JSON.parse(readFileSync(cfg.binding_file,'utf8'));await sleep(250);}throw Error('private_voice_budget_binding_timeout');}
 try{
- browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
+ browser=await chromium.launch({executablePath,headless:true,args:['--no-sandbox','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
  const context=await browser.newContext({permissions:['microphone']});
  const page=await context.newPage();
  await page.exposeFunction('__cooReserve',async()=>{
@@ -87,4 +90,4 @@ try{
  console.log('COO_VOICE_BROWSER_RESULT '+JSON.stringify(stats));
  if(!stats.passed)process.exitCode=1;
 }catch(e){stats.errors.push(stage+':'+(/^[a-z0-9_]{1,80}$/i.test(e.message||'')?e.message:e.name));writeFileSync(outPath,JSON.stringify({...stats,session_id:minted?.session_id}),{mode:0o600});console.log('COO_VOICE_BROWSER_RESULT '+JSON.stringify({...stats,passed:false}));process.exitCode=1;}
-finally{await settlements.catch(()=>{});if(active)await budget('settle',{...active,input_tokens:20000,output_tokens:600,status:'error',estimated:true}).catch(()=>{});await browser?.close();}
+finally{await settlements.catch(()=>{});if(active)await budget('settle',{...active,input_tokens:20000,output_tokens:600,status:'error',estimated:true}).catch(()=>{});if(minted?.session_token)await fetch(base+'/api/voice/end',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({session_token:minted.session_token,transcript:[]})}).catch(()=>{});await browser?.close();}
