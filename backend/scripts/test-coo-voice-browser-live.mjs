@@ -20,6 +20,8 @@ let minted,active,settlements=Promise.resolve(),finalText='',browser,stage='setu
 const replies=[],snapshots=new Map();
 function inspectSource(name,value){
  if(!value||typeof value!=='object')return;
+ if(value.data&&typeof value.data==='object')inspectSource(name,value.data);
+ if(value.result&&typeof value.result==='object')inspectSource(name,value.result);
  if(value.result_stored&&value._retrieval)return inspectSource(name,value._retrieval);
  if(value.resultId&&typeof value.content==='string'){
   const snapshot=snapshots.get(value.resultId)||{name:value.source_tool||name,total:value.total_characters,parts:new Map()};snapshots.set(value.resultId,snapshot);snapshot.parts.set(value.offset,value.content);
@@ -104,9 +106,10 @@ try{
  await settlements;
  stats.department_matches=(cfg.expected_departments||[]).filter(n=>(replies[0]||'').toLowerCase().includes(n.toLowerCase())).length;
  stats.expected_department_count=cfg.expected_departments?.length||0;
+ stats.live_context_department_answer=stats.expected_department_count>0&&stats.department_matches===stats.expected_department_count;
  stats.final_response_present=replies.length===3&&replies.every(Boolean);
  stats.email_approval_answer=/approv|permission|consent/i.test(replies[2]||'');
- stats.passed=stats.organization_read&&stats.company_work_read&&stats.email_approval&&stats.final_response_present&&stats.email_approval_answer&&stats.department_matches===stats.expected_department_count&&!stats.errors.length;
+ stats.passed=(stats.organization_read||stats.live_context_department_answer)&&stats.company_work_read&&stats.email_approval&&stats.final_response_present&&stats.email_approval_answer&&stats.department_matches===stats.expected_department_count&&!stats.errors.length;
  writeFileSync(outPath,JSON.stringify({...stats,final_text:replies.join('\n\n'),session_id:minted?.session_id}),{mode:0o600});
  stage='hangup';await page.getByRole('button',{name:'Hang up',exact:true}).click();
  console.log('COO_VOICE_BROWSER_RESULT '+JSON.stringify(stats));

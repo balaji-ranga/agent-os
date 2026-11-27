@@ -25,3 +25,9 @@ export function privateVoiceDiscovery(catalog,name,args={}){
  if(name==='tool_call')return {tool_name:tool.name,arguments:args.args&&typeof args.args==='object'&&!Array.isArray(args.args)?args.args:{}};
  throw Object.assign(Error('Unknown voice control'),{status:422});
 }
+// Small shared assistant surface, not an intent router. Every direct call
+// still rechecks the live grant and uses the ordinary governed execution path.
+export function privateVoiceManifest(catalog){
+ const core=new Set(['organization_read','agent_work_history','email_send']);
+ return [...PRIVATE_VOICE_CONTROLS,...catalog.filter(t=>core.has(t.name)&&PARAM_SCHEMAS[t.name]).map(t=>({type:'function',name:t.name,description:String(t.purpose||t.display_name||t.name).slice(0,300),parameters:PARAM_SCHEMAS[t.name]}))];
+}
