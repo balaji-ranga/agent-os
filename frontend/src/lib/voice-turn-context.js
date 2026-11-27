@@ -1,15 +1,20 @@
-// Provider responses can continue one user utterance through several tool calls.
-// Transport item IDs, not message wording, define its execution/duplicate scope.
+// One user utterance can span several provider responses and parallel tool calls.
 export function createVoiceTurnContext({uuid=()=>globalThis.crypto.randomUUID(),maxResponses=128}={}){
  let current=null;const responses=new Map();
- const remember=(id,turn)=>{if(id){if(responses.size>=maxResponses&&!responses.has(id))responses.delete(responses.keys().next().value);responses.set(id,turn);}};
+ const id=e=>e?.response_id||e?.response?.id||e?.call_id;
+ const get=e=>{const key=id(e);if(!key)return null;if(!responses.has(key)){current=current||uuid();if(responses.size>=maxResponses)responses.delete(responses.keys().next().value);responses.set(key,{turn:current,calls:new Map(),done:false,resumed:false});}return responses.get(key);};
+ const resume=s=>{if(!s||s.resumed||!s.done||!s.calls.size||s.turn!==current||[...s.calls.values()].some(v=>v==='pending'))return false;s.resumed=true;return true;};
  return {
-  observe(event){
-   if(event?.type==='input_audio_buffer.committed')current=event.item_id||uuid();
-   if(event?.type==='conversation.item.created'&&event.item?.role==='user')current=event.item.id||uuid();
-   if(event?.type==='response.created'){current=current||uuid();remember(event.response?.id,current);}
+  observe(e){
+   if(e?.type==='input_audio_buffer.committed')current=e.item_id||uuid();
+   if(e?.type==='conversation.item.created'&&e.item?.role==='user')current=e.item.id||uuid();
+   if(e?.type==='response.created')get(e);
+   if(e?.type==='response.done'){const s=get(e);if(s)s.done=true;return resume(s);}
+   return false;
   },
-  forCall(event){const id=event?.response_id;if(id&&responses.has(id))return responses.get(id);current=current||uuid();remember(id,current);return current;},
+  forCall(e){return get(e)?.turn||(current=current||uuid());},
+  beginCall(e){const s=get(e);if(!s||!e.call_id||s.turn!==current||s.calls.has(e.call_id))return false;s.calls.set(e.call_id,'pending');return true;},
+  finishCall(e){const s=responses.get(id(e));if(!s||s.calls.get(e.call_id)!=='pending')return false;s.calls.set(e.call_id,'done');return resume(s);},
   isCurrent(turn){return turn===current;}
  };
 }

@@ -105,7 +105,7 @@ export default function AgentVoiceCall({
             return;
           }
           const type = String(msg?.type || '');
-          voiceTurnsRef.current.observe(msg);
+          if(voiceTurnsRef.current.observe(msg))dc.send(JSON.stringify({ type: 'response.create' }));
           if (type === 'conversation.item.input_audio_transcription.completed') {
             const text = String(msg.transcript || '').trim();
             if (text) transcriptRef.current.push({ role: 'user', text });
@@ -117,6 +117,7 @@ export default function AgentVoiceCall({
           if (type === 'response.function_call_arguments.done') {
             const callId = msg.call_id;
             const turnId=voiceTurnsRef.current.forCall(msg);
+            if(!voiceTurnsRef.current.beginCall(msg))return;
             const name = msg.name;
             const args = parseArgs(msg.arguments);
             try {
@@ -138,7 +139,7 @@ export default function AgentVoiceCall({
                   item: { type: 'function_call_output', call_id: callId, output },
                 })
               );
-              if(voiceTurnsRef.current.isCurrent(turnId))dc.send(JSON.stringify({ type: 'response.create' }));
+              if(voiceTurnsRef.current.finishCall(msg))dc.send(JSON.stringify({ type: 'response.create' }));
             } catch (err) {
               try {
                 dc.send(
@@ -151,7 +152,7 @@ export default function AgentVoiceCall({
                     },
                   })
                 );
-                if(voiceTurnsRef.current.isCurrent(turnId))dc.send(JSON.stringify({ type: 'response.create' }));
+                if(voiceTurnsRef.current.finishCall(msg))dc.send(JSON.stringify({ type: 'response.create' }));
               } catch {
                 /* ignore */
               }
