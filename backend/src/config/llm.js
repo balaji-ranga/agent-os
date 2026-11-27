@@ -270,9 +270,11 @@ export async function chatCompletions(options) {
     ? candidatePlan : null;
   // Optional assistance can fall back to its caller's existing deterministic or
   // agent path. It must never spend on an extra hosted utility request.
-  if (plan) return executeEfficiency(options, options.efficiencyLocalOnly ? {...plan,allowCloud:false} : plan, performChatCompletions, () => getLlmConfig(options.ownerUserId));
-  if (options.efficiencyLocalOnly) throw new Error('Local efficiency workload is unavailable');
-  return performChatCompletions(options);
+  if (!plan && options.efficiencyLocalOnly) throw new Error('Local efficiency workload is unavailable');
+  const {withNativeTestUtilityBudget}=await import('../services/native-test-utility-budget.js');
+  return withNativeTestUtilityBudget(options,next=>plan
+    ? executeEfficiency(next,next.efficiencyLocalOnly?{...plan,allowCloud:false}:plan,performChatCompletions,()=>getLlmConfig(next.ownerUserId))
+    : performChatCompletions(next));
 }
 
 /** Admin evaluation path: fixed private local endpoint, no implicit hosted fallback. */

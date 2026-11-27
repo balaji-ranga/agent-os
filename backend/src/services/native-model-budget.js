@@ -98,11 +98,12 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
   const callLimit=boundedPreference('model_call_budget',256),tokenLimit=boundedPreference('model_token_budget',10000000);
   if(callLimit&&sums.calls>=callLimit)fail(429,'native_model_call_budget','Model-call limit reached for this request; remaining source coverage is incomplete.');
   let remaining=tokenLimit?tokenLimit-sums.tokens:Infinity;
+  let testRemaining=Infinity;
   const testBudget=db.prepare('SELECT b.* FROM native_model_test_budgets b JOIN native_model_test_sessions s ON s.budget_id=b.id WHERE s.session_key=? AND b.owner_id=? AND b.agent_id=?').get(identity.session,identity.owner,identity.agent);
   if(testBudget){
    const testUsed=db.prepare("SELECT count(*) calls,COALESCE(sum(CASE WHEN status='started' THEN reserved_tokens ELSE input_tokens+output_tokens END),0) tokens FROM native_model_calls WHERE test_budget_id=?").get(testBudget.id);
    if(testBudget.expires_at<=now||testUsed.calls>=testBudget.max_calls)fail(429,'native_test_budget_exhausted','Live test model-call allowance exhausted or expired; no further model call was started.');
-   remaining=Math.min(remaining,testBudget.max_tokens-testUsed.tokens);
+   testRemaining=testBudget.max_tokens-testUsed.tokens;remaining=Math.min(remaining,testRemaining);
   }
   const monthly=getAgentBudget(identity.owner,identity.agent),period=monthPeriod();let monthlyRemaining=Infinity;
   if(monthly?.monthly_token_budget){
@@ -114,12 +115,13 @@ export function admitNativeModel(input,{db=getDb(),now=Date.now()}={}){
   const outputLimit=Math.min(input.output_limit,remaining-input.input_tokens);
   if(outputLimit<1){
    if(monthlyRemaining===remaining)fail(429,'native_monthly_token_budget','The remaining monthly token allowance is too small for this model request.');
+   if(testBudget&&testRemaining===remaining)fail(429,'native_test_token_budget','The temporary live-test token allowance cannot cover another model request.');
    fail(429,'native_model_token_budget','The token allowance for this request has been reached.');
   }
   db.prepare('INSERT INTO native_model_calls VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(input.id,identity.owner,identity.agent,identity.session,runKey,scheduledRun||null,String(input.provider||'').slice(0,160),String(input.model||'').slice(0,160),'started',input.input_tokens,0,1,input.input_tokens+outputLimit,now,now,testBudget?.id||null);
   return {allowed:true,id:input.id,output_limit:outputLimit};
  }).immediate();}catch(error){
-  if(error.code==='budget_exceeded'||/^native_(?:model|monthly)_/.test(String(error.code||''))||error.code==='native_test_budget_exhausted'||error.code==='native_budget_unavailable'){db.prepare('INSERT OR REPLACE INTO native_model_budget_blocks VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,now);db.prepare('INSERT OR REPLACE INTO native_model_budget_block_sessions VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,identity.session);}
+  if(error.code==='budget_exceeded'||/^native_(?:model|monthly|test)_/.test(String(error.code||''))||error.code==='native_budget_unavailable'){db.prepare('INSERT OR REPLACE INTO native_model_budget_blocks VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,now);db.prepare('INSERT OR REPLACE INTO native_model_budget_block_sessions VALUES (?,?,?,?,?)').run(identity.owner,identity.agent,runKey,error.code,identity.session);}
   throw error;
  }
 }

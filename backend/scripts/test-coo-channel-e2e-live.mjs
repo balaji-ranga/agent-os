@@ -6,7 +6,7 @@ import {createNativeTestBudget,bindNativeTestBudget} from '../src/services/nativ
 import {readOrganization} from '../src/services/organization-read.js';
 import {resolveVoiceInvite,createVoiceInvite} from '../src/services/agent-voice-sessions.js';
 import {lookupNativeAction} from '../src/services/native-action-contracts.js';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {privateVoiceIdentity} from '../src/services/voice-governed-tools.js';
 if(process.env.RUN_LIVE_COO_CHANNEL_TESTS!=='1')throw Error('Explicit live operator opt-in required');
 const [operation,dir,owner,agent,caller]=process.argv.slice(2),db=getDb();
@@ -18,7 +18,8 @@ if(operation==='prepare'){
  const approvedMax=saved?.approved_max_calls??16;
  const approvedTokens=saved?.approved_max_tokens??240000;
  const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert([[16,240000],[24,240000],[28,360000],[36,420000]].some(([c,t])=>c===approvedMax&&t===approvedTokens)&&allowance&&allowance.max_calls===approvedMax&&allowance.max_tokens===approvedTokens&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
- const session='agent:'+caller+':main';
+ const session=saved?.session||'agent:'+caller+':coo-e2e-'+budget;
+ assert(!session.endsWith(':main'),'prepare must not attach a temporary quota to a normal chat; use an isolated test session');
  const previous=saved?saved.previous:db.prepare('SELECT budget_id FROM native_model_test_sessions WHERE session_key=?').get(session);
  bindNativeTestBudget(owner,agent,session,budget);
  const expected=readOrganization(owner,agent,{section:'departments',limit:50}).items.map(d=>d.name);
@@ -30,7 +31,12 @@ if(operation==='prepare'){
   {id:'private-voice-link',message:'Generate a new private voice call link for me to speak with you.'}
  ];
  writeFileSync(dir+'/coo-e2e-plan-private.json',JSON.stringify({budget,session,previous,owner,agent,caller,expected,cases,approved_max_calls:approvedMax,approved_max_tokens:approvedTokens}),{mode:0o600});
- console.log(JSON.stringify({prepared:true,cases:cases.map(c=>c.id),max_model_calls:approvedMax,max_tokens:approvedTokens,uses_existing_main_session:true}));
+ console.log(JSON.stringify({prepared:true,cases:cases.map(c=>c.id),max_model_calls:approvedMax,max_tokens:approvedTokens,uses_existing_main_session:false}));
+}else if(operation==='bind-isolated-gmail'){
+ const plan=JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')),session='agent:'+plan.caller+':coo-e2e-gmail-'+randomUUID();
+ bindNativeTestBudget(plan.owner,plan.agent,session,plan.budget);
+ writeFileSync(dir+'/coo-gmail-plan-private.json',JSON.stringify({...plan,session,cases:[{id:'gmail-three-days',message:'Look at my past 3 days Gmail and summarize.'}]}),{mode:0o600});
+ console.log('GMAIL_TEST_ISOLATED: same COO/model/connectors, shared cumulative test budget, normal conversation unchanged');
 }else if(operation==='bind-voice'){
  const plan=JSON.parse(readFileSync(dir+'/coo-e2e-plan-private.json','utf8')),sessionId=process.argv[4];
  const row=db.prepare('SELECT * FROM ceo_voice_sessions WHERE id=?').get(sessionId);
@@ -71,6 +77,7 @@ if(operation==='prepare'){
   if(result.id==='organisation')backed=verifiedFinal&&proof.tool_name==='organization_read'&&proof.result?.source==='flolah_live_organization';
   if(result.id==='company-work')backed=verifiedFinal&&proof.tool_name==='agent_work_history'&&proof.result?.scope==='company';
   if(result.id==='email-policy')backed=!!result.toolEvidence?.approval_required;
+  if(result.id==='gmail-three-days')backed=!!result.toolEvidence?.gmail_source_read&&!/No (reply|response) was generated for this message|temporary model failure/i.test(texts);
   if(result.id==='private-voice-link'){
    for(const link of texts.match(/https?:\/\/[^\s<>"\])]+/g)||[]){try{const u=new URL(link);if(!u.pathname.includes('/voice-invite/'))continue;const token=decodeURIComponent(u.pathname.split('/').at(-1));const invite=resolveVoiceInvite(token);ownerAudience=invite.data?.aud==='owner_assistant'&&invite.data?.o===plan.owner&&invite.data?.a===plan.agent;backed=ownerAudience;}catch{}}
   }
