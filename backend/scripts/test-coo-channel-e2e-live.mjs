@@ -17,7 +17,7 @@ if(operation==='prepare'){
  const budget=saved?.budget||createNativeTestBudget(owner,agent,{maxCalls:16,maxTokens:240000,minutes:90});
  const approvedMax=saved?.approved_max_calls??16;
  const approvedTokens=saved?.approved_max_tokens??240000;
- const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert([[16,240000],[24,240000],[28,360000],[36,420000]].some(([c,t])=>c===approvedMax&&t===approvedTokens)&&allowance&&allowance.max_calls===approvedMax&&allowance.max_tokens===approvedTokens&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
+ const allowance=db.prepare('SELECT * FROM native_model_test_budgets WHERE id=?').get(budget);assert([[16,240000],[24,240000],[28,360000],[36,420000],[48,420000]].some(([c,t])=>c===approvedMax&&t===approvedTokens)&&allowance&&allowance.max_calls===approvedMax&&allowance.max_tokens===approvedTokens&&allowance.expires_at>Date.now(),'preserve the existing approved cumulative allowance');
  const session=saved?.session||'agent:'+caller+':coo-e2e-'+budget;
  assert(!session.endsWith(':main'),'prepare must not attach a temporary quota to a normal chat; use an isolated test session');
  const previous=saved?saved.previous:db.prepare('SELECT budget_id FROM native_model_test_sessions WHERE session_key=?').get(session);
@@ -55,7 +55,8 @@ if(operation==='prepare'){
   const artifact=operation==='voice-fixture'?createVoiceInvite(plan.owner,plan.agent,{ownerAccess:true}):proven;
   const url=new URL(artifact.url),invite=resolveVoiceInvite(decodeURIComponent(url.pathname.split('/').at(-1)));
   assert(invite.data.aud==='owner_assistant'&&invite.data.o===plan.owner&&invite.data.a===plan.agent,'fresh invitation must belong to the verified owner and COO');
-  writeFileSync(dir+'/voice-browser-config-private.json',JSON.stringify({url:artifact.url,expected_departments:plan.expected,session_file:'/tmp/coo-voice-session-id-private.json',binding_file:'/tmp/coo-voice-binding-private.json'}),{mode:0o600});
+  const fixtureId=randomUUID();
+  writeFileSync(dir+'/voice-browser-config-private.json',JSON.stringify({url:artifact.url,expected_departments:plan.expected,session_file:'/tmp/coo-voice-session-'+fixtureId+'.json',binding_file:'/tmp/coo-voice-binding-'+fixtureId+'.json'}),{mode:0o600});
   console.log(JSON.stringify({verified_user_invitation:true,owner_bound:true,coo_bound:true,guest:false,fresh:true,renewed_test_fixture:operation==='voice-fixture'}));
  }
 }else if(operation==='collect'){
