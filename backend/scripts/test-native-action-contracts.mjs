@@ -31,6 +31,7 @@ try{
  assert.throws(()=>service.claimNativeAction({...identity,session:'another-conversation'},first.id,db),/not found/);
  const another=await service.routeNativeAction(identity,request('two'),deps);service.claimNativeAction(identity,another.id,db);
  assert.equal(service.completeNativeAction(identity,another.id,{ok:true,data:generated},db).status,'failed','a previous artifact cannot satisfy a new turn, even within its TTL');
+ const guestRoute=await service.routeNativeAction(identity,request('guest-link'),deps);service.claimNativeAction(identity,guestRoute.id,db);assert.equal(service.completeNativeAction(identity,guestRoute.id,{ok:true,data:voice.createVoiceInvite(identity.owner,identity.agent)},db).status,'failed','a guest link cannot prove completion of a private owner-assistant request');
  const denied=await service.routeNativeAction(identity,request('denied'),deps);service.claimNativeAction(identity,denied.id,db);
  const denial=service.completeNativeAction(identity,denied.id,{ok:false,data:{error:'Action family prohibited'}},db);assert.equal(denial.status,'failed');assert.match(denial.reply,/prohibited/);assert(!denial.reply.includes('/p/'));
  const stale=voice.createVoiceInvite(identity.owner,identity.agent);const future=Date.now()+3601000;const originalNow=Date.now;Date.now=()=>future;
