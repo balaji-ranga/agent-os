@@ -42,8 +42,6 @@ npm run build:blog
 
 Output: `docs-site/build/` copied to `deploy/static/flolah-home/docs/`, and `docs-site/build-blog/` copied to `deploy/static/flolah-home/blog/`.
 
-## Copilot guides and publication
-
 ## Company OS positioning and architecture
 
 The homepage hero and `start/company-os-architecture.mdx` describe Flolah's AI-native Company OS positioning. The nested diagram is adapted from the investor/customer architecture reference; physical AI remains identified as an evolving scope.
