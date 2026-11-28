@@ -537,7 +537,11 @@ async function performChatCompletions({
         status: res.status,
         message: String(msg || '').slice(0, 240),
       });
-      lastErr = new Error(msg);
+      lastErr = Object.assign(new Error(msg), {
+        status: res.status,
+        statusCode: res.status,
+        code: errJson?.error?.code != null ? String(errJson.error.code).slice(0,100) : `LLM_HTTP_${res.status}`,
+      });
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
     }

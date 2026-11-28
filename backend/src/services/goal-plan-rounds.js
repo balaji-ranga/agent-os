@@ -89,13 +89,15 @@ export function parseStructuredPlanResponse(raw) {
 
 export async function runGoalPlanRounds({prompt,make,check,normalize,validate,onProgress=async()=>{},checkerIssueFilter=null,repair=null}) {
   let previous=null, errors=[], maker=null, checker=null, checkerRecommended=null;
-  const rounds=[];
+  const rounds=[];let blocked=null;
   for(let attempt=1;attempt<=3;attempt++){
+    let stage='maker',candidate=[];
     await onProgress({phase:'maker',detail:`Maker round ${attempt} of 3`,attempt,max_attempts:3});
     try{
       maker=await make({attempt,previous,errors});
       const makerParsed = parseStructuredPlanResponse(maker.content);
       const steps=makerParsed.value ? normalize(JSON.stringify(makerParsed.value)) : [];
+      candidate=steps;
       const valid=validate(steps);
       const deterministicErrors=!steps.length||!valid.ok
         ? (valid.errors?.length?valid.errors:['Maker returned no executable steps']) : [];
@@ -104,7 +106,7 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
       // Even a schema-invalid candidate needs semantic feedback in this round:
       // otherwise three local field repairs can consume all rounds before the
       // checker ever sees omitted requirements. Invalid steps never execute.
-      checker=await check({
+      stage='checker';checker=await check({
         steps,
         attempt,
         validationErrors:deterministicErrors,
@@ -148,14 +150,23 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
       previous={maker_response:maker.content,steps:nextSteps,checker_response:verdict,maker_rationale:makerParsed.value?.repair_rationale || null};
       rounds.push({attempt,phase:'checker',errors});
     }catch(error){
+      const status=Number(error?.status||error?.statusCode||0);
+      if([401,402,403].includes(status)){
+        const reason=status===401?'authentication':status===402?'billing or quota':'access';
+        blocked={stage,status,reason,retryable:false};
+        errors=[`The ${stage} model rejected ${reason} (HTTP ${status}). Correct its configuration before retrying; no business steps were executed.`];
+        previous={...(previous||{}),...(candidate.length?{steps:candidate}:{})};
+        rounds.push({attempt,phase:'error',errors,...blocked});
+        break;
+      }
       errors=[String(error.message||error)];
       previous={...(previous||{}),maker_response:maker?.content,checker_response:checker?.content};
       rounds.push({attempt,phase:'error',errors});
     }
     await onProgress({phase:'maker_retry',detail:errors.join('; ').slice(0,600),attempt,max_attempts:3});
   }
-  const error=new Error(`Goal planning could not establish a complete approved plan after 3 rounds: ${errors.join('; ').slice(0,800)}`);
+  const error=new Error(`${blocked?'Goal planning stopped at a non-retryable model failure':'Goal planning could not establish a complete approved plan after 3 rounds'}: ${errors.join('; ').slice(0,800)}`);
   error.code='GOAL_PLAN_UNVERIFIED';
-  error.details={rounds,last_candidate:checkerRecommended||previous?.steps||[],checker_recommended_steps:checkerRecommended||[],fallback:'stop_for_review',business_steps_executed:0};
+  error.details={rounds,last_candidate:checkerRecommended||previous?.steps||[],checker_recommended_steps:checkerRecommended||[],fallback:'stop_for_review',business_steps_executed:0,...(blocked?{model_failure:blocked}:{})};
   throw error;
 }

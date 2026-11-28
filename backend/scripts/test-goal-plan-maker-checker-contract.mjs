@@ -27,6 +27,20 @@ const roundResult = await runGoalPlanRounds({
   },
 });
 assert.equal(roundResult.quality.maker_attempts, 2);
+for(const status of [401,402,403]){
+ let makes=0,checks=0;
+ await assert.rejects(runGoalPlanRounds({prompt:'Return a report',normalize:JSON.parse,validate:()=>({ok:true}),
+  make:async()=>{makes++;return {content:JSON.stringify([{key:'report'}])};},
+  check:async()=>{checks++;throw Object.assign(Error('Provider rejected configuration'),{status});}
+ }),e=>e.code==='GOAL_PLAN_UNVERIFIED'&&e.details.model_failure.stage==='checker'&&e.details.model_failure.status===status&&e.details.rounds.length===1&&e.details.business_steps_executed===0&&e.details.last_candidate[0].key==='report');
+ assert.equal(makes,1,'permanent checker failure cannot spend more maker calls');assert.equal(checks,1);
+}
+let transientAttempts=0;
+const recovered=await runGoalPlanRounds({prompt:'Return a report',normalize:JSON.parse,validate:()=>({ok:true}),make:async()=>({content:JSON.stringify([{key:'report'}])}),check:async()=>{
+ if(++transientAttempts===1)throw Object.assign(Error('Temporarily unavailable'),{status:503});
+ return {content:JSON.stringify({approved:true,issues:[],coverage:[{requirement_id:'r1',covered:true,step_keys:['report']}],step_checks:[{step_key:'report',instruction_preserves_goal:true,operation_mode_correct:true,deliverable_kind_correct:true,no_unrequested_action:true}],revised_steps:[]})};
+}});
+assert.equal(recovered.quality.maker_attempts,2,'transient failures retain bounded recovery');
 assert.deepEqual(parseStructuredPlanResponse('```json\n{"steps":[]}\n```').value, { steps: [] });
 assert.match(parseStructuredPlanResponse('{"steps":[{"message":"unterminated}').error, /Unexpected|Unterminated|invalid/i);
 assert(auditedChecklist.some((item) => /Missing evidence/.test(item)), 'the next checker must audit the prior mandatory correction checklist');
