@@ -5,7 +5,11 @@ title: Welcome to Flolah
 
 # Welcome to Flolah
 
-**Flolah** is the **AI Company OS**. You are the CEO. You hire **AI employees**, give them roles and tools, store company knowledge, and supervise work the way you would a small team.
+**Flolah is an AI-native Company Operating System** that generalizes context, harness, loop and graph engineering beyond software development — enabling humans, digital agents and, eventually, physical agents to operate an entire enterprise through governed execution.
+
+The software factory builds software. **Flolah’s ambition is to build and run AI-native companies.** See the [Company OS architecture](./company-os-architecture.mdx).
+
+You are the CEO. You hire **AI employees**, give them roles and tools, store company knowledge, and supervise work the way you would a small team.
 
 Flolah is **open source** under the **Apache License 2.0**. The source is on GitHub: [https://github.com/balaji-ranga/agent-os](https://github.com/balaji-ranga/agent-os).
 

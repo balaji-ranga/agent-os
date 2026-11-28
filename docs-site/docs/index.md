@@ -10,6 +10,7 @@ Public help for running an AI company on Flolah. **No sign-in required.**
 Follow the sections in order if you are new:
 
 1. [Welcome](/start/welcome) — what Flolah is (open source)
+   - [AI-native Company OS architecture](/start/company-os-architecture) — context, harness, loop, graph and governed execution
 2. [How the company runs](/start/how-the-company-runs) — platform poster, COO, AI employees, and architecture diagrams
 3. [Access](/start/access) — websites and what you need
 4. [Register](/start/register) — create your isolated company

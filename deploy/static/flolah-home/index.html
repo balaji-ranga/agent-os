@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Flolah is the AI Company OS for human-led work, expanding to unite AI employees, supported physical agents and connected devices in governed workflows." />
+  <meta name="description" content="Flolah is an AI-native Company Operating System extending context, harness, loop and graph engineering beyond software development into governed enterprise execution." />
   <link rel="icon" type="image/png" href="/assets/flolah-mark.png" />
   <link rel="apple-touch-icon" href="/assets/flolah-mark.png" />
-  <title>Flolah — Humans. AI employees. Physical AI. One OS.</title>
+  <title>Flolah — The Operating System for AI-native Companies</title>
   <style>
     :root {
       --ink: #17233c;
@@ -280,6 +280,19 @@
 
   </style>
   <link rel="stylesheet" href="/assets/site-navigation.css" />
+  <link rel="stylesheet" href="/assets/company-os-architecture.css" />
+  <style>
+    .hero h1 { font-size:clamp(2.9rem,4.7vw,4.5rem); line-height:1.04; letter-spacing:-.055em; }
+    .hero .hero-logo { width:170px; margin-bottom:18px; }
+    .hero .lead { font-size:1.08rem; line-height:1.7; }
+    .hero-ambition { margin:20px 0 0; padding-left:16px; border-left:3px solid var(--cyan); color:var(--muted); font-size:.98rem; }
+    .hero-ambition strong { color:var(--ink); }
+    #architecture { padding-top:60px; background:rgba(255,255,255,.6); border-block:1px solid var(--line); scroll-margin-top:90px; }
+    #architecture .section-head { max-width:860px; }
+    .architecture-more { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-top:24px; }
+    .architecture-more p { max-width:640px; color:var(--muted); font-size:.9rem; margin:0; }
+    @media(max-width:620px) { .hero h1 { font-size:clamp(2.7rem,10.7vw,3.8rem); } #architecture { padding-top:48px; } }
+  </style>
   <script src="/assets/site-navigation.js" defer></script>
 </head>
 <body>
@@ -292,7 +305,7 @@
       <div class="nav-links">
         <a href="#evolution">Why now</a>
         <a href="#how">How it works</a>
-        <a href="#platform">Platform</a><a href="#expanded-scope">Physical AI</a>
+        <a href="#architecture">Architecture</a><a href="#expanded-scope">Physical AI</a>
         <a href="/vision.html">Vision</a>
         <a href="/blog/">Blog</a>
         <a href="/docs/">Docs</a>
@@ -304,7 +317,7 @@
         <div class="mobile-nav-links" aria-label="Mobile navigation">
           <a href="#evolution">Why now</a>
           <a href="#how">How it works</a>
-          <a href="#platform">Platform</a><a href="#expanded-scope">Physical AI</a>
+          <a href="#architecture">Architecture</a><a href="#expanded-scope">Physical AI</a>
           <a href="/vision.html">Vision</a>
           <a href="/blog/">Blog</a>
           <a href="/docs/">Docs</a>
@@ -319,14 +332,15 @@
     <header class="shell hero">
       <div>
         <img class="hero-logo" src="assets/flolah-logo-transparent.png" alt="Flolah — Automate, Innovate, Elevate" />
-        <span class="eyebrow"><span class="pulse"></span> Automate. Innovate. Elevate.</span>
-        <h1>Human direction.<br><span class="gradient">Digital &amp; physical work.</span><br>One OS.</h1>
-        <p class="lead">Flolah is the <strong>AI Company OS</strong>. Build a team of AI employees, connect your business systems, and keep humans in the loop. Flolah brings supported robots and devices into the same governed workflows—so digital and physical work move together.</p>
+        <span class="eyebrow"><span class="pulse"></span> The AI-native Company Operating System</span>
+        <h1>Build and run<br><span class="gradient">AI-native companies.</span></h1>
+        <p class="lead"><strong>Flolah is an AI-native Company Operating System</strong> that generalizes context, harness, loop and graph engineering beyond software development — enabling humans, digital agents and, eventually, physical agents to operate an entire enterprise through governed execution.</p>
+        <p class="hero-ambition">The software factory builds software.<br><strong>Flolah’s ambition is to build and run AI-native companies.</strong></p>
         <div class="hero-actions">
-          <a class="button primary" href="#expanded-scope">Explore the expanded OS →</a>
+          <a class="button primary" href="#architecture">Explore the architecture →</a>
           <a class="button secondary" href="/docs/">Read the docs</a>
         </div>
-        <div class="microcopy"><strong>Humans. AI employees. Physical AI.</strong> One platform for Business and Home.</div>
+        <div class="microcopy">Human direction · Digital agents · Physical agents as the platform evolves</div>
       </div>
 
       <div class="scope-stage" aria-label="Humans, digital AI and physical AI connected through Flolah">
@@ -335,11 +349,26 @@
         <div class="scope-spine" aria-hidden="true">↓</div>
         <div class="scope-core"><small>THE SHARED PLATFORM</small><h2>Flolah OS</h2><p>Agents · Knowledge · Workflows<br>Policies · Approvals · Evidence</p></div>
         <div class="scope-branches" aria-hidden="true">↙ <span>↘</span></div>
-        <div class="scope-workers"><div><span class="scope-tag current">Digital work</span><h3>AI employees</h3><p>Research, operations,<br>CRM, ERP and digital tools</p></div><div><span class="scope-tag">Physical work</span><h3>Physical AI</h3><p>Supported robots, devices<br>and local edge execution</p></div></div>
+        <div class="scope-workers"><div><span class="scope-tag current">Digital work</span><h3>AI employees</h3><p>Research, operations,<br>CRM, ERP and digital tools</p></div><div><span class="scope-tag">Future direction</span><h3>Physical agents</h3><p>Compatible robots, devices<br>and local edge execution</p></div></div>
         <div class="scope-proof">Request → Authorize → Execute → Verify → Human review</div>
       </div>
     </header>
 
+
+    <section id="architecture" aria-labelledby="architecture-title">
+      <div class="shell">
+        <div class="section-head"><div class="kicker">The architecture behind the ambition</div><h2 id="architecture-title">Engineering for<br>AI-native companies.</h2><p>Context, harness, loop and graph engineering extend beyond software delivery into governed business execution. Each layer connects company intent to work, evidence and human oversight.</p></div>
+        <!-- company-os-architecture:start -->
+        <figure class="os-architecture" aria-labelledby="os-diagram-title">
+          <figcaption id="os-diagram-title">Flolah — AI-native Company OS<span>Generalized agentic operating architecture</span></figcaption>
+          <div class="os-stack"><div class="os-layer os-lifecycle"><h3>Agentic business lifecycle</h3><p>Plan · Delegate · Execute · Verify · Operate</p><div class="os-layer os-graph"><h3>Graph engineering</h3><p>COO · Goal plans · Workflow DAGs · State</p><div class="os-layer os-loop"><h3>Loop engineering</h3><p>Act · Observe · Verify · Recover · Learn</p><div class="os-layer os-harness"><h3>Harness engineering</h3><p>Agent runtime · MCP · Connectors · Policies</p><div class="os-layer os-context"><h3>Context engineering</h3><p>Org · Knowledge · Master data · Memory</p><div class="os-layer os-models"><h3>Model abstraction</h3><p>LiteLLM · Commercial &amp; open models</p><p>Reasoning · Generation · Tool calling</p></div></div></div></div></div></div></div>
+          <div class="os-foundation"><strong>Flolah Company OS</strong><p>Identity · Governance · Agents · Orchestration</p><div class="os-capabilities"><span>CRM</span><span>ERP</span><span>Organization</span><span>Knowledge</span><span>Digital AI</span><span>Physical AI*</span></div></div>
+          <p class="os-caption">*Physical AI is an evolving scope, dependent on compatible adapters, equipment and local safety controls. Integration and audit span the execution stack.</p>
+        </figure>
+        <!-- company-os-architecture:end -->
+        <div class="architecture-more"><a class="button secondary" href="/docs/start/company-os-architecture/">Read the architecture guide →</a><p>The architecture describes the design. Production reliability and readiness require separate validation; physical-agent support depends on compatible adapters and equipment.</p></div>
+      </div>
+    </section>
 
     <section id="expanded-scope" class="expanded-section">
       <div class="shell">

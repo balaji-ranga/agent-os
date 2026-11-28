@@ -1,0 +1,56 @@
+{
+  "title": "Engineering for AI-native companies",
+  "description": "Context, harness, loop and graph engineering extend beyond software delivery into governed business execution.",
+  "layers": [
+    {
+      "id": "lifecycle",
+      "title": "Agentic business lifecycle",
+      "details": "Plan · Delegate · Execute · Verify · Operate",
+      "explanation": "Humans define outcomes; the COO coordinates specialist agents and brings results back for review."
+    },
+    {
+      "id": "graph",
+      "title": "Graph engineering",
+      "details": "COO · Goal plans · Workflow DAGs · State",
+      "explanation": "Connect the steps, owners and dependencies needed to complete work across business systems."
+    },
+    {
+      "id": "loop",
+      "title": "Loop engineering",
+      "details": "Act · Observe · Verify · Recover · Learn",
+      "explanation": "Use execution evidence to check progress, handle exceptions and continue within policy and budgets."
+    },
+    {
+      "id": "harness",
+      "title": "Harness engineering",
+      "details": "Agent runtime · MCP · Connectors · Policies",
+      "explanation": "Give agents a controlled execution environment and access to the tools their role permits."
+    },
+    {
+      "id": "context",
+      "title": "Context engineering",
+      "details": "Org · Knowledge · Master data · Memory",
+      "explanation": "Ground work in company structure, shared information and the context of the current task."
+    },
+    {
+      "id": "models",
+      "title": "Model abstraction",
+      "details": "LiteLLM · Commercial & open models",
+      "explanation": "Connect model capabilities to the same operating context and governed execution system.",
+      "more": "Reasoning · Generation · Tool calling"
+    }
+  ],
+  "foundation": {
+    "title": "Flolah Company OS",
+    "details": "Identity · Governance · Agents · Orchestration",
+    "capabilities": [
+      "CRM",
+      "ERP",
+      "Organization",
+      "Knowledge",
+      "Digital AI",
+      "Physical AI*"
+    ],
+    "note": "*Physical AI is an evolving scope, dependent on compatible adapters, equipment and local safety controls. Integration and audit span the execution stack."
+  }
+}

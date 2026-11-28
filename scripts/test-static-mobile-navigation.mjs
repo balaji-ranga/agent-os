@@ -54,7 +54,7 @@ try{
    await page.keyboard.press('Tab');check(await menu.locator('a').first().evaluate(el=>el===document.activeElement),true,'Keyboard reaches first menu link');
    await page.keyboard.press('Escape');check(await menu.evaluate(el=>el.open),false,'Escape closes');check(await summary.evaluate(el=>el===document.activeElement),true,'Escape restores focus');
    await summary.click();await page.mouse.click(2,80);check(await menu.evaluate(el=>el.open),false,'Outside click closes');
-   await summary.click();await menu.getByRole('link',{name:source==='/'?'Platform':'The problem',exact:true}).click();check(await menu.evaluate(el=>el.open),false,'In-page link closes menu');
+   await summary.click();await menu.getByRole('link',{name:source==='/'?'Architecture':'The problem',exact:true}).click();check(await menu.evaluate(el=>el.open),false,'In-page link closes menu');
   }
   await page.setViewportSize({width:390,height:568});
   for(const [label,path] of links){
